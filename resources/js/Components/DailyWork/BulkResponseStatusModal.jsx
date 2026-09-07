@@ -11,6 +11,7 @@ import {
     TargetIcon,
 } from "@radix-ui/react-icons";
 import axios from 'axios';
+import { router } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 import DateTimePicker from '@/Components/DateTimePicker';
 
@@ -80,6 +81,7 @@ const BulkResponseStatusModal = ({
         try {
             const response = await axios.post(route('dailyWorks.bulkResponseStatusUpdate'), {
                 ids: selectedWorks.map(w => w.id),
+                versions: Object.fromEntries(selectedWorks.map(w => [w.id, w.lock_version])),
                 rfi_response_status: responseStatus,
                 rfi_response_date: responseDate,
                 skip_objected: skipObjected,
@@ -99,7 +101,11 @@ const BulkResponseStatusModal = ({
                 showToast.success(response.data.message);
             }
         } catch (error) {
-            if (error.response?.data?.requires_decision) {
+            if (error.response?.status === 409) {
+                router.reload({ only: ['allData'] });
+                showToast.error('Some selected RFIs changed. Latest data was loaded; review and retry.');
+                onClose();
+            } else if (error.response?.data?.requires_decision) {
                 setObjectedWorks(error.response.data.objected_works || []);
                 setCleanWorks(worksWithoutObjections);
                 setStep('objection-decision');

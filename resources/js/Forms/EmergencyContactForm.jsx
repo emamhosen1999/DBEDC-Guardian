@@ -6,7 +6,7 @@ import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
 import InfoRow from "@/Components/InfoRow.jsx";
 
-const EmergencyContactForm = ({ user, setUser }) => {
+const EmergencyContactForm = ({ user, setUser, canEdit = false }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [formData, setFormData] = useState({
@@ -55,7 +55,7 @@ const EmergencyContactForm = ({ user, setUser }) => {
         <Panel variant="surface" size="2">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Emergency Contacts</Text>
-                {!isEditing ? (
+                {canEdit && (!isEditing ? (
                     <Button variant="ghost" size="1" onClick={() => setIsEditing(true)}>
                         <Pencil1Icon /> Edit
                     </Button>
@@ -63,7 +63,7 @@ const EmergencyContactForm = ({ user, setUser }) => {
                     <Button variant="ghost" size="1" color="red" onClick={handleCancel}>
                         <Cross2Icon /> Cancel
                     </Button>
-                )}
+                ))}
             </Flex>
 
             {!isEditing ? (

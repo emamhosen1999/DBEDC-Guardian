@@ -6,7 +6,7 @@ use App\Models\HRM\CompOffLedger;
 
 class CompOffService
 {
-    public function credit(int $userId, int $minutes, string $sourceType, ?int $sourceId = null, ?string $note = null): CompOffLedger
+    public function credit(string $userId, int $minutes, string $sourceType, ?int $sourceId = null, ?string $note = null): CompOffLedger
     {
         return CompOffLedger::create([
             'user_id' => $userId, 'minutes' => abs($minutes), 'source_type' => $sourceType,
@@ -14,14 +14,14 @@ class CompOffService
         ]);
     }
 
-    public function debit(int $userId, int $minutes, ?string $note = null): CompOffLedger
+    public function debit(string $userId, int $minutes, ?string $note = null): CompOffLedger
     {
         return CompOffLedger::create([
             'user_id' => $userId, 'minutes' => -abs($minutes), 'source_type' => 'used', 'note' => $note,
         ]);
     }
 
-    public function balance(int $userId): int
+    public function balance(string $userId): int
     {
         return (int) CompOffLedger::where('user_id', $userId)->sum('minutes');
     }

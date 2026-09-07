@@ -16,6 +16,7 @@ class RejectDailyWorkObjectionRequest extends FormRequest
         return [
             'rejection_reason' => ['required_without:resolution_notes', 'string', 'max:5000'],
             'resolution_notes' => ['required_without:rejection_reason', 'string', 'max:5000'],
+            'lock_version' => ['sometimes', 'integer', 'min:0'],
         ];
     }
 }

@@ -193,7 +193,7 @@ class BulkLeaveService
     /**
      * Validate a single date for leave creation
      */
-    private function validateSingleDate(int $userId, Carbon $date, int $leaveTypeId): array
+    private function validateSingleDate(string $userId, Carbon $date, int $leaveTypeId): array
     {
         $errors = [];
 
@@ -219,7 +219,7 @@ class BulkLeaveService
     /**
      * Calculate balance impact for the leave type
      */
-    private function calculateBalanceImpact(int $userId, int $leaveTypeId, int $requestedDays): array
+    private function calculateBalanceImpact(string $userId, int $leaveTypeId, int $requestedDays): array
     {
         $leaveSetting = LeaveSetting::find($leaveTypeId);
 

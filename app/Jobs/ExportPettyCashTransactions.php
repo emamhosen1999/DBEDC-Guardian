@@ -18,14 +18,14 @@ class ExportPettyCashTransactions implements ShouldQueue
 
     protected int $loanId;
 
-    protected int $userId;
+    protected string $userId;
 
     protected string $filename;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(int $loanId, int $userId, string $filename)
+    public function __construct(int $loanId, string $userId, string $filename)
     {
         $this->loanId = $loanId;
         $this->userId = $userId;

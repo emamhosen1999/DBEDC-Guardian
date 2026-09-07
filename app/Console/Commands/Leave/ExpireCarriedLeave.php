@@ -14,7 +14,7 @@ class ExpireCarriedLeave extends Command
 
     public function handle(CarryForwardService $carry): int
     {
-        $userId = $this->option('user') ? (int) $this->option('user') : null;
+        $userId = $this->option('user') ? (string) $this->option('user') : null;
 
         $posted = $carry->expireCarried(Carbon::now(), $userId, (bool) $this->option('dry-run'));
         $this->info("Carry expiry: {$posted} posting(s)".($this->option('dry-run') ? ' (dry-run)' : ''));

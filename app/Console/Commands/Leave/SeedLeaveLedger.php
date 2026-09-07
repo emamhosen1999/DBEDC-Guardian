@@ -24,7 +24,7 @@ class SeedLeaveLedger extends Command
     public function handle(LeaveAccrualService $accrual, LeaveLedgerService $ledger): int
     {
         $year = (int) $this->argument('year');
-        $userId = $this->option('user') ? (int) $this->option('user') : null;
+        $userId = $this->option('user') ? (string) $this->option('user') : null;
         $dryRun = (bool) $this->option('dry-run');
 
         if ($dryRun) {

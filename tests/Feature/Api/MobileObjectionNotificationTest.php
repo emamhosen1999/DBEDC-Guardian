@@ -45,7 +45,7 @@ class MobileObjectionNotificationTest extends TestCase
         $objection->description = 'Layer failed density test.';
         $objection->reason = 'Field density below spec.';
         $objection->status = $status;
-        $objection->created_by = (int) $creator->id;
+        $objection->created_by = (string) $creator->id;
 
         // Legacy singular FK still present (and NOT NULL) in some schemas.
         if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {

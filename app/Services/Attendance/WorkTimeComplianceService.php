@@ -27,7 +27,7 @@ class WorkTimeComplianceService
      *
      * @return array<int, array{date: string, rule: string, message: string, severity: string, details: array}>
      */
-    public function evaluate(int $userId, string $fromDate, string $toDate): array
+    public function evaluate(string $userId, string $fromDate, string $toDate): array
     {
         $from = Carbon::parse($fromDate)->startOfDay();
         $to = Carbon::parse($toDate)->startOfDay();

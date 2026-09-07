@@ -12,6 +12,8 @@ class OmWorkOrder extends Model
 {
     use HasFactory;
 
+    protected $attributes = ['lock_version' => 0];
+
     protected $fillable = [
         'work_order_number',
         'defect_id',
@@ -39,6 +41,7 @@ class OmWorkOrder extends Model
         'actual_cost',
         'requires_lane_closure',
         'qc_notes',
+        'lock_version',
     ];
 
     protected $casts = [
@@ -51,6 +54,7 @@ class OmWorkOrder extends Model
         'estimated_cost' => 'decimal:2',
         'actual_cost' => 'decimal:2',
         'requires_lane_closure' => 'boolean',
+        'lock_version' => 'integer',
     ];
 
     public function defect(): BelongsTo

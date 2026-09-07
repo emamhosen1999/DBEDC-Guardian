@@ -18,6 +18,10 @@ class RfiObjection extends Model implements HasMedia
 {
     use ChainageMatcher, HasFactory, InteractsWithMedia, SoftDeletes;
 
+    protected $attributes = [
+        'lock_version' => 0,
+    ];
+
     /**
      * Status constants for objection workflow
      */
@@ -149,12 +153,14 @@ class RfiObjection extends Model implements HasMedia
         'override_reason',
         'overridden_by',
         'overridden_at',
+        'lock_version',
     ];
 
     protected $casts = [
         'resolved_at' => 'datetime',
         'overridden_at' => 'datetime',
         'was_overridden' => 'boolean',
+        'lock_version' => 'integer',
     ];
 
     /**
@@ -372,7 +378,7 @@ class RfiObjection extends Model implements HasMedia
     /**
      * Transition objection to a new status with logging.
      */
-    public function transitionTo(string $newStatus, ?string $notes = null, ?int $changedBy = null): bool
+    public function transitionTo(string $newStatus, ?string $notes = null, ?string $changedBy = null): bool
     {
         if (! in_array($newStatus, self::$statuses, true)) {
             throw new \InvalidArgumentException("Invalid status: {$newStatus}");
@@ -408,49 +414,49 @@ class RfiObjection extends Model implements HasMedia
     /**
      * Submit the objection for review.
      */
-    public function submit(?string $notes = null): bool
+    public function submit(?string $notes = null, ?string $changedBy = null): bool
     {
         if ($this->status !== self::STATUS_DRAFT) {
             throw new \InvalidArgumentException('Only draft objections can be submitted.');
         }
 
-        return $this->transitionTo(self::STATUS_SUBMITTED, $notes);
+        return $this->transitionTo(self::STATUS_SUBMITTED, $notes, $changedBy);
     }
 
     /**
      * Move objection to under review.
      */
-    public function startReview(?string $notes = null): bool
+    public function startReview(?string $notes = null, ?string $changedBy = null): bool
     {
         if ($this->status !== self::STATUS_SUBMITTED) {
             throw new \InvalidArgumentException('Only submitted objections can be reviewed.');
         }
 
-        return $this->transitionTo(self::STATUS_UNDER_REVIEW, $notes);
+        return $this->transitionTo(self::STATUS_UNDER_REVIEW, $notes, $changedBy);
     }
 
     /**
      * Resolve the objection.
      */
-    public function resolve(string $resolutionNotes): bool
+    public function resolve(string $resolutionNotes, ?string $changedBy = null): bool
     {
         if (! in_array($this->status, [self::STATUS_SUBMITTED, self::STATUS_UNDER_REVIEW])) {
             throw new \InvalidArgumentException('Only submitted or under-review objections can be resolved.');
         }
 
-        return $this->transitionTo(self::STATUS_RESOLVED, $resolutionNotes);
+        return $this->transitionTo(self::STATUS_RESOLVED, $resolutionNotes, $changedBy);
     }
 
     /**
      * Reject the objection.
      */
-    public function reject(string $rejectionReason): bool
+    public function reject(string $rejectionReason, ?string $changedBy = null): bool
     {
         if (! in_array($this->status, [self::STATUS_SUBMITTED, self::STATUS_UNDER_REVIEW])) {
             throw new \InvalidArgumentException('Only submitted or under-review objections can be rejected.');
         }
 
-        return $this->transitionTo(self::STATUS_REJECTED, $rejectionReason);
+        return $this->transitionTo(self::STATUS_REJECTED, $rejectionReason, $changedBy);
     }
 
     // ==================== Chainage Management Methods ====================

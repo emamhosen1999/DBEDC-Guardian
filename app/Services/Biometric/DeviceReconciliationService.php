@@ -520,7 +520,7 @@ class DeviceReconciliationService
                     }
 
                     $rows[] = [
-                        'user_id' => $row->user_id === null ? null : (int) $row->user_id,
+                        'user_id' => $row->user_id === null ? null : (string) $row->user_id,
                         'pin' => (string) $row->user_pin,
                         'date' => $date,
                         'effective' => $effective->format('Y-m-d H:i:s'),
@@ -619,7 +619,7 @@ class DeviceReconciliationService
             ->orderBy('id')
             ->chunk(self::CHUNK, function ($chunk) use (&$days) {
                 foreach ($chunk as $row) {
-                    $days[(int) $row->user_id][substr((string) $row->date, 0, 10)] = true;
+                    $days[(string) $row->user_id][substr((string) $row->date, 0, 10)] = true;
                 }
             });
 
@@ -674,7 +674,7 @@ class DeviceReconciliationService
             ->orderBy('id')
             ->chunk(self::CHUNK, function ($chunk) use (&$derived, $moments) {
                 foreach ($chunk as $row) {
-                    $userId = (int) $row->user_id;
+                    $userId = (string) $row->user_id;
                     $candidates = $moments[$userId] ?? [];
 
                     if ($candidates === []) {
@@ -703,8 +703,8 @@ class DeviceReconciliationService
      * unknown PIN's placeholder is soft-deleted by design, and a report that
      * showed those rows as nameless would hide the very thing it is reporting.
      *
-     * @param  list<int>  $userIds
-     * @return array<int, array{name: string, employee_id: string|null, deleted: bool}>
+     * @param  list<string>  $userIds
+     * @return array<string, array{name: string, employee_id: string|null, deleted: bool}>
      */
     private function resolveNames(array $userIds): array
     {
@@ -713,10 +713,10 @@ class DeviceReconciliationService
         }
 
         return DB::table('users')
-            ->select(['id', 'name', 'employee_id', 'deleted_at'])
-            ->whereIn('id', $userIds)
+            ->select(['employee_id', 'name', 'deleted_at'])
+            ->whereIn('employee_id', $userIds)
             ->get()
-            ->mapWithKeys(fn ($row) => [(int) $row->id => [
+            ->mapWithKeys(fn ($row) => [(string) $row->employee_id => [
                 'name' => (string) $row->name,
                 'employee_id' => $row->employee_id === null ? null : (string) $row->employee_id,
                 'deleted' => $row->deleted_at !== null,
@@ -730,9 +730,9 @@ class DeviceReconciliationService
 
     /**
      * @param  array<string, mixed>  $employee
-     * @param  array<int, array<string, true>>  $attendanceDays
-     * @param  array<int, array<string, true>>  $derivedDays
-     * @param  array<int, array{name: string, employee_id: string|null, deleted: bool}>  $names
+     * @param  array<string, array<string, true>>  $attendanceDays
+     * @param  array<string, array<string, true>>  $derivedDays
+     * @param  array<string, array{name: string, employee_id: string|null, deleted: bool}>  $names
      * @return array<string, mixed>
      */
     private function buildEmployeeRow(array $employee, array $attendanceDays, array $derivedDays, array $names): array

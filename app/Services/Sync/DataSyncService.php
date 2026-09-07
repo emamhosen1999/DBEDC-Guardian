@@ -184,7 +184,7 @@ class DataSyncService
      * Fetch one ASC page of changed rows for a module.
      *
      * @return array{0: array<int, array>, 1: ?string, 2: int, 3: bool}
-     *               [records, lastUpdatedAt, lastId, pageWasFull]
+     *                                                                  [records, lastUpdatedAt, lastId, pageWasFull]
      */
     private function pullModuleRows(User $user, string $module, ?string $ts, int $id, int $limit): array
     {
@@ -283,7 +283,7 @@ class DataSyncService
      * Fetch one ASC page of tombstones (deletions) for a module.
      *
      * @return array{0: array<int, array{id:int, deleted:bool}>, 1: int, 2: bool}
-     *               [tombstones, lastTombstoneId, pageWasFull]
+     *                                                                            [tombstones, lastTombstoneId, pageWasFull]
      */
     private function pullModuleTombstones(User $user, string $module, int $afterId, int $limit): array
     {
@@ -528,7 +528,7 @@ class DataSyncService
         }
     }
 
-    private function fetchStoredResult(int $userId, string $idempotencyKey): array
+    private function fetchStoredResult(string $userId, string $idempotencyKey): array
     {
         $row = DB::table('mobile_sync_mutations')
             ->where('user_id', $userId)
@@ -1341,7 +1341,7 @@ class DataSyncService
         return $query;
     }
 
-    private function hasOverlappingLeave(string $userColumn, int $userId, Carbon $fromDate, Carbon $toDate): bool
+    private function hasOverlappingLeave(string $userColumn, string $userId, Carbon $fromDate, Carbon $toDate): bool
     {
         return DB::table('leaves')
             ->where($userColumn, $userId)
@@ -1391,7 +1391,7 @@ class DataSyncService
      * Append a deletion tombstone so a pull can tell already-synced devices to
      * evict a row that no longer exists (or is no longer visible) to the user.
      */
-    private function recordTombstone(int $userId, string $module, int $entityId): void
+    private function recordTombstone(string $userId, string $module, int $entityId): void
     {
         if (! Schema::hasTable('sync_tombstones')) {
             return;
@@ -1458,7 +1458,7 @@ class DataSyncService
 
         $candidates = User::query()
             ->with($relations)
-            ->whereIn('id', $candidateIds)
+            ->whereIn('employee_id', $candidateIds)
             ->get();
 
         $rows = [];
@@ -1471,7 +1471,7 @@ class DataSyncService
             }
 
             $rows[] = [
-                'user_id' => (int) $candidate->id,
+                'user_id' => (string) $candidate->id,
                 'module' => 'daily_works',
                 'entity_id' => $entityId,
                 'created_at' => $now,
@@ -1502,14 +1502,14 @@ class DataSyncService
      * Bounded set of users whose visibility of this row may have changed.
      *
      * @param  array{incharge?: int|string|null, assigned?: int|string|null}  $previousOwners
-     * @return array<int, int>
+     * @return array<int, string>
      */
     private function dailyWorkVisibilityCandidateIds(DailyWork $dailyWork, array $previousOwners, bool $includePrivileged): array
     {
-        $previousIncharge = (int) ($previousOwners['incharge'] ?? 0);
-        $previousAssigned = (int) ($previousOwners['assigned'] ?? 0);
-        $currentIncharge = (int) $dailyWork->incharge;
-        $currentAssigned = (int) $dailyWork->assigned;
+        $previousIncharge = (string) ($previousOwners['incharge'] ?? '');
+        $previousAssigned = (string) ($previousOwners['assigned'] ?? '');
+        $currentIncharge = (string) ($dailyWork->incharge ?? '');
+        $currentAssigned = (string) ($dailyWork->assigned ?? '');
 
         $ids = array_filter([$previousIncharge, $previousAssigned, $currentIncharge, $currentAssigned]);
 
@@ -1520,7 +1520,7 @@ class DataSyncService
         if ($inchargeIds !== [] && Schema::hasColumn('users', 'report_to')) {
             $ids = array_merge(
                 $ids,
-                DB::table('users')->whereIn('report_to', $inchargeIds)->pluck('id')->all()
+                DB::table('users')->whereIn('report_to', $inchargeIds)->pluck('employee_id')->all()
             );
         }
 
@@ -1528,7 +1528,7 @@ class DataSyncService
             $ids = array_merge($ids, $this->privilegedUserIds());
         }
 
-        return array_values(array_unique(array_map('intval', $ids)));
+        return array_values(array_unique(array_map('strval', $ids)));
     }
 
     /**
@@ -1539,7 +1539,7 @@ class DataSyncService
      * be able to break the write that triggered it. The morph type is derived via
      * getMorphClass() so a morph-map alias is honoured.
      *
-     * @return array<int, int>
+     * @return array<int, string>
      */
     private function privilegedUserIds(): array
     {
@@ -1560,7 +1560,7 @@ class DataSyncService
                 'Administrator',
             ])
             ->pluck('model_has_roles.model_id')
-            ->map(fn ($id) => (int) $id)
+            ->map(fn ($id) => (string) $id)
             ->all();
     }
 
@@ -1598,7 +1598,7 @@ class DataSyncService
     {
         return [
             'id' => (int) $attendance->id,
-            'user_id' => (int) $attendance->user_id,
+            'user_id' => (string) $attendance->user_id,
             'date' => $this->normalizeDate($attendance->date),
             'punchin' => $this->normalizeDateTime($attendance->punchin),
             'punchout' => $this->normalizeDateTime($attendance->punchout),

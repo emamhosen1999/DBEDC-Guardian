@@ -66,6 +66,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->adminUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => $newInspectionDetails,
             ]);
 
@@ -84,6 +85,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->inchargeUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => $newInspectionDetails,
             ]);
 
@@ -101,6 +103,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->assignedUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => $newInspectionDetails,
             ]);
 
@@ -118,6 +121,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->adminUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => '',
             ]);
 
@@ -135,6 +139,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->adminUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => $longText,
             ]);
 
@@ -150,6 +155,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->adminUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => $exactlyThousandChars,
             ]);
 
@@ -164,6 +170,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
     {
         $response = $this->postJson(route('dailyWorks.updateInspectionDetails'), [
             'id' => $this->dailyWork->id,
+            'lock_version' => $this->dailyWork->lock_version,
             'inspection_details' => 'Test details',
         ]);
 
@@ -176,6 +183,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->adminUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => 99999,
+                'lock_version' => 0,
                 'inspection_details' => 'Test details',
             ]);
 
@@ -189,6 +197,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->adminUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => null,
             ]);
 
@@ -204,6 +213,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response = $this->actingAs($this->unauthorizedUser)
             ->postJson(route('dailyWorks.updateInspectionDetails'), [
                 'id' => $this->dailyWork->id,
+                'lock_version' => $this->dailyWork->lock_version,
                 'inspection_details' => 'Attempted update',
             ]);
 

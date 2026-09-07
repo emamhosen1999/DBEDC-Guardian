@@ -160,7 +160,7 @@ class MobileManagerDashboardQueryBudgetTest extends TestCase
         return $count;
     }
 
-    private function insertObjectionForDailyWork(DailyWork $dailyWork, int $creatorId, string $status): int
+    private function insertObjectionForDailyWork(DailyWork $dailyWork, string $creatorId, string $status): int
     {
         $payload = [
             'title' => 'Budget Objection '.strtoupper($status),

@@ -7,26 +7,27 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
 use App\Http\Resources\UserCollection;
 use App\Http\Resources\UserResource;
+use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
+use App\Models\HRM\Department;
+use App\Models\HRM\Designation;
 use App\Models\User;
+use App\Models\WorkLocation;
 use App\Services\Admin\UserManagementService;
 use App\Traits\HandlesApiExceptions;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpKernel\Exception\HttpException;
-use App\Models\HRM\Department;
-use App\Models\HRM\Designation;
-use App\Models\HRM\AttendanceType;
-use App\Models\HRM\BiometricDevice;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class UserController extends Controller
 {
@@ -54,7 +55,7 @@ class UserController extends Controller
         $usersQuery = User::select('employee_id as id', 'employee_id', 'name', 'email', 'department_id', 'designation_id')
             ->whereNull('deleted_at');
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $departmentsQuery->where('id', $userDeptId);
             $designationsQuery->where('department_id', $userDeptId);
             $usersQuery->where('department_id', $userDeptId);
@@ -70,7 +71,7 @@ class UserController extends Controller
 
         $activeUsers = $usersQuery->get();
 
-        $workLocations = \App\Models\WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number'])->get();
+        $workLocations = WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number'])->get();
 
         // 2. Department Tab Stats & Pagination
         $parentDepartments = $departments->whereNull('parent_id')->values();
@@ -85,7 +86,7 @@ class UserController extends Controller
         $designationsPaginateQuery = Designation::with('department:id,name')
             ->withCount(['users as employee_count']);
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $departmentsPaginateQuery->where('id', $userDeptId);
             $designationsPaginateQuery->where('department_id', $userDeptId);
         }
@@ -122,14 +123,14 @@ class UserController extends Controller
 
         return Inertia::render('Employees/EmployeesPage', [
             'title' => 'Employees Console',
-            
+
             // Shared lists
             'departments' => $departments,
             'designations' => $designations,
             'attendanceTypes' => $attendanceTypes,
             'roles' => $roles,
             'allManagers' => $activeUsers,
-            
+
             // Department Tab
             'managers' => $activeUsers,
             'parentDepartments' => $parentDepartments,
@@ -174,7 +175,7 @@ class UserController extends Controller
             $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
             $userDeptId = $authUser->department_id;
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $validated['department_id'] = $userDeptId;
                 $roles = ['Employee'];
             }
@@ -224,7 +225,7 @@ class UserController extends Controller
             $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
             $userDeptId = $authUser->department_id;
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $targetUser = User::findOrFail($id);
                 if ($targetUser->department_id !== $userDeptId) {
                     abort(403, 'Unauthorized to update users outside your department.');
@@ -403,6 +404,10 @@ class UserController extends Controller
     {
         try {
             $user = User::findOrFail($id);
+            if (in_array('Super Administrator', $request->input('roles', []), true)
+                && ! $request->user()->hasRole('Super Administrator')) {
+                abort(403, 'Only a Super Administrator may grant that role.');
+            }
             $updatedUser = $this->userService->syncRoles($user, $request->input('roles'));
 
             Log::info('User roles updated via updateUserRole', [
@@ -430,6 +435,79 @@ class UserController extends Controller
                 'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
+    }
+
+    public function bulkAssignRole(Request $request)
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'required|string|distinct|exists:users,employee_id',
+            'role' => 'required|string|exists:roles,name',
+        ]);
+
+        if ($validated['role'] === 'Super Administrator'
+            && ! $request->user()->hasRole('Super Administrator')) {
+            abort(403, 'Only a Super Administrator may grant that role.');
+        }
+
+        $users = User::query()
+            ->whereIn('employee_id', $validated['user_ids'])
+            ->orderBy('employee_id')
+            ->get();
+
+        foreach ($users as $user) {
+            $this->authorize('updateRoles', $user);
+        }
+
+        $count = DB::transaction(fn (): int => $this->userService->bulkAssignRole(
+            $validated['user_ids'],
+            $validated['role'],
+        ));
+
+        return response()->json([
+            'message' => $validated['role'].' assigned to '.$count.' user(s).',
+            'updated_count' => $count,
+        ]);
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'required|string|distinct|exists:users,employee_id',
+        ]);
+
+        $users = User::query()
+            ->whereIn('employee_id', $validated['user_ids'])
+            ->orderBy('employee_id')
+            ->get();
+
+        $blocked = [];
+        foreach ($users as $user) {
+            $this->authorize('delete', $user);
+            $dependencies = $this->checkUserDependencies($user);
+            if ($dependencies !== []) {
+                $blocked[$user->employee_id] = $dependencies;
+            }
+        }
+
+        if ($blocked !== []) {
+            return response()->json([
+                'message' => 'No users were deleted because one or more selected users have active dependencies.',
+                'dependencies' => $blocked,
+            ], 422);
+        }
+
+        DB::transaction(function () use ($users): void {
+            foreach ($users as $user) {
+                $this->userService->deleteUser($user);
+            }
+        });
+
+        return response()->json([
+            'message' => $users->count().' user(s) deleted.',
+            'deleted_count' => $users->count(),
+        ]);
     }
 
     /**
@@ -605,6 +683,44 @@ class UserController extends Controller
             'employees' => $result['employees'],
             'stats' => $result['stats'],
             'allManagers' => $result['allManagers'],
+        ]);
+    }
+
+    /**
+     * Return one employee for edit/detail experiences that load records lazily.
+     */
+    public function show(Request $request, string $id)
+    {
+        $query = User::with([
+            'department:id,name',
+            'designation:id,title',
+            'roles:id,name',
+            'reportsTo:employee_id,name',
+            'attendanceTypes:id,name,slug',
+        ]);
+        $actor = $request->user();
+        if (! $actor->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $actor->department_id !== null) {
+            $query->where('department_id', $actor->department_id);
+        }
+        $user = $query->findOrFail($id);
+
+        return response()->json([
+            // Directory access is not access to private profile/device details.
+            'employee' => [
+                'id' => (string) $user->getKey(),
+                'employee_id' => $user->employee_id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'profile_image_url' => $user->profile_image_url,
+                'department' => $user->department,
+                'designation' => $user->designation,
+                'roles' => $user->roles->pluck('name'),
+                'report_to' => $user->report_to,
+                'reports_to' => $user->reportsTo,
+                'attendance_types' => $user->attendanceTypes->map(fn ($type) => $type->only(['id', 'name', 'slug'])),
+                'work_location_id' => $user->work_location_id,
+            ],
         ]);
     }
 

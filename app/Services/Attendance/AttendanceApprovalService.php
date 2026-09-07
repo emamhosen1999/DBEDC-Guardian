@@ -32,7 +32,7 @@ class AttendanceApprovalService
         return $hr ? [$this->entry(1, $hr->id, $hr->name)] : [];
     }
 
-    private function entry(int $level, int $approverId, string $name): array
+    private function entry(int $level, string $approverId, string $name): array
     {
         return ['level' => $level, 'approver_id' => $approverId, 'approver_name' => $name, 'status' => 'pending', 'approved_at' => null, 'comments' => null];
     }

@@ -7,6 +7,7 @@ use App\Models\OmWorkOrder;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OmDefectService
 {
@@ -57,9 +58,9 @@ class OmDefectService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('defect_number', 'like', "%{$search}%")
-                  ->orWhere('chainage', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('defect_number', 'like', "%{$search}%")
+                    ->orWhere('chainage', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -74,7 +75,7 @@ class OmDefectService
         $total = OmDefect::count();
         $open = OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])->count();
         $rectifiedToday = OmDefect::whereDate('rectified_at', Carbon::today())->count();
-        
+
         $overdueCount = OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])
             ->where('sla_due_at', '<', now())
             ->count();
@@ -95,12 +96,12 @@ class OmDefectService
     /**
      * Create a new defect and compute SLA deadline.
      */
-    public function createDefect(array $data, ?int $userId = null): OmDefect
+    public function createDefect(array $data, ?string $userId = null): OmDefect
     {
         $distressType = $data['distress_type'] ?? 'pothole';
         $slaHours = self::SLA_MATRIX[$distressType] ?? 24;
 
-        $data['defect_number'] = 'DEF-' . date('Ymd') . '-' . rand(100, 999);
+        $data['defect_number'] = 'DEF-'.date('Ymd').'-'.rand(100, 999);
         $data['sla_hours'] = $slaHours;
         $data['sla_due_at'] = now()->addHours($slaHours);
         $data['reported_by'] = $userId ?? $data['reported_by'] ?? null;
@@ -112,34 +113,45 @@ class OmDefectService
     /**
      * Convert defect into a Maintenance Work Order.
      */
-    public function convertToWorkOrder(OmDefect $defect, array $woData, int $userId): OmWorkOrder
+    public function convertToWorkOrder(OmDefect $defect, array $woData, string $userId, int $expectedVersion): OmWorkOrder
     {
-        return DB::transaction(function () use ($defect, $woData, $userId) {
-            $woNumber = 'WO-' . rand(10000, 99999);
+        return DB::transaction(function () use ($defect, $woData, $userId, $expectedVersion) {
+            $locked = OmDefect::query()->lockForUpdate()->findOrFail($defect->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+
+            if (! in_array($locked->status, ['reported', 'investigating'], true)
+                || OmWorkOrder::query()->where('defect_id', $locked->getKey())->exists()) {
+                throw ValidationException::withMessages([
+                    'defect' => 'This defect already has a work order or is no longer eligible for conversion.',
+                ]);
+            }
+
+            $woNumber = 'WO-'.rand(10000, 99999);
 
             $workOrder = OmWorkOrder::create([
                 'work_order_number' => $woNumber,
-                'defect_id' => $defect->id,
-                'asset_id' => $defect->asset_id,
-                'title' => $woData['title'] ?? ('Rectification: ' . $defect->title),
+                'defect_id' => $locked->id,
+                'asset_id' => $locked->asset_id,
+                'title' => $woData['title'] ?? ('Rectification: '.$locked->title),
                 'work_type' => $woData['work_type'] ?? 'routine_corrective',
-                'category' => $woData['category'] ?? $this->mapDistressToCategory($defect->distress_type),
-                'location' => $defect->chainage . ' (' . ucfirst($defect->direction) . ')',
-                'priority' => $woData['priority'] ?? $defect->severity,
+                'category' => $woData['category'] ?? $this->mapDistressToCategory($locked->distress_type),
+                'location' => $locked->chainage.' ('.ucfirst($locked->direction).')',
+                'priority' => $woData['priority'] ?? $locked->severity,
                 'status' => 'assigned',
                 'assigned_to' => $woData['assigned_to'] ?? 'Road Maintenance Crew A',
                 'contractor_name' => $woData['contractor_name'] ?? null,
-                'description' => $defect->description,
+                'description' => $locked->description,
                 'reported_by' => $userId,
                 'assigned_by' => $userId,
                 'target_start_at' => $woData['target_start_at'] ?? now(),
-                'target_end_at' => $woData['target_end_at'] ?? $defect->sla_due_at,
+                'target_end_at' => $woData['target_end_at'] ?? $locked->sla_due_at,
                 'estimated_cost' => $woData['estimated_cost'] ?? 0,
                 'requires_lane_closure' => $woData['requires_lane_closure'] ?? false,
             ]);
 
-            $defect->update([
+            $locked->update([
                 'status' => 'work_order_created',
+                'lock_version' => OmVersionGuard::next($locked),
             ]);
 
             return $workOrder;
@@ -149,7 +161,7 @@ class OmDefectService
     /**
      * Mark defect as rectified with before/after photos.
      */
-    public function markRectified(OmDefect $defect, array $data, ?int $userId = null): OmDefect
+    public function markRectified(OmDefect $defect, array $data, ?string $userId = null): OmDefect
     {
         $defect->update([
             'status' => 'rectified',
@@ -164,13 +176,13 @@ class OmDefectService
     /**
      * Verify and close defect.
      */
-    public function verifyAndClose(OmDefect $defect, int $verifierUserId, ?string $notes = null): OmDefect
+    public function verifyAndClose(OmDefect $defect, string $verifierUserId, ?string $notes = null): OmDefect
     {
         $defect->update([
             'status' => 'verified_closed',
             'verified_by' => $verifierUserId,
             'verified_at' => now(),
-            'rectification_notes' => $notes ? ($defect->rectification_notes . "\nVerification: " . $notes) : $defect->rectification_notes,
+            'rectification_notes' => $notes ? ($defect->rectification_notes."\nVerification: ".$notes) : $defect->rectification_notes,
         ]);
 
         return $defect->fresh();

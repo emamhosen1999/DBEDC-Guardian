@@ -12,11 +12,11 @@ use Illuminate\Database\Eloquent\Builder;
 trait DailyWorkFilterable
 {
     /**
-     * Normalize filter values (IDs) to a clean array of integers.
+     * Normalize filter values (IDs) without coercing employee codes to integers.
      * Handles null, empty strings, 'all', arrays, and single values.
      *
      * @param  mixed  $value  The filter value to normalize
-     * @return array<int> Array of integer IDs
+     * @return array<int, string> Array of normalized IDs
      */
     protected function normalizeIdFilter($value): array
     {
@@ -28,7 +28,7 @@ trait DailyWorkFilterable
 
         return collect($ids)
             ->reject(fn ($id) => $id === null || $id === '' || $id === 'all')
-            ->map(fn ($id) => (int) $id)
+            ->map(fn ($id) => (string) $id)
             ->unique()
             ->values()
             ->toArray();
@@ -40,8 +40,8 @@ trait DailyWorkFilterable
      * If only jurisdiction is provided, find incharges for those jurisdictions.
      *
      * @param  Builder  $query  The query builder
-     * @param  array<int>  $inchargeFilter  Array of incharge user IDs
-     * @param  array<int>  $jurisdictionFilter  Array of jurisdiction IDs
+     * @param  array<int, string>  $inchargeFilter  Array of incharge employee IDs
+     * @param  array<int, string>  $jurisdictionFilter  Array of jurisdiction IDs
      */
     protected function applyInchargeJurisdictionFilters($query, array $inchargeFilter, array $jurisdictionFilter): void
     {

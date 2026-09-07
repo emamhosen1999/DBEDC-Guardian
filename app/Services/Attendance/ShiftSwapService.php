@@ -2,6 +2,8 @@
 
 namespace App\Services\Attendance;
 
+use App\Http\Controllers\Api\V1\AttendanceRequestController;
+use App\Http\Controllers\HRM\ShiftSwapController;
 use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
@@ -19,8 +21,8 @@ use Illuminate\Support\Facades\Log;
  * counterparty_status / approval_chain), roster application (via RosterService),
  * the recipient NOTIFICATION (request → counterparty; decision → requester),
  * the realtime {@see RealtimeSignal} marker, and working-time compliance — lives
- * here and ONLY here. Both the web ({@see \App\Http\Controllers\HRM\ShiftSwapController})
- * and the mobile ({@see \App\Http\Controllers\Api\V1\AttendanceRequestController})
+ * here and ONLY here. Both the web ({@see ShiftSwapController})
+ * and the mobile ({@see AttendanceRequestController})
  * controllers validate/authorize their own request shapes and then delegate to
  * these methods, so the effects fire exactly once regardless of caller. This is
  * the coupling the Leave domain lacked (web approvals that fired no notification
@@ -47,7 +49,7 @@ class ShiftSwapService
      * the counterparty is otherwise free — any same-department employee can swap
      * any shift. Returns [field, message] or null when the roster permits the swap.
      */
-    public function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
+    public function rosterAvailabilityProblem(string $type, string $requesterId, string $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
     {
         // Pickup = the mirror of cover: the requester TAKES a counterparty's shift
         // on counterparty_date (they give nothing up). The counterparty must have a
@@ -118,7 +120,7 @@ class ShiftSwapService
         // the roster and a later lookup would return the POST-swap shift (usually
         // OFF). requester_shift_code is the sentinel — always set (OFF when off).
         $shiftCodeById = Shift::pluck('code', 'id');
-        $codeFor = function (?int $userId, ?string $date) use ($shiftCodeById): string {
+        $codeFor = function (?string $userId, ?string $date) use ($shiftCodeById): string {
             if (! $userId || ! $date) {
                 return 'OFF';
             }
@@ -133,21 +135,21 @@ class ShiftSwapService
             : $codeFor($counterparty->id, $cpDate);
 
         $swap = DB::transaction(fn () => ShiftSwapRequest::create([
-            'type'                    => $type,
-            'requester_id'            => $requester->id,
+            'type' => $type,
+            'requester_id' => $requester->id,
             // A pickup persists requester_date = counterparty_date to satisfy the
             // NOT NULL column and keep downstream display coherent.
-            'requester_date'          => $isPickup ? $cpDate : $requesterDate,
-            'counterparty_id'         => $counterparty->id,
-            'counterparty_date'       => $persistCounterpartyDate,
-            'requester_shift_code'    => $requesterShiftCode,
+            'requester_date' => $isPickup ? $cpDate : $requesterDate,
+            'counterparty_id' => $counterparty->id,
+            'counterparty_date' => $persistCounterpartyDate,
+            'requester_shift_code' => $requesterShiftCode,
             'counterparty_shift_code' => $counterpartyShiftCode,
-            'reason'                  => $reason,
-            'status'                  => 'pending',
-            'counterparty_status'     => 'pending',
-            'approval_chain'          => [[
-                'action'    => 'requested',
-                'user_id'   => $requester->id,
+            'reason' => $reason,
+            'status' => 'pending',
+            'counterparty_status' => 'pending',
+            'approval_chain' => [[
+                'action' => 'requested',
+                'user_id' => $requester->id,
                 'user_name' => $requester->name,
                 'timestamp' => now()->toIso8601String(),
             ]],
@@ -180,7 +182,7 @@ class ShiftSwapService
             $chain[] = $this->chainEntry('counterparty_accepted', $actor);
             $swap->update([
                 'counterparty_status' => 'accepted',
-                'approval_chain'      => $chain,
+                'approval_chain' => $chain,
             ]);
 
             // Acceptance opens the manager approval queue and updates the
@@ -193,8 +195,8 @@ class ShiftSwapService
         $chain[] = $this->chainEntry('counterparty_declined', $actor);
         $swap->update([
             'counterparty_status' => 'declined',
-            'status'              => 'rejected',
-            'approval_chain'      => $chain,
+            'status' => 'rejected',
+            'approval_chain' => $chain,
         ]);
 
         // A decline resolves the swap on the requester's list.
@@ -245,8 +247,8 @@ class ShiftSwapService
                 $chain[] = $this->chainEntry('manager_approved', $actor);
 
                 $swap->update([
-                    'status'         => 'approved',
-                    'approved_by'    => $actor->id,
+                    'status' => 'approved',
+                    'approved_by' => $actor->id,
                     'approval_chain' => $chain,
                 ]);
 
@@ -269,10 +271,10 @@ class ShiftSwapService
         } catch (\RuntimeException $exception) {
             if ($blockedByCompliance) {
                 return [
-                    'ok'                    => false,
-                    'code'                  => 'compliance_blocked',
-                    'message'               => 'This swap violates working-time compliance rules and was not applied.',
-                    'swap'                  => null,
+                    'ok' => false,
+                    'code' => 'compliance_blocked',
+                    'message' => 'This swap violates working-time compliance rules and was not applied.',
+                    'swap' => null,
                     'compliance_violations' => $complianceViolations,
                 ];
             }
@@ -298,10 +300,10 @@ class ShiftSwapService
         }
 
         return [
-            'ok'                    => true,
-            'code'                  => 'approved',
-            'message'               => 'Swap approved and applied.',
-            'swap'                  => $swap->fresh(),
+            'ok' => true,
+            'code' => 'approved',
+            'message' => 'Swap approved and applied.',
+            'swap' => $swap->fresh(),
             'compliance_violations' => $complianceViolations,
         ];
     }
@@ -320,8 +322,8 @@ class ShiftSwapService
         $chain[] = $this->chainEntry('manager_rejected', $actor);
 
         $swap->update([
-            'status'         => 'rejected',
-            'approved_by'    => $actor->id,
+            'status' => 'rejected',
+            'approved_by' => $actor->id,
             'approval_chain' => $chain,
         ]);
 
@@ -337,10 +339,10 @@ class ShiftSwapService
         $this->signal->touch('roster', 'all', $actor->id, 'swap_rejected');
 
         return [
-            'ok'                    => true,
-            'code'                  => 'rejected',
-            'message'               => 'Swap rejected.',
-            'swap'                  => $swap->fresh(),
+            'ok' => true,
+            'code' => 'rejected',
+            'message' => 'Swap rejected.',
+            'swap' => $swap->fresh(),
             'compliance_violations' => [],
         ];
     }
@@ -394,8 +396,8 @@ class ShiftSwapService
     private function chainEntry(string $action, User $actor): array
     {
         return [
-            'action'    => $action,
-            'user_id'   => $actor->id,
+            'action' => $action,
+            'user_id' => $actor->id,
             'user_name' => $actor->name,
             'timestamp' => now()->toIso8601String(),
         ];

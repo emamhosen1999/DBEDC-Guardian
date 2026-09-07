@@ -14,7 +14,7 @@ const DeleteHolidayForm = ({ open, closeModal, holidayIdToDelete, setHolidaysDat
         setDeleting(true);
         try {
             const response = await axios.delete(route('holiday-delete'), {
-                params: { id: holidayIdToDelete, route: route().current() },
+                params: { id: holidayIdToDelete },
             });
             if (response.status === 200) {
                 setHolidaysData(response.data.holidays);

@@ -4,7 +4,7 @@ import { Box, Button, Flex, Grid, Text, TextField, TextArea } from '@radix-ui/th
 import { Pencil1Icon, Cross2Icon, PlusIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 
-const ExperienceInformationForm = ({ user, setUser }) => {
+const ExperienceInformationForm = ({ user, setUser, canEdit = false }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [experienceList, setExperienceList] = useState(user.experiences || [{ company_name: "", job_position: "", description: "" }]);
     const [processing, setProcessing] = useState(false);
@@ -37,11 +37,11 @@ const ExperienceInformationForm = ({ user, setUser }) => {
         <Panel variant="surface" size="2">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Work Experience</Text>
-                {!isEditing ? (
+                {canEdit && (!isEditing ? (
                     <Button variant="ghost" size="1" onClick={() => setIsEditing(true)}><Pencil1Icon /> Edit</Button>
                 ) : (
                     <Button variant="ghost" size="1" color="red" onClick={() => setIsEditing(false)}><Cross2Icon /> Cancel</Button>
-                )}
+                ))}
             </Flex>
 
             {!isEditing ? (

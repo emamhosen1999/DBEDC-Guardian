@@ -22,6 +22,7 @@ const BulkCompletionDateModal = ({ isOpen, onClose, selectedWorks = [], onSucces
 
             const response = await axios.post(router.route('dailyWorks.bulkUpdateCompletionDate'), {
                 work_ids: selectedWorks.map(w => w.id),
+                versions: Object.fromEntries(selectedWorks.map(w => [w.id, w.lock_version])),
                 completion_date: clearDate ? null : completionDate
             }, {
                 headers: {
@@ -36,7 +37,13 @@ const BulkCompletionDateModal = ({ isOpen, onClose, selectedWorks = [], onSucces
             }
         } catch (error) {
             console.error('Bulk completion date update error:', error);
-            showToast.error('Failed to update completion date');
+            if (error.response?.status === 409) {
+                router.reload({ only: ['allData'] });
+                showToast.error('Some selected works changed. Latest data was loaded; review and retry.');
+                onClose();
+            } else {
+                showToast.error(error.response?.data?.message || 'Failed to update completion date');
+            }
         } finally {
             setIsSubmitting(false);
         }

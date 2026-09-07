@@ -24,6 +24,7 @@ const BulkInchargeModal = ({ isOpen, onClose, selectedWorks = [], incharges = []
 
             const response = await axios.post(router.route('dailyWorks.bulkUpdateIncharge'), {
                 work_ids: selectedWorks.map(w => w.id),
+                versions: Object.fromEntries(selectedWorks.map(w => [w.id, w.lock_version])),
                 incharge_id: selectedIncharge
             }, {
                 headers: {
@@ -38,7 +39,13 @@ const BulkInchargeModal = ({ isOpen, onClose, selectedWorks = [], incharges = []
             }
         } catch (error) {
             console.error('Bulk incharge update error:', error);
-            showToast.error('Failed to update incharge');
+            if (error.response?.status === 409) {
+                router.reload({ only: ['allData'] });
+                showToast.error('Some selected works changed. Latest data was loaded; review and retry.');
+                onClose();
+            } else {
+                showToast.error(error.response?.data?.message || 'Failed to update incharge');
+            }
         } finally {
             setIsSubmitting(false);
         }

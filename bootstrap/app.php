@@ -1,9 +1,11 @@
 <?php
 
+use App\Exceptions\StaleModelVersionException;
 use App\Http\Middleware\ApiSecurityMiddleware;
 use App\Http\Middleware\AttendanceRateLimit;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DeviceAuthMiddleware;
+use App\Http\Middleware\DisableCacheHeaders;
 use App\Http\Middleware\EnhancedRateLimit;
 use App\Http\Middleware\EnsureRolePermissionSync;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -52,7 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             TrackSecurityActivity::class,
-            \App\Http\Middleware\DisableCacheHeaders::class,
+            DisableCacheHeaders::class,
             // NOTE: The custom CheckSessionExpiry sliding-window middleware was
             // removed. It duplicated Laravel's native database-session idle
             // lifetime (config('session.lifetime')) using a separate payload key,
@@ -62,7 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->api(append: [
-            \App\Http\Middleware\DisableCacheHeaders::class,
+            DisableCacheHeaders::class,
         ]);
 
         $middleware->append(LogRequestMiddleware::class);
@@ -97,6 +99,16 @@ return Application::configure(basePath: dirname(__DIR__))
             ServerErrorReporter::capture($e);
         });
 
+        // Inertia mutations use redirect-based errors. This both refreshes the
+        // page props to the winning version and invokes the caller's onError.
+        $exceptions->render(function (StaleModelVersionException $e, $request) {
+            if (! $request->header('X-Inertia')) {
+                return null;
+            }
+
+            return back()->withErrors(['conflict' => $e->getMessage()]);
+        });
+
         // Standardize all API exception responses
         $exceptions->render(function (Throwable $e, $request) {
             // Only standardize API requests
@@ -118,7 +130,11 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             // Determine error code and message based on exception type
-            if ($e instanceof AuthenticationException) {
+            if ($e instanceof StaleModelVersionException) {
+                $statusCode = 409;
+                $errorCode = 'STALE_WRITE';
+                $message = $e->getMessage();
+            } elseif ($e instanceof AuthenticationException) {
                 $statusCode = 401;
                 $errorCode = 'AUTHENTICATION_REQUIRED';
                 $message = 'Authentication required. Please login to continue.';
@@ -162,6 +178,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Add validation errors if present
             if ($e instanceof ValidationException) {
                 $response['errors'] = $e->errors();
+            }
+
+            if ($e instanceof StaleModelVersionException) {
+                $response['current_version'] = $e->currentVersion;
             }
 
             // Add redirect for authentication errors

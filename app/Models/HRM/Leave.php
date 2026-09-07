@@ -46,14 +46,14 @@ class Leave extends Model implements HasMedia
         'half_day_session' => 'string',
         'reason' => 'string',
         'status' => 'string',
-        'approved_by' => 'integer',
+        'approved_by' => 'string',
         'approval_chain' => 'array',
         'current_approval_level' => 'integer',
         'approved_at' => 'datetime',
-        'rejected_by' => 'integer',
+        'rejected_by' => 'string',
         'submitted_at' => 'datetime',
         'cancelled_at' => 'datetime',
-        'cancelled_by' => 'integer',
+        'cancelled_by' => 'string',
     ];
 
     /**

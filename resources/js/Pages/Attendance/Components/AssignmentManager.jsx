@@ -33,7 +33,7 @@ export default function AssignmentManager({ employees = [], departments = [], de
             : a.scope_type === 'designation'
                 ? designations
                 : employees;
-        const found = list.find(x => Number(x.id) === Number(a.scope_id));
+        const found = list.find(x => String(x.id) === String(a.scope_id));
         const name = found ? (found.name || found.title) : `#${a.scope_id}`;
         const label = a.scope_type.charAt(0).toUpperCase() + a.scope_type.slice(1);
         return `${label}: ${name}`;

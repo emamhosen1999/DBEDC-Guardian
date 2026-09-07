@@ -1,7 +1,7 @@
 import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
 import { Box, Flex, Separator, Text } from '@radix-ui/themes';
-import { HeartFilledIcon, GlobeIcon, EnvelopeClosedIcon, MobileIcon } from '@radix-ui/react-icons';
+import { HeartFilledIcon } from '@radix-ui/react-icons';
 import { Link, usePage } from '@inertiajs/react';
 
 const Footer = () => {
@@ -15,15 +15,6 @@ const Footer = () => {
         { label: 'Attendance', href: '/attendances' },
         { label: 'Leaves', href: '/leaves' },
         { label: 'Timesheet', href: '/timesheet' },
-        { label: 'Users', href: '/users' },
-        { label: 'Reports', href: '/reports' },
-        { label: 'Settings', href: '/settings' }
-    ];
-
-    const contactInfo = [
-        { icon: EnvelopeClosedIcon, label: 'Email',   value: 'support@aero-hr.com',  href: 'mailto:support@aero-hr.com' },
-        { icon: MobileIcon,         label: 'Phone',   value: '+1 (555) 123-4567',    href: 'tel:+15551234567' },
-        { icon: GlobeIcon,          label: 'Website', value: 'www.aero-hr.com',      href: 'https://www.aero-hr.com' },
     ];
 
     return (
@@ -44,7 +35,7 @@ const Footer = () => {
                                     </Box>
                                 </Flex>
                                 <Text size="2" color="gray" as="p" mb="3">
-                                    Advanced HR Management system for modern enterprises.
+                                    Connected workforce, project, quality, and operations management.
                                 </Text>
                                 <Flex align="center" gap="1">
                                     <Text size="2" color="gray">Crafted with</Text>
@@ -65,34 +56,12 @@ const Footer = () => {
                                 </Flex>
                             </Box>
 
-                            {/* Contact */}
-                            <Box style={{ flex: '1 1 200px', minWidth: 180 }}>
-                                <Text size="3" weight="bold" as="p" mb="3">Contact Info</Text>
-                                <Flex direction="column" gap="2">
-                                    {contactInfo.map((c, i) => (
-                                        <a key={i} href={c.href} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>
-                                            <Box style={{ width: 30, height: 30, borderRadius: 'var(--radius-2)', background: 'var(--gray-a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                <c.icon style={{ width: 14, height: 14 }} />
-                                            </Box>
-                                            <Box>
-                                                <Text size="2" weight="medium" as="p">{c.label}</Text>
-                                                <Text size="1" color="gray" as="p">{c.value}</Text>
-                                            </Box>
-                                        </a>
-                                    ))}
-                                </Flex>
-                            </Box>
                         </Flex>
 
                         <Separator size="4" my="5" />
 
                         <Flex justify="between" align="center" wrap="wrap" gap="3">
-                            <Text size="2" color="gray">&copy; {currentYear} Aero HR Enterprise Solution. All rights reserved.</Text>
-                            <Flex gap="4">
-                                <Link href="/privacy" style={{ fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>Privacy Policy</Link>
-                                <Link href="/terms"   style={{ fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>Terms of Service</Link>
-                                <Link href="/support" style={{ fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>Support</Link>
-                            </Flex>
+                            <Text size="2" color="gray">&copy; {currentYear} DBEDC Guardian. All rights reserved.</Text>
                         </Flex>
                     </Box>
                 </Panel>

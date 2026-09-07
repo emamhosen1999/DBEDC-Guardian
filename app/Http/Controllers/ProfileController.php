@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class ProfileController extends Controller
 {
@@ -42,23 +43,34 @@ class ProfileController extends Controller
      */
     public function index(Request $request, User $user): Response
     {
+        $this->authorizeProfileView($request, $user);
+
+        $canManageUsers = $request->user()->can('users.update');
         $reportTo = User::find($user->report_to);
         $userDetails = $this->crudService->getUserWithDetails($user->employee_id ?? $user->getKey());
 
         return Inertia::render('Profile/UserProfile', [
             'title' => 'Profile',
             'user' => $userDetails,
-            'allUsers' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
-            'departments' => Department::all(),
-            'designations' => Designation::all(),
+            'allUsers' => $canManageUsers
+                ? User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get()
+                : [],
+            'departments' => $canManageUsers ? Department::all() : [],
+            'designations' => $canManageUsers ? Designation::all() : [],
             'report_to' => $reportTo,
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            'can' => [
+                'edit' => $this->canUpdateProfile($request, $user),
+                'manageEmployment' => $canManageUsers,
+            ],
         ]);
     }
 
     public function store(Request $request)
     {
+        abort_unless($request->user()?->can('users.create'), 403);
+
         // Validate the incoming request
         $validator = $this->validationService->validateUserCreation($request);
 
@@ -83,11 +95,14 @@ class ProfileController extends Controller
      */
     public function update(Request $request)
     {
-        $user = $this->crudService->findUser($request->id);
-
         try {
             // Validate the request (excluding profile image handling)
             $validated = $this->validationService->validateUserUpdate($request);
+            $user = $this->crudService->findUser((string) $validated['id']);
+            abort_if(! $user, 404);
+
+            $this->authorizeProfileUpdate($request, $user);
+            $this->guardEmploymentFields($request, $user, $validated);
 
             // Update user profile
             $messages = $this->updateService->updateUserProfile($user, $validated);
@@ -106,6 +121,8 @@ class ProfileController extends Controller
 
         } catch (ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -116,6 +133,8 @@ class ProfileController extends Controller
      */
     public function stats(Request $request, User $user)
     {
+        $this->authorizeProfileView($request, $user);
+
         try {
             // Cache key for user stats
             $cacheKey = "profile_stats_{$user->id}";
@@ -172,10 +191,7 @@ class ProfileController extends Controller
     public function export(Request $request, User $user)
     {
         try {
-            // Check permissions (simplified for now)
-            if (Auth::id() !== $user->id) {
-                return response()->json(['message' => 'Unauthorized'], 403);
-            }
+            $this->authorizeProfileView($request, $user);
 
             $profileData = $this->crudService->getUserWithDetails($user->id);
 
@@ -311,6 +327,8 @@ class ProfileController extends Controller
      */
     public function trackView(Request $request, User $user)
     {
+        $this->authorizeProfileView($request, $user);
+
         try {
             // Only track if viewer is different from profile owner
             if (Auth::id() !== $user->id) {
@@ -353,5 +371,61 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    private function authorizeProfileView(Request $request, User $target): void
+    {
+        $actor = $request->user();
+        $isSelf = $actor && (string) $actor->getKey() === (string) $target->getKey();
+
+        abort_unless(
+            $actor && (($isSelf && $actor->can('profile.own.view')) || $actor->can('users.view')),
+            403
+        );
+    }
+
+    private function authorizeProfileUpdate(Request $request, User $target): void
+    {
+        abort_unless($this->canUpdateProfile($request, $target), 403);
+    }
+
+    private function canUpdateProfile(Request $request, User $target): bool
+    {
+        $actor = $request->user();
+        if (! $actor) {
+            return false;
+        }
+
+        $isSelf = (string) $actor->getKey() === (string) $target->getKey();
+
+        return ($isSelf && $actor->can('profile.own.update')) || $actor->can('users.update');
+    }
+
+    /**
+     * Self-service profile updates must not alter employment identity, hierarchy,
+     * or compensation. Those fields are managed through the user-admin capability.
+     */
+    private function guardEmploymentFields(Request $request, User $target, array $validated): void
+    {
+        if ($request->user()->can('users.update')) {
+            return;
+        }
+
+        abort_if(($request->input('ruleSet', 'profile')) === 'salary', 403);
+
+        $protectedFields = [
+            'employee_id' => 'employee_id',
+            'date_of_joining' => 'date_of_joining',
+            'department' => 'department_id',
+            'designation' => 'designation_id',
+            'report_to' => 'report_to',
+        ];
+
+        foreach ($protectedFields as $input => $attribute) {
+            if (array_key_exists($input, $validated)
+                && (string) ($validated[$input] ?? '') !== (string) ($target->{$attribute} ?? '')) {
+                abort(403, 'Employment and organizational fields require user-management permission.');
+            }
+        }
     }
 }

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\WorkLocation;
 use App\Models\HRM\AttendanceType;
 use App\Models\User;
+use App\Models\WorkLocation;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -45,6 +46,19 @@ class WorkLocationController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function show(WorkLocation $workLocation): JsonResponse
+    {
+        $workLocation->load([
+            'attendanceType',
+            'attendanceTypes:id,name,slug',
+            'biometricDevices:id,name,serial_number',
+        ])->loadCount('employees');
+
+        return response()->json([
+            'work_location' => $workLocation,
+        ]);
     }
 
     public function addWorkLocation(Request $request)
@@ -165,7 +179,7 @@ class WorkLocationController extends Controller
     protected function validatePayload(Request $request, ?int $ignoreId = null): array
     {
         // Support both `name` and the legacy `location` field used by the form.
-        if ($request->filled('location') && !$request->filled('name')) {
+        if ($request->filled('location') && ! $request->filled('name')) {
             $request->merge(['name' => $request->input('location')]);
         }
 

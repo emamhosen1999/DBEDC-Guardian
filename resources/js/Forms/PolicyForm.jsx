@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, Flex, Box, Select, TextField, Button, Text, IconButton, Separator, Checkbox } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import { requestJson } from '@/api/client';
@@ -16,7 +16,7 @@ const emptyOvertime = () => ({
     require_preauthorization: false,
 });
 
-export default function PolicyForm({ open, onOpenChange, onSaved, policy = null }) {
+export default function PolicyForm({ open, onOpenChange, onSaved, policy = null, employees = [], departments = [], designations = [] }) {
     const empty = {
         name: '',
         scope_type: 'org',
@@ -36,6 +36,18 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     const isEdit = !!policy?.id;
+    const scopeOptions = useMemo(() => {
+        if (form.scope_type === 'department') {
+            return departments.map(item => ({ value: String(item.id), label: item.name }));
+        }
+        if (form.scope_type === 'designation') {
+            return designations.map(item => ({ value: String(item.id), label: item.title || item.name }));
+        }
+        if (form.scope_type === 'user') {
+            return employees.map(item => ({ value: String(item.id), label: `${item.name} (${item.id})` }));
+        }
+        return [];
+    }, [departments, designations, employees, form.scope_type]);
 
     useEffect(() => {
         if (open) {
@@ -130,7 +142,7 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
             const payload = {
                 name: form.name,
                 scope_type: form.scope_type,
-                scope_id: form.scope_type === 'org' ? null : Number(form.scope_id) || null,
+                scope_id: form.scope_type === 'org' ? null : String(form.scope_id || '').trim() || null,
                 effective_from: form.effective_from,
                 effective_to: form.effective_to || null,
                 punch_strictness: form.punch_strictness,
@@ -184,13 +196,15 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
 
                     {form.scope_type !== 'org' && (
                         <Box>
-                            <Text size="1" color="gray" as="div" mb="1">Scope ID ({form.scope_type})</Text>
-                            <TextField.Root
-                                type="number"
-                                placeholder={`${form.scope_type} id`}
-                                value={form.scope_id}
-                                onChange={e => set('scope_id', e.target.value)}
-                            />
+                            <Text size="1" color="gray" as="div" mb="1">{form.scope_type === 'user' ? 'Employee' : 'Scope target'}</Text>
+                            <Select.Root value={form.scope_id} onValueChange={value => set('scope_id', value)}>
+                                <Select.Trigger placeholder={`Select ${form.scope_type}`} style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {scopeOptions.map(option => (
+                                        <Select.Item key={option.value} value={option.value}>{option.label}</Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
                         </Box>
                     )}
 
@@ -411,7 +425,7 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
                         <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>
                             Cancel
                         </Button>
-                        <Button onClick={save} disabled={saving || !form.name || !form.effective_from}>
+                        <Button onClick={save} disabled={saving || !form.name || !form.effective_from || (form.scope_type !== 'org' && !form.scope_id)}>
                             {saving ? 'Saving…' : 'Save'}
                         </Button>
                     </Flex>

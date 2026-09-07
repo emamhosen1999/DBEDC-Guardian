@@ -15,6 +15,7 @@ class UpdateDailyWorkAssignedRequest extends FormRequest
     {
         return [
             'assigned' => ['present', 'nullable', 'string', 'exists:users,employee_id'],
+            'lock_version' => ['sometimes', 'integer', 'min:0'],
         ];
     }
 }

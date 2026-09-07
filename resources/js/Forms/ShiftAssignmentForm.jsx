@@ -37,7 +37,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
         if (assignment.scope_type === 'org') return 'Whole Organization';
         const list = assignment.scope_type === 'department' ? departments
             : assignment.scope_type === 'designation' ? designations : employees;
-        const found = list.find(x => Number(x.id) === Number(assignment.scope_id));
+        const found = list.find(x => String(x.id) === String(assignment.scope_id));
         const name = found ? (found.name || found.title) : `#${assignment.scope_id}`;
         const lbl = assignment.scope_type.charAt(0).toUpperCase() + assignment.scope_type.slice(1);
         return `${lbl}: ${name}`;
@@ -126,7 +126,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
                 // Multi-select: use bulk endpoint
                 const payload = {
                     scope_type: form.scope_type,
-                    scope_ids: form.scope_ids.map(Number),
+                    scope_ids: form.scope_ids.map(String),
                     shift_id: assignmentType === 'shift' ? Number(form.shift_id) || null : null,
                     rotation_pattern_id: assignmentType === 'pattern' ? Number(form.rotation_pattern_id) || null : null,
                     priority: Number(form.priority) || 0,

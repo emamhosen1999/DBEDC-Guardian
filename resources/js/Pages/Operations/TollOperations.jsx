@@ -12,8 +12,12 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 
 export default function TollOperations({ auth, summary, tollRecords, shiftAudits, exemptions, filters }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.toll.manage') || auth?.roles?.includes('Super Administrator');
     const [openAuditModal, setOpenAuditModal] = useState(false);
     const [plazaName, setPlazaName] = useState('Main Toll Plaza (Ch 0+000)');
     const [shiftDate, setShiftDate] = useState(new Date().toISOString().split('T')[0]);
@@ -75,9 +79,9 @@ export default function TollOperations({ auth, summary, tollRecords, shiftAudits
                                         </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="green" onClick={() => setOpenAuditModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                {canManage && <Button color="green" onClick={() => setOpenAuditModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                     <PlusIcon width={16} height={16} /> Submit Shift Audit
-                                </Button>
+                                </Button>}
                             </Flex>
                         </Box>
 
@@ -207,7 +211,7 @@ export default function TollOperations({ auth, summary, tollRecords, shiftAudits
             </Flex>
 
             {/* Shift Audit Modal */}
-            <Dialog.Root open={openAuditModal} onOpenChange={setOpenAuditModal}>
+            <Dialog.Root open={canManage && openAuditModal} onOpenChange={setOpenAuditModal}>
                 <Dialog.Content style={{ maxWidth: 520 }}>
                     <Dialog.Title>Submit Toll Plaza Shift Audit</Dialog.Title>
                     <Dialog.Description size="2" mb="4">

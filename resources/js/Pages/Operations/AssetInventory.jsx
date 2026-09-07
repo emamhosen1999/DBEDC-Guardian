@@ -13,8 +13,12 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 
 export default function AssetInventory({ auth, assets, stats, filters }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.equipment.manage') || auth?.roles?.includes('Super Administrator');
     const [openModal, setOpenModal] = useState(false);
     const [name, setName] = useState('');
     const [category, setCategory] = useState('pavement_civil');
@@ -87,9 +91,9 @@ export default function AssetInventory({ auth, assets, stats, filters }) {
                                         </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="indigo" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                {canManage && <Button color="indigo" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                     <PlusIcon width={16} height={16} /> Register Asset
-                                </Button>
+                                </Button>}
                             </Flex>
                         </Box>
 
@@ -159,7 +163,7 @@ export default function AssetInventory({ auth, assets, stats, filters }) {
             </Flex>
 
             {/* Register Asset Modal */}
-            <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
+            <Dialog.Root open={canManage && openModal} onOpenChange={setOpenModal}>
                 <Dialog.Content style={{ maxWidth: 520 }}>
                     <Dialog.Title>Register Highway Asset</Dialog.Title>
                     <Dialog.Description size="2" mb="4">

@@ -48,7 +48,7 @@ class LeaveCrudService
      *
      * @throws \RuntimeException 422 when the employee is not eligible
      */
-    private function assertEligible(?LeaveSetting $setting, int $userId, Carbon $fromDate): void
+    private function assertEligible(?LeaveSetting $setting, string $userId, Carbon $fromDate): void
     {
         if (! $setting) {
             return;
@@ -102,7 +102,7 @@ class LeaveCrudService
      *
      * @throws \RuntimeException 422 on insufficient balance
      */
-    private function assertSufficientBalance(?LeaveSetting $setting, int $userId, int $leaveTypeId, Carbon $fromDate, float $days): void
+    private function assertSufficientBalance(?LeaveSetting $setting, string $userId, int $leaveTypeId, Carbon $fromDate, float $days): void
     {
         if (! $setting || $setting->allow_negative) {
             return;
@@ -145,7 +145,7 @@ class LeaveCrudService
 
             // Server-side overlap enforcement
             $overlapError = $this->overlapService->getOverlapErrorMessage(
-                (int) $data['user_id'], $fromDate, $toDate
+                (string) $data['user_id'], $fromDate, $toDate
             );
 
             if ($overlapError) {
@@ -157,18 +157,18 @@ class LeaveCrudService
             $isHalfDay = (bool) ($data['isHalfDay'] ?? false);
             $halfDaySession = $isHalfDay ? ($data['halfDaySession'] ?? 'first_half') : null;
             $serverDays = $this->dayCalculator->compute(
-                (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
+                (string) $data['user_id'], $fromDate, $toDate, $isHalfDay
             );
 
             // Request-time eligibility (gender / minimum service).
-            $this->assertEligible($leaveSetting, (int) $data['user_id'], $fromDate);
+            $this->assertEligible($leaveSetting, (string) $data['user_id'], $fromDate);
 
             // Supporting-document gate (e.g. medical certificate for long sick leave).
             $this->assertAttachmentRequirement($leaveSetting, $serverDays, (bool) ($data['hasAttachment'] ?? false));
 
             // Server-side balance enforcement via the ledger (lazily seeded from the
             // accrual policy when untracked) unless the type allows negative.
-            $this->assertSufficientBalance($leaveSetting, (int) $data['user_id'], (int) $leaveTypeId, $fromDate, $serverDays);
+            $this->assertSufficientBalance($leaveSetting, (string) $data['user_id'], (int) $leaveTypeId, $fromDate, $serverDays);
 
             $leave = Leave::create([
                 'user_id' => $data['user_id'],
@@ -227,7 +227,7 @@ class LeaveCrudService
 
             // Server-side overlap enforcement for updates
             $overlapError = $this->overlapService->getOverlapErrorMessage(
-                (int) $data['user_id'], $fromDate, $toDate, $leaveId
+                (string) $data['user_id'], $fromDate, $toDate, $leaveId
             );
 
             if ($overlapError) {
@@ -238,7 +238,7 @@ class LeaveCrudService
             $isHalfDay = (bool) ($data['isHalfDay'] ?? false);
             $halfDaySession = $isHalfDay ? ($data['halfDaySession'] ?? 'first_half') : null;
             $serverDays = $this->dayCalculator->compute(
-                (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
+                (string) $data['user_id'], $fromDate, $toDate, $isHalfDay
             );
 
             // If the existing leave was approved, free its consumed days before the
@@ -249,7 +249,7 @@ class LeaveCrudService
             }
 
             // Request-time eligibility (gender / minimum service).
-            $this->assertEligible($leaveSetting, (int) $data['user_id'], $fromDate);
+            $this->assertEligible($leaveSetting, (string) $data['user_id'], $fromDate);
 
             // Supporting-document gate (counts existing attachments on the record).
             $hasAttachment = (bool) ($data['hasAttachment'] ?? false) || $leave->getMedia('attachments')->isNotEmpty();
@@ -257,7 +257,7 @@ class LeaveCrudService
 
             // Server-side balance enforcement via the ledger (lazily seeded when
             // untracked) unless the type allows negative.
-            $this->assertSufficientBalance($leaveSetting, (int) $data['user_id'], (int) $leaveTypeId, $fromDate, $serverDays);
+            $this->assertSufficientBalance($leaveSetting, (string) $data['user_id'], (int) $leaveTypeId, $fromDate, $serverDays);
 
             $newStatus = $data['status'] ?? $leave->status;
             $leave->update([
@@ -292,7 +292,7 @@ class LeaveCrudService
      * single place those side effects fire. This method is intentionally kept as a
      * low-level primitive and is NOT on the approve/reject decision path.
      */
-    public function updateLeaveStatus(int $leaveId, string $status, int $approvedBy): array
+    public function updateLeaveStatus(int $leaveId, string $status, string $approvedBy): array
     {
         return DB::transaction(function () use ($leaveId, $status, $approvedBy) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
@@ -350,7 +350,7 @@ class LeaveCrudService
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
             $before = $leave->toArray();
 
-            $isOwner = (int) $leave->user_id === (int) $actor->id;
+            $isOwner = (string) $leave->user_id === (string) $actor->id;
             $isManager = $actor->can('leaves.approve') || $actor->can('leaves.manage');
 
             if (! $isOwner && ! $isManager) {

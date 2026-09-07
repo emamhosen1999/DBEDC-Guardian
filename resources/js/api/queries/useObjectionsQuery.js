@@ -34,8 +34,11 @@ export const useAttachRfis = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ objectionId, rfiIds }) => 
-      requestJson('post', route('objections.attachRfis', objectionId), { rfi_ids: rfiIds }),
+    mutationFn: ({ objectionId, rfiIds, lockVersion }) =>
+      requestJson('post', route('objections.attachRfis', objectionId), {
+        rfi_ids: rfiIds,
+        lock_version: lockVersion,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objections'] });
     },
@@ -64,7 +67,9 @@ export const useSubmitObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id) => requestJson('post', route('objections.submit', id)),
+    mutationFn: ({ id, lockVersion }) => requestJson('post', route('objections.submit', id), {
+      lock_version: lockVersion,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objections'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
@@ -79,7 +84,9 @@ export const useReviewObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id) => requestJson('post', route('objections.review', id)),
+    mutationFn: ({ id, lockVersion }) => requestJson('post', route('objections.review', id), {
+      lock_version: lockVersion,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objections'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
@@ -94,8 +101,11 @@ export const useResolveObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, resolutionNotes }) => 
-      requestJson('post', route('objections.resolve', id), { resolution_notes: resolutionNotes }),
+    mutationFn: ({ id, resolutionNotes, lockVersion }) =>
+      requestJson('post', route('objections.resolve', id), {
+        resolution_notes: resolutionNotes,
+        lock_version: lockVersion,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objections'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
@@ -110,8 +120,11 @@ export const useRejectObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, resolutionNotes }) => 
-      requestJson('post', route('objections.reject', id), { resolution_notes: resolutionNotes }),
+    mutationFn: ({ id, resolutionNotes, lockVersion }) =>
+      requestJson('post', route('objections.reject', id), {
+        resolution_notes: resolutionNotes,
+        lock_version: lockVersion,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objections'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
@@ -126,7 +139,9 @@ export const useDeleteObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id) => requestJson('delete', route('objections.destroy', id)),
+    mutationFn: ({ id, lockVersion }) => requestJson('delete', route('objections.destroy', id), {
+      data: { lock_version: lockVersion },
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objections'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });

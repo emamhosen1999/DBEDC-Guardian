@@ -67,6 +67,7 @@ class FormSpecBuilder
                     return $r;
                 }
             }
+
             return null;
         };
 
@@ -80,6 +81,7 @@ class FormSpecBuilder
             [$table, $col] = $this->parseExists($existsRule, $name);
             $field['type'] = 'select';
             $field['options'] = $this->optionsForTable($table, $col);
+
             return $field;
         }
 
@@ -89,26 +91,31 @@ class FormSpecBuilder
                 static fn ($v) => ['value' => $v, 'label' => Str::headline((string) $v)],
                 array_filter(explode(',', Str::after($inRule, 'in:')), static fn ($v) => $v !== '')
             );
+
             return $field;
         }
 
         if ($has('boolean')) {
             $field['type'] = 'toggle';
+
             return $field;
         }
 
         if ($has('date') || $ruleWith('date_format') || Str::endsWith($name, '_date') || in_array($name, ['date', 'punch_time'], true)) {
             $field['type'] = 'date';
+
             return $field;
         }
 
         if ($has('email') || str_contains($name, 'email')) {
             $field['type'] = 'email';
+
             return $field;
         }
 
         if ($has('integer') || $has('numeric') || in_array($name, ['amount', 'quantity', 'total', 'days', 'balance'], true)) {
             $field['type'] = 'number';
+
             return $field;
         }
 
@@ -153,7 +160,7 @@ class FormSpecBuilder
                 $rows = $q->select($table.'.'.$valueCol.' as v', $table.'.'.$labelCol.' as l')
                     ->orderBy($table.'.'.$labelCol)->limit(200)->get();
             } elseif (in_array('user_id', $cols, true) && Schema::hasColumn('users', 'name')) {
-                $rows = $q->join('users', 'users.id', '=', $table.'.user_id')
+                $rows = $q->join('users', 'users.employee_id', '=', $table.'.user_id')
                     ->select($table.'.'.$valueCol.' as v', 'users.name as l')
                     ->orderBy('users.name')->limit(200)->get();
             } else {
@@ -190,6 +197,7 @@ class FormSpecBuilder
                     return $o['value'];
                 }
             }
+
             return null;
         }
 

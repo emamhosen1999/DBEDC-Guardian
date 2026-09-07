@@ -3,17 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\HRM\Holiday;
+use App\Services\Holiday\HolidayAuditService;
+use App\Services\Holiday\HolidayImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class HolidayController extends Controller
 {
-    public function __construct(private \App\Services\Holiday\HolidayAuditService $audit) {}
+    public function __construct(private HolidayAuditService $audit) {}
 
     public function index(): Response
     {
@@ -44,8 +47,64 @@ class HolidayController extends Controller
         ]);
     }
 
+    public function listJson(Request $request): JsonResponse
+    {
+        $query = Holiday::query()->orderBy('from_date');
+
+        if (! $request->boolean('include_inactive')) {
+            $query->active();
+        }
+        if ($request->filled('year')) {
+            $query->whereYear('from_date', (int) $request->input('year'));
+        }
+        if ($request->filled('type')) {
+            $query->byType((string) $request->input('type'));
+        }
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->where(function ($builder) use ($search): void {
+                $builder->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        return response()->json(['holidays' => $query->get()]);
+    }
+
+    public function stats(): JsonResponse
+    {
+        $stats = Cache::remember('holiday_stats', now()->addDay(), function (): array {
+            $currentYearHolidays = Holiday::active()->currentYear()->get();
+
+            return [
+                'total_holidays' => Holiday::active()->count(),
+                'upcoming_holidays' => Holiday::active()->upcoming()->count(),
+                'current_year_holidays' => $currentYearHolidays->count(),
+                'total_holiday_days' => $currentYearHolidays->sum(fn (Holiday $holiday) => $holiday->duration),
+            ];
+        });
+
+        return response()->json(['stats' => $stats]);
+    }
+
+    public function show(Holiday $holiday): JsonResponse
+    {
+        return response()->json(['holiday' => $holiday]);
+    }
+
     public function create(Request $request)
     {
+        // Legacy clients submit edits to the create URL with an id. Route-level
+        // create permission must never authorize that update.
+        abort_unless($request->user()?->can($request->filled('id') ? 'holidays.update' : 'holidays.create'), 403);
+
+        if ($request->filled('from_date') && ! $request->filled('fromDate')) {
+            $request->merge(['fromDate' => $request->input('from_date')]);
+        }
+        if ($request->filled('to_date') && ! $request->filled('toDate')) {
+            $request->merge(['toDate' => $request->input('to_date')]);
+        }
+
         // Validate incoming request
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|exists:holidays,id',
@@ -95,7 +154,6 @@ class HolidayController extends Controller
                 'is_recurring' => $request->boolean('is_recurring', false),
                 'is_active' => $request->boolean('is_active', true),
                 'recurrence_pattern' => $request->boolean('is_recurring', false) ? 'annual_fixed' : null,
-                'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
             ];
 
@@ -111,6 +169,7 @@ class HolidayController extends Controller
                 $message = 'Holiday updated successfully';
             } else {
                 // Create new holiday record
+                $data['created_by'] = Auth::id();
                 $holiday = Holiday::create($data);
 
                 $this->audit->record('create', $holiday->id, null, $holiday->fresh()->toArray());
@@ -134,7 +193,21 @@ class HolidayController extends Controller
         }
     }
 
-    public function copyYear(Request $request, \App\Services\Holiday\HolidayImportService $import): JsonResponse
+    public function update(Request $request, Holiday $holiday)
+    {
+        $request->merge(['id' => $holiday->getKey()]);
+
+        return $this->create($request);
+    }
+
+    public function destroy(Request $request, Holiday $holiday): JsonResponse
+    {
+        $request->merge(['id' => $holiday->getKey()]);
+
+        return $this->delete($request);
+    }
+
+    public function copyYear(Request $request, HolidayImportService $import): JsonResponse
     {
         $validated = $request->validate([
             'fromYear' => 'required|integer|between:2000,2100',
@@ -177,11 +250,10 @@ class HolidayController extends Controller
             // Validate the incoming request
             $request->validate([
                 'id' => 'required|exists:holidays,id',
-                'route' => 'required',
             ]);
 
             // Find the daily work by ID
-            $holiday = Holiday::find($request->query('id'));
+            $holiday = Holiday::find($request->input('id'));
 
             if (! $holiday) {
                 return response()->json(['error' => 'Holiday not found'], 404);
@@ -204,6 +276,8 @@ class HolidayController extends Controller
                 'holidays' => $holidays,
             ], 200);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             // Catch any exceptions and return an error response
             return response()->json(['error' => $e->getMessage()], 500);

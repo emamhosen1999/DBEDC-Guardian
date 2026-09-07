@@ -4,6 +4,7 @@ namespace App\Services\Leave;
 
 use App\Models\HRM\Attendance;
 use App\Models\HRM\Leave;
+use App\Models\HRM\LeaveLedger;
 use App\Models\HRM\LeaveSetting;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\HolidayService;
@@ -32,7 +33,7 @@ class CompOffService
     /**
      * @return int number of grants posted
      */
-    public function scan(CarbonInterface $from, CarbonInterface $to, ?int $userId = null, bool $dryRun = false): int
+    public function scan(CarbonInterface $from, CarbonInterface $to, ?string $userId = null, bool $dryRun = false): int
     {
         $type = LeaveSetting::where('is_comp_off', true)->first();
         if (! $type) {
@@ -61,7 +62,7 @@ class CompOffService
 
         foreach ($worked as $row) {
             $date = Carbon::parse($row->date)->startOfDay();
-            $uid = (int) $row->user_id;
+            $uid = (string) $row->user_id;
 
             $isHoliday = $holidays->contains(fn ($h) => $date->between(
                 Carbon::parse($h->from_date)->startOfDay(),
@@ -104,6 +105,6 @@ class CompOffService
 
     private function alreadyGranted(string $key): bool
     {
-        return \App\Models\HRM\LeaveLedger::where('idempotency_key', $key)->exists();
+        return LeaveLedger::where('idempotency_key', $key)->exists();
     }
 }

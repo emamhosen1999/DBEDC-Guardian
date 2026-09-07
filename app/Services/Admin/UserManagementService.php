@@ -7,6 +7,7 @@ use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
+use App\Models\NotificationToken;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -110,7 +111,7 @@ class UserManagementService
      *
      * @return User The freshly loaded user.
      */
-    public function updateUser(int $id, array $validated, ?array $roles, bool $hasRoles, $profileImage = null): User
+    public function updateUser(string $id, array $validated, ?array $roles, bool $hasRoles, $profileImage = null): User
     {
         return DB::transaction(function () use ($id, $validated, $roles, $hasRoles, $profileImage) {
             $user = User::findOrFail($id);
@@ -262,7 +263,7 @@ class UserManagementService
     /**
      * Update the report_to field for a user.
      */
-    public function updateReportTo(User $user, ?int $reportTo): User
+    public function updateReportTo(User $user, ?string $reportTo): User
     {
         $user->report_to = $reportTo;
         $user->save();
@@ -278,7 +279,7 @@ class UserManagementService
      */
     public function updateFcmToken(User $user, string $fcmToken): User
     {
-        \App\Models\NotificationToken::updateOrCreate(
+        NotificationToken::updateOrCreate(
             ['token' => $fcmToken],
             ['user_id' => $user->id, 'provider' => 'fcm', 'platform' => 'web', 'last_used_at' => now()]
         );
@@ -302,6 +303,7 @@ class UserManagementService
             if ($biometricDeviceIds !== null) {
                 $user->biometricDevices()->sync($this->cleanIds($biometricDeviceIds));
             }
+
             return;
         }
         $ids = collect($this->cleanIds($ids));
@@ -488,7 +490,7 @@ class UserManagementService
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $authUser = auth()->user();
-        if ($authUser && !$authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $authUser->department_id !== null) {
+        if ($authUser && ! $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $authUser->department_id !== null) {
             $department = $authUser->department_id;
         }
 
@@ -502,7 +504,7 @@ class UserManagementService
             } elseif ($status === 'inactive' || $status === 'deleted') {
                 $query->whereNotNull('deleted_at');
             }
-        } elseif (!$showDeleted) {
+        } elseif (! $showDeleted) {
             $query->whereNull('deleted_at');
         }
 
@@ -566,8 +568,8 @@ class UserManagementService
                     'profile_image_url' => $employee->reportsTo->profile_image_url,
                     'designation_name' => $employee->reportsTo->designation?->title,
                 ] : null,
-                'roles' => $employee->roles->map(fn($r) => ['id' => $r->id, 'name' => $r->name]),
-                'single_device_login_enabled' => (bool)$employee->single_device_login_enabled,
+                'roles' => $employee->roles->map(fn ($r) => ['id' => $r->id, 'name' => $r->name]),
+                'single_device_login_enabled' => (bool) $employee->single_device_login_enabled,
                 'created_at' => $employee->created_at,
                 'updated_at' => $employee->updated_at,
             ];

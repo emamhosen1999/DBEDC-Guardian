@@ -2,23 +2,30 @@
 
 use App\Http\Controllers\Api\BiometricWebhookController;
 use App\Http\Controllers\Api\LocaleController;
+use App\Http\Controllers\Api\V1\AccountSecurityController;
 use App\Http\Controllers\Api\V1\AttendanceController as MobileAttendanceController;
 use App\Http\Controllers\Api\V1\AttendanceRequestController as MobileAttendanceRequestController;
 use App\Http\Controllers\Api\V1\AuthController as MobileAuthController;
+use App\Http\Controllers\Api\V1\ClientErrorLogController;
+use App\Http\Controllers\Api\V1\ConfigController;
 use App\Http\Controllers\Api\V1\DailyWorkController as MobileDailyWorkController;
+use App\Http\Controllers\Api\V1\HeartbeatController;
 use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
 use App\Http\Controllers\Api\V1\ManagerDashboardController as MobileManagerDashboardController;
+use App\Http\Controllers\Api\V1\OmMobileApiController;
 use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
+use App\Http\Controllers\Api\V1\RosterController;
 use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
 use App\Http\Controllers\Api\VersionController;
-use App\Http\Controllers\Api\V1\OmMobileApiController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationsMaintenanceController;
+use App\Http\Controllers\OmRenovationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ApiDeviceAuthMiddleware;
+use App\Http\Middleware\SlideTokenExpiration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -197,17 +204,17 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // reporter that only works while auth is healthy cannot report the crashes
     // that matter most (login, token refresh, cold start). A bearer token is
     // still honoured when present, attributing the group to a user.
-    Route::post('/client-errors', [\App\Http\Controllers\Api\V1\ClientErrorLogController::class, 'store'])
+    Route::post('/client-errors', [ClientErrorLogController::class, 'store'])
         ->middleware('throttle:30,1')
         ->name('api.v1.client-errors.store');
 });
 
-Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
-    Route::post('/heartbeat', \App\Http\Controllers\Api\V1\HeartbeatController::class)->middleware('throttle:30,1')->name('api.v1.heartbeat');
+    Route::post('/heartbeat', HeartbeatController::class)->middleware('throttle:30,1')->name('api.v1.heartbeat');
     // Runtime remote config: server-controlled flags the app reads after login
     // and on foreground, so behaviour changes WITHOUT a store release.
-    Route::get('/config', [\App\Http\Controllers\Api\V1\ConfigController::class, 'show'])->name('api.v1.config.show');
+    Route::get('/config', [ConfigController::class, 'show'])->name('api.v1.config.show');
     Route::post('/auth/logout', [MobileAuthController::class, 'logout'])->name('api.v1.auth.logout');
     Route::get('/profile', [MobileProfileController::class, 'show'])->name('api.v1.profile.show');
     Route::put('/profile', [MobileProfileController::class, 'update'])->name('api.v1.profile.update');
@@ -229,22 +236,22 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/attendance/history', [MobileAttendanceController::class, 'history'])->name('api.v1.attendance.history');
     Route::post('/attendance/punch', [MobileAttendanceController::class, 'punch'])->middleware('throttle:20,1')->name('api.v1.attendance.punch');
     Route::get('/attendance/my-roster', [MobileAttendanceRequestController::class, 'myRoster'])->name('api.v1.attendance.my-roster');
-    Route::get('/attendance/roster', [\App\Http\Controllers\Api\V1\RosterController::class, 'index'])->name('api.v1.attendance.roster');
-    Route::get('/attendance/shifts', [\App\Http\Controllers\Api\V1\RosterController::class, 'shifts'])->name('api.v1.attendance.shifts');
+    Route::get('/attendance/roster', [RosterController::class, 'index'])->name('api.v1.attendance.roster');
+    Route::get('/attendance/shifts', [RosterController::class, 'shifts'])->name('api.v1.attendance.shifts');
     Route::post('/attendance/regularizations', [MobileAttendanceRequestController::class, 'storeRegularization'])->name('api.v1.attendance.regularizations.store');
     Route::get('/attendance/regularizations/mine', [MobileAttendanceRequestController::class, 'myRegularizations'])->name('api.v1.attendance.regularizations.mine');
     Route::get('/attendance/regularizations/pending', [MobileAttendanceRequestController::class, 'pendingRegularizations'])->name('api.v1.attendance.regularizations.pending');
     Route::get('/attendance/regularizations/decided', [MobileAttendanceRequestController::class, 'decidedRegularizations'])->name('api.v1.attendance.regularizations.decided');
     Route::post('/attendance/regularizations/{id}/approve', [MobileAttendanceRequestController::class, 'approveRegularization'])->name('api.v1.attendance.regularizations.approve');
     Route::post('/attendance/regularizations/{id}/reject', [MobileAttendanceRequestController::class, 'rejectRegularization'])->name('api.v1.attendance.regularizations.reject');
-    
+
     Route::post('/attendance/overtime', [MobileAttendanceRequestController::class, 'storeOvertime'])->name('api.v1.attendance.overtime.store');
     Route::get('/attendance/overtime/mine', [MobileAttendanceRequestController::class, 'myOvertime'])->name('api.v1.attendance.overtime.mine');
     Route::get('/attendance/overtime/pending', [MobileAttendanceRequestController::class, 'pendingOvertime'])->name('api.v1.attendance.overtime.pending');
     Route::get('/attendance/overtime/decided', [MobileAttendanceRequestController::class, 'decidedOvertime'])->name('api.v1.attendance.overtime.decided');
     Route::post('/attendance/overtime/{id}/approve', [MobileAttendanceRequestController::class, 'approveOvertime'])->name('api.v1.attendance.overtime.approve');
     Route::post('/attendance/overtime/{id}/reject', [MobileAttendanceRequestController::class, 'rejectOvertime'])->name('api.v1.attendance.overtime.reject');
-    
+
     Route::get('/attendance/swaps/pending', [MobileAttendanceRequestController::class, 'pendingSwaps'])->name('api.v1.attendance.swaps.pending');
     Route::get('/attendance/swaps/team-decided', [MobileAttendanceRequestController::class, 'teamDecidedSwaps'])->name('api.v1.attendance.swaps.team-decided');
     Route::post('/attendance/swaps/{id}/approve', [MobileAttendanceRequestController::class, 'approveSwap'])->name('api.v1.attendance.swaps.approve');
@@ -300,29 +307,117 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::post('/notifications/token', [NotificationController::class, 'storeToken'])->name('api.v1.notifications.token.store');
 
     // Operations & Maintenance (O&M) and Traffic Monitoring Center (TMC) Mobile API Endpoints
-    Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])->name('api.v1.om.dashboard');
-    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])->name('api.v1.om.traffic');
-    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])->name('api.v1.om.toll');
-    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])->name('api.v1.om.incidents');
-    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])->name('api.v1.om.incidents.store');
-    Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])->name('api.v1.om.work-orders');
-    Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])->name('api.v1.om.work-orders.store');
-    Route::get('/om/defects', [OperationsMaintenanceController::class, 'defects'])->name('api.v1.om.defects');
-    Route::post('/om/defects', [OperationsMaintenanceController::class, 'storeDefect'])->name('api.v1.om.defects.store');
-    Route::get('/om/assets', [OperationsMaintenanceController::class, 'assets'])->name('api.v1.om.assets');
-    Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])->name('api.v1.om.equipment');
-    Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])->name('api.v1.om.shift-logs');
-    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])->name('api.v1.om.vms.update');
+    Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.dashboard');
+    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])
+        ->middleware('permission:om.traffic.view')->name('api.v1.om.traffic');
+    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])
+        ->middleware('permission:om.toll.view')->name('api.v1.om.toll');
+    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])
+        ->middleware('permission:om.incidents.view')->name('api.v1.om.incidents');
+    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.incidents.store');
+    Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.work-orders');
+    Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.work-orders.store');
+    Route::get('/om/defects', [OperationsMaintenanceController::class, 'defects'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.defects');
+    Route::post('/om/defects', [OperationsMaintenanceController::class, 'storeDefect'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.defects.store');
+    Route::get('/om/assets', [OperationsMaintenanceController::class, 'assets'])
+        ->middleware('permission:om.equipment.view')->name('api.v1.om.assets');
+    Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])
+        ->middleware('permission:om.equipment.view')->name('api.v1.om.equipment');
+    Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.shift-logs');
+    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])
+        ->middleware('permission:om.traffic.manage')->name('api.v1.om.vms.update');
 
     // Dedicated Field Worker API
-    Route::get('/om/field/overview', [OmMobileApiController::class, 'fieldOverview'])->name('api.v1.om.field.overview');
-    Route::post('/om/field/defects', [OmMobileApiController::class, 'logDefect'])->name('api.v1.om.field.defect.log');
-    Route::post('/om/field/incidents/{id}', [OmMobileApiController::class, 'updateIncident'])->name('api.v1.om.field.incident.update');
-    Route::post('/om/field/work-orders/{id}', [OmMobileApiController::class, 'updateWorkOrder'])->name('api.v1.om.field.work-order.update');
+    Route::get('/om/field/overview', [OmMobileApiController::class, 'fieldOverview'])
+        ->middleware('permission:om.dashboard.view|om.incidents.view|om.incidents.manage|om.maintenance.view|om.maintenance.manage')
+        ->name('api.v1.om.field.overview');
+    Route::post('/om/field/defects', [OmMobileApiController::class, 'logDefect'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.defect.log');
+    Route::post('/om/field/incidents/{id}', [OmMobileApiController::class, 'updateIncident'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.incident.update');
+    Route::post('/om/field/work-orders/{id}', [OmMobileApiController::class, 'updateWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.work-order.update');
+
+    // Phase 1 Mobile API: Inspections, Safety, Full Incident Creation, PM Overview
+    Route::get('/om/preventive-maintenance', [OmRenovationController::class, 'preventiveMaintenance'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.pm');
+    Route::get('/om/inspections', [OmRenovationController::class, 'inspections'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.inspections');
+    Route::post('/om/field/inspections', [OmRenovationController::class, 'submitInspection'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.inspection.submit');
+    Route::get('/om/sla-compliance', [OmRenovationController::class, 'slaCompliance'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.sla');
+    Route::get('/om/analytics', [OmRenovationController::class, 'analytics'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.analytics');
+    Route::get('/om/safety', [OmRenovationController::class, 'safety'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.safety');
+    Route::post('/om/field/safety', [OmRenovationController::class, 'storeSafetyIncident'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.safety.report');
+    Route::get('/om/assets/{id}/timeline', [OmRenovationController::class, 'assetTimeline'])
+        ->middleware('permission:om.equipment.view')->name('api.v1.om.assets.timeline');
+    Route::post('/om/field/incidents/create', [OmMobileApiController::class, 'createIncident'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.incident.create');
+    Route::post('/om/field/patrol/start', [OmMobileApiController::class, 'startPatrol'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.patrol.start');
+    Route::post('/om/field/patrol/end/{id}', [OmMobileApiController::class, 'endPatrol'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.patrol.end');
+
+    // Phase 2 Mobile API: Asset Lookup, Materials Logging, Toolbox Talks, Calendar, Contractors, Environmental
+    Route::get('/om/assets/lookup/{identifier}', [OmRenovationController::class, 'lookupAsset'])
+        ->middleware('permission:om.equipment.view')->name('api.v1.om.assets.lookup');
+    Route::get('/om/work-orders/calendar', [OmRenovationController::class, 'workOrderCalendar'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.work-orders.calendar');
+    Route::post('/om/field/work-orders/{id}/materials', [OmRenovationController::class, 'logWorkOrderMaterial'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.work-orders.materials');
+    Route::get('/om/contractors', [OmRenovationController::class, 'contractors'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.contractors');
+    Route::post('/om/field/contractors', [OmRenovationController::class, 'storeContractor'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.contractors.store');
+    Route::get('/om/inventory', [OmRenovationController::class, 'inventory'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.inventory');
+    Route::get('/om/environmental', [OmRenovationController::class, 'environmental'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.environmental');
+    Route::post('/om/field/environmental', [OmRenovationController::class, 'storeEnvironmentalLog'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.environmental.store');
+    Route::get('/om/toolbox-talks', [OmRenovationController::class, 'toolboxTalks'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.toolbox-talks');
+    Route::post('/om/field/toolbox-talks', [OmRenovationController::class, 'storeToolboxTalk'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.toolbox-talks.store');
+
+    // Phase 3 Mobile API: TPPD Claims, Patrol IRI Telemetry, WIM Overload, Deterioration & RCM
+    Route::get('/om/tppd-claims', [OmRenovationController::class, 'tppdClaims'])
+        ->middleware('permission:om.incidents.view')->name('api.v1.om.tppd');
+    Route::post('/om/field/tppd-claims', [OmRenovationController::class, 'storeTppdClaim'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.tppd.store');
+    Route::post('/om/field/tppd-claims/{id}/status', [OmRenovationController::class, 'updateTppdStatus'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.tppd.status');
+    Route::get('/om/iri-roughness', [OmRenovationController::class, 'iriHeatmap'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.iri');
+    Route::post('/om/field/iri-telemetry', [OmRenovationController::class, 'storeIriTelemetry'])
+        ->middleware('permission:om.incidents.manage')->name('api.v1.om.field.iri.telemetry');
+    Route::get('/om/wim-overload', [OmRenovationController::class, 'wimOverloadAnalytics'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.wim');
+    Route::get('/om/pavement-deterioration', [OmRenovationController::class, 'pavementDeterioration'])
+        ->middleware('permission:om.dashboard.view')->name('api.v1.om.pavement.deterioration');
+    Route::get('/om/its-rcm', [OmRenovationController::class, 'rcmReliability'])
+        ->middleware('permission:om.equipment.view')->name('api.v1.om.its.rcm');
+    Route::get('/om/ai-distress-queue', [OmRenovationController::class, 'aiDistressQueue'])
+        ->middleware('permission:om.maintenance.view')->name('api.v1.om.ai-distress');
+    Route::post('/om/field/ai-distress-batch', [OmRenovationController::class, 'storeAiDetectionsMobile'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.ai-distress.store');
+    Route::post('/om/ai-distress/batch-convert', [OmRenovationController::class, 'batchConvertAiDetections'])
+        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.ai-distress.convert');
 
     // Self-service account security (scoped to the authenticated user).
-    Route::post('/account/change-password', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'changePassword'])->name('api.v1.account.change-password');
-    Route::get('/account/devices', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'devices'])->name('api.v1.account.devices.index');
-    Route::post('/account/devices/{device}/revoke', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'revokeDevice'])->whereNumber('device')->name('api.v1.account.devices.revoke');
-    Route::post('/account/sign-out-all', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'signOutAll'])->name('api.v1.account.sign-out-all');
+    Route::post('/account/change-password', [AccountSecurityController::class, 'changePassword'])->name('api.v1.account.change-password');
+    Route::get('/account/devices', [AccountSecurityController::class, 'devices'])->name('api.v1.account.devices.index');
+    Route::post('/account/devices/{device}/revoke', [AccountSecurityController::class, 'revokeDevice'])->whereNumber('device')->name('api.v1.account.devices.revoke');
+    Route::post('/account/sign-out-all', [AccountSecurityController::class, 'signOutAll'])->name('api.v1.account.sign-out-all');
 });

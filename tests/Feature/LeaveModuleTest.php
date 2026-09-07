@@ -7,6 +7,8 @@ use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\ShiftSchedule;
+use App\Services\Leave\LeaveLedgerService;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -32,7 +34,7 @@ class LeaveModuleTest extends TestCase
         // here — these tests assert leave-count behavior, not roster logic).
         $this->app->bind(ScheduleResolver::class, fn () => new class implements ScheduleResolver
         {
-            public function resolve(int $userId, \Carbon\CarbonInterface $date): ShiftSchedule
+            public function resolve(int|string $userId, CarbonInterface $date): ShiftSchedule
             {
                 return new ShiftSchedule(
                     start: $date->copy()->setTime(9, 0), end: $date->copy()->setTime(17, 0),
@@ -277,7 +279,7 @@ class LeaveModuleTest extends TestCase
         $this->actingAs($this->user);
 
         // Seed opening balance on the ledger
-        app(\App\Services\Leave\LeaveLedgerService::class)->post(
+        app(LeaveLedgerService::class)->post(
             $this->user->id,
             $this->leaveSetting->id,
             now()->year,
@@ -287,7 +289,7 @@ class LeaveModuleTest extends TestCase
         );
 
         // Consume some leave
-        app(\App\Services\Leave\LeaveLedgerService::class)->post(
+        app(LeaveLedgerService::class)->post(
             $this->user->id,
             $this->leaveSetting->id,
             now()->year,

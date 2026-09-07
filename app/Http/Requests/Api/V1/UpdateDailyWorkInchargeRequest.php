@@ -15,6 +15,7 @@ class UpdateDailyWorkInchargeRequest extends FormRequest
     {
         return [
             'incharge' => ['present', 'nullable', 'string', 'exists:users,employee_id'],
+            'lock_version' => ['sometimes', 'integer', 'min:0'],
         ];
     }
 }

@@ -2,31 +2,34 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\HRM\AttendanceRegularization;
 use App\Models\HRM\CompOffLedger;
+use App\Models\HRM\Designation;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\HRM\RosterDay;
+use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
+use App\Services\Attendance\AttendanceApprovalService;
 use App\Services\Attendance\CompOffService;
 use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\ShiftSwapService;
-use App\Services\Attendance\AttendanceApprovalService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
-use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 
 class AttendanceRequestController extends Controller
 {
-    use ResolvesTeamMembers;
     use ApiResponse;
+    use ResolvesTeamMembers;
 
     public function __construct(
         private readonly RegularizationService $regularization,
@@ -45,11 +48,11 @@ class AttendanceRequestController extends Controller
     public function storeRegularization(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'date'               => 'required|date',
-            'type'               => 'required|in:missing_punchin,missing_punchout,wrong_time,missed_day,other',
-            'requested_punchin'  => 'nullable|date',
+            'date' => 'required|date',
+            'type' => 'required|in:missing_punchin,missing_punchout,wrong_time,missed_day,other',
+            'requested_punchin' => 'nullable|date',
             'requested_punchout' => 'nullable|date',
-            'reason'             => 'required|string|max:500',
+            'reason' => 'required|string|max:500',
         ]);
 
         // RegularizationService owns every side effect (approver notification +
@@ -148,9 +151,9 @@ class AttendanceRequestController extends Controller
     public function storeOvertime(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'date'              => 'required|date',
+            'date' => 'required|date',
             'requested_minutes' => 'required|integer|min:1|max:1440',
-            'reason'            => 'required|string|max:500',
+            'reason' => 'required|string|max:500',
         ]);
 
         // OvertimeService owns every side effect (approver notification +
@@ -281,7 +284,7 @@ class AttendanceRequestController extends Controller
 
         return $this->successResponse([
             'balance_minutes' => $balance,
-            'entries'         => $entries,
+            'entries' => $entries,
         ]);
     }
 
@@ -292,15 +295,15 @@ class AttendanceRequestController extends Controller
     public function myRoster(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'from'    => 'required|date',
-            'to'      => 'required|date|after_or_equal:from',
+            'from' => 'required|date',
+            'to' => 'required|date|after_or_equal:from',
             'user_id' => 'nullable|string|exists:users,employee_id',
         ]);
 
         $targetUser = $request->user();
 
         if ($request->filled('user_id')) {
-            $userId = (int) $data['user_id'];
+            $userId = (string) $data['user_id'];
             if ($userId !== $request->user()->id) {
                 if (! $this->isManagerUser($request->user())) {
                     return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
@@ -324,14 +327,14 @@ class AttendanceRequestController extends Controller
 
         $days = $rows->keyBy(fn ($row) => $row->date->format('Y-m-d'))
             ->map(fn ($row) => [
-                'code'             => $row->shift?->code,
-                'name'             => $row->shift?->name,
-                'color'            => $row->shift?->color,
-                'type'             => $row->shift?->type,
-                'start'            => $formatTime($row->shift?->start_time),
-                'end'              => $formatTime($row->shift?->end_time),
+                'code' => $row->shift?->code,
+                'name' => $row->shift?->name,
+                'color' => $row->shift?->color,
+                'type' => $row->shift?->type,
+                'start' => $formatTime($row->shift?->start_time),
+                'end' => $formatTime($row->shift?->end_time),
                 'crosses_midnight' => (bool) ($row->shift?->crosses_midnight ?? false),
-                'off'              => $row->shift_id === null,
+                'off' => $row->shift_id === null,
             ]);
 
         $overlay = $this->overlay->forRange([$targetUser->id], $data['from'], $data['to']);
@@ -361,13 +364,13 @@ class AttendanceRequestController extends Controller
     public function storeSwap(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'type'              => 'required|in:swap,cover,pickup',
+            'type' => 'required|in:swap,cover,pickup',
             // A pickup gives up nothing → requester_date is not sent; every other
             // type still requires it. counterparty_date is the shift being picked up.
-            'requester_date'    => 'nullable|required_unless:type,pickup|date',
-            'counterparty_id'   => 'required|string|exists:users,employee_id',
+            'requester_date' => 'nullable|required_unless:type,pickup|date',
+            'counterparty_id' => 'required|string|exists:users,employee_id',
             'counterparty_date' => 'nullable|required_if:type,pickup|date',
-            'reason'            => 'nullable|string|max:500',
+            'reason' => 'nullable|string|max:500',
         ]);
 
         $requester = $request->user();
@@ -407,7 +410,7 @@ class AttendanceRequestController extends Controller
         );
 
         return $this->successResponse(
-            $swap->load(['counterparty:id,name']),
+            $swap->load(['counterparty:employee_id,name']),
             'Swap request sent to the counterparty for confirmation.',
             201
         );
@@ -421,7 +424,7 @@ class AttendanceRequestController extends Controller
         // groups by status, so nothing is excluded here.
         $userId = $request->user()->id;
 
-        $swaps = ShiftSwapRequest::with(['requester:id,name', 'counterparty:id,name'])
+        $swaps = ShiftSwapRequest::with(['requester:employee_id,name', 'counterparty:employee_id,name'])
             ->where(function ($query) use ($userId) {
                 $query->where('requester_id', $userId)
                     ->orWhere('counterparty_id', $userId);
@@ -434,7 +437,7 @@ class AttendanceRequestController extends Controller
 
     public function swapsAwaitingMe(Request $request): JsonResponse
     {
-        $swaps = ShiftSwapRequest::with(['requester:id,name'])
+        $swaps = ShiftSwapRequest::with(['requester:employee_id,name'])
             ->where('counterparty_id', $request->user()->id)
             ->where('counterparty_status', 'pending')
             ->orderByDesc('created_at')
@@ -478,9 +481,9 @@ class AttendanceRequestController extends Controller
      * Roles are pinned to the web guard because this API runs under sanctum
      * (the default-guard lookup would otherwise throw RoleDoesNotExist).
      *
-     * @return \Illuminate\Support\Collection<int, User> id + name (+ media) only
+     * @return Collection<int, User> id + name (+ media) only
      */
-    private function deptRankEligibleTeammates(User $user): \Illuminate\Support\Collection
+    private function deptRankEligibleTeammates(User $user): Collection
     {
         $uid = (string) ($user->employee_id ?? $user->getKey());
         $query = User::role('Employee', 'web')
@@ -489,14 +492,14 @@ class AttendanceRequestController extends Controller
 
         // Only include teammates with same or lower designation (higher hierarchy_level number).
         $requesterLevel = $user->designation_id
-            ? \App\Models\HRM\Designation::where('id', $user->designation_id)->value('hierarchy_level')
+            ? Designation::where('id', $user->designation_id)->value('hierarchy_level')
             : null;
 
         if ($requesterLevel !== null) {
             $query->leftJoin('designations', 'users.designation_id', '=', 'designations.id')
                 ->where(function ($q) use ($requesterLevel) {
                     $q->where('designations.hierarchy_level', '>=', $requesterLevel)
-                      ->orWhereNull('users.designation_id');
+                        ->orWhereNull('users.designation_id');
                 })
                 ->select('users.employee_id as id', 'users.employee_id', 'users.name');
         }
@@ -557,7 +560,7 @@ class AttendanceRequestController extends Controller
     {
         $data = $request->validate([
             'from' => 'nullable|date',
-            'to'   => 'nullable|date|after_or_equal:from',
+            'to' => 'nullable|date|after_or_equal:from',
         ]);
 
         $user = $request->user();
@@ -600,13 +603,13 @@ class AttendanceRequestController extends Controller
             // Only shifts the requester can actually take (they are free → no double-booking).
             ->filter(fn ($r) => $isRequesterFree($r->date->toDateString()))
             ->map(fn ($r) => [
-                'date'             => $r->date->format('Y-m-d'),
-                'counterparty_id'  => $r->user_id,
+                'date' => $r->date->format('Y-m-d'),
+                'counterparty_id' => $r->user_id,
                 'counterparty_name' => $names[$r->user_id] ?? null,
-                'shift_code'       => $r->shift?->code,
-                'shift_name'       => $r->shift?->name,
-                'start'            => $fmt($r->shift?->start_time),
-                'end'              => $fmt($r->shift?->end_time),
+                'shift_code' => $r->shift?->code,
+                'shift_name' => $r->shift?->name,
+                'start' => $fmt($r->shift?->start_time),
+                'end' => $fmt($r->shift?->end_time),
             ])
             ->values();
 
@@ -621,8 +624,8 @@ class AttendanceRequestController extends Controller
     {
         $data = $request->validate([
             'counterparty_id' => 'required|string|exists:users,employee_id',
-            'from'            => 'required|date',
-            'to'              => 'required|date|after_or_equal:from',
+            'from' => 'required|date',
+            'to' => 'required|date|after_or_equal:from',
         ]);
 
         $user = $request->user();
@@ -642,11 +645,11 @@ class AttendanceRequestController extends Controller
             ->orderBy('date')
             ->get()
             ->map(fn ($r) => [
-                'date'  => $r->date->format('Y-m-d'),
-                'code'  => $r->shift?->code,
-                'name'  => $r->shift?->name,
+                'date' => $r->date->format('Y-m-d'),
+                'code' => $r->shift?->code,
+                'name' => $r->shift?->name,
                 'start' => $fmt($r->shift?->start_time),
-                'end'   => $fmt($r->shift?->end_time),
+                'end' => $fmt($r->shift?->end_time),
             ])
             ->values();
 
@@ -719,9 +722,9 @@ class AttendanceRequestController extends Controller
      * Decorate each swap with requester_shift_code / counterparty_shift_code
      * from the effective roster (shared by pendingSwaps + teamDecidedSwaps).
      */
-    private function decorateSwapShiftCodes(\Illuminate\Support\Collection $swaps): void
+    private function decorateSwapShiftCodes(Collection $swaps): void
     {
-        $shifts = \App\Models\HRM\Shift::all()->keyBy('id');
+        $shifts = Shift::all()->keyBy('id');
 
         $swaps->each(function ($swap) use ($shifts) {
             // Prefer the snapshot captured at request time. requester_shift_code

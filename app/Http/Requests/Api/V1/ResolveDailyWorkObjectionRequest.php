@@ -15,6 +15,7 @@ class ResolveDailyWorkObjectionRequest extends FormRequest
     {
         return [
             'resolution_notes' => ['required', 'string', 'max:5000'],
+            'lock_version' => ['sometimes', 'integer', 'min:0'],
         ];
     }
 }

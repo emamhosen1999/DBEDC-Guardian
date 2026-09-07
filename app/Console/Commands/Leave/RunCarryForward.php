@@ -16,7 +16,7 @@ class RunCarryForward extends Command
     {
         $to = $this->option('to') ? (int) $this->option('to') : Carbon::now()->year;
         $from = $this->option('from') ? (int) $this->option('from') : $to - 1;
-        $userId = $this->option('user') ? (int) $this->option('user') : null;
+        $userId = $this->option('user') ? (string) $this->option('user') : null;
 
         $posted = $carry->rollOver($from, $to, $userId, (bool) $this->option('dry-run'));
         $this->info("Carry-forward {$from}->{$to}: {$posted} posting(s)".($this->option('dry-run') ? ' (dry-run)' : ''));

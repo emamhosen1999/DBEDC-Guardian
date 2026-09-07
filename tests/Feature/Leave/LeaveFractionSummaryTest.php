@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\ShiftSchedule;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -20,7 +21,7 @@ class LeaveFractionSummaryTest extends TestCase
     {
         $this->app->bind(ScheduleResolver::class, fn () => new class implements ScheduleResolver
         {
-            public function resolve(int $userId, \Carbon\CarbonInterface $date): ShiftSchedule
+            public function resolve(int|string $userId, CarbonInterface $date): ShiftSchedule
             {
                 return new ShiftSchedule(
                     start: $date->copy()->setTime(9, 0), end: $date->copy()->setTime(17, 0),

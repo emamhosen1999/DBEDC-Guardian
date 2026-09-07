@@ -7,13 +7,14 @@ use App\Models\User;
 use App\Services\Attendance\Contracts\PolicyResolver;
 use App\Services\Attendance\DTO\PolicyProfile;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 class DbPolicyResolver implements PolicyResolver
 {
     /** @var array<int, ?User> Per-instance user lookup cache (avoids re-querying the same user per day). */
     private array $userCache = [];
 
-    /** @var array<string, \Illuminate\Support\Collection> Per-instance active-policy candidates keyed by date. */
+    /** @var array<string, Collection> Per-instance active-policy candidates keyed by date. */
     private array $candidatesByDate = [];
 
     public function resolve(int|string $userId, CarbonInterface $date): PolicyProfile
@@ -36,8 +37,8 @@ class DbPolicyResolver implements PolicyResolver
         $match = $candidates
             ->filter(fn ($p) => match ($p->scope_type) {
                 'user' => (string) $p->scope_id === (string) $userId,
-                'designation' => $user && $p->scope_id === $user->designation_id,
-                'department' => $user && $p->scope_id === $user->department_id,
+                'designation' => $user && (string) $p->scope_id === (string) $user->designation_id,
+                'department' => $user && (string) $p->scope_id === (string) $user->department_id,
                 'org' => true,
                 default => false,
             })

@@ -86,9 +86,10 @@ const HolidayForm = ({ open, closeModal, setHolidaysData, currentHoliday }) => {
                 is_recurring: formData.is_recurring,
                 is_active: formData.is_active,
             };
-            if (currentHoliday) submitData.id = currentHoliday.id;
-            const response = await axios.post(route('holiday-add'), submitData);
-            if (response.status === 200) {
+            const response = currentHoliday
+                ? await axios.put(route('holiday-update', { holiday: currentHoliday.id }), submitData)
+                : await axios.post(route('holiday-add'), submitData);
+            if (response.status === 200 || response.status === 201) {
                 setHolidaysData(response.data.holidays);
                 showToast.success(response.data.message || 'Holiday saved successfully!');
                 closeModal();

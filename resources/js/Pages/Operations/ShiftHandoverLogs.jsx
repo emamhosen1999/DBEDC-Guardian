@@ -12,14 +12,19 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
+import { showOperationMutationErrors } from './mutationFeedback';
 
 export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.shift.manage') || auth?.roles?.includes('Super Administrator');
     const [openModal, setOpenModal] = useState(false);
     const [shiftDate, setShiftDate] = useState(new Date().toISOString().split('T')[0]);
     const [shiftType, setShiftType] = useState('morning');
     const [weather, setWeather] = useState('clear');
-    const [notes, setNotes] = useState('All carriageways running normal. Patrol Unit 1 on route.');
-    const [exceptions, setExceptions] = useState('None. All CCTV cameras and VMS boards functional.');
+    const [notes, setNotes] = useState('');
+    const [exceptions, setExceptions] = useState('');
 
     const logs = shiftLogs?.data || [];
 
@@ -34,17 +39,22 @@ export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
         }, {
             onSuccess: () => {
                 setOpenModal(false);
-            }
+            },
+            onError: showOperationMutationErrors,
         });
     };
 
-    const handleAcknowledge = (id) => {
-        router.post(`/om/shift-logs/${id}/acknowledge`, {});
+    const handleAcknowledge = (log) => {
+        router.post(`/om/shift-logs/${log.id}/acknowledge`, {
+            lock_version: log.lock_version,
+        }, {
+            onError: showOperationMutationErrors,
+        });
     };
 
     const metrics = activeMetrics || {
-        open_incidents_count: 2,
-        active_lane_closures_count: 1,
+        open_incidents_count: 0,
+        active_lane_closures_count: 0,
         cctv_offline_count: 0,
         vms_offline_count: 0,
         wim_offline_count: 0,
@@ -78,9 +88,9 @@ export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
                                         </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="amber" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                {canManage && <Button color="amber" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                     <PlusIcon width={16} height={16} /> Submit Shift Handover
-                                </Button>
+                                </Button>}
                             </Flex>
                         </Box>
 
@@ -137,11 +147,11 @@ export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
                                                     <Badge color="green" variant="soft">
                                                         <CheckCircleIcon width={12} height={12} /> Acknowledged
                                                     </Badge>
-                                                ) : (
-                                                    <Button size="1" color="amber" onClick={() => handleAcknowledge(log.id)}>
+                                                ) : canManage ? (
+                                                    <Button size="1" color="amber" onClick={() => handleAcknowledge(log)}>
                                                         Sign & Accept
                                                     </Button>
-                                                )}
+                                                ) : null}
                                             </Table.Cell>
                                         </Table.Row>
                                     ))}
@@ -153,7 +163,7 @@ export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
             </Flex>
 
             {/* Shift Handover Modal */}
-            <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
+            <Dialog.Root open={canManage && openModal} onOpenChange={setOpenModal}>
                 <Dialog.Content style={{ maxWidth: 520 }}>
                     <Dialog.Title>Submit Shift Handover Log</Dialog.Title>
                     <Dialog.Description size="2" mb="4">

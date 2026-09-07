@@ -22,6 +22,8 @@ use App\Services\Sync\DataSyncService;
  */
 class DailyWorkSyncVisibilityObserver
 {
+    // Run inside the write transaction, before Eloquent synchronizes original
+    // ownership. Only remote notifications are deferred to after commit.
     public function __construct(private readonly DataSyncService $sync) {}
 
     /**

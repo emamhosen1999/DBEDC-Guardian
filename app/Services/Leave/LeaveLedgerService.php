@@ -6,6 +6,7 @@ use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveLedger;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,14 +16,14 @@ use Illuminate\Support\Facades\DB;
 class LeaveLedgerService
 {
     public function post(
-        int $userId,
+        string $userId,
         int $leaveTypeId,
         int $year,
         string $txnType,
         float $amount,
         ?string $sourceType = null,
         ?int $sourceId = null,
-        ?int $actorId = null,
+        ?string $actorId = null,
         ?string $reason = null,
         ?string $idempotencyKey = null
     ): LeaveLedger {
@@ -57,7 +58,7 @@ class LeaveLedgerService
                     'idempotency_key' => $idempotencyKey,
                 ]);
             });
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Unique-key race on idempotency_key: another process posted it first.
             if ($idempotencyKey !== null && (string) $e->getCode() === '23000') {
                 $existing = LeaveLedger::where('idempotency_key', $idempotencyKey)->first();
@@ -69,7 +70,7 @@ class LeaveLedgerService
         }
     }
 
-    public function balance(int $userId, int $leaveTypeId, int $year): float
+    public function balance(string $userId, int $leaveTypeId, int $year): float
     {
         $last = LeaveLedger::query()
             ->where('user_id', $userId)->where('leave_type', $leaveTypeId)->where('period_year', $year)
@@ -78,7 +79,7 @@ class LeaveLedgerService
         return (float) ($last ?? 0);
     }
 
-    public function available(int $userId, int $leaveTypeId, ?CarbonInterface $asOf = null): float
+    public function available(string $userId, int $leaveTypeId, ?CarbonInterface $asOf = null): float
     {
         $year = ($asOf ?? Carbon::now())->year;
 
@@ -90,7 +91,7 @@ class LeaveLedgerService
      * Enforcement is dormant until the ledger is seeded, so leave isn't blocked
      * on un-onboarded types — distinguishes "0 because used up" from "untracked".
      */
-    public function isTracked(int $userId, int $leaveTypeId, int $year): bool
+    public function isTracked(string $userId, int $leaveTypeId, int $year): bool
     {
         return LeaveLedger::where('user_id', $userId)->where('leave_type', $leaveTypeId)
             ->where('period_year', $year)->exists();
@@ -110,7 +111,7 @@ class LeaveLedgerService
         }
 
         $this->post(
-            (int) $leave->user_id, (int) $leave->leave_type, (int) Carbon::parse($leave->from_date)->year,
+            (string) $leave->user_id, (int) $leave->leave_type, (int) Carbon::parse($leave->from_date)->year,
             'consumption', -(float) $leave->no_of_days, 'leave', $leave->id, null, 'Leave taken'
         );
     }

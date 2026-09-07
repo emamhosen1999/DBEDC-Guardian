@@ -60,9 +60,9 @@ class LeaveApprovalService
         // (designations are hierarchical via parent_id; root = top of the tree).
         $departmentHead = $user->department_id
             ? User::where('department_id', $user->department_id)
-                ->where('id', '!=', $user->id)
+                ->where('employee_id', '!=', $user->id)
                 ->when($directManagerId, function ($query) use ($directManagerId) {
-                    $query->where('id', '!=', $directManagerId);
+                    $query->where('employee_id', '!=', $directManagerId);
                 })
                 ->whereIn('designation_id', function ($query) use ($user) {
                     $query->select('id')
@@ -71,7 +71,7 @@ class LeaveApprovalService
                         ->whereNull('parent_id')
                         ->whereNull('deleted_at');
                 })
-                ->orderBy('id')
+                ->orderBy('employee_id')
                 ->first()
             : null;
 
@@ -209,7 +209,7 @@ class LeaveApprovalService
             if ($override) {
                 // Capture who was still waiting BEFORE recordAdminOverride marks
                 // them 'superseded', so we can close their loop post-commit.
-                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (int) $approver->id);
+                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (string) $approver->id);
 
                 $chain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'approved', $comments);
 
@@ -346,7 +346,7 @@ class LeaveApprovalService
             if ($override && ! $isCurrentApprover) {
                 // Admin rejects a leave they are not the chain approver for.
                 // Capture still-pending approvers before they are superseded.
-                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (int) $approver->id);
+                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (string) $approver->id);
                 $approvalChain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'rejected', $reason);
                 $auditAction = 'admin_override';
             } else {
@@ -582,7 +582,7 @@ class LeaveApprovalService
      * @param  array<int, array<string, mixed>>  $chain
      * @return array<int, int>
      */
-    protected function pendingApproverIds(array $chain, int $actorId): array
+    protected function pendingApproverIds(array $chain, string $actorId): array
     {
         $ids = [];
 
@@ -666,7 +666,7 @@ class LeaveApprovalService
      * both subscribe there. actorId is the acting user, so their own device
      * self-suppresses while every other viewer refetches.
      */
-    protected function signalLeaveChange(?int $actorId, string $action): void
+    protected function signalLeaveChange(?string $actorId, string $action): void
     {
         try {
             app(RealtimeSignal::class)->touch('leave', 'all', $actorId, $action);

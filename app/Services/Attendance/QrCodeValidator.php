@@ -2,6 +2,7 @@
 
 namespace App\Services\Attendance;
 
+use App\Models\HRM\Attendance;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -147,18 +148,18 @@ class QrCodeValidator extends BaseAttendanceValidator
         }
 
         // Query the database in real-time to check if this QR code has already been successfully scanned in a punch
-        return \App\Models\HRM\Attendance::where(function ($query) use ($codeId, $codeVal) {
-            $query->where('punchin_location', 'like', '%"qr_code":"' . $codeId . '"%')
-                  ->orWhere('punchout_location', 'like', '%"qr_code":"' . $codeId . '"%')
-                  ->orWhere('punchin_location', 'like', '%"qr_code":"' . $codeVal . '"%')
-                  ->orWhere('punchout_location', 'like', '%"qr_code":"' . $codeVal . '"%');
+        return Attendance::where(function ($query) use ($codeId, $codeVal) {
+            $query->where('punchin_location', 'like', '%"qr_code":"'.$codeId.'"%')
+                ->orWhere('punchout_location', 'like', '%"qr_code":"'.$codeId.'"%')
+                ->orWhere('punchin_location', 'like', '%"qr_code":"'.$codeVal.'"%')
+                ->orWhere('punchout_location', 'like', '%"qr_code":"'.$codeVal.'"%');
         })->exists();
     }
 
     /**
      * Mark QR code as used
      */
-    private function markQrCodeAsUsed(string $codeId, ?int $userId): void
+    private function markQrCodeAsUsed(string $codeId, ?string $userId): void
     {
         $cacheKey = "qr_code_used:{$codeId}";
 

@@ -15,7 +15,7 @@ class RunLeaveAccrual extends Command
     public function handle(LeaveAccrualService $accrual): int
     {
         $month = $this->option('month') ? Carbon::createFromFormat('Y-m', $this->option('month')) : Carbon::now();
-        $userId = $this->option('user') ? (int) $this->option('user') : null;
+        $userId = $this->option('user') ? (string) $this->option('user') : null;
 
         $posted = $accrual->accrueMonthly($month->year, $month->month, $userId, (bool) $this->option('dry-run'));
         $this->info("Accrual {$month->format('Y-m')}: {$posted} posting(s)".($this->option('dry-run') ? ' (dry-run)' : ''));

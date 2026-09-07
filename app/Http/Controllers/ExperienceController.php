@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Experience;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class ExperienceController extends Controller
 {
@@ -12,6 +13,7 @@ class ExperienceController extends Controller
     {
         try {
             $validated = $request->validate([
+                'experiences' => 'required|array|min:1',
                 'experiences.*.id' => 'nullable|exists:experiences,id',
                 'experiences.*.company_name' => 'required|string|max:255',
                 'experiences.*.location' => 'required|string|max:255',
@@ -33,6 +35,9 @@ class ExperienceController extends Controller
                 'experiences.*.user_id.exists' => 'The specified user ID does not exist.',
             ]);
 
+            $targetUserId = $this->singleTargetUserId($validated['experiences']);
+            $this->authorizeProfileUpdate($request, $targetUserId);
+
             $messages = [];
 
             foreach ($validated['experiences'] as $experienceData) {
@@ -53,7 +58,7 @@ class ExperienceController extends Controller
             }
 
             // Retrieve the updated experience list for the user
-            $updatedExperiences = Experience::where('user_id', $validated['experiences'][0]['user_id'])->get();
+            $updatedExperiences = Experience::where('user_id', $targetUserId)->get();
 
             return response()->json([
                 'messages' => $messages,
@@ -64,6 +69,8 @@ class ExperienceController extends Controller
             return response()->json([
                 'errors' => $e->errors(),
             ], 422);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => 'Update Experience Error: '.$e->getMessage()], 500);
         }
@@ -82,6 +89,8 @@ class ExperienceController extends Controller
                 'user_id.required' => 'User ID is required.',
                 'user_id.exists' => 'The specified user ID does not exist.',
             ]);
+
+            $this->authorizeProfileUpdate($request, (string) $validated['user_id']);
 
             $experience = Experience::where('id', $validated['id'])
                 ->where('user_id', $validated['user_id'])
@@ -104,8 +113,38 @@ class ExperienceController extends Controller
             return response()->json([
                 'errors' => $e->errors(),
             ], 422);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => 'Delete Experience Error: '.$e->getMessage()], 500);
         }
+    }
+
+    private function singleTargetUserId(array $records): string
+    {
+        $userIds = collect($records)
+            ->pluck('user_id')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($userIds->count() !== 1) {
+            throw ValidationException::withMessages([
+                'experiences' => 'All experience records must belong to the same user.',
+            ]);
+        }
+
+        return $userIds->first();
+    }
+
+    private function authorizeProfileUpdate(Request $request, string $targetUserId): void
+    {
+        $actor = $request->user();
+        $isSelf = $actor && (string) $actor->getKey() === $targetUserId;
+
+        abort_unless(
+            $actor && (($isSelf && $actor->can('profile.own.update')) || $actor->can('users.update')),
+            403
+        );
     }
 }

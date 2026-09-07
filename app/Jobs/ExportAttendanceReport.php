@@ -37,7 +37,7 @@ class ExportAttendanceReport implements ShouldQueue
 
     protected ?string $month;
 
-    protected int $userId;
+    protected string $userId;
 
     protected string $filename;
 
@@ -46,7 +46,7 @@ class ExportAttendanceReport implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    public function __construct(string $type, ?string $date, ?string $month, int $userId, string $filename, array $filters = [])
+    public function __construct(string $type, ?string $date, ?string $month, string $userId, string $filename, array $filters = [])
     {
         $this->type = $type;
         $this->date = $date;

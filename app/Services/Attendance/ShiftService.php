@@ -69,7 +69,7 @@ class ShiftService
         return $assignment->fresh();
     }
 
-    public function assignmentsOverlap(string $scopeType, ?int $scopeId, string $from, ?string $to, ?int $ignoreId = null): bool
+    public function assignmentsOverlap(string $scopeType, int|string|null $scopeId, string $from, ?string $to, ?int $ignoreId = null): bool
     {
         $query = ShiftAssignment::where('scope_type', $scopeType);
         $scopeId === null ? $query->whereNull('scope_id') : $query->where('scope_id', $scopeId);
@@ -141,15 +141,15 @@ class ShiftService
     /**
      * Resolve the concrete user ids an assignment scope applies to.
      *
-     * @return array<int, int>
+     * @return array<int, string>
      */
     private function affectedUserIds(ShiftAssignment $assignment): array
     {
         return match ($assignment->scope_type) {
-            'user' => $assignment->scope_id ? [(int) $assignment->scope_id] : [],
-            'department' => User::where('department_id', $assignment->scope_id)->pluck('employee_id')->map(fn ($id) => (int) $id)->all(),
-            'designation' => User::where('designation_id', $assignment->scope_id)->pluck('employee_id')->map(fn ($id) => (int) $id)->all(),
-            'org' => User::pluck('employee_id')->map(fn ($id) => (int) $id)->all(),
+            'user' => $assignment->scope_id ? [(string) $assignment->scope_id] : [],
+            'department' => User::where('department_id', $assignment->scope_id)->pluck('employee_id')->map(fn ($id) => (string) $id)->all(),
+            'designation' => User::where('designation_id', $assignment->scope_id)->pluck('employee_id')->map(fn ($id) => (string) $id)->all(),
+            'org' => User::pluck('employee_id')->map(fn ($id) => (string) $id)->all(),
             default => [],
         };
     }

@@ -240,8 +240,8 @@ class DailyWorkMultiWordSearchTest extends TestCase
 
     private function createDailyWork(
         string $number,
-        int $inchargeId,
-        int $assignedId,
+        string $inchargeId,
+        string $assignedId,
         string $date,
         string $status,
         string $location = 'Test location',

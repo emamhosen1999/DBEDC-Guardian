@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Education;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class EducationController extends Controller
 {
@@ -12,6 +13,7 @@ class EducationController extends Controller
     {
         try {
             $validated = $request->validate([
+                'educations' => 'required|array|min:1',
                 'educations.*.id' => 'nullable|exists:education,id',
                 'educations.*.institution' => 'required|string|max:255',
                 'educations.*.subject' => 'required|string|max:255',
@@ -32,6 +34,9 @@ class EducationController extends Controller
                 'educations.*.grade.required' => 'Grade is required.',
                 'educations.*.user_id.exists' => 'The specified user ID does not exist.',
             ]);
+
+            $targetUserId = $this->singleTargetUserId($validated['educations']);
+            $this->authorizeProfileUpdate($request, $targetUserId);
 
             $messages = [];
 
@@ -59,7 +64,7 @@ class EducationController extends Controller
             }
 
             // Retrieve the updated education list for the user
-            $updatedEducations = Education::where('user_id', $validated['educations'][0]['user_id'])->get();
+            $updatedEducations = Education::where('user_id', $targetUserId)->get();
 
             foreach ($updatedEducations as $education) {
                 $education->starting_date = date('Y-m', strtotime($education->starting_date));
@@ -74,6 +79,8 @@ class EducationController extends Controller
             return response()->json([
                 'errors' => $e->errors(),
             ], 422);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => 'Update Education Error: '.$e->getMessage()], 500);
         }
@@ -92,6 +99,8 @@ class EducationController extends Controller
                 'user_id.required' => 'User ID is required.',
                 'user_id.exists' => 'The specified user ID does not exist.',
             ]);
+
+            $this->authorizeProfileUpdate($request, (string) $validated['user_id']);
 
             $education = Education::where('id', $validated['id'])
                 ->where('user_id', $validated['user_id'])
@@ -114,8 +123,38 @@ class EducationController extends Controller
             return response()->json([
                 'errors' => $e->errors(),
             ], 422);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => 'Delete Education Error: '.$e->getMessage()], 500);
         }
+    }
+
+    private function singleTargetUserId(array $records): string
+    {
+        $userIds = collect($records)
+            ->pluck('user_id')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($userIds->count() !== 1) {
+            throw ValidationException::withMessages([
+                'educations' => 'All education records must belong to the same user.',
+            ]);
+        }
+
+        return $userIds->first();
+    }
+
+    private function authorizeProfileUpdate(Request $request, string $targetUserId): void
+    {
+        $actor = $request->user();
+        $isSelf = $actor && (string) $actor->getKey() === $targetUserId;
+
+        abort_unless(
+            $actor && (($isSelf && $actor->can('profile.own.update')) || $actor->can('users.update')),
+            403
+        );
     }
 }

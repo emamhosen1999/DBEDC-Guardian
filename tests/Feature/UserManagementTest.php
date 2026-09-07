@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -258,6 +259,47 @@ class UserManagementTest extends TestCase
         ]);
 
         $response->assertStatus(403);
+    }
+
+    /** @test */
+    public function bulk_role_assignment_and_bulk_delete_routes_are_operational(): void
+    {
+        $first = User::factory()->create();
+        $second = User::factory()->create();
+
+        $this->postJson(route('users.bulk.role'), [
+            'user_ids' => [$first->employee_id, $second->employee_id],
+            'role' => 'Employee',
+        ])->assertOk()
+            ->assertJsonPath('updated_count', 2);
+
+        $this->assertTrue($first->fresh()->hasRole('Employee'));
+        $this->assertTrue($second->fresh()->hasRole('Employee'));
+
+        $this->postJson(route('users.bulk.delete'), [
+            'user_ids' => [$first->employee_id, $second->employee_id],
+        ])->assertOk()
+            ->assertJsonPath('deleted_count', 2);
+
+        $this->assertSoftDeleted($first);
+        $this->assertSoftDeleted($second);
+    }
+
+    /** @test */
+    public function non_super_admin_cannot_grant_the_super_administrator_role(): void
+    {
+        Role::create(['name' => 'Administrator']);
+        $permission = Permission::findOrCreate('users.update', 'web');
+        $administrator = User::factory()->create();
+        $administrator->assignRole('Administrator');
+        $administrator->givePermissionTo($permission);
+        $target = User::factory()->create();
+
+        $this->actingAs($administrator)->postJson(route('users.updateRole', $target->employee_id), [
+            'roles' => ['Super Administrator'],
+        ])->assertForbidden();
+
+        $this->assertFalse($target->fresh()->hasRole('Super Administrator'));
     }
 
     /** @test */

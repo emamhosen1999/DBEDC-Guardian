@@ -6,7 +6,7 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import InfoRow from "@/Components/InfoRow.jsx";
 
-const SalaryInformationForm = ({ user, setUser }) => {
+const SalaryInformationForm = ({ user, setUser, canEdit = false }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [processing, setProcessing] = useState(false);
     
@@ -68,11 +68,11 @@ const SalaryInformationForm = ({ user, setUser }) => {
         <Panel variant="surface" size="2">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Salary & Statutory Info</Text>
-                {!isEditing ? (
+                {canEdit && (!isEditing ? (
                     <Button variant="ghost" size="1" onClick={() => setIsEditing(true)}><Pencil1Icon /> Edit</Button>
                 ) : (
                     <Button variant="ghost" size="1" color="red" onClick={handleCancel}><Cross2Icon /> Cancel</Button>
-                )}
+                ))}
             </Flex>
 
             {!isEditing ? (

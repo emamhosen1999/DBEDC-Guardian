@@ -14,7 +14,7 @@ class LeaveEncashmentService
 {
     public function __construct(private LeaveLedgerService $ledger) {}
 
-    public function encash(int $userId, int $leaveTypeId, float $days, int $actorId, ?string $reason = null): LeaveLedger
+    public function encash(string $userId, int $leaveTypeId, float $days, string $actorId, ?string $reason = null): LeaveLedger
     {
         $type = LeaveSetting::find($leaveTypeId);
         if (! $type || ! $type->is_encashable) {

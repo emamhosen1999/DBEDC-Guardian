@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Observers\DailyWorkRealtimeObserver;
 use App\Observers\DailyWorkSyncVisibilityObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,10 +13,14 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-#[ObservedBy([DailyWorkSyncVisibilityObserver::class])]
+#[ObservedBy([DailyWorkSyncVisibilityObserver::class, DailyWorkRealtimeObserver::class])]
 class DailyWork extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia, SoftDeletes;
+
+    protected $attributes = [
+        'lock_version' => 0,
+    ];
 
     // Status constants
     public const STATUS_NEW = 'new';
@@ -149,6 +154,7 @@ class DailyWork extends Model implements HasMedia
         'resubmission_count',
         'resubmission_date',
         'rfi_submission_date',
+        'lock_version',
     ];
 
     protected $casts = [
@@ -157,6 +163,7 @@ class DailyWork extends Model implements HasMedia
         'rfi_submission_date' => 'date',
         'rfi_response_date' => 'date',
         'resubmission_count' => 'integer',
+        'lock_version' => 'integer',
     ];
 
     /**

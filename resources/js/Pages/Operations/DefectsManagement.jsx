@@ -5,8 +5,13 @@ import { BoltIcon, PlusIcon, ClockIcon, WrenchScrewdriverIcon, CheckCircleIcon, 
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
+import { showOperationMutationErrors } from './mutationFeedback';
 
 export default function DefectsManagement({ auth, defects, stats, filters }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.maintenance.manage') || auth?.roles?.includes('Super Administrator');
     const [openLogModal, setOpenLogModal] = useState(false);
     const [openConvertModal, setOpenConvertModal] = useState(null);
     const [title, setTitle] = useState('');
@@ -40,7 +45,8 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
                 setOpenLogModal(false);
                 setTitle('');
                 setDescription('');
-            }
+            },
+            onError: showOperationMutationErrors,
         });
     };
 
@@ -55,10 +61,12 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
             contractor_name: woContractor,
             estimated_cost: Number(woEstCost),
             requires_lane_closure: woLaneClosure,
+            lock_version: openConvertModal.lock_version,
         }, {
             onSuccess: () => {
                 setOpenConvertModal(null);
-            }
+            },
+            onError: showOperationMutationErrors,
         });
     };
 
@@ -101,9 +109,9 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
                                         </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="red" onClick={() => setOpenLogModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                {canManage && <Button color="red" onClick={() => setOpenLogModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                     <PlusIcon width={16} height={16} /> Log Road Distress
-                                </Button>
+                                </Button>}
                             </Flex>
                         </Box>
 
@@ -164,7 +172,7 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
                                                     {getStatusBadge(def.status)}
                                                 </Table.Cell>
                                                 <Table.Cell style={{ textAlign: 'right' }}>
-                                                    {def.status === 'reported' ? (
+                                                    {canManage && def.status === 'reported' ? (
                                                         <Button size="1" color="blue" onClick={() => {
                                                             setOpenConvertModal(def);
                                                             setWoTitle(`Rectification: ${def.title}`);
@@ -186,7 +194,7 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
             </Flex>
 
             {/* Log Roadway Defect Modal */}
-            <Dialog.Root open={openLogModal} onOpenChange={setOpenLogModal}>
+            <Dialog.Root open={canManage && openLogModal} onOpenChange={setOpenLogModal}>
                 <Dialog.Content style={{ maxWidth: 500 }}>
                     <Dialog.Title>Log Highway Roadway Distress</Dialog.Title>
                     <Dialog.Description size="2" mb="4">
@@ -266,7 +274,7 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
             </Dialog.Root>
 
             {/* Convert to Work Order Modal */}
-            <Dialog.Root open={!!openConvertModal} onOpenChange={(open) => !open && setOpenConvertModal(null)}>
+            <Dialog.Root open={canManage && !!openConvertModal} onOpenChange={(open) => !open && setOpenConvertModal(null)}>
                 <Dialog.Content style={{ maxWidth: 520 }}>
                     <Dialog.Title>Convert Defect to Maintenance Work Order</Dialog.Title>
                     <Dialog.Description size="2" mb="4">

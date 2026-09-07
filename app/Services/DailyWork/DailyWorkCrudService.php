@@ -4,6 +4,7 @@ namespace App\Services\DailyWork;
 
 use App\Events\Domain\DailyWorkStatusChanged;
 use App\Models\DailyWork;
+use App\Services\Concurrency\VersionGuard;
 use App\Traits\JurisdictionMatcher;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -67,8 +68,11 @@ class DailyWorkCrudService
     {
         return DB::transaction(function () use ($request) {
             $validatedData = $this->validationService->validateUpdateRequest($request);
+            $expectedVersion = (int) $validatedData['lock_version'];
+            unset($validatedData['lock_version']);
 
-            $dailyWork = DailyWork::findOrFail($validatedData['id']);
+            $dailyWork = DailyWork::query()->lockForUpdate()->findOrFail($validatedData['id']);
+            VersionGuard::assertMatches($dailyWork, $expectedVersion);
 
             // Check if another daily work with same number exists (excluding current)
             $existingDailyWork = DailyWork::where('number', $validatedData['number'])
@@ -96,6 +100,7 @@ class DailyWorkCrudService
             $previousStatus = $dailyWork->status;
 
             // Update daily work
+            $validatedData['lock_version'] = VersionGuard::next($dailyWork);
             $dailyWork->update($validatedData);
 
             // Domain bus (additive, after-commit). Dispatched inside this
@@ -126,9 +131,11 @@ class DailyWorkCrudService
         return DB::transaction(function () use ($request) {
             $request->validate([
                 'id' => 'required|integer|exists:daily_works,id',
+                'lock_version' => 'required|integer|min:0',
             ]);
 
-            $dailyWork = DailyWork::findOrFail($request->id);
+            $dailyWork = DailyWork::query()->lockForUpdate()->findOrFail($request->id);
+            VersionGuard::assertMatches($dailyWork, $request->integer('lock_version'));
 
             // Store daily work info for response
             $dailyWorkInfo = [

@@ -7,7 +7,6 @@ use App\Models\OmTollRecord;
 use App\Models\OmTollShiftAudit;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 
 class OmTollAuditService
 {
@@ -56,11 +55,11 @@ class OmTollAuditService
      */
     public function getTollSummary(): array
     {
-        $todayRevenue = OmTollRecord::whereDate('transacted_at', Carbon::today())->sum('amount') ?: 485200.00;
-        $totalTransactions = OmTollRecord::whereDate('transacted_at', Carbon::today())->count() ?: 3840;
-        
-        $etcCount = OmTollRecord::whereDate('transacted_at', Carbon::today())->where('payment_method', 'etc')->count() ?: 3010;
-        $etcRatio = $totalTransactions > 0 ? round(($etcCount / $totalTransactions) * 100, 1) : 78.4;
+        $todayRevenue = OmTollRecord::whereDate('transacted_at', Carbon::today())->sum('amount');
+        $totalTransactions = OmTollRecord::whereDate('transacted_at', Carbon::today())->count();
+
+        $etcCount = OmTollRecord::whereDate('transacted_at', Carbon::today())->where('payment_method', 'etc')->count();
+        $etcRatio = $totalTransactions > 0 ? round(($etcCount / $totalTransactions) * 100, 1) : 0.0;
 
         $unresolvedAudits = OmTollShiftAudit::where('audit_status', 'discrepancy_flagged')->count();
 
@@ -76,10 +75,10 @@ class OmTollAuditService
     /**
      * Record a new Shift Reconciliation Audit.
      */
-    public function recordShiftAudit(array $data, int $auditorId): OmTollShiftAudit
+    public function recordShiftAudit(array $data, string $auditorId): OmTollShiftAudit
     {
-        $auditCode = 'TOLL-AUDIT-' . date('Ymd') . '-' . strtoupper(substr($data['shift_type'] ?? 'M', 0, 1)) . rand(10, 99);
-        
+        $auditCode = 'TOLL-AUDIT-'.date('Ymd').'-'.strtoupper(substr($data['shift_type'] ?? 'M', 0, 1)).rand(10, 99);
+
         $sysTotal = (float) ($data['system_calculated_total'] ?? 0);
         $cashTotal = (float) ($data['cash_declared_by_collectors'] ?? 0);
         $etcTotal = (float) ($data['etc_automatic_revenue'] ?? 0);

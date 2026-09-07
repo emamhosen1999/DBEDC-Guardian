@@ -13,7 +13,7 @@ class PunchPolicyGuard
         private readonly ScheduleResolver $schedules,
     ) {}
 
-    public function assess(int $userId, CarbonInterface $punchMoment): array
+    public function assess(string $userId, CarbonInterface $punchMoment): array
     {
         $policy = $this->policies->resolve($userId, $punchMoment);
         $accepted = ['policy_status' => 'accepted', 'needs_approval' => false, 'reason' => null, 'warning' => null];

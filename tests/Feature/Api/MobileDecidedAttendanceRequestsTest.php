@@ -35,7 +35,7 @@ class MobileDecidedAttendanceRequestsTest extends TestCase
         $this->dept = Department::factory()->create();
     }
 
-    private function employee(?int $reportTo = null): User
+    private function employee(?string $reportTo = null): User
     {
         $u = User::factory()->create(['department_id' => $this->dept->id, 'report_to' => $reportTo]);
         $u->assignRole('Employee');

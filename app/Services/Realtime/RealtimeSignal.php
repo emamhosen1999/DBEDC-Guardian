@@ -16,7 +16,7 @@ use Kreait\Firebase\Contract\Database;
  *             `realtime.namespace` (see resources/js/api/useRealtimeSignals.js),
  *             so client and server can never drift to different namespaces.
  *   {entity}  the resource type — a fixed, singular, no-underscore vocabulary:
- *               attendance | dailywork | leave | objection | roster
+ *               attendance | dailywork | leave | objection | roster | operations | pettycash | holiday
  *             (NOTE: it is "dailywork", never "daily_works" — the old mobile
  *              listener drifted to "daily_works/{userId}" and could never fire.)
  *   {bucket}  the scope key WITHIN an entity. Today's buckets, per entity:
@@ -25,6 +25,9 @@ use Kreait\Firebase\Contract\Database;
  *               leave       → "all"
  *               objection   → "all"
  *               roster      → a month, Y-m     (e.g. "2026-07")
+ *               operations  → "all"    (all O&M modules)
+ *               pettycash   → "all"    (loans, transactions, audits and evidence)
+ *               holiday     → "all"    (calendar CRUD, restore and copy-year writes)
  *             "all" is a deliberate team-wide bucket: every dashboard viewer
  *             wakes on any peer's write. Making buckets per-user (to fan a
  *             signal only to affected users) is a caller-side change in the
@@ -55,10 +58,10 @@ class RealtimeSignal
      * Publish a bounded "last-change" marker at signals/{ns}/{entity}/{bucket}.
      * ID-only: never include names/PII. Fail-open: never throws, never blocks the caller.
      *
-     * @param string   $entity  one of: attendance|dailywork|leave|objection|roster
-     * @param string   $bucket  scope key — "all", a date (Y-m-d) or a month (Y-m)
-     * @param int|null $actorId id of the user who caused the change (ID-only)
-     * @param string   $action  short verb describing the change (e.g. "status", "apply")
+     * @param  string  $entity  one of: attendance|dailywork|leave|objection|roster|operations|pettycash|holiday
+     * @param  string  $bucket  scope key — "all", a date (Y-m-d) or a month (Y-m)
+     * @param  int|null  $actorId  id of the user who caused the change (ID-only)
+     * @param  string  $action  short verb describing the change (e.g. "status", "apply")
      */
     public function touch(string $entity, string $bucket, int|string|null $actorId, string $action = 'update'): void
     {

@@ -2,14 +2,19 @@
 
 namespace App\Services\Attendance;
 
+use App\Http\Controllers\Api\V1\AttendanceRequestController;
+use App\Http\Controllers\HRM\RegularizationController;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceRegularization;
 use App\Models\User;
 use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
 use App\Notifications\Attendance\TimeCorrectionRequestedNotification;
+use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Realtime\RealtimeSignal;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * SINGLE PIPELINE for time-correction (regularization) requests/decisions. Every
@@ -17,8 +22,8 @@ use Illuminate\Support\Facades\Log;
  * the approved correction to attendance + audit, the recipient NOTIFICATION
  * (request → the approver; decision → the requester), and the realtime
  * {@see RealtimeSignal} marker — lives here so it fires exactly once whether the
- * call came from the web ({@see \App\Http\Controllers\HRM\RegularizationController})
- * or the mobile ({@see \App\Http\Controllers\Api\V1\AttendanceRequestController})
+ * call came from the web ({@see RegularizationController})
+ * or the mobile ({@see AttendanceRequestController})
  * controller. Realtime contract (do NOT change): regularization signals
  * attendance/all; actorId is the ACTING user for self-echo suppression.
  */
@@ -30,13 +35,13 @@ class RegularizationService
         private readonly RealtimeSignal $signal,
     ) {}
 
-    public function request(int $userId, array $data): AttendanceRegularization
+    public function request(string $userId, array $data): AttendanceRegularization
     {
-        $targetDate = \Carbon\Carbon::parse($data['date'])->startOfDay();
-        $today = \Carbon\Carbon::today();
+        $targetDate = Carbon::parse($data['date'])->startOfDay();
+        $today = Carbon::today();
 
         if ($targetDate->greaterThanOrEqualTo($today)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'date' => 'Regularization requests can only be submitted for previous dates.',
             ]);
         }
@@ -142,8 +147,8 @@ class RegularizationService
             $att = Attendance::where('user_id', $r->user_id)->whereDate('date', $r->date->toDateString())->latest()->first();
             $before = $att ? $att->only(['punchin', 'punchout', 'date']) : null;
 
-            $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
-                ->resolve($r->user_id, \Carbon\Carbon::parse($r->date));
+            $shift = app(ScheduleResolver::class)
+                ->resolve($r->user_id, Carbon::parse($r->date));
 
             $payload = ['user_id' => $r->user_id, 'date' => $r->date->toDateString()];
             if ($r->type === 'missed_day') {

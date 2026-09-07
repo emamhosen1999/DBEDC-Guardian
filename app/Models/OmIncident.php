@@ -11,6 +11,8 @@ class OmIncident extends Model
 {
     use HasFactory;
 
+    protected $attributes = ['lock_version' => 0];
+
     protected $fillable = [
         'incident_number',
         'title',
@@ -42,6 +44,7 @@ class OmIncident extends Model
         'on_scene_at',
         'lane_cleared_at',
         'cleared_at',
+        'lock_version',
     ];
 
     protected $casts = [
@@ -60,6 +63,7 @@ class OmIncident extends Model
         'asset_damage_cost_est' => 'decimal:2',
         'latitude' => 'float',
         'longitude' => 'float',
+        'lock_version' => 'integer',
     ];
 
     public function reporter(): BelongsTo

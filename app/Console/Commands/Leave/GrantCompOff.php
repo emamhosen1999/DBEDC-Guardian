@@ -25,7 +25,7 @@ class GrantCompOff extends Command
     {
         $from = $this->option('from') ? Carbon::parse($this->option('from')) : Carbon::yesterday();
         $to = $this->option('to') ? Carbon::parse($this->option('to')) : $from->copy();
-        $userId = $this->option('user') ? (int) $this->option('user') : null;
+        $userId = $this->option('user') ? (string) $this->option('user') : null;
         $dryRun = (bool) $this->option('dry-run');
 
         if ($dryRun) {

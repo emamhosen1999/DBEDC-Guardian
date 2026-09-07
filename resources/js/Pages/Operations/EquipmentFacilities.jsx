@@ -1,26 +1,26 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Grid, Badge, Table } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Grid, Badge, Table, Separator } from '@radix-ui/themes';
 import { ComputerDesktopIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 
 export default function EquipmentFacilities({ auth, equipment }) {
-    const eqList = equipment || [
-        { id: 1, equipment_code: 'CCTV-CH00', name: 'High Definition PTZ Surveillance Camera', category: 'cctv', location: 'Ch 0+000 Interchange', status: 'online', uptime_pct: 99.90, last_ping_at: '2026-08-19 15:32:00' },
-        { id: 2, equipment_code: 'VMS-CH18', name: 'Variable Message Board Matrix', category: 'vms', location: 'Ch 18+400 Kanchan Bridge', status: 'online', uptime_pct: 99.80, last_ping_at: '2026-08-19 15:32:00' },
-        { id: 3, equipment_code: 'WIM-PLAZA01', name: 'High-Speed Weigh-in-Motion Scale', category: 'wim', location: 'Main Toll Plaza Entry', status: 'online', uptime_pct: 99.50, last_ping_at: '2026-08-19 15:31:45' },
-        { id: 4, equipment_code: 'GEN-PLAZA-MAIN', name: '500kVA Diesel Generator Backup System', category: 'generator', location: 'Toll Plaza Central Power Substation', status: 'online', uptime_pct: 100.00, last_ping_at: '2026-08-19 15:30:00' },
-    ];
+    useOperationsRealtimeRefresh();
+
+    const eqList = Array.isArray(equipment) ? equipment : [];
 
     const onlineCount = eqList.filter(e => e.status === 'online').length;
-    const avgUptime = (eqList.reduce((acc, e) => acc + Number(e.uptime_pct || 0), 0) / (eqList.length || 1)).toFixed(2);
+    const avgUptime = eqList.length
+        ? (eqList.reduce((acc, e) => acc + Number(e.uptime_pct || 0), 0) / eqList.length).toFixed(2)
+        : null;
 
     const statItems = [
         { key: 'total', title: 'Total Equipment', value: eqList.length, color: 'blue' },
         { key: 'online', title: 'Online', value: onlineCount, color: 'green' },
-        { key: 'uptime', title: 'Avg Uptime', value: `${avgUptime}%`, color: 'indigo' },
+        { key: 'uptime', title: 'Avg Uptime', value: avgUptime === null ? '—' : `${avgUptime}%`, color: 'indigo' },
     ];
 
     return (

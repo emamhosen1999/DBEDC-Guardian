@@ -20,7 +20,7 @@ class AttendancePolicy extends Model
         'effective_from' => 'date',
         'effective_to' => 'date',
         'priority' => 'integer',
-        'scope_id' => 'integer',
+        'scope_id' => 'string',
         'version_group_id' => 'integer',
         'version' => 'integer',
         'outside_window_minutes' => 'integer',
@@ -34,7 +34,7 @@ class AttendancePolicy extends Model
         return $q->where('status', 'active');
     }
 
-    public function scopeForScope(Builder $q, string $type, ?int $id): Builder
+    public function scopeForScope(Builder $q, string $type, int|string|null $id): Builder
     {
         return $q->where('scope_type', $type)->where('scope_id', $id);
     }

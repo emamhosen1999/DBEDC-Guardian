@@ -217,7 +217,7 @@ class ClientErrorLog extends Model
      *
      * @param  array<string, mixed>  $event  Already-validated event payload.
      */
-    public static function record(array $event, ?int $userId = null): self
+    public static function record(array $event, ?string $userId = null): self
     {
         $now = Carbon::now();
 
@@ -291,7 +291,7 @@ class ClientErrorLog extends Model
      *
      * @param  array<string, mixed>  $sample  Pre-shaped server sample columns.
      */
-    public static function recordServer(array $sample, ?int $userId = null): self
+    public static function recordServer(array $sample, ?string $userId = null): self
     {
         $now = Carbon::now();
 
@@ -331,7 +331,7 @@ class ClientErrorLog extends Model
         string $source,
         array $sample,
         int|string|null $deviceId = null,
-        ?int $userId = null,
+        ?string $userId = null,
         string $tallyKey = '',
     ): self {
         $now = Carbon::now();

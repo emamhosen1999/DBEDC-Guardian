@@ -229,21 +229,15 @@ class ProfileImageController extends Controller
         /** @var User $currentUser */
         $currentUser = Auth::user();
 
+        if (! $currentUser) {
+            return false;
+        }
+
         // User can update their own profile
         if ($currentUser->id === $user->id) {
-            return true;
+            return $currentUser->can('profile.own.update');
         }
 
-        // Admin users can update any profile
-        if ($currentUser->hasRole('Super Administrator') || $currentUser->hasRole('Administrator')) {
-            return true;
-        }
-
-        // HR users can update employee profiles
-        if ($currentUser->hasRole('HR Manager') && $user->hasRole('Employee')) {
-            return true;
-        }
-
-        return false;
+        return $currentUser->can('users.update');
     }
 }

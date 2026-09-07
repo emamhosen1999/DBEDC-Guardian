@@ -4,6 +4,7 @@ namespace App\Services\Profile;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class ProfileValidationService
 {
@@ -47,7 +48,7 @@ class ProfileValidationService
     /**
      * Get validation rules based on rule set
      */
-    public function getUpdateRulesBySet(string $ruleSet, int $userId): array
+    public function getUpdateRulesBySet(string $ruleSet, string $userId): array
     {
         $baseRules = $this->getBaseUpdateRules();
 
@@ -60,8 +61,8 @@ class ProfileValidationService
                     'date_of_joining' => 'nullable|date',
                     'address' => 'nullable|string',
                     'employee_id' => 'required|string|max:50',
-                    'phone' => 'required|string|unique:users,phone,'.$userId,
-                    'email' => 'required|string|email|unique:users,email,'.$userId,
+                    'phone' => ['required', 'string', Rule::unique('users', 'phone')->ignore($userId, 'employee_id')],
+                    'email' => ['required', 'string', 'email', Rule::unique('users', 'email')->ignore($userId, 'employee_id')],
                     'department' => 'required|exists:departments,id',
                     'designation' => 'nullable',
                     'report_to' => 'nullable',
@@ -77,6 +78,13 @@ class ProfileValidationService
                     'marital_status' => 'required|string',
                     'employment_of_spouse' => 'nullable|string',
                     'number_of_children' => 'nullable|integer',
+                ];
+
+            case 'employment':
+                return $baseRules + [
+                    'department' => 'required|exists:departments,id',
+                    'designation' => 'nullable|exists:designations,id',
+                    'report_to' => 'nullable|exists:users,employee_id',
                 ];
 
             case 'emergency':
@@ -237,7 +245,7 @@ class ProfileValidationService
         // Default to 'profile' rule set if no ruleSet is specified
         $ruleSet = $request->ruleSet ?? 'profile';
 
-        $rules = $this->getUpdateRulesBySet($ruleSet, $request->id);
+        $rules = $this->getUpdateRulesBySet($ruleSet, (string) $request->id);
         $messages = $this->getValidationMessages();
 
         return $request->validate($rules, $messages);

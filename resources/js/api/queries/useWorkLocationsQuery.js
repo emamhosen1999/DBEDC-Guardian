@@ -27,7 +27,7 @@ export const useWorkLocation = (id) => {
   return useQuery({
     queryKey: workLocationsKeys.detail(id),
     queryFn: async () => {
-      const response = await axios.get(route('workLocations.show', { id }));
+      const response = await axios.get(route('workLocations.show', { workLocation: id }));
       return response.data.work_location;
     },
     enabled: !!id,

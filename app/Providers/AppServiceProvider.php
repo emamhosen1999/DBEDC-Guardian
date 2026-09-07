@@ -2,7 +2,46 @@
 
 namespace App\Providers;
 
+use App\Contracts\Ai\AiProvider;
 use App\Models\Jurisdiction;
+use App\Models\OmAsset;
+use App\Models\OmAssetConditionSurvey;
+use App\Models\OmDefect;
+use App\Models\OmEquipment;
+use App\Models\OmIncident;
+use App\Models\OmIncidentPhoto;
+use App\Models\OmIncidentVehicle;
+use App\Models\OmLaneClosurePermit;
+use App\Models\OmPatrolShift;
+use App\Models\OmShiftLog;
+use App\Models\OmTollExemption;
+use App\Models\OmTollRecord;
+use App\Models\OmTollShiftAudit;
+use App\Models\OmTrafficLog;
+use App\Models\OmVmsMessage;
+use App\Models\OmWorkOrder;
+use App\Models\OmWorkOrderCrew;
+use App\Models\OmWorkOrderMaterial;
+use App\Models\PettyCashAuditLog;
+use App\Models\PettyCashLoan;
+use App\Models\PettyCashTransaction;
+use App\Observers\OperationsRealtimeObserver;
+use App\Observers\PettyCashRealtimeObserver;
+use App\Services\Aeon\AeonService;
+use App\Services\Aeon\Data\QueryTool;
+use App\Services\Aeon\Data\RowScope;
+use App\Services\Aeon\Data\SchemaCatalog;
+use App\Services\Aeon\IndexingService;
+use App\Services\Aeon\Operations\FormSpecBuilder;
+use App\Services\Aeon\Operations\OperationResolver;
+use App\Services\Aeon\Operations\RulesIntrospector;
+use App\Services\Aeon\Providers\GeminiProvider;
+use App\Services\Aeon\Providers\OpenAiCompatProvider;
+use App\Services\Aeon\RagService;
+use App\Services\Aeon\Tools\NavigateTool;
+use App\Services\Aeon\Tools\PrepareOperationTool;
+use App\Services\Aeon\Tools\ToolRegistry;
+use App\Services\FeatureFlagService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -20,40 +59,67 @@ class AppServiceProvider extends ServiceProvider
         // Singleton so the per-request memo actually holds: several call sites
         // (config endpoint, sync kill switch) may resolve flags in one request
         // and CACHE_STORE is null in production, i.e. every miss hits the DB.
-        $this->app->singleton(\App\Services\FeatureFlagService::class);
+        $this->app->singleton(FeatureFlagService::class);
 
         // --- Aeon AI Assistant Engine Bindings ---
-        $this->app->bind(\App\Contracts\Ai\AiProvider::class, function ($app) {
+        $this->app->bind(AiProvider::class, function ($app) {
             $driver = (string) config('aeon.provider', 'gemini');
+
             return match ($driver) {
-                'openai' => $app->make(\App\Services\Aeon\Providers\OpenAiCompatProvider::class),
-                default => $app->make(\App\Services\Aeon\Providers\GeminiProvider::class),
+                'openai' => $app->make(OpenAiCompatProvider::class),
+                default => $app->make(GeminiProvider::class),
             };
         });
 
-        $this->app->singleton(\App\Services\Aeon\Data\SchemaCatalog::class);
-        $this->app->singleton(\App\Services\Aeon\Data\RowScope::class);
-        $this->app->singleton(\App\Services\Aeon\Data\QueryTool::class);
-        $this->app->singleton(\App\Services\Aeon\Operations\OperationResolver::class);
-        $this->app->singleton(\App\Services\Aeon\Operations\RulesIntrospector::class);
-        $this->app->singleton(\App\Services\Aeon\Operations\FormSpecBuilder::class);
-        $this->app->singleton(\App\Services\Aeon\Tools\PrepareOperationTool::class);
-        $this->app->singleton(\App\Services\Aeon\Tools\NavigateTool::class);
-        $this->app->singleton(\App\Services\Aeon\Tools\ToolRegistry::class);
-        $this->app->singleton(\App\Services\Aeon\RagService::class);
-        $this->app->singleton(\App\Services\Aeon\IndexingService::class);
-        $this->app->singleton(\App\Services\Aeon\AeonService::class);
+        $this->app->singleton(SchemaCatalog::class);
+        $this->app->singleton(RowScope::class);
+        $this->app->singleton(QueryTool::class);
+        $this->app->singleton(OperationResolver::class);
+        $this->app->singleton(RulesIntrospector::class);
+        $this->app->singleton(FormSpecBuilder::class);
+        $this->app->singleton(PrepareOperationTool::class);
+        $this->app->singleton(NavigateTool::class);
+        $this->app->singleton(ToolRegistry::class);
+        $this->app->singleton(RagService::class);
+        $this->app->singleton(IndexingService::class);
+        $this->app->singleton(AeonService::class);
     }
 
     /**
      * Bootstrap any application services.
-
      */
     public function boot(): void
     {
         Schema::defaultStringLength(191);
 
         Model::preventLazyLoading(! $this->app->isProduction());
+
+        foreach ([
+            OmAsset::class,
+            OmAssetConditionSurvey::class,
+            OmDefect::class,
+            OmEquipment::class,
+            OmIncident::class,
+            OmIncidentPhoto::class,
+            OmIncidentVehicle::class,
+            OmLaneClosurePermit::class,
+            OmPatrolShift::class,
+            OmShiftLog::class,
+            OmTollExemption::class,
+            OmTollRecord::class,
+            OmTollShiftAudit::class,
+            OmTrafficLog::class,
+            OmVmsMessage::class,
+            OmWorkOrder::class,
+            OmWorkOrderCrew::class,
+            OmWorkOrderMaterial::class,
+        ] as $operationsModel) {
+            $operationsModel::observe(OperationsRealtimeObserver::class);
+        }
+
+        foreach ([PettyCashLoan::class, PettyCashTransaction::class, PettyCashAuditLog::class] as $pettyCashModel) {
+            $pettyCashModel::observe(PettyCashRealtimeObserver::class);
+        }
 
         // Share application version with all Inertia responses
         Inertia::share([

@@ -40,7 +40,7 @@ export const useHoliday = (id) => {
   return useQuery({
     queryKey: holidaysKeys.detail(id),
     queryFn: async () => {
-      const response = await axios.get(route('api.holidays.show', { id }));
+      const response = await axios.get(route('api.holidays.show', { holiday: id }));
       return response.data.holiday;
     },
     enabled: !!id,
@@ -69,7 +69,7 @@ export const useUpdateHoliday = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const response = await axios.put(route('api.holidays.update', { id }), data);
+      const response = await axios.put(route('api.holidays.update', { holiday: id }), data);
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -86,7 +86,7 @@ export const useDeleteHoliday = () => {
   
   return useMutation({
     mutationFn: async (id) => {
-      const response = await axios.delete(route('api.holidays.destroy', { id }));
+      const response = await axios.delete(route('api.holidays.destroy', { holiday: id }));
       return response.data;
     },
     onSuccess: () => {

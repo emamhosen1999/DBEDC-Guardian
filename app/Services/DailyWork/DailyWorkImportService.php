@@ -419,7 +419,7 @@ class DailyWorkImportService
                 return ['processed' => false, 'summary' => $inChargeSummary];
             }
 
-            $inCharge = (int) $jurisdiction->incharge;
+            $inCharge = (string) $jurisdiction->incharge;
         }
 
         // Validate the resolved incharge actually exists

@@ -18,6 +18,7 @@ use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Services\Api\V1\LeaveApiService;
 use App\Services\Leave\LeaveApprovalService;
+use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -153,7 +154,7 @@ class LeaveController extends Controller
                 $request->input('reason')
             );
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'apply');
+            app(RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'apply');
 
             return $this->successResponse($leave, 'Leave request submitted successfully.', 201);
         } catch (\RuntimeException $e) {
@@ -184,7 +185,7 @@ class LeaveController extends Controller
         try {
             $this->leaveApiService->cancelLeaveForUser($request->user(), $leaveId);
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'cancel');
+            app(RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'cancel');
 
             return $this->successResponse(null, 'Leave request cancelled successfully.');
         } catch (\RuntimeException $e) {
@@ -230,7 +231,7 @@ class LeaveController extends Controller
             })
             ->values();
 
-        $stats = $this->buildApprovalStats((int) $approver->id, $pendingLeaves);
+        $stats = $this->buildApprovalStats((string) $approver->id, $pendingLeaves);
 
         return $this->successResponse([
             'pending_leaves' => $pendingLeaves->map(function (Leave $leave) {
@@ -279,13 +280,13 @@ class LeaveController extends Controller
             ->get()
             // A manager must see items they are/were an approver on at ANY level —
             // including a level an admin marked 'superseded' when overriding.
-            ->filter(fn (Leave $leave): bool => $this->isApprovalChainMember($leave, (int) $approver->id))
+            ->filter(fn (Leave $leave): bool => $this->isApprovalChainMember($leave, (string) $approver->id))
             ->values();
 
         // Stats mirror pendingApprovals exactly: the same approver-scoped
         // approved/rejected tallies plus the live pending count.
         $stats = $this->buildApprovalStats(
-            (int) $approver->id,
+            (string) $approver->id,
             $approvalService->getPendingApprovalsForUser($approver)
         );
 
@@ -541,7 +542,7 @@ class LeaveController extends Controller
      * check. Includes levels marked 'superseded' by an admin override, so the
      * manager still sees an item taken out of their hands.
      */
-    private function isApprovalChainMember(Leave $leave, int $userId): bool
+    private function isApprovalChainMember(Leave $leave, string $userId): bool
     {
         foreach (($leave->approval_chain ?? []) as $level) {
             if ((int) ($level['approver_id'] ?? 0) === $userId) {
@@ -589,7 +590,7 @@ class LeaveController extends Controller
         ];
     }
 
-    private function buildApprovalStats(int $approverId, Collection $pendingLeaves): array
+    private function buildApprovalStats(string $approverId, Collection $pendingLeaves): array
     {
         $reviewedLeaves = Leave::query()
             ->whereNotNull('approval_chain')

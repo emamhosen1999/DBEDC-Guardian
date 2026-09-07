@@ -13,6 +13,7 @@ use App\Services\Attendance\ShiftSwapService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class ShiftSwapController extends Controller
@@ -115,9 +116,9 @@ class ShiftSwapController extends Controller
      * designation, all same-department Employees qualify. The requester is
      * always excluded.
      *
-     * @return \Illuminate\Support\Collection<int, User> id + name only
+     * @return Collection<int, User> id + name only
      */
-    private function deptRankEligibleTeammates(User $user): \Illuminate\Support\Collection
+    private function deptRankEligibleTeammates(User $user): Collection
     {
         $query = User::role('Employee')
             ->where('users.employee_id', '!=', $user->id)
@@ -332,7 +333,7 @@ class ShiftSwapController extends Controller
      */
     public function mine(Request $request): JsonResponse
     {
-        $swaps = ShiftSwapRequest::with(['counterparty:id,name'])
+        $swaps = ShiftSwapRequest::with(['counterparty:employee_id,name'])
             ->where('requester_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->get();

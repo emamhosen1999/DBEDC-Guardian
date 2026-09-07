@@ -13,6 +13,7 @@ use App\Services\Leave\LeaveCrudService;
 use App\Services\Leave\LeaveLedgerService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\AssertionFailedError;
 use Tests\TestCase;
 
 class CompOffAndAttachmentTest extends TestCase
@@ -28,7 +29,7 @@ class CompOffAndAttachmentTest extends TestCase
         ]);
     }
 
-    private function punch(int $userId, Carbon $date): void
+    private function punch(string $userId, Carbon $date): void
     {
         Attendance::create([
             'user_id' => $userId,
@@ -139,7 +140,7 @@ class CompOffAndAttachmentTest extends TestCase
                 'leaveReason' => 'no comp-off balance left',
             ]);
             $this->fail('Expected insufficient-balance rejection.');
-        } catch (\PHPUnit\Framework\AssertionFailedError $e) {
+        } catch (AssertionFailedError $e) {
             throw $e; // fail() extends RuntimeException — never swallow it
         } catch (\RuntimeException $e) {
             $this->assertSame(422, $e->getCode());

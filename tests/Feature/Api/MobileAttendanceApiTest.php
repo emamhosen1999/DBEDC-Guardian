@@ -744,7 +744,7 @@ class MobileAttendanceApiTest extends TestCase
         return (int) DB::table('leave_settings')->insertGetId($payload);
     }
 
-    private function insertLeaveForUser(int $userId, int $leaveTypeId, array $overrides = []): int
+    private function insertLeaveForUser(string $userId, int $leaveTypeId, array $overrides = []): int
     {
         $payload = array_merge([
             'leave_type' => $leaveTypeId,

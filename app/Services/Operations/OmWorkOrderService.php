@@ -4,11 +4,10 @@ namespace App\Services\Operations;
 
 use App\Models\OmLaneClosurePermit;
 use App\Models\OmWorkOrder;
-use App\Models\OmWorkOrderCrew;
 use App\Models\OmWorkOrderMaterial;
-use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OmWorkOrderService
 {
@@ -50,10 +49,10 @@ class OmWorkOrderService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('work_order_number', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%")
-                  ->orWhere('assigned_to', 'like', "%{$search}%")
-                  ->orWhere('contractor_name', 'like', "%{$search}%");
+                    ->orWhere('work_order_number', 'like', "%{$search}%")
+                    ->orWhere('location', 'like', "%{$search}%")
+                    ->orWhere('assigned_to', 'like', "%{$search}%")
+                    ->orWhere('contractor_name', 'like', "%{$search}%");
             });
         }
 
@@ -87,10 +86,10 @@ class OmWorkOrderService
     /**
      * Create Work Order with optional Materials and Lane Closure Request.
      */
-    public function createWorkOrder(array $data, int $userId): OmWorkOrder
+    public function createWorkOrder(array $data, string $userId): OmWorkOrder
     {
         return DB::transaction(function () use ($data, $userId) {
-            $woNumber = 'WO-' . rand(10000, 99999);
+            $woNumber = 'WO-'.rand(10000, 99999);
 
             $workOrder = OmWorkOrder::create([
                 'work_order_number' => $woNumber,
@@ -137,9 +136,9 @@ class OmWorkOrderService
             if (! empty($data['requires_lane_closure']) && ! empty($data['lane_closure'])) {
                 $lc = $data['lane_closure'];
                 OmLaneClosurePermit::create([
-                    'permit_number' => 'LCP-' . date('Ymd') . '-' . rand(100, 999),
+                    'permit_number' => 'LCP-'.date('Ymd').'-'.rand(100, 999),
                     'work_order_id' => $workOrder->id,
-                    'title' => 'Safety Zone: ' . $workOrder->title,
+                    'title' => 'Safety Zone: '.$workOrder->title,
                     'chainage_from' => $lc['chainage_from'] ?? $workOrder->location,
                     'chainage_to' => $lc['chainage_to'] ?? $workOrder->location,
                     'direction' => $lc['direction'] ?? 'northbound',
@@ -155,6 +154,24 @@ class OmWorkOrderService
                 ]);
             }
 
+            // Dispatch Push & In-App Notification for High/Emergency Work Orders
+            if (in_array($workOrder->priority, ['emergency', 'high'], true)) {
+                try {
+                    $techs = \App\Models\User::permission('om.maintenance.manage')->get();
+                    if ($techs->isNotEmpty()) {
+                        \Illuminate\Support\Facades\Notification::send($techs, new \App\Notifications\OmAlertNotification(
+                            "Work Order: {$workOrder->work_order_number}",
+                            "{$workOrder->title} at {$workOrder->location}. Priority: {$workOrder->priority}.",
+                            'work_order_assigned',
+                            $workOrder->work_order_number,
+                            '/om/work-orders'
+                        ));
+                    }
+                } catch (\Throwable) {
+                    // Fail-safe
+                }
+            }
+
             return $workOrder->fresh(['materials', 'laneClosurePermit']);
         });
     }
@@ -162,54 +179,79 @@ class OmWorkOrderService
     /**
      * Approve Work Order.
      */
-    public function approveWorkOrder(OmWorkOrder $workOrder, int $approverId): OmWorkOrder
+    public function approveWorkOrder(OmWorkOrder $workOrder, string $approverId, int $expectedVersion): OmWorkOrder
     {
-        $workOrder->update([
-            'status' => 'assigned',
-            'approved_by' => $approverId,
-            'approved_at' => now(),
-        ]);
+        return DB::transaction(function () use ($workOrder, $approverId, $expectedVersion) {
+            $locked = OmWorkOrder::query()->lockForUpdate()->findOrFail($workOrder->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+            $this->assertStatus($locked, 'pending', 'approve');
 
-        return $workOrder->fresh();
+            if ($locked->reported_by !== null && (string) $locked->reported_by === $approverId) {
+                throw ValidationException::withMessages([
+                    'approver' => 'The work-order reporter cannot approve the same work order.',
+                ]);
+            }
+
+            $locked->update([
+                'status' => 'assigned',
+                'approved_by' => $approverId,
+                'approved_at' => now(),
+                'lock_version' => OmVersionGuard::next($locked),
+            ]);
+
+            return $locked->fresh();
+        });
     }
 
     /**
      * Start execution of Work Order (Work Zone Active).
      */
-    public function startWorkOrder(OmWorkOrder $workOrder): OmWorkOrder
+    public function startWorkOrder(OmWorkOrder $workOrder, ?int $expectedVersion): OmWorkOrder
     {
-        $workOrder->update([
-            'status' => 'in_progress',
-            'actual_start_at' => now(),
-        ]);
+        return DB::transaction(function () use ($workOrder, $expectedVersion) {
+            $locked = OmWorkOrder::query()->lockForUpdate()->findOrFail($workOrder->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+            $this->assertStatus($locked, 'assigned', 'start');
 
-        if ($workOrder->laneClosurePermit) {
-            $workOrder->laneClosurePermit->update([
-                'status' => 'active',
-                'actual_start' => now(),
+            $locked->update([
+                'status' => 'in_progress',
+                'actual_start_at' => now(),
+                'lock_version' => OmVersionGuard::next($locked),
             ]);
-        }
 
-        return $workOrder->fresh();
+            if ($locked->laneClosurePermit) {
+                $locked->laneClosurePermit->update([
+                    'status' => 'active',
+                    'actual_start' => now(),
+                ]);
+            }
+
+            return $locked->fresh();
+        });
     }
 
     /**
      * Complete Work Order (submit for QC inspection).
      */
-    public function completeWorkOrder(OmWorkOrder $workOrder, array $data): OmWorkOrder
+    public function completeWorkOrder(OmWorkOrder $workOrder, array $data, ?int $expectedVersion): OmWorkOrder
     {
-        return DB::transaction(function () use ($workOrder, $data) {
-            $workOrder->update([
+        return DB::transaction(function () use ($workOrder, $data, $expectedVersion) {
+            $locked = OmWorkOrder::query()->lockForUpdate()->findOrFail($workOrder->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+            $this->assertStatus($locked, 'in_progress', 'complete');
+
+            $locked->update([
                 'status' => 'completed',
                 'completed_at' => now(),
-                'actual_cost' => $data['actual_cost'] ?? $workOrder->actual_cost,
+                'actual_cost' => $data['actual_cost'] ?? $locked->actual_cost,
+                'lock_version' => OmVersionGuard::next($locked),
             ]);
 
             // Update materials used
             if (! empty($data['materials']) && is_array($data['materials'])) {
                 foreach ($data['materials'] as $matData) {
                     if (! empty($matData['id'])) {
-                        $mat = OmWorkOrderMaterial::where('work_order_id', $workOrder->id)->find($matData['id']);
+                        $mat = OmWorkOrderMaterial::where('work_order_id', $locked->id)->find($matData['id']);
                         if ($mat) {
                             $used = (float) ($matData['quantity_used'] ?? $mat->quantity_used);
                             $mat->update([
@@ -222,47 +264,69 @@ class OmWorkOrderService
             }
 
             // Close lane closure if active
-            if ($workOrder->laneClosurePermit && $workOrder->laneClosurePermit->status === 'active') {
-                $workOrder->laneClosurePermit->update([
+            if ($locked->laneClosurePermit && $locked->laneClosurePermit->status === 'active') {
+                $locked->laneClosurePermit->update([
                     'status' => 'cleared',
                     'actual_end' => now(),
                 ]);
             }
 
             // Update linked defect if any
-            if ($workOrder->defect) {
-                $workOrder->defect->update([
+            if ($locked->defect) {
+                $locked->defect->update([
                     'status' => 'rectified',
                     'rectified_at' => now(),
                 ]);
             }
 
-            return $workOrder->fresh(['materials', 'laneClosurePermit']);
+            return $locked->fresh(['materials', 'laneClosurePermit']);
         });
     }
 
     /**
      * Joint QC Verification and Final Signoff.
      */
-    public function verifyAndClose(OmWorkOrder $workOrder, int $verifierId, ?string $qcNotes = null): OmWorkOrder
+    public function verifyAndClose(OmWorkOrder $workOrder, string $verifierId, ?string $qcNotes, int $expectedVersion): OmWorkOrder
     {
-        return DB::transaction(function () use ($workOrder, $verifierId, $qcNotes) {
-            $workOrder->update([
+        return DB::transaction(function () use ($workOrder, $verifierId, $qcNotes, $expectedVersion) {
+            $locked = OmWorkOrder::query()->lockForUpdate()->findOrFail($workOrder->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+            $this->assertStatus($locked, 'completed', 'verify');
+
+            if (collect([$locked->reported_by, $locked->approved_by])
+                ->filter(fn ($id) => $id !== null)
+                ->contains(fn ($id) => (string) $id === $verifierId)) {
+                throw ValidationException::withMessages([
+                    'verifier' => 'The reporter or approver cannot verify the same work order.',
+                ]);
+            }
+
+            $locked->update([
                 'status' => 'verified',
                 'verified_by' => $verifierId,
                 'verified_at' => now(),
                 'qc_notes' => $qcNotes,
+                'lock_version' => OmVersionGuard::next($locked),
             ]);
 
-            if ($workOrder->defect) {
-                $workOrder->defect->update([
+            if ($locked->defect) {
+                $locked->defect->update([
                     'status' => 'verified_closed',
                     'verified_by' => $verifierId,
                     'verified_at' => now(),
                 ]);
             }
 
-            return $workOrder->fresh();
+            return $locked->fresh();
         });
+    }
+
+    private function assertStatus(OmWorkOrder $workOrder, string $expected, string $action): void
+    {
+        if ($workOrder->status !== $expected) {
+            throw ValidationException::withMessages([
+                'status' => "Work order must be {$expected} before it can {$action}.",
+            ]);
+        }
     }
 }

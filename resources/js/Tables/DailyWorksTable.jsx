@@ -965,6 +965,7 @@ const DailyWorksTable = ({
                 const updateData = {
                     id: work.id,
                     status: actualStatus,
+                    lock_version: work.lock_version,
                 };
 
                 // Add inspection result if it exists
@@ -1022,6 +1023,7 @@ const DailyWorksTable = ({
                 const response = await axios.post(route('dailyWorks.updateCompletionTime'), {
                     id: work.id,
                     completion_time: completionTime,
+                    lock_version: work.lock_version,
                 });
 
                 if (response.status === 200) {
@@ -1051,7 +1053,8 @@ const DailyWorksTable = ({
             try {
                 const response = await axios.post(route('dailyWorks.updateSubmissionTime'), {
                     id: work.id,
-                    submission_time: submissionTime,
+                    rfi_submission_date: submissionTime,
+                    lock_version: work.lock_version,
                 });
 
                 if (response.status === 200) {
@@ -1099,6 +1102,7 @@ const DailyWorksTable = ({
                     const response = await axios.post(route('dailyWorks.updateIncharge'), {
                         id: work.id,
                         incharge: inchargeId,
+                        lock_version: work.lock_version,
                     });
 
                     if (response.status === 200) {
@@ -1138,6 +1142,7 @@ const DailyWorksTable = ({
                     const response = await axios.post(route('dailyWorks.updateAssigned'), {
                         id: work.id,
                         assigned: assignedId,
+                        lock_version: work.lock_version,
                     });
 
                     if (response.status === 200) {
@@ -1177,6 +1182,7 @@ const DailyWorksTable = ({
                     const response = await axios.post(route('dailyWorks.updateCompletionTime'), {
                         id: work.id,
                         completion_time: completionTime,
+                        lock_version: work.lock_version,
                     });
 
                     if (response.status === 200) {
@@ -1216,12 +1222,13 @@ const DailyWorksTable = ({
                     const response = await axios.post(route('dailyWorks.updateInspectionDetails'), {
                         id: work.id,
                         inspection_details: inspectionDetails,
+                        lock_version: work.lock_version,
                     });
 
                     if (response.status === 200) {
                         setDataRef.current(prevWorks =>
                             prevWorks.map(w =>
-                                w.id === work.id ? { ...w, inspection_details: inspectionDetails } : w
+                                w.id === work.id ? response.data.dailyWork : w
                             )
                         );
                         resolve('Inspection details updated successfully');
@@ -1287,6 +1294,7 @@ const DailyWorksTable = ({
                     const response = await axios.post(route('dailyWorks.updateSubmissionTime'), {
                         id: work.id,
                         rfi_submission_date: submissionTime,
+                        lock_version: work.lock_version,
                     });
 
                     if (response.status === 200) {
@@ -1329,6 +1337,7 @@ const DailyWorksTable = ({
                     rfi_submission_date: newSubmissionDate,
                     override_confirmed: true,
                     override_reason: overrideReason,
+                    lock_version: work.lock_version,
                 });
 
                 if (response.status === 200) {
@@ -1406,6 +1415,7 @@ const DailyWorksTable = ({
                 // Prepare update data with logical field assignments
                 const updateData = {
                     id: taskId,
+                    lock_version: currentWork.lock_version,
                     [key]: value,
                     // Include required fields with standardized fallbacks
                     date: currentWork.date || new Date().toISOString().split('T')[0],

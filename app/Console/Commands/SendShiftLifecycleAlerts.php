@@ -219,7 +219,7 @@ class SendShiftLifecycleAlerts extends Command
      * employee can ignore; a missing absence escalation is the event this
      * command exists to raise.
      */
-    private function markOnce(string $phase, int $userId, string $date, int $shiftId): bool
+    private function markOnce(string $phase, string $userId, string $date, int $shiftId): bool
     {
         if ($this->markers === null) {
             return true;

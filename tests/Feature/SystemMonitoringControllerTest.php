@@ -200,4 +200,35 @@ class SystemMonitoringControllerTest extends TestCase
             'recommendations',
         ]);
     }
+
+    public function test_super_admin_can_export_pdf_report_and_resolve_an_error(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('Super Administrator');
+        $this->actingAs($user);
+
+        DB::table('error_logs')->insert([
+            'error_id' => 'ERR-REPORT-1',
+            'message' => 'Example monitoring error',
+            'url' => '/example',
+            'resolved' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson(route('admin.errors.resolve', 'ERR-REPORT-1'), [
+            'resolution_notes' => 'Verified and fixed.',
+        ])->assertOk()
+            ->assertJsonPath('error_id', 'ERR-REPORT-1');
+
+        $this->assertDatabaseHas('error_logs', [
+            'error_id' => 'ERR-REPORT-1',
+            'resolved' => true,
+            'resolution_notes' => 'Verified and fixed.',
+        ]);
+
+        $this->get(route('admin.system-report'))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
 }

@@ -5,13 +5,12 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
-use App\Models\NotificationPreference;
-use App\Models\NotificationToken;
 use App\Observers\UserSyncEpochObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -46,7 +46,12 @@ class User extends Authenticatable implements HasMedia
     use HasApiTokens, HasFactory, HasPushSubscriptions, HasRoles, InteractsWithMedia, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
     protected $primaryKey = 'employee_id';
+
+    /** Permissions are shared by web sessions and Sanctum API authentication. */
+    protected string $guard_name = 'web';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     /**
@@ -272,6 +277,7 @@ class User extends Authenticatable implements HasMedia
         if ($value !== null) {
             return $value;
         }
+
         // Only inherit from the work location when it's already loaded — reading this
         // accessor during eager-load FK resolution must never trigger a lazy load.
         return $this->relationLoaded('workLocation') ? $this->workLocation?->attendance_type_id : null;
@@ -285,6 +291,7 @@ class User extends Authenticatable implements HasMedia
         if ($this->getRawOriginal('attendance_type_id') !== null) {
             return $this->attendanceType()->getResults();
         }
+
         // Inherit from location only when loaded, to avoid lazy-loading violations.
         return $this->relationLoaded('workLocation') ? $this->workLocation?->attendanceType : null;
     }
@@ -299,7 +306,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function attendanceTypes(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\HRM\AttendanceType::class, 'user_attendance_type', 'user_id', 'attendance_type_id', 'employee_id', 'id');
+        return $this->belongsToMany(AttendanceType::class, 'user_attendance_type', 'user_id', 'attendance_type_id', 'employee_id', 'id');
     }
 
     /**
@@ -308,7 +315,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function biometricDevices(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'user_biometric_device', 'user_id', 'biometric_device_id', 'employee_id', 'id');
+        return $this->belongsToMany(BiometricDevice::class, 'user_biometric_device', 'user_id', 'biometric_device_id', 'employee_id', 'id');
     }
 
     /**
@@ -344,7 +351,7 @@ class User extends Authenticatable implements HasMedia
      *   4. Backward-compat single location FK (work_locations.attendance_type_id)
      * Returns only active types. A punch is valid if ANY of these validates.
      */
-    public function resolvedAttendanceTypes(): \Illuminate\Support\Collection
+    public function resolvedAttendanceTypes(): Collection
     {
         $active = fn ($c) => $c->filter(fn ($t) => $t && $t->is_active)->values();
 
@@ -357,7 +364,7 @@ class User extends Authenticatable implements HasMedia
         // 2. Backward-compat single override FK
         $rawId = $this->getRawOriginal('attendance_type_id');
         if ($rawId !== null) {
-            return $active(collect([\App\Models\HRM\AttendanceType::find($rawId)]));
+            return $active(collect([AttendanceType::find($rawId)]));
         }
 
         // 3 & 4. Inherit from work location (set, then single FK)
@@ -382,7 +389,7 @@ class User extends Authenticatable implements HasMedia
     /**
      * Convenience: the primary resolved attendance type (first of the resolved set).
      */
-    public function resolvedAttendanceType(): ?\App\Models\HRM\AttendanceType
+    public function resolvedAttendanceType(): ?AttendanceType
     {
         return $this->resolvedAttendanceTypes()->first();
     }
@@ -591,7 +598,7 @@ class User extends Authenticatable implements HasMedia
     protected static function booted()
     {
         static::saved(function ($user) {
-            if ($user->isDirty('attendance_type_id') || (!$user->getRawOriginal('attendance_type_id') && $user->isDirty('work_location_id'))) {
+            if ($user->isDirty('attendance_type_id') || (! $user->getRawOriginal('attendance_type_id') && $user->isDirty('work_location_id'))) {
                 $resolvedType = $user->getRawOriginal('attendance_type_id') ?: ($user->workLocation?->attendance_type_id);
                 EmployeeAttendanceType::updateOrCreate(
                     ['user_id' => $user->id],

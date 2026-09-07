@@ -32,6 +32,7 @@ class UpdateInspectionDetailsRequest extends FormRequest
         return [
             'id' => ['required', 'exists:daily_works,id'],
             'inspection_details' => ['nullable', 'string', 'max:1000'],
+            'lock_version' => ['required', 'integer', 'min:0'],
         ];
     }
 

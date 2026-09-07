@@ -1,0 +1,1 @@
+import{u as o,f as s}from"./vendor-inertia-BheeDqvO.js";import{u}from"./useRealtimeSignals-CBjcklNl.js";function p(){var e,r,t;const a=(t=(r=(e=o().props)==null?void 0:e.auth)==null?void 0:r.user)==null?void 0:t.id;u({path:"operations/all",selfActorId:a,onSignal:()=>s.reload({preserveScroll:!0,preserveState:!0})})}export{p as u};

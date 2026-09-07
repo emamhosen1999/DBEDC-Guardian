@@ -56,7 +56,7 @@ class RfiSubmissionOverrideLog extends Model
         string $newDate,
         int $activeObjectionsCount,
         string $reason,
-        int $userId
+        string $userId
     ): self {
         return self::create([
             'daily_work_id' => $dailyWorkId,

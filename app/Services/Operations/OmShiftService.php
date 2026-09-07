@@ -6,8 +6,9 @@ use App\Models\OmEquipment;
 use App\Models\OmIncident;
 use App\Models\OmLaneClosurePermit;
 use App\Models\OmShiftLog;
-use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OmShiftService
 {
@@ -45,10 +46,10 @@ class OmShiftService
     /**
      * Create Shift Handover log.
      */
-    public function createShiftLog(array $data, int $operatorId): OmShiftLog
+    public function createShiftLog(array $data, string $operatorId): OmShiftLog
     {
         $metrics = $this->getCurrentShiftMetrics();
-        $shiftCode = 'SHF-' . date('Ymd') . '-' . strtoupper(substr($data['shift_type'] ?? 'M', 0, 1)) . rand(10, 99);
+        $shiftCode = 'SHF-'.date('Ymd').'-'.strtoupper(substr($data['shift_type'] ?? 'M', 0, 1)).rand(10, 99);
 
         return OmShiftLog::create([
             'shift_code' => $shiftCode,
@@ -63,7 +64,7 @@ class OmShiftService
             'vms_offline_count' => $metrics['vms_offline_count'],
             'wim_offline_count' => $metrics['wim_offline_count'],
             'handover_notes' => $data['handover_notes'] ?? null,
-            'equipment_exceptions' => $data['equipment_exceptions'] ?? 'All systems normal.',
+            'equipment_exceptions' => $data['equipment_exceptions'] ?? null,
             'is_acknowledged' => false,
         ]);
     }
@@ -71,14 +72,39 @@ class OmShiftService
     /**
      * Dual Sign-off / Acknowledge Shift Handover by Incoming Operator.
      */
-    public function acknowledgeShiftLog(OmShiftLog $shiftLog, int $incomingUserId): OmShiftLog
+    public function acknowledgeShiftLog(OmShiftLog $shiftLog, string $incomingUserId, int $expectedVersion): OmShiftLog
     {
-        $shiftLog->update([
-            'is_acknowledged' => true,
-            'acknowledged_by_user_id' => $incomingUserId,
-            'acknowledged_at' => now(),
-        ]);
+        return DB::transaction(function () use ($shiftLog, $incomingUserId, $expectedVersion) {
+            $locked = OmShiftLog::query()->lockForUpdate()->findOrFail($shiftLog->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
 
-        return $shiftLog->fresh();
+            if ($locked->is_acknowledged) {
+                throw ValidationException::withMessages([
+                    'handover' => 'This shift handover has already been acknowledged.',
+                ]);
+            }
+
+            if ((string) $locked->operator_id === $incomingUserId) {
+                throw ValidationException::withMessages([
+                    'handover' => 'The outgoing operator cannot acknowledge their own handover.',
+                ]);
+            }
+
+            if ($locked->incoming_operator_id !== null
+                && (string) $locked->incoming_operator_id !== $incomingUserId) {
+                throw ValidationException::withMessages([
+                    'handover' => 'Only the designated incoming operator can acknowledge this handover.',
+                ]);
+            }
+
+            $locked->update([
+                'is_acknowledged' => true,
+                'acknowledged_by_user_id' => $incomingUserId,
+                'acknowledged_at' => now(),
+                'lock_version' => OmVersionGuard::next($locked),
+            ]);
+
+            return $locked->fresh();
+        });
     }
 }

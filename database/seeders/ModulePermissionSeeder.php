@@ -323,7 +323,7 @@ class ModulePermissionSeeder extends Seeder
             'route_prefix' => '/om',
             'is_active' => true,
             'sort_order' => 4,
-            'permissions' => ['om.dashboard.view', 'om.traffic.view', 'om.toll.view', 'om.incidents.view', 'om.maintenance.view', 'om.equipment.view'],
+            'permissions' => ['om.dashboard.view', 'om.traffic.view', 'om.traffic.manage', 'om.toll.view', 'om.toll.manage', 'om.incidents.view', 'om.incidents.manage', 'om.maintenance.view', 'om.maintenance.manage', 'om.equipment.view', 'om.equipment.manage', 'om.shift.manage'],
             'sub_modules' => [
                 [
                     'code' => 'OM_DASHBOARD',
@@ -342,7 +342,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Live traffic density, VMS controller, and speed/overload detection',
                     'icon' => 'ComputerDesktopIcon',
                     'route_prefix' => '/om/traffic-monitoring',
-                    'permissions' => ['om.traffic.view'],
+                    'permissions' => ['om.traffic.view', 'om.traffic.manage'],
                     'components' => [
                         ['code' => 'TRAFFIC_PAGE', 'name' => 'Traffic Monitoring Page', 'type' => 'page', 'route_name' => 'om.traffic', 'permissions' => ['om.traffic.view']],
                     ],
@@ -353,7 +353,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Toll plaza revenue monitoring and ETC lane operations',
                     'icon' => 'CurrencyDollarIcon',
                     'route_prefix' => '/om/toll-operations',
-                    'permissions' => ['om.toll.view'],
+                    'permissions' => ['om.toll.view', 'om.toll.manage'],
                     'components' => [
                         ['code' => 'TOLL_PAGE', 'name' => 'Toll Operations Page', 'type' => 'page', 'route_name' => 'om.toll', 'permissions' => ['om.toll.view']],
                     ],
@@ -364,7 +364,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Incident dispatching, response SLAs, and emergency patrol logs',
                     'icon' => 'ShieldCheckIcon',
                     'route_prefix' => '/om/incidents',
-                    'permissions' => ['om.incidents.view'],
+                    'permissions' => ['om.incidents.view', 'om.incidents.manage'],
                     'components' => [
                         ['code' => 'INCIDENTS_PAGE', 'name' => 'Incidents & Patrol Page', 'type' => 'page', 'route_name' => 'om.incidents', 'permissions' => ['om.incidents.view']],
                     ],
@@ -375,7 +375,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Roadway distress catalog, severity tracking, and SLA countdowns',
                     'icon' => 'ExclamationTriangleIcon',
                     'route_prefix' => '/om/defects',
-                    'permissions' => ['om.maintenance.view'],
+                    'permissions' => ['om.maintenance.view', 'om.maintenance.manage'],
                     'components' => [
                         ['code' => 'DEFECTS_PAGE', 'name' => 'Defects & Distress Page', 'type' => 'page', 'route_name' => 'om.defects', 'permissions' => ['om.maintenance.view']],
                     ],
@@ -386,7 +386,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Pavement care, lighting, guardrail, and bridge work orders',
                     'icon' => 'WrenchScrewdriverIcon',
                     'route_prefix' => '/om/work-orders',
-                    'permissions' => ['om.maintenance.view'],
+                    'permissions' => ['om.maintenance.view', 'om.maintenance.manage'],
                     'components' => [
                         ['code' => 'WORK_ORDERS_PAGE', 'name' => 'Maintenance Work Orders Page', 'type' => 'page', 'route_name' => 'om.work-orders', 'permissions' => ['om.maintenance.view']],
                     ],
@@ -397,7 +397,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Linear asset registry, condition surveys (PCI), and structural lifecycle',
                     'icon' => 'BuildingOffice2Icon',
                     'route_prefix' => '/om/assets',
-                    'permissions' => ['om.equipment.view'],
+                    'permissions' => ['om.equipment.view', 'om.equipment.manage'],
                     'components' => [
                         ['code' => 'ASSETS_PAGE', 'name' => 'Asset Inventory Page', 'type' => 'page', 'route_name' => 'om.assets', 'permissions' => ['om.equipment.view']],
                     ],
@@ -408,7 +408,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'CCTV, VMS, WIM scales, and toll plaza hardware status',
                     'icon' => 'CpuChipIcon',
                     'route_prefix' => '/om/equipment',
-                    'permissions' => ['om.equipment.view'],
+                    'permissions' => ['om.equipment.view', 'om.equipment.manage'],
                     'components' => [
                         ['code' => 'EQUIPMENT_PAGE', 'name' => 'Equipment Status Page', 'type' => 'page', 'route_name' => 'om.equipment', 'permissions' => ['om.equipment.view']],
                     ],
@@ -419,7 +419,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Digital shift logbook and operator handover records',
                     'icon' => 'ClipboardDocumentCheckIcon',
                     'route_prefix' => '/om/shift-logs',
-                    'permissions' => ['om.dashboard.view'],
+                    'permissions' => ['om.dashboard.view', 'om.shift.manage'],
                     'components' => [
                         ['code' => 'SHIFT_LOGS_PAGE', 'name' => 'Shift Handover Logs Page', 'type' => 'page', 'route_name' => 'om.shift-logs', 'permissions' => ['om.dashboard.view']],
                     ],

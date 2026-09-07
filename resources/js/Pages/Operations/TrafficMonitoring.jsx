@@ -12,25 +12,21 @@ import {
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
+import { showOperationMutationErrors } from './mutationFeedback';
 
 export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, overloadAlerts }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.traffic.manage') || auth?.roles?.includes('Super Administrator');
     const [updatingVms, setUpdatingVms] = useState(null);
     const [msg1, setMsg1] = useState('');
     const [msg2, setMsg2] = useState('');
     const [type, setType] = useState('info');
 
-    const sections = trafficSections || [
-        { id: 1, section_code: 'CH_0_10', section_name: 'Joydevpur to Bhulta (Ch 0+000 - Ch 10+000)', vehicle_count_per_hour: 1840, avg_speed_kmh: 78.5, density_status: 'free_flow', overspeed_count: 12, overload_count: 1 },
-        { id: 2, section_code: 'CH_10_20', section_name: 'Bhulta to Kanchan Bridge (Ch 10+000 - Ch 20+000)', vehicle_count_per_hour: 2420, avg_speed_kmh: 68.2, density_status: 'moderate', overspeed_count: 24, overload_count: 4 },
-        { id: 3, section_code: 'CH_20_35', section_name: 'Kanchan Bridge to Debogram (Ch 20+000 - Ch 35+000)', vehicle_count_per_hour: 1950, avg_speed_kmh: 74.0, density_status: 'free_flow', overspeed_count: 8, overload_count: 2 },
-        { id: 4, section_code: 'CH_35_48', section_name: 'Debogram to Madanpur N-1 (Ch 35+000 - Ch 48+000)', vehicle_count_per_hour: 2890, avg_speed_kmh: 52.0, density_status: 'congested', overspeed_count: 35, overload_count: 9 },
-    ];
+    const sections = Array.isArray(trafficSections) ? trafficSections : [];
 
-    const vmsList = vmsMessages || [
-        { id: 1, vms_code: 'VMS-CH05', location: 'Ch 5+200 (Northbound)', message_line1: 'DRIVE SAFELY - SPEED LIMIT 80 KM/H', message_line2: 'ETC LANES OPEN AT TOLL PLAZA', type: 'info', is_active: true },
-        { id: 2, vms_code: 'VMS-CH18', location: 'Ch 18+400 (Kanchan Bridge)', message_line1: 'CAUTION: ROADWORK ON RIGHT LANE', message_line2: 'REDUCE SPEED TO 40 KM/H', type: 'warning', is_active: true },
-        { id: 3, vms_code: 'VMS-CH36', location: 'Ch 36+100 (Southbound)', message_line1: 'EXPRESSWAY CLEAR TO MADANPUR INTERCHANGE', message_line2: 'HAVE A SAFE JOURNEY', type: 'info', is_active: true },
-    ];
+    const vmsList = Array.isArray(vmsMessages) ? vmsMessages : [];
 
     const presets = [
         { name: 'Standard Speed Limit', l1: 'DRIVE SAFELY - SPEED LIMIT 80 KM/H', l2: 'FASTEN SEATBELTS - KEEP LANE', type: 'info' },
@@ -47,9 +43,11 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
             id: updatingVms.id,
             message_line1: msg1,
             message_line2: msg2,
-            type: type
+            type: type,
+            lock_version: updatingVms.lock_version,
         }, {
-            onSuccess: () => setUpdatingVms(null)
+            onSuccess: () => setUpdatingVms(null),
+            onError: showOperationMutationErrors,
         });
     };
 
@@ -144,7 +142,7 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                                             )}
                                         </Box>
 
-                                        <Flex justify="end" mt="2">
+                                        {canManage && <Flex justify="end" mt="2">
                                             <Button size="1" color="purple" variant="soft" onClick={() => {
                                                 setUpdatingVms(vms);
                                                 setMsg1(vms.message_line1);
@@ -153,7 +151,7 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                                             }}>
                                                 <SpeakerWaveIcon width={14} height={14} /> Update Broadcast
                                             </Button>
-                                        </Flex>
+                                        </Flex>}
                                     </Panel>
                                 ))}
                             </Grid>
@@ -163,7 +161,7 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
             </Flex>
 
             {/* VMS Update & Scenario Preset Modal */}
-            <Dialog.Root open={!!updatingVms} onOpenChange={(open) => !open && setUpdatingVms(null)}>
+            <Dialog.Root open={canManage && !!updatingVms} onOpenChange={(open) => !open && setUpdatingVms(null)}>
                 <Dialog.Content style={{ maxWidth: 560 }}>
                     <Dialog.Title>Update VMS Board: {updatingVms?.vms_code}</Dialog.Title>
                     <Dialog.Description size="2" mb="3">

@@ -10,6 +10,8 @@ class OmShiftLog extends Model
 {
     use HasFactory;
 
+    protected $attributes = ['lock_version' => 0];
+
     protected $fillable = [
         'shift_code',
         'shift_date',
@@ -27,6 +29,7 @@ class OmShiftLog extends Model
         'is_acknowledged',
         'acknowledged_by_user_id',
         'acknowledged_at',
+        'lock_version',
     ];
 
     protected $casts = [
@@ -38,6 +41,7 @@ class OmShiftLog extends Model
         'cctv_offline_count' => 'integer',
         'vms_offline_count' => 'integer',
         'wim_offline_count' => 'integer',
+        'lock_version' => 'integer',
     ];
 
     public function operator(): BelongsTo

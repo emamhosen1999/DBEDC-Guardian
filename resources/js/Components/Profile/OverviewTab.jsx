@@ -9,9 +9,9 @@ const OverviewTab = ({ user, setUser, canEdit }) => {
     return (
         <Grid columns={{ initial: '1', lg: '2' }} gap="5">
             {/* These forms are now refactored to be Card-based inline components */}
-            <PersonalInformationForm user={user} setUser={setUser} inlineMode={true} />
-            <EmergencyContactForm user={user} setUser={setUser} inlineMode={true} />
-            <BankInformationForm user={user} setUser={setUser} inlineMode={true} />
+            <PersonalInformationForm user={user} setUser={setUser} inlineMode={true} canEdit={canEdit} />
+            <EmergencyContactForm user={user} setUser={setUser} inlineMode={true} canEdit={canEdit} />
+            <BankInformationForm user={user} setUser={setUser} inlineMode={true} canEdit={canEdit} />
         </Grid>
     );
 };

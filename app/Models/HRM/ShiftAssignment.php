@@ -2,6 +2,7 @@
 
 namespace App\Models\HRM;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,8 @@ class ShiftAssignment extends Model
     ];
 
     protected $casts = [
+        'scope_id' => 'string',
+        'assigned_by' => 'string',
         'anchor_date' => 'date',
         'effective_from' => 'date',
         'effective_to' => 'date',
@@ -34,6 +37,6 @@ class ShiftAssignment extends Model
 
     public function assigner(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'assigned_by');
+        return $this->belongsTo(User::class, 'assigned_by');
     }
 }

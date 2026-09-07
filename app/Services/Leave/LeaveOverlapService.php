@@ -4,6 +4,7 @@ namespace App\Services\Leave;
 
 use App\Models\HRM\Holiday;
 use App\Models\HRM\Leave;
+use App\Models\User;
 use Carbon\Carbon;
 
 class LeaveOverlapService
@@ -11,7 +12,7 @@ class LeaveOverlapService
     /**
      * Check for overlapping leaves for a user
      */
-    public function checkOverlappingLeaves(int $userId, Carbon $fromDate, Carbon $toDate, ?int $excludeLeaveId = null): array
+    public function checkOverlappingLeaves(string $userId, Carbon $fromDate, Carbon $toDate, ?int $excludeLeaveId = null): array
     {
         $query = Leave::with('employee')
             ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
@@ -86,7 +87,7 @@ class LeaveOverlapService
      */
     public function teamConflictWarnings(string|int $userId, Carbon $fromDate, Carbon $toDate): array
     {
-        $departmentId = \App\Models\User::where('employee_id', $userId)->value('department_id');
+        $departmentId = User::where('employee_id', $userId)->value('department_id');
         if (! $departmentId) {
             return [];
         }
@@ -120,7 +121,7 @@ class LeaveOverlapService
     /**
      * Check if there are any overlapping leaves and return error message
      */
-    public function getOverlapErrorMessage(int $userId, Carbon $fromDate, Carbon $toDate, ?int $excludeLeaveId = null): ?string
+    public function getOverlapErrorMessage(string $userId, Carbon $fromDate, Carbon $toDate, ?int $excludeLeaveId = null): ?string
     {
         $overlapsLeave = $this->checkOverlappingLeaves($userId, $fromDate, $toDate, $excludeLeaveId);
         $overlapsHoliday = $this->checkOverLappingHoliday($fromDate, $toDate, $excludeLeaveId);

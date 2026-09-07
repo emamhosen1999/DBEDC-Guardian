@@ -143,12 +143,18 @@ export function useObjectionsActions({
             const response = await attachRfis.mutateAsync({
                 objectionId: selectedObjection.id,
                 rfiIds: selectedRfis.map(id => parseInt(id, 10)),
+                lockVersion: selectedObjection.lock_version,
             });
             showToast.success(response.message || 'RFIs attached successfully');
             onAttachClose();
             router.reload({ only: ['objections'] });
         } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to attach RFIs');
+            if (error?.status === 409) {
+                router.reload({ only: ['objections', 'statistics'] });
+            }
+            showToast.error(error?.status === 409
+                ? 'This objection changed elsewhere. Latest data is being loaded.'
+                : error.response?.data?.error || 'Failed to attach RFIs');
         } finally {
             setAttachLoading(false);
         }
@@ -208,12 +214,20 @@ export function useObjectionsActions({
 
         setEditLoading(true);
         try {
-            const response = await updateObjection.mutateAsync({ id: editObjection.id, data: editForm });
+            const response = await updateObjection.mutateAsync({
+                id: editObjection.id,
+                data: { ...editForm, lock_version: editObjection.lock_version },
+            });
             showToast.success(response.message || 'Objection updated successfully');
             onEditClose();
             router.reload({ only: ['objections', 'statistics'] });
         } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to update objection');
+            if (error?.status === 409) {
+                router.reload({ only: ['objections', 'statistics'] });
+            }
+            showToast.error(error?.status === 409
+                ? 'This objection changed elsewhere. Latest data is being loaded.'
+                : error.response?.data?.error || 'Failed to update objection');
         } finally {
             setEditLoading(false);
         }
@@ -233,21 +247,29 @@ export function useObjectionsActions({
 
             switch (statusAction) {
                 case 'submit':
-                    response = await submitObjection.mutateAsync(selectedObjection.id);
+                    response = await submitObjection.mutateAsync({
+                        id: selectedObjection.id,
+                        lockVersion: selectedObjection.lock_version,
+                    });
                     break;
                 case 'review':
-                    response = await reviewObjection.mutateAsync(selectedObjection.id);
+                    response = await reviewObjection.mutateAsync({
+                        id: selectedObjection.id,
+                        lockVersion: selectedObjection.lock_version,
+                    });
                     break;
                 case 'resolve':
                     response = await resolveObjection.mutateAsync({
                         id: selectedObjection.id,
                         resolutionNotes: resolutionNotes,
+                        lockVersion: selectedObjection.lock_version,
                     });
                     break;
                 case 'reject':
                     response = await rejectObjection.mutateAsync({
                         id: selectedObjection.id,
                         resolutionNotes: resolutionNotes,
+                        lockVersion: selectedObjection.lock_version,
                     });
                     break;
                 default:
@@ -272,7 +294,12 @@ export function useObjectionsActions({
             onStatusClose();
             setResolutionNotes('');
         } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to update status');
+            if (error?.status === 409) {
+                router.reload({ only: ['objections', 'statistics'] });
+            }
+            showToast.error(error?.status === 409
+                ? 'This objection changed elsewhere. Latest data is being loaded.'
+                : error.response?.data?.error || 'Failed to update status');
         } finally {
             setStatusLoading(false);
         }
@@ -295,11 +322,19 @@ export function useObjectionsActions({
         if (!confirm('Are you sure you want to delete this objection?')) return;
 
         try {
-            const response = await deleteObjection.mutateAsync(objection.id);
+            const response = await deleteObjection.mutateAsync({
+                id: objection.id,
+                lockVersion: objection.lock_version,
+            });
             showToast.success(response.message || 'Objection deleted successfully');
             router.reload({ only: ['objections', 'statistics'] });
         } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to delete objection');
+            if (error?.status === 409) {
+                router.reload({ only: ['objections', 'statistics'] });
+            }
+            showToast.error(error?.status === 409
+                ? 'This objection changed elsewhere. Latest data is being loaded.'
+                : error.response?.data?.error || 'Failed to delete objection');
         }
     }, [deleteObjection]);
 

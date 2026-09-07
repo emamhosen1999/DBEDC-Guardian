@@ -106,7 +106,7 @@ class DailyWorkQueryService
     /**
      * Update daily work incharge
      */
-    public function updateIncharge(int $dailyWorkId, ?int $inchargeId): array
+    public function updateIncharge(int $dailyWorkId, ?string $inchargeId): array
     {
         $dailyWork = $this->dailyWorkRepository->updateIncharge($dailyWorkId, $inchargeId);
 
@@ -120,7 +120,7 @@ class DailyWorkQueryService
     /**
      * Update daily work assigned user
      */
-    public function updateAssigned(int $dailyWorkId, ?int $assignedId): array
+    public function updateAssigned(int $dailyWorkId, ?string $assignedId): array
     {
         $dailyWork = $this->dailyWorkRepository->updateAssigned($dailyWorkId, $assignedId);
 

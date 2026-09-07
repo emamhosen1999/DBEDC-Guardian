@@ -19,6 +19,7 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 
 export default function OmDashboard({
     auth,
@@ -30,15 +31,17 @@ export default function OmDashboard({
     vmsBoards,
     activeLaneClosures
 }) {
+    useOperationsRealtimeRefresh();
+
     const defaultStats = stats || {
-        today_toll_revenue: 485200.00,
-        etc_vehicle_ratio: 78.4,
-        active_incidents_count: 3,
-        open_work_orders_count: 7,
-        active_lane_closures_count: 1,
-        open_defects_count: 4,
-        equipment_uptime_pct: 99.8,
-        avg_patrol_response_min: 11.8,
+        today_toll_revenue: 0,
+        etc_vehicle_ratio: 0,
+        active_incidents_count: 0,
+        open_work_orders_count: 0,
+        active_lane_closures_count: 0,
+        open_defects_count: 0,
+        equipment_uptime_pct: null,
+        avg_patrol_response_min: null,
     };
 
     const statItems = [
@@ -56,7 +59,9 @@ export default function OmDashboard({
             value: defaultStats.active_incidents_count || 0,
             icon: <ExclamationTriangleIcon />,
             color: 'amber',
-            description: `Avg Response: ${defaultStats.avg_patrol_response_min} mins`,
+            description: defaultStats.avg_patrol_response_min === null
+                ? 'No response-time data'
+                : `Avg Response: ${defaultStats.avg_patrol_response_min} mins`,
         },
         {
             key: 'work_orders',
@@ -77,23 +82,21 @@ export default function OmDashboard({
         {
             key: 'uptime',
             title: 'Equipment & ITS Uptime',
-            value: `${defaultStats.equipment_uptime_pct || 99.8}%`,
+            value: defaultStats.equipment_uptime_pct === null ? '—' : `${defaultStats.equipment_uptime_pct}%`,
             icon: <ComputerDesktopIcon />,
             color: 'indigo',
             description: 'CCTV, VMS, WIM & SOS',
         },
     ];
 
-    // Linear Corridor 48km Markers
-    const linearMarkers = [
-        { ch: 'Ch 0+000', name: 'Joydevpur Interchange', status: 'normal', type: 'plaza' },
-        { ch: 'Ch 10+000', name: 'Bhulta Crossing', status: 'normal' },
-        { ch: 'Ch 14+250', name: 'Work Zone (Pothole Patching)', status: 'work_zone', type: 'work' },
-        { ch: 'Ch 18+400', name: 'Kanchan Bridge (CCTV-01 / VMS)', status: 'normal', type: 'bridge' },
-        { ch: 'Ch 24+500', name: 'Active Incident (Crash On-Scene)', status: 'incident', type: 'alert' },
-        { ch: 'Ch 35+000', name: 'Debogram Ramp', status: 'normal' },
-        { ch: 'Ch 48+000', name: 'Madanpur Interchange (N-1)', status: 'normal', type: 'plaza' },
-    ];
+    const liveCorridorMarkers = [
+        ...(recentWorkOrders || [])
+            .filter((workOrder) => ['assigned', 'in_progress'].includes(workOrder.status))
+            .map((workOrder) => ({ ch: workOrder.location, name: workOrder.title, status: 'work_zone' })),
+        ...(recentIncidents || [])
+            .filter((incident) => ['detected', 'dispatched', 'on_scene'].includes(incident.status))
+            .map((incident) => ({ ch: incident.chainage, name: incident.title, status: 'incident' })),
+    ].slice(0, 7);
 
     return (
         <App auth={auth}>
@@ -155,9 +158,9 @@ export default function OmDashboard({
                             <Box style={{ position: 'relative', overflowX: 'auto', padding: '12px 6px' }}>
                                 <Flex align="center" justify="between" style={{ minWidth: 800, position: 'relative' }}>
                                     {/* Central Line */}
-                                    <Box style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 6, background: 'linear-gradient(90deg, #10B981 0%, #3B82F6 30%, #F59E0B 40%, #10B981 60%, #EF4444 70%, #10B981 100%)', borderRadius: 3, zIndex: 0 }} />
+                                    <Box style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 6, background: 'var(--gray-a6)', borderRadius: 3, zIndex: 0 }} />
                                     
-                                    {linearMarkers.map((marker, i) => {
+                                    {liveCorridorMarkers.map((marker, i) => {
                                         const isAlert = marker.status === 'incident';
                                         const isWork = marker.status === 'work_zone';
                                         const nodeColor = isAlert ? '#EF4444' : isWork ? '#F59E0B' : '#10B981';
@@ -178,6 +181,11 @@ export default function OmDashboard({
                                             </Flex>
                                         );
                                     })}
+                                    {liveCorridorMarkers.length === 0 && (
+                                        <Text size="2" color="gray" style={{ zIndex: 1, background: 'var(--color-background)', padding: '4px 10px', borderRadius: 8 }}>
+                                            No active incident or work-zone markers reported.
+                                        </Text>
+                                    )}
                                 </Flex>
                             </Box>
                         </Card>

@@ -23,7 +23,7 @@ class LeaveDayCalculator
         private HolidayService $holidayService,
     ) {}
 
-    public function compute(int $userId, CarbonInterface $from, CarbonInterface $to, bool $isHalfDay = false): float
+    public function compute(string $userId, CarbonInterface $from, CarbonInterface $to, bool $isHalfDay = false): float
     {
         $start = $from->copy()->startOfDay();
         $end = $to->copy()->startOfDay();

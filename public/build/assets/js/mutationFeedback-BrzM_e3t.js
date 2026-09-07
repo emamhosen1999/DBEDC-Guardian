@@ -1,0 +1,1 @@
+import{s as a}from"./useObjectionsListState-255NJi1g.js";function e(t){const o=(t==null?void 0:t.conflict)||Object.values(t||{}).flat().find(Boolean)||"The operation could not be completed. Refresh and try again.";a.error(String(o))}export{e as s};

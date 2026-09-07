@@ -10,11 +10,13 @@ const BulkStatusModal = ({ isOpen, onClose, selectedWorks = [], onSuccess }) => 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const statusOptions = [
+        { value: 'new', label: 'New' },
         { value: 'pending', label: 'Pending' },
-        { value: 'in_progress', label: 'In Progress' },
+        { value: 'in-progress', label: 'In Progress' },
         { value: 'completed', label: 'Completed' },
-        { value: 'on_hold', label: 'On Hold' },
-        { value: 'cancelled', label: 'Cancelled' },
+        { value: 'rejected', label: 'Rejected' },
+        { value: 'resubmission', label: 'Resubmission' },
+        { value: 'emergency', label: 'Emergency' },
     ];
 
     const handleSubmit = async () => {
@@ -28,6 +30,7 @@ const BulkStatusModal = ({ isOpen, onClose, selectedWorks = [], onSuccess }) => 
 
             const response = await axios.post(router.route('dailyWorks.bulkUpdateStatus'), {
                 work_ids: selectedWorks.map(w => w.id),
+                versions: Object.fromEntries(selectedWorks.map(w => [w.id, w.lock_version])),
                 status: selectedStatus
             }, {
                 headers: {
@@ -42,7 +45,13 @@ const BulkStatusModal = ({ isOpen, onClose, selectedWorks = [], onSuccess }) => 
             }
         } catch (error) {
             console.error('Bulk status update error:', error);
-            showToast.error('Failed to update status');
+            if (error.response?.status === 409) {
+                router.reload({ only: ['allData'] });
+                showToast.error('Some selected works changed. Latest data was loaded; review and retry.');
+                onClose();
+            } else {
+                showToast.error(error.response?.data?.message || 'Failed to update status');
+            }
         } finally {
             setIsSubmitting(false);
         }

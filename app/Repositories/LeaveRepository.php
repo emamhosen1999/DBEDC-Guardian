@@ -100,7 +100,7 @@ class LeaveRepository extends BaseRepository
     /**
      * Get leaves for a specific user
      */
-    public function getUserLeaves(int $userId, array $filters = []): Collection
+    public function getUserLeaves(string $userId, array $filters = []): Collection
     {
         $filters['user_id'] = $userId;
 
@@ -155,7 +155,7 @@ class LeaveRepository extends BaseRepository
     /**
      * Get leave summary for a user
      */
-    public function getUserLeaveSummary(int $userId, int $year): array
+    public function getUserLeaveSummary(string $userId, int $year): array
     {
         $leaves = $this->model
             ->where('user_id', $userId)
@@ -185,7 +185,7 @@ class LeaveRepository extends BaseRepository
      *
      * @param  string|Carbon  $date
      */
-    public function hasLeaveOnDate(int $userId, $date): bool
+    public function hasLeaveOnDate(string $userId, $date): bool
     {
         return $this->model
             ->where('user_id', $userId)
@@ -252,7 +252,7 @@ class LeaveRepository extends BaseRepository
      * @param  string|Carbon  $fromDate
      * @param  string|Carbon  $toDate
      */
-    public function getOverlappingLeaves(int $userId, $fromDate, $toDate, ?int $excludeLeaveId = null): Collection
+    public function getOverlappingLeaves(string $userId, $fromDate, $toDate, ?int $excludeLeaveId = null): Collection
     {
         $query = $this->model
             ->where('user_id', $userId)

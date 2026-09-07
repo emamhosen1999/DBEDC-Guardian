@@ -1401,7 +1401,7 @@ class BiometricDeviceController extends Controller
             'device_id' => 'nullable|integer',
         ]);
 
-        $userId = $request->filled('user_id') ? (int) $request->input('user_id') : null;
+        $userId = $request->filled('user_id') ? (string) $request->input('user_id') : null;
         $deviceId = $request->filled('device_id') ? (int) $request->input('device_id') : null;
 
         // Resolved from the container at call time rather than injected into the

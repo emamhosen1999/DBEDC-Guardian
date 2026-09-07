@@ -300,7 +300,7 @@ class RosterController extends Controller
         // affected date with the new PRIMARY shift substituted in, before
         // writing anything. Enforce mode blocks only a severity=error
         // violation; warnings are always returned but never block.
-        $complianceViolations = $this->complianceForManualDay((int) $data['user_id'], $data['date'], $primaryShiftId);
+        $complianceViolations = $this->complianceForManualDay((string) $data['user_id'], $data['date'], $primaryShiftId);
         $hasBlockingError = collect($complianceViolations)->contains(fn (array $v) => ($v['severity'] ?? null) === 'error');
 
         if (config('attendance.compliance.enforce') && $hasBlockingError) {
@@ -383,7 +383,7 @@ class RosterController extends Controller
      *
      * @return array<int, array{date: string, rule: string, message: string, severity: string, details: array}>
      */
-    private function complianceForManualDay(int $userId, string $date, ?int $shiftId): array
+    private function complianceForManualDay(string $userId, string $date, ?int $shiftId): array
     {
         $target = Carbon::parse($date)->startOfDay();
         $from = $target->copy()->subDays(7);

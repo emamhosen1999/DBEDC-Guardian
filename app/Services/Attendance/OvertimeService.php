@@ -2,6 +2,8 @@
 
 namespace App\Services\Attendance;
 
+use App\Http\Controllers\Api\V1\AttendanceRequestController;
+use App\Http\Controllers\HRM\OvertimeController;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\User;
 use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
@@ -14,8 +16,8 @@ use Illuminate\Support\Facades\Log;
  * transition (via {@see AttendanceApprovalService}), comp-off credit, the
  * recipient NOTIFICATION (request → the approver; decision → the requester), and
  * the realtime {@see RealtimeSignal} marker — lives here so it fires exactly once
- * whether the call came from the web ({@see \App\Http\Controllers\HRM\OvertimeController})
- * or the mobile ({@see \App\Http\Controllers\Api\V1\AttendanceRequestController})
+ * whether the call came from the web ({@see OvertimeController})
+ * or the mobile ({@see AttendanceRequestController})
  * controller. Realtime contract (do NOT change): overtime signals attendance/all;
  * actorId is the ACTING user for self-echo suppression.
  */
@@ -27,7 +29,7 @@ class OvertimeService
         private readonly RealtimeSignal $signal,
     ) {}
 
-    public function request(int $userId, array $data): OvertimeRequest
+    public function request(string $userId, array $data): OvertimeRequest
     {
         $ot = OvertimeRequest::create([
             'user_id' => $userId, 'date' => $data['date'],

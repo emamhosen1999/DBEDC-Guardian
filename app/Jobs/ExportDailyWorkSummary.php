@@ -28,14 +28,14 @@ class ExportDailyWorkSummary implements ShouldQueue
 
     protected array $filters;
 
-    protected int $userId;
+    protected string $userId;
 
     protected string $filename;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(string $type, array $filters, int $userId, string $filename)
+    public function __construct(string $type, array $filters, string $userId, string $filename)
     {
         $this->type = $type;
         $this->filters = $filters;

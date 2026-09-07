@@ -254,7 +254,7 @@ class BiometricProcessingService
     /**
      * Check whether a punch already exists for a user at the given time (idempotency).
      */
-    public function isDuplicatePunch(int $userId, $punchTime): bool
+    public function isDuplicatePunch(string $userId, $punchTime): bool
     {
         return DB::table('attendances')
             ->where('user_id', $userId)
@@ -1477,7 +1477,7 @@ class BiometricProcessingService
      *
      * @param  array<string, mixed>  $extra
      */
-    protected function markAttLog(int $logId, string $status, ?string $reason = null, ?int $userId = null, array $extra = []): void
+    protected function markAttLog(int $logId, string $status, ?string $reason = null, ?string $userId = null, array $extra = []): void
     {
         $update = $extra + [
             'punch_status' => $status,
@@ -2277,7 +2277,7 @@ class BiometricProcessingService
     /**
      * Initiate an attendance log download session for a device.
      */
-    public function initiateLogDownload(BiometricDevice $device, string $triggerType, ?int $userId = null, ?array $payload = null): BiometricDownloadSession
+    public function initiateLogDownload(BiometricDevice $device, string $triggerType, ?string $userId = null, ?array $payload = null): BiometricDownloadSession
     {
         if (! $device->is_active) {
             throw new \InvalidArgumentException('Device is inactive.');
@@ -2326,7 +2326,7 @@ class BiometricProcessingService
     /**
      * Bulk initiate download sessions for multiple devices.
      */
-    public function bulkInitiateLogDownload(array $deviceIds, string $triggerType, ?int $userId = null): array
+    public function bulkInitiateLogDownload(array $deviceIds, string $triggerType, ?string $userId = null): array
     {
         $devices = BiometricDevice::whereIn('id', $deviceIds)->active()->get();
         $sessions = [];

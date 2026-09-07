@@ -18,6 +18,7 @@ class UpdateDailyWorkStatusRequest extends FormRequest
         return [
             'status' => ['required', 'string', Rule::in(DailyWork::$statuses)],
             'inspection_result' => ['nullable', 'string', Rule::in(DailyWork::$inspectionResults)],
+            'lock_version' => ['sometimes', 'integer', 'min:0'],
         ];
     }
 }

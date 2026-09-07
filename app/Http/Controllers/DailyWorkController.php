@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\StaleModelVersionException;
 use App\Http\Requests\DailyWork\UpdateDailyWorkStatusRequest;
 use App\Http\Requests\DailyWork\UpdateInspectionDetailsRequest;
 use App\Models\DailyWork;
 use App\Models\Jurisdiction;
 use App\Models\Report;
-use App\Models\RfiSubmissionOverrideLog;
 use App\Models\User;
 use App\Services\DailyWork\DailyWorkCrudService;
 use App\Services\DailyWork\DailyWorkFileService;
@@ -15,7 +15,9 @@ use App\Services\DailyWork\DailyWorkImportService;
 use App\Services\DailyWork\DailyWorkPaginationService;
 use App\Services\Project\DailyWorkExportService;
 use App\Services\Project\DailyWorkService;
+use App\Services\Realtime\RealtimeSignal;
 use App\Traits\DailyWorkFilterable;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -262,8 +264,12 @@ class DailyWorkController extends Controller
             $result = $this->crudService->update($request);
 
             return response()->json($result);
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -278,6 +284,10 @@ class DailyWorkController extends Controller
             $result = $this->crudService->delete($request);
 
             return response()->json($result);
+        } catch (AuthorizationException|ValidationException $e) {
+            throw $e;
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -344,15 +354,18 @@ class DailyWorkController extends Controller
                 $dailyWork,
                 $request->status,
                 $request->input('inspection_result'),
-                true // Web controller updates submission_time
+                true, // Web controller updates submission_time
+                $request->integer('lock_version')
             );
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'status');
+            app(RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'status');
 
             return response()->json([
                 'message' => 'Status updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -364,20 +377,23 @@ class DailyWorkController extends Controller
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
                 'completion_time' => 'required|date',
+                'lock_version' => 'required|integer|min:0',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
 
             $this->authorize('updateCompletionTime', $dailyWork);
 
-            $this->dailyWorkService->updateCompletionTime($dailyWork, $request->completion_time);
+            $this->dailyWorkService->updateCompletionTime($dailyWork, $request->completion_time, $request->integer('lock_version'));
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'completion-time');
+            app(RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'completion-time');
 
             return response()->json([
                 'message' => 'Completion time updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -392,6 +408,7 @@ class DailyWorkController extends Controller
                 // Override confirmation fields (required when objections exist)
                 'override_confirmed' => 'sometimes|boolean',
                 'override_reason' => 'nullable|required_if:override_confirmed,true|string|max:1000',
+                'lock_version' => 'required|integer|min:0',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
@@ -428,7 +445,8 @@ class DailyWorkController extends Controller
                 $dailyWork,
                 $request->rfi_submission_date,
                 auth()->id(),
-                $request->override_reason
+                $request->override_reason,
+                $request->integer('lock_version')
             );
 
             return response()->json([
@@ -436,6 +454,8 @@ class DailyWorkController extends Controller
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
                 'override_logged' => $activeObjectionsCount > 0,
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -450,6 +470,8 @@ class DailyWorkController extends Controller
             $request->validate([
                 'ids' => 'required|array|min:1',
                 'ids.*' => 'required|exists:daily_works,id',
+                'versions' => 'required|array',
+                'versions.*' => 'required|integer|min:0',
                 'rfi_submission_date' => 'required|date',
                 'skip_objected' => 'sometimes|boolean',
                 'override_objected' => 'sometimes|boolean',
@@ -458,6 +480,7 @@ class DailyWorkController extends Controller
 
             $result = $this->dailyWorkService->bulkSubmit(
                 ids: $request->ids,
+                versions: $request->versions,
                 submissionDate: $request->rfi_submission_date,
                 userId: auth()->id(),
                 skipObjected: $request->boolean('skip_objected'),
@@ -477,7 +500,7 @@ class DailyWorkController extends Controller
                 ], 422);
             }
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'bulk-submit');
+            app(RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'bulk-submit');
 
             return response()->json([
                 'message' => $this->buildBulkSubmitMessage($result['submitted'], $result['skipped'], $result['failed']),
@@ -488,6 +511,10 @@ class DailyWorkController extends Controller
                 'skipped_count' => count($result['skipped']),
                 'failed_count' => count($result['failed']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -706,19 +733,40 @@ class DailyWorkController extends Controller
 
                 try {
                     $this->authorize('updateSubmissionTime', $work);
-                    $this->dailyWorkService->updateSubmissionTime($work, $item['submission_date'], auth()->id(), null);
+                    $updatedWork = $this->dailyWorkService->updateSubmissionTime(
+                        $work,
+                        $item['submission_date'],
+                        auth()->id(),
+                        null,
+                        (int) $work->lock_version
+                    );
                     $submitted[] = [
                         'id' => $work->id,
                         'number' => $work->number,
                         'submission_date' => $item['submission_date'],
-                        'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                        'dailyWork' => $updatedWork,
                     ];
-                } catch (\Exception $e) {
+                } catch (AuthorizationException) {
                     $failed[] = [
                         'row' => $item['row'],
                         'id' => $work->id,
                         'number' => $work->number,
                         'error' => 'Permission denied',
+                    ];
+                } catch (StaleModelVersionException $e) {
+                    $failed[] = [
+                        'row' => $item['row'],
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'error' => $e->getMessage(),
+                        'code' => 'STALE_WRITE',
+                    ];
+                } catch (\Exception) {
+                    $failed[] = [
+                        'row' => $item['row'],
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'error' => 'Update failed',
                     ];
                 }
             }
@@ -740,21 +788,42 @@ class DailyWorkController extends Controller
                 if ($overrideObjected) {
                     try {
                         $this->authorize('updateSubmissionTime', $work);
-                        $this->dailyWorkService->updateSubmissionTime($work, $item['submission_date'], auth()->id(), $overrideReason.' (Excel import)');
+                        $updatedWork = $this->dailyWorkService->updateSubmissionTime(
+                            $work,
+                            $item['submission_date'],
+                            auth()->id(),
+                            $overrideReason.' (Excel import)',
+                            (int) $work->lock_version
+                        );
 
                         $submitted[] = [
                             'id' => $work->id,
                             'number' => $work->number,
                             'submission_date' => $item['submission_date'],
                             'override_logged' => true,
-                            'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                            'dailyWork' => $updatedWork,
                         ];
-                    } catch (\Exception $e) {
+                    } catch (AuthorizationException) {
                         $failed[] = [
                             'row' => $item['row'],
                             'id' => $work->id,
                             'number' => $work->number,
                             'error' => 'Permission denied',
+                        ];
+                    } catch (StaleModelVersionException $e) {
+                        $failed[] = [
+                            'row' => $item['row'],
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => $e->getMessage(),
+                            'code' => 'STALE_WRITE',
+                        ];
+                    } catch (\Exception) {
+                        $failed[] = [
+                            'row' => $item['row'],
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => 'Update failed',
                         ];
                     }
                 }
@@ -804,12 +873,18 @@ class DailyWorkController extends Controller
                 $inspectionDetails = null;
             }
 
-            $dailyWork->update(['inspection_details' => $inspectionDetails]);
+            $dailyWork = $this->dailyWorkService->updateInspectionDetails(
+                $dailyWork,
+                $inspectionDetails,
+                $request->integer('lock_version')
+            );
 
             return response()->json([
                 'message' => 'Inspection details updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -821,18 +896,21 @@ class DailyWorkController extends Controller
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
                 'incharge' => 'nullable|exists:users,employee_id',
+                'lock_version' => 'required|integer|min:0',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
 
             $this->authorize('updateIncharge', $dailyWork);
 
-            $this->dailyWorkService->updateIncharge($dailyWork, $request->incharge);
+            $this->dailyWorkService->updateIncharge($dailyWork, $request->incharge, $request->integer('lock_version'));
 
             return response()->json([
                 'message' => 'Incharge updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -844,18 +922,21 @@ class DailyWorkController extends Controller
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
                 'assigned' => 'nullable|exists:users,employee_id',
+                'lock_version' => 'required|integer|min:0',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
 
             $this->authorize('updateAssigned', $dailyWork);
 
-            $this->dailyWorkService->updateAssigned($dailyWork, $request->assigned);
+            $this->dailyWorkService->updateAssigned($dailyWork, $request->assigned, $request->integer('lock_version'));
 
             return response()->json([
                 'message' => 'Assigned user updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -867,18 +948,21 @@ class DailyWorkController extends Controller
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
                 'assigned' => 'required|exists:users,employee_id',
+                'lock_version' => 'required|integer|min:0',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
 
             $this->authorize('updateAssigned', $dailyWork);
 
-            $this->dailyWorkService->updateAssigned($dailyWork, $request->assigned);
+            $this->dailyWorkService->updateAssigned($dailyWork, $request->assigned, $request->integer('lock_version'));
 
             return response()->json([
                 'message' => 'Work assigned successfully',
                 'dailyWork' => $dailyWork->load(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -892,6 +976,8 @@ class DailyWorkController extends Controller
             $result = $this->crudService->create($request);
 
             return response()->json($result);
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
@@ -1070,6 +1156,8 @@ class DailyWorkController extends Controller
             $request->validate([
                 'ids' => 'required|array|min:1',
                 'ids.*' => 'required|exists:daily_works,id',
+                'versions' => 'required|array',
+                'versions.*' => 'required|integer|min:0',
                 'rfi_response_status' => 'required|string|in:'.implode(',', DailyWork::$rfiResponseStatuses),
                 'rfi_response_date' => 'required|date',
                 'skip_objected' => 'sometimes|boolean',
@@ -1079,12 +1167,14 @@ class DailyWorkController extends Controller
 
             $result = $this->dailyWorkService->bulkResponseStatusUpdate(
                 ids: $request->ids,
+                versions: $request->versions,
                 responseStatus: $request->rfi_response_status,
                 responseDate: $request->rfi_response_date,
                 userId: auth()->id(),
                 skipObjected: $request->boolean('skip_objected'),
                 overrideObjected: $request->boolean('override_objected'),
-                overrideReason: $request->override_reason
+                overrideReason: $request->override_reason,
+                authorizeCallback: fn ($work) => $this->authorize('updateStatus', $work)
             );
 
             if (! empty($result['requires_decision'])) {
@@ -1107,9 +1197,107 @@ class DailyWorkController extends Controller
                 'skipped_count' => count($result['skipped']),
                 'failed_count' => count($result['failed']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    public function bulkUpdateIncharge(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'work_ids' => 'required|array|min:1',
+            'work_ids.*' => 'required|integer|exists:daily_works,id',
+            'versions' => 'required|array',
+            'versions.*' => 'required|integer|min:0',
+            'incharge_id' => 'nullable|string|exists:users,employee_id',
+        ]);
+
+        $updated = $this->dailyWorkService->bulkUpdateIncharge(
+            $validated['work_ids'],
+            $validated['versions'],
+            $validated['incharge_id'] ?? null,
+            fn (DailyWork $work) => $this->authorize('updateIncharge', $work),
+        );
+
+        return response()->json([
+            'message' => count($updated).' daily work(s) assigned to the selected incharge.',
+            'updated' => $updated,
+            'updated_count' => count($updated),
+        ]);
+    }
+
+    public function bulkUpdateStatus(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'work_ids' => 'required|array|min:1',
+            'work_ids.*' => 'required|integer|exists:daily_works,id',
+            'versions' => 'required|array',
+            'versions.*' => 'required|integer|min:0',
+            'status' => 'required|string|in:'.implode(',', DailyWork::$statuses),
+        ]);
+
+        $updated = $this->dailyWorkService->bulkUpdateStatus(
+            $validated['work_ids'],
+            $validated['versions'],
+            $validated['status'],
+            fn (DailyWork $work) => $this->authorize('updateStatus', $work),
+        );
+
+        return response()->json([
+            'message' => count($updated).' daily work status(es) updated.',
+            'updated' => $updated,
+            'updated_count' => count($updated),
+        ]);
+    }
+
+    public function bulkUpdateCompletionDate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'work_ids' => 'required|array|min:1',
+            'work_ids.*' => 'required|integer|exists:daily_works,id',
+            'versions' => 'required|array',
+            'versions.*' => 'required|integer|min:0',
+            'completion_date' => 'nullable|date',
+        ]);
+
+        $updated = $this->dailyWorkService->bulkUpdateCompletionDate(
+            $validated['work_ids'],
+            $validated['versions'],
+            $validated['completion_date'] ?? null,
+            fn (DailyWork $work) => $this->authorize('updateCompletionTime', $work),
+        );
+
+        return response()->json([
+            'message' => count($updated).' daily work completion date(s) updated.',
+            'updated' => $updated,
+            'updated_count' => count($updated),
+        ]);
+    }
+
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'work_ids' => 'required|array|min:1',
+            'work_ids.*' => 'required|integer|exists:daily_works,id',
+            'versions' => 'required|array',
+            'versions.*' => 'required|integer|min:0',
+        ]);
+
+        $deleted = $this->dailyWorkService->bulkDelete(
+            $validated['work_ids'],
+            $validated['versions'],
+            fn (DailyWork $work) => $this->authorize('delete', $work),
+        );
+
+        return response()->json([
+            'message' => count($deleted).' daily work(s) moved to deleted records.',
+            'deleted' => $deleted,
+            'deleted_count' => count($deleted),
+        ]);
     }
 
     /**
@@ -1328,21 +1516,39 @@ class DailyWorkController extends Controller
             // Process works without objections
             foreach ($worksWithoutObjections as $data) {
                 try {
-                    $data['work']->update([
-                        'rfi_response_status' => $data['status'],
-                        'rfi_response_date' => $data['date'],
-                    ]);
+                    $this->authorize('updateStatus', $data['work']);
+                    $updatedWork = $this->dailyWorkService->updateResponseStatus(
+                        $data['work'],
+                        $data['status'],
+                        $data['date'],
+                        auth()->id(),
+                        null,
+                        (int) $data['work']->lock_version
+                    );
                     $updated[] = [
                         'id' => $data['work']->id,
                         'number' => $data['work']->number,
                         'status' => $data['status'],
-                        'dailyWork' => $data['work']->fresh(['inchargeUser', 'assignedUser']),
+                        'dailyWork' => $updatedWork,
                     ];
-                } catch (\Exception $e) {
+                } catch (AuthorizationException) {
+                    $failed[] = [
+                        'id' => $data['work']->id,
+                        'number' => $data['work']->number,
+                        'error' => 'Permission denied',
+                    ];
+                } catch (StaleModelVersionException $e) {
                     $failed[] = [
                         'id' => $data['work']->id,
                         'number' => $data['work']->number,
                         'error' => $e->getMessage(),
+                        'code' => 'STALE_WRITE',
+                    ];
+                } catch (\Exception) {
+                    $failed[] = [
+                        'id' => $data['work']->id,
+                        'number' => $data['work']->number,
+                        'error' => 'Update failed',
                     ];
                 }
             }
@@ -1361,31 +1567,40 @@ class DailyWorkController extends Controller
 
                 if ($overrideObjected) {
                     try {
-                        RfiSubmissionOverrideLog::logOverride(
-                            dailyWorkId: $data['work']->id,
-                            oldDate: $data['work']->rfi_response_date?->format('Y-m-d'),
-                            newDate: $data['date'],
-                            activeObjectionsCount: $data['work']->active_objections_count,
-                            reason: $overrideReason.' (Import response status: '.$data['status'].')',
-                            userId: auth()->id()
+                        $this->authorize('updateStatus', $data['work']);
+                        $updatedWork = $this->dailyWorkService->updateResponseStatus(
+                            $data['work'],
+                            $data['status'],
+                            $data['date'],
+                            auth()->id(),
+                            $overrideReason.' (Import response status: '.$data['status'].')',
+                            (int) $data['work']->lock_version
                         );
-
-                        $data['work']->update([
-                            'rfi_response_status' => $data['status'],
-                            'rfi_response_date' => $data['date'],
-                        ]);
                         $updated[] = [
                             'id' => $data['work']->id,
                             'number' => $data['work']->number,
                             'status' => $data['status'],
                             'override_logged' => true,
-                            'dailyWork' => $data['work']->fresh(['inchargeUser', 'assignedUser']),
+                            'dailyWork' => $updatedWork,
                         ];
-                    } catch (\Exception $e) {
+                    } catch (AuthorizationException) {
+                        $failed[] = [
+                            'id' => $data['work']->id,
+                            'number' => $data['work']->number,
+                            'error' => 'Permission denied',
+                        ];
+                    } catch (StaleModelVersionException $e) {
                         $failed[] = [
                             'id' => $data['work']->id,
                             'number' => $data['work']->number,
                             'error' => $e->getMessage(),
+                            'code' => 'STALE_WRITE',
+                        ];
+                    } catch (\Exception) {
+                        $failed[] = [
+                            'id' => $data['work']->id,
+                            'number' => $data['work']->number,
+                            'error' => 'Update failed',
                         ];
                     }
                 }

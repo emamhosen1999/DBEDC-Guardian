@@ -8,6 +8,7 @@ use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\ShiftSchedule;
 use App\Services\Leave\LeaveDayCalculator;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -22,7 +23,7 @@ class LeaveDayCalculatorTest extends TestCase
         {
             public function __construct(private array $off) {}
 
-            public function resolve(int $userId, \Carbon\CarbonInterface $date): ShiftSchedule
+            public function resolve(int|string $userId, CarbonInterface $date): ShiftSchedule
             {
                 $isWorking = ! in_array($date->toDateString(), $this->off, true);
 

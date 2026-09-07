@@ -44,7 +44,7 @@ interface DomainEvent
      * Realtime routing for App\Services\Realtime\RealtimeSignal.
      *
      * Return null from realtimeEntity() when this event has NO place in the
-     * fixed signal vocabulary (attendance|dailywork|leave|objection|roster).
+     * fixed signal vocabulary (attendance|dailywork|leave|objection|roster|operations|pettycash).
      * The listener then skips it rather than inventing a new Firebase path.
      */
     public function realtimeEntity(): ?string;

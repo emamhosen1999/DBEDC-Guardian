@@ -39,7 +39,7 @@ class DeviceController extends Controller
     /**
      * Get all devices for a specific user (admin only).
      */
-    public function getUserDevices(Request $request, int $userId): JsonResponse|InertiaResponse
+    public function getUserDevices(Request $request, string $userId): JsonResponse|InertiaResponse
     {
         // Authorization check should be done via middleware or policy
         $user = User::findOrFail($userId);
@@ -70,7 +70,7 @@ class DeviceController extends Controller
     /**
      * Reset all devices for a user (admin only).
      */
-    public function resetDevices(Request $request, int $userId): JsonResponse
+    public function resetDevices(Request $request, string $userId): JsonResponse
     {
         $request->validate([
             'reason' => 'nullable|string|max:255',
@@ -131,7 +131,7 @@ class DeviceController extends Controller
     /**
      * Deactivate a specific device for any user (admin only).
      */
-    public function adminDeactivateDevice(Request $request, int $userId, int $deviceId): JsonResponse
+    public function adminDeactivateDevice(Request $request, string $userId, int $deviceId): JsonResponse
     {
         $user = User::findOrFail($userId);
         $success = $this->deviceAuthService->deactivateDevice($user, $deviceId);
@@ -160,7 +160,7 @@ class DeviceController extends Controller
     /**
      * Toggle single device login for a user (admin only).
      */
-    public function toggleSingleDeviceLogin(Request $request, int $userId): JsonResponse
+    public function toggleSingleDeviceLogin(Request $request, string $userId): JsonResponse
     {
         $user = User::findOrFail($userId);
 

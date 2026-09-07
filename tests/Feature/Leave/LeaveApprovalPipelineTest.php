@@ -46,7 +46,7 @@ class LeaveApprovalPipelineTest extends TestCase
     /**
      * @param  array<int, array<string, mixed>>  $chain
      */
-    private function makePendingLeave(int $employeeId, int $leaveTypeId, array $chain, int $currentLevel = 1): Leave
+    private function makePendingLeave(string $employeeId, int $leaveTypeId, array $chain, int $currentLevel = 1): Leave
     {
         return Leave::create([
             'user_id' => $employeeId,
@@ -65,7 +65,7 @@ class LeaveApprovalPipelineTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function chainLevel(int $level, int $approverId, string $status = 'pending'): array
+    private function chainLevel(int $level, string $approverId, string $status = 'pending'): array
     {
         return [
             'level' => $level,

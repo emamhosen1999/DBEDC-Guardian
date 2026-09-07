@@ -82,6 +82,11 @@ class UserResource extends JsonResource
                 'slug' => $t->slug,
             ])->values(),
             'roles' => $this->relationLoaded('roles') ? $this->roles->pluck('name')->toArray() : [],
+            'permissions' => $this->when(
+                $request->user()
+                    && (string) $request->user()->getKey() === (string) $this->resource->getKey(),
+                fn () => $request->user()->getAllPermissions()->pluck('name')->values()->all()
+            ),
 
             // Device information
             'single_device_login' => $this->single_device_login_enabled,

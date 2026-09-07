@@ -110,6 +110,12 @@ class UserPolicy
             return false;
         }
 
+        // Only a Super Administrator may grant or revoke roles on another
+        // Super Administrator.
+        if ($model->hasRole('Super Administrator') && ! $user->hasRole('Super Administrator')) {
+            return false;
+        }
+
         return $user->hasPermissionTo('users.update') &&
                $user->hasRole(['Super Administrator', 'Administrator']);
     }

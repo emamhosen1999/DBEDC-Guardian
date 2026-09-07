@@ -95,15 +95,25 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     const [currentRow, setCurrentRow] = useState();
     const [taskIdToDelete, setTaskIdToDelete] = useState(null);
     const [openModalType, setOpenModalType] = useState(null);
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(() => {
+        if (typeof window === 'undefined') return '';
+        return new URLSearchParams(window.location.search).get('search') || '';
+    });
     const [perPage, setPerPage] = useState(30);
     const [currentPage, setCurrentPage] = useState(1);
     
+    // Global search links include the record's date, including historical RFIs.
+    const initialDate = (() => {
+        if (typeof window === 'undefined') return overallEndDate;
+        const requested = new URLSearchParams(window.location.search).get('date');
+        return requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) && dayjs(requested).isValid()
+            ? requested : overallEndDate;
+    })();
     // Date state management
-    const [selectedDate, setSelectedDate] = useState(overallEndDate);
+    const [selectedDate, setSelectedDate] = useState(initialDate);
     const [dateRange, setDateRange] = useState({
-        start: overallEndDate,
-        end: overallEndDate
+        start: initialDate,
+        end: initialDate
     });
     
     const [dateBounds, setDateBounds] = useState({
@@ -116,8 +126,8 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         status: 'all',
         incharge: [],
         jurisdiction: [],
-        startDate: overallEndDate,
-        endDate: overallEndDate
+        startDate: initialDate,
+        endDate: initialDate
     });
     
     const [showFilters, setShowFilters] = useState(false);
@@ -457,9 +467,11 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         
         const promise = new Promise(async (resolve, reject) => {
             try {
+                const workToDelete = data.find(item => item.id === taskIdToDelete);
                 const response = await axios.delete('/delete-daily-work', {
                     data: {
                         id: taskIdToDelete,
+                        lock_version: workToDelete?.lock_version,
                         page: currentPage,
                         perPage,
                     }

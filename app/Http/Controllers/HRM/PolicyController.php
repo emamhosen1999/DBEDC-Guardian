@@ -10,6 +10,7 @@ use App\Services\Attendance\PolicySimulationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PolicyController extends Controller
 {
@@ -19,17 +20,48 @@ class PolicyController extends Controller
     private function policyRules(): array
     {
         return [
-            'name'                   => 'required|string|max:120',
-            'scope_type'             => 'required|in:org,department,designation,user',
-            'scope_id'               => 'nullable|integer',
-            'effective_from'         => 'required|date',
-            'effective_to'           => 'nullable|date|after_or_equal:effective_from',
-            'punch_strictness'       => 'required|in:warn,flag,restrict',
+            'name' => 'required|string|max:120',
+            'scope_type' => 'required|in:org,department,designation,user',
+            'scope_id' => 'nullable',
+            'effective_from' => 'required|date',
+            'effective_to' => 'nullable|date|after_or_equal:effective_from',
+            'punch_strictness' => 'required|in:warn,flag,restrict',
             'outside_window_minutes' => 'integer|min:0|max:1440',
-            'grace_tiers'            => 'nullable|array',
-            'rounding'               => 'nullable|array',
-            'rule_overrides'         => 'nullable|array',
+            'grace_tiers' => 'nullable|array',
+            'rounding' => 'nullable|array',
+            'rule_overrides' => 'nullable|array',
         ];
+    }
+
+    private function normalizeScope(array $data): array
+    {
+        $scopeType = $data['scope_type'] ?? 'org';
+
+        if ($scopeType === 'org') {
+            $data['scope_id'] = null;
+
+            return $data;
+        }
+
+        $scopeId = $data['scope_id'] ?? null;
+        if ($scopeId === null || $scopeId === '') {
+            throw ValidationException::withMessages(['scope_id' => 'Select a scope target.']);
+        }
+
+        $exists = match ($scopeType) {
+            'user' => User::where('employee_id', (string) $scopeId)->exists(),
+            'department' => DB::table('departments')->where('id', $scopeId)->exists(),
+            'designation' => DB::table('designations')->where('id', $scopeId)->exists(),
+            default => false,
+        };
+
+        if (! $exists) {
+            throw ValidationException::withMessages(['scope_id' => 'The selected scope target is invalid.']);
+        }
+
+        $data['scope_id'] = (string) $scopeId;
+
+        return $data;
     }
 
     // -----------------------------------------------------------------------
@@ -38,21 +70,21 @@ class PolicyController extends Controller
     private function mapPolicy(AttendancePolicy $p): array
     {
         return [
-            'id'                     => $p->id,
-            'name'                   => $p->name,
-            'scope_type'             => $p->scope_type,
-            'scope_id'               => $p->scope_id,
-            'priority'               => $p->priority,
-            'effective_from'         => $p->effective_from?->toDateString(),
-            'effective_to'           => $p->effective_to?->toDateString(),
-            'version_group_id'       => $p->version_group_id,
-            'version'                => $p->version,
-            'status'                 => $p->status,
-            'punch_strictness'       => $p->punch_strictness,
+            'id' => $p->id,
+            'name' => $p->name,
+            'scope_type' => $p->scope_type,
+            'scope_id' => $p->scope_id,
+            'priority' => $p->priority,
+            'effective_from' => $p->effective_from?->toDateString(),
+            'effective_to' => $p->effective_to?->toDateString(),
+            'version_group_id' => $p->version_group_id,
+            'version' => $p->version,
+            'status' => $p->status,
+            'punch_strictness' => $p->punch_strictness,
             'outside_window_minutes' => $p->outside_window_minutes,
-            'grace_tiers'            => $p->grace_tiers,
-            'rounding'               => $p->rounding,
-            'rule_overrides'         => $p->rule_overrides,
+            'grace_tiers' => $p->grace_tiers,
+            'rounding' => $p->rounding,
+            'rule_overrides' => $p->rule_overrides,
         ];
     }
 
@@ -74,12 +106,12 @@ class PolicyController extends Controller
     // -----------------------------------------------------------------------
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate($this->policyRules());
+        $data = $this->normalizeScope($request->validate($this->policyRules()));
 
-        $data['status']           = 'draft';
-        $data['version']          = 1;
+        $data['status'] = 'draft';
+        $data['version'] = 1;
         $data['version_group_id'] = (AttendancePolicy::max('version_group_id') ?? 0) + 1;
-        $data['created_by']       = $request->user()->id;
+        $data['created_by'] = $request->user()->id;
 
         $policy = AttendancePolicy::create($data);
 
@@ -95,7 +127,7 @@ class PolicyController extends Controller
 
         abort_unless($policy->status === 'draft', 422, 'Only draft policies can be edited.');
 
-        $data = $request->validate($this->policyRules());
+        $data = $this->normalizeScope($request->validate($this->policyRules()));
 
         $policy->update($data);
 
@@ -123,7 +155,7 @@ class PolicyController extends Controller
                 ->each(function (AttendancePolicy $prior) use ($supersededDate): void {
                     $prior->update([
                         'effective_to' => $supersededDate,
-                        'status'       => 'archived',
+                        'status' => 'archived',
                     ]);
                 });
 
@@ -150,42 +182,47 @@ class PolicyController extends Controller
     public function simulate(Request $request): JsonResponse
     {
         $request->validate([
-            'from'     => 'required|date',
-            'to'       => 'required|date|after_or_equal:from',
+            'from' => 'required|date',
+            'to' => 'required|date|after_or_equal:from',
             'user_ids' => 'nullable|array',
-            'user_ids.*' => 'integer',
+            'user_ids.*' => 'exists:users,employee_id',
             // Policy fields (same rules as store/update, but all optional for simulation)
-            'name'                   => 'nullable|string|max:120',
-            'scope_type'             => 'nullable|in:org,department,designation,user',
-            'scope_id'               => 'nullable|integer',
-            'effective_from'         => 'nullable|date',
-            'effective_to'           => 'nullable|date',
-            'punch_strictness'       => 'nullable|in:warn,flag,restrict',
+            'name' => 'nullable|string|max:120',
+            'scope_type' => 'nullable|in:org,department,designation,user',
+            'scope_id' => 'nullable',
+            'effective_from' => 'nullable|date',
+            'effective_to' => 'nullable|date',
+            'punch_strictness' => 'nullable|in:warn,flag,restrict',
             'outside_window_minutes' => 'nullable|integer|min:0|max:1440',
-            'grace_tiers'            => 'nullable|array',
-            'rounding'               => 'nullable|array',
-            'rule_overrides'         => 'nullable|array',
+            'grace_tiers' => 'nullable|array',
+            'rounding' => 'nullable|array',
+            'rule_overrides' => 'nullable|array',
         ]);
 
         // Build a non-persisted draft policy from the request fields
+        $scopeData = $this->normalizeScope([
+            'scope_type' => $request->input('scope_type', 'org'),
+            'scope_id' => $request->input('scope_id'),
+        ]);
+
         $draft = new AttendancePolicy([
-            'name'                   => $request->input('name'),
-            'scope_type'             => $request->input('scope_type', 'org'),
-            'scope_id'               => $request->input('scope_id'),
-            'effective_from'         => $request->input('effective_from'),
-            'effective_to'           => $request->input('effective_to'),
-            'punch_strictness'       => $request->input('punch_strictness', 'warn'),
+            'name' => $request->input('name'),
+            'scope_type' => $scopeData['scope_type'],
+            'scope_id' => $scopeData['scope_id'],
+            'effective_from' => $request->input('effective_from'),
+            'effective_to' => $request->input('effective_to'),
+            'punch_strictness' => $request->input('punch_strictness', 'warn'),
             'outside_window_minutes' => $request->input('outside_window_minutes', 120),
-            'grace_tiers'            => $request->input('grace_tiers'),
-            'rounding'               => $request->input('rounding'),
-            'rule_overrides'         => $request->input('rule_overrides'),
+            'grace_tiers' => $request->input('grace_tiers'),
+            'rounding' => $request->input('rounding'),
+            'rule_overrides' => $request->input('rule_overrides'),
         ]);
 
         $userIds = $request->input('user_ids')
             ?? User::role('Employee')->pluck('employee_id')->all();
 
         $from = $request->input('from');
-        $to   = $request->input('to');
+        $to = $request->input('to');
 
         $result = app(PolicySimulationService::class)->simulate($draft, $userIds, $from, $to);
 

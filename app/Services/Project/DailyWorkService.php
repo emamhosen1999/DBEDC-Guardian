@@ -7,81 +7,123 @@ use App\Models\Jurisdiction;
 use App\Models\RfiObjection;
 use App\Models\RfiSubmissionOverrideLog;
 use App\Models\User;
+use App\Services\Concurrency\VersionGuard;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class DailyWorkService
 {
     /**
      * Update status, inspection result, and times of a DailyWork.
      */
-    public function updateStatus(DailyWork $dailyWork, string $status, ?string $inspectionResult = null, bool $updateSubmissionTime = true): DailyWork
-    {
-        $updateData = [
-            'status' => $status,
-        ];
+    public function updateStatus(
+        DailyWork $dailyWork,
+        string $status,
+        ?string $inspectionResult = null,
+        bool $updateSubmissionTime = true,
+        ?int $expectedVersion = null
+    ): DailyWork {
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($status, $inspectionResult, $updateSubmissionTime): void {
+            $updateData = ['status' => $status];
 
-        // Add inspection result if provided or reset it for new status
-        if ($inspectionResult !== null || $status === DailyWork::STATUS_NEW) {
-            $updateData['inspection_result'] = ($status === DailyWork::STATUS_NEW) ? null : $inspectionResult;
-        }
-
-        // Auto-set completion and submission times for completed status
-        if ($status === DailyWork::STATUS_COMPLETED) {
-            $updateData['completion_time'] = $dailyWork->completion_time ?? now();
-            if ($updateSubmissionTime) {
-                $updateData['submission_time'] = $dailyWork->submission_time ?? now();
+            if ($inspectionResult !== null || $status === DailyWork::STATUS_NEW) {
+                $updateData['inspection_result'] = ($status === DailyWork::STATUS_NEW) ? null : $inspectionResult;
             }
-        }
 
-        // Reset times for new status
-        if ($status === DailyWork::STATUS_NEW) {
-            $updateData['completion_time'] = null;
-            if ($updateSubmissionTime) {
-                $updateData['submission_time'] = null;
+            if ($status === DailyWork::STATUS_COMPLETED) {
+                $updateData['completion_time'] = $locked->completion_time ?? now();
+                if ($updateSubmissionTime) {
+                    $updateData['submission_time'] = $locked->submission_time ?? now();
+                }
             }
-            $updateData['inspection_result'] = null;
-        }
 
-        $dailyWork->update($updateData);
+            if ($status === DailyWork::STATUS_NEW) {
+                $updateData['completion_time'] = null;
+                if ($updateSubmissionTime) {
+                    $updateData['submission_time'] = null;
+                }
+                $updateData['inspection_result'] = null;
+            }
 
-        return $dailyWork;
+            $locked->fill($updateData);
+        });
     }
 
     /**
      * Update the completion time of a DailyWork.
      */
-    public function updateCompletionTime(DailyWork $dailyWork, string $completionTime): DailyWork
+    public function updateCompletionTime(DailyWork $dailyWork, string $completionTime, ?int $expectedVersion = null): DailyWork
     {
-        $dailyWork->update(['completion_time' => $completionTime]);
-
-        return $dailyWork;
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($completionTime): void {
+            $locked->completion_time = $completionTime;
+        });
     }
 
     /**
      * Update RFI submission date, logging an override if active objections exist.
      */
-    public function updateSubmissionTime(DailyWork $dailyWork, string $submissionDate, int $userId, ?string $overrideReason = null): DailyWork
-    {
-        $activeObjectionsCount = $dailyWork->objections()
-            ->whereIn('status', ['draft', 'submitted', 'under_review'])
-            ->count();
+    public function updateSubmissionTime(
+        DailyWork $dailyWork,
+        string $submissionDate,
+        string $userId,
+        ?string $overrideReason = null,
+        ?int $expectedVersion = null
+    ): DailyWork {
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($submissionDate, $userId, $overrideReason): void {
+            $activeObjectionsCount = $locked->objections()
+                ->whereIn('status', ['draft', 'submitted', 'under_review'])
+                ->count();
 
-        if ($activeObjectionsCount > 0 && $overrideReason) {
-            RfiSubmissionOverrideLog::logOverride(
-                dailyWorkId: $dailyWork->id,
-                oldDate: $dailyWork->rfi_submission_date?->format('Y-m-d'),
-                newDate: $submissionDate,
-                activeObjectionsCount: $activeObjectionsCount,
-                reason: $overrideReason,
-                userId: $userId
-            );
-        }
+            if ($activeObjectionsCount > 0 && $overrideReason) {
+                RfiSubmissionOverrideLog::logOverride(
+                    dailyWorkId: $locked->id,
+                    oldDate: $locked->rfi_submission_date?->format('Y-m-d'),
+                    newDate: $submissionDate,
+                    activeObjectionsCount: $activeObjectionsCount,
+                    reason: $overrideReason,
+                    userId: $userId
+                );
+            }
 
-        $dailyWork->update(['rfi_submission_date' => $submissionDate]);
+            $locked->rfi_submission_date = $submissionDate;
+        });
+    }
 
-        return $dailyWork;
+    /**
+     * Update an RFI response under the same row lock/version boundary used by
+     * interactive mutations. Imports pass the version captured during parsing,
+     * so a concurrent edit is reported instead of silently overwritten.
+     */
+    public function updateResponseStatus(
+        DailyWork $dailyWork,
+        string $responseStatus,
+        string $responseDate,
+        string $userId,
+        ?string $overrideReason = null,
+        ?int $expectedVersion = null
+    ): DailyWork {
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($responseStatus, $responseDate, $userId, $overrideReason): void {
+            $activeObjectionsCount = $locked->objections()
+                ->whereIn('status', ['draft', 'submitted', 'under_review'])
+                ->count();
+
+            if ($activeObjectionsCount > 0 && $overrideReason) {
+                RfiSubmissionOverrideLog::logOverride(
+                    dailyWorkId: $locked->id,
+                    oldDate: $locked->rfi_response_date?->format('Y-m-d'),
+                    newDate: $responseDate,
+                    activeObjectionsCount: $activeObjectionsCount,
+                    reason: $overrideReason,
+                    userId: $userId
+                );
+            }
+
+            $locked->rfi_response_status = $responseStatus;
+            $locked->rfi_response_date = $responseDate;
+        });
     }
 
     /**
@@ -89,98 +131,53 @@ class DailyWorkService
      */
     public function bulkSubmit(
         array $ids,
+        array $versions,
         string $submissionDate,
-        int $userId,
+        string $userId,
         bool $skipObjected = false,
         bool $overrideObjected = false,
         ?string $overrideReason = null,
         ?callable $authorizeCallback = null
     ): array {
-        // Get all daily works with their objection counts
-        $dailyWorks = DailyWork::whereIn('id', $ids)
-            ->withCount(['objections as active_objections_count' => function ($query) {
-                $query->whereIn('status', ['draft', 'submitted', 'under_review']);
-            }])
-            ->get();
+        return DB::transaction(function () use ($ids, $versions, $submissionDate, $userId, $skipObjected, $overrideObjected, $overrideReason, $authorizeCallback): array {
+            $dailyWorks = $this->lockDailyWorks($ids, $versions, true);
 
-        // Separate works with and without active objections
-        $worksWithObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count > 0);
-        $worksWithoutObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count === 0);
+            // Separate works with and without active objections
+            $worksWithObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count > 0);
+            $worksWithoutObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count === 0);
 
-        // Check if there are works with objections and user hasn't made a decision
-        if ($worksWithObjections->count() > 0 && ! $skipObjected && ! $overrideObjected) {
-            return [
-                'requires_decision' => true,
-                'total_count' => $dailyWorks->count(),
-                'objected_count' => $worksWithObjections->count(),
-                'clean_count' => $worksWithoutObjections->count(),
-                'objected_works' => $worksWithObjections->map(fn ($w) => [
-                    'id' => $w->id,
-                    'number' => $w->number,
-                    'location' => $w->location,
-                    'active_objections_count' => $w->active_objections_count,
-                ])->values()->toArray(),
-            ];
-        }
-
-        $submitted = [];
-        $skipped = [];
-        $failed = [];
-
-        // Process works without objections
-        foreach ($worksWithoutObjections as $work) {
-            try {
-                if ($authorizeCallback) {
-                    $authorizeCallback($work);
-                }
-                $work->update(['rfi_submission_date' => $submissionDate]);
-                $submitted[] = [
-                    'id' => $work->id,
-                    'number' => $work->number,
-                    'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
-                ];
-            } catch (\Exception $e) {
-                $failed[] = [
-                    'id' => $work->id,
-                    'number' => $work->number,
-                    'error' => 'Permission denied',
+            // Check if there are works with objections and user hasn't made a decision
+            if ($worksWithObjections->count() > 0 && ! $skipObjected && ! $overrideObjected) {
+                return [
+                    'requires_decision' => true,
+                    'total_count' => $dailyWorks->count(),
+                    'objected_count' => $worksWithObjections->count(),
+                    'clean_count' => $worksWithoutObjections->count(),
+                    'objected_works' => $worksWithObjections->map(fn ($w) => [
+                        'id' => $w->id,
+                        'number' => $w->number,
+                        'location' => $w->location,
+                        'active_objections_count' => $w->active_objections_count,
+                    ])->values()->toArray(),
                 ];
             }
-        }
 
-        // Process works with objections based on user decision
-        foreach ($worksWithObjections as $work) {
-            if ($skipObjected) {
-                $skipped[] = [
-                    'id' => $work->id,
-                    'number' => $work->number,
-                    'active_objections_count' => $work->active_objections_count,
-                ];
+            $submitted = [];
+            $skipped = [];
+            $failed = [];
 
-                continue;
-            }
-
-            if ($overrideObjected) {
+            // Process works without objections
+            foreach ($worksWithoutObjections as $work) {
                 try {
                     if ($authorizeCallback) {
                         $authorizeCallback($work);
                     }
-
-                    // Log the override
-                    RfiSubmissionOverrideLog::logOverride(
-                        dailyWorkId: $work->id,
-                        oldDate: $work->rfi_submission_date?->format('Y-m-d'),
-                        newDate: $submissionDate,
-                        activeObjectionsCount: $work->active_objections_count,
-                        reason: $overrideReason.' (Bulk submission)',
-                        userId: $userId
-                    );
-
-                    $work->update(['rfi_submission_date' => $submissionDate]);
+                    $work->rfi_submission_date = $submissionDate;
+                    $work->lock_version = VersionGuard::next($work);
+                    $work->save();
                     $submitted[] = [
                         'id' => $work->id,
                         'number' => $work->number,
-                        'override_logged' => true,
                         'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
                     ];
                 } catch (\Exception $e) {
@@ -191,14 +188,61 @@ class DailyWorkService
                     ];
                 }
             }
-        }
 
-        return [
-            'requires_decision' => false,
-            'submitted' => $submitted,
-            'skipped' => $skipped,
-            'failed' => $failed,
-        ];
+            // Process works with objections based on user decision
+            foreach ($worksWithObjections as $work) {
+                if ($skipObjected) {
+                    $skipped[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'active_objections_count' => $work->active_objections_count,
+                    ];
+
+                    continue;
+                }
+
+                if ($overrideObjected) {
+                    try {
+                        if ($authorizeCallback) {
+                            $authorizeCallback($work);
+                        }
+
+                        // Log the override
+                        RfiSubmissionOverrideLog::logOverride(
+                            dailyWorkId: $work->id,
+                            oldDate: $work->rfi_submission_date?->format('Y-m-d'),
+                            newDate: $submissionDate,
+                            activeObjectionsCount: $work->active_objections_count,
+                            reason: $overrideReason.' (Bulk submission)',
+                            userId: $userId
+                        );
+
+                        $work->rfi_submission_date = $submissionDate;
+                        $work->lock_version = VersionGuard::next($work);
+                        $work->save();
+                        $submitted[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'override_logged' => true,
+                            'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                        ];
+                    } catch (\Exception $e) {
+                        $failed[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => 'Permission denied',
+                        ];
+                    }
+                }
+            }
+
+            return [
+                'requires_decision' => false,
+                'submitted' => $submitted,
+                'skipped' => $skipped,
+                'failed' => $failed,
+            ];
+        });
     }
 
     /**
@@ -206,97 +250,55 @@ class DailyWorkService
      */
     public function bulkResponseStatusUpdate(
         array $ids,
+        array $versions,
         string $responseStatus,
         string $responseDate,
-        int $userId,
+        string $userId,
         bool $skipObjected = false,
         bool $overrideObjected = false,
-        ?string $overrideReason = null
+        ?string $overrideReason = null,
+        ?callable $authorizeCallback = null
     ): array {
-        // Get all daily works with their objection counts
-        $dailyWorks = DailyWork::whereIn('id', $ids)
-            ->withCount(['objections as active_objections_count' => function ($query) {
-                $query->whereIn('status', ['draft', 'submitted', 'under_review']);
-            }])
-            ->get();
+        return DB::transaction(function () use ($ids, $versions, $responseStatus, $responseDate, $userId, $skipObjected, $overrideObjected, $overrideReason, $authorizeCallback): array {
+            $dailyWorks = $this->lockDailyWorks($ids, $versions, true);
 
-        // Separate works with and without active objections
-        $worksWithObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count > 0);
-        $worksWithoutObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count === 0);
+            // Separate works with and without active objections
+            $worksWithObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count > 0);
+            $worksWithoutObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count === 0);
 
-        // Check if there are works with objections and user hasn't made a decision
-        if ($worksWithObjections->count() > 0 && ! $skipObjected && ! $overrideObjected) {
-            return [
-                'requires_decision' => true,
-                'total_count' => $dailyWorks->count(),
-                'objected_count' => $worksWithObjections->count(),
-                'clean_count' => $worksWithoutObjections->count(),
-                'objected_works' => $worksWithObjections->map(fn ($w) => [
-                    'id' => $w->id,
-                    'number' => $w->number,
-                    'location' => $w->location,
-                    'active_objections_count' => $w->active_objections_count,
-                ])->values()->toArray(),
-            ];
-        }
-
-        $updated = [];
-        $skipped = [];
-        $failed = [];
-
-        // Process works without objections
-        foreach ($worksWithoutObjections as $work) {
-            try {
-                $work->update([
-                    'rfi_response_status' => $responseStatus,
-                    'rfi_response_date' => $responseDate,
-                ]);
-                $updated[] = [
-                    'id' => $work->id,
-                    'number' => $work->number,
-                    'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
-                ];
-            } catch (\Exception $e) {
-                $failed[] = [
-                    'id' => $work->id,
-                    'number' => $work->number,
-                    'error' => $e->getMessage(),
+            // Check if there are works with objections and user hasn't made a decision
+            if ($worksWithObjections->count() > 0 && ! $skipObjected && ! $overrideObjected) {
+                return [
+                    'requires_decision' => true,
+                    'total_count' => $dailyWorks->count(),
+                    'objected_count' => $worksWithObjections->count(),
+                    'clean_count' => $worksWithoutObjections->count(),
+                    'objected_works' => $worksWithObjections->map(fn ($w) => [
+                        'id' => $w->id,
+                        'number' => $w->number,
+                        'location' => $w->location,
+                        'active_objections_count' => $w->active_objections_count,
+                    ])->values()->toArray(),
                 ];
             }
-        }
 
-        // Process works with objections based on user decision
-        foreach ($worksWithObjections as $work) {
-            if ($skipObjected) {
-                $skipped[] = [
-                    'id' => $work->id,
-                    'number' => $work->number,
-                    'active_objections_count' => $work->active_objections_count,
-                ];
+            $updated = [];
+            $skipped = [];
+            $failed = [];
 
-                continue;
-            }
-
-            if ($overrideObjected) {
+            // Process works without objections
+            foreach ($worksWithoutObjections as $work) {
                 try {
-                    // Log the override
-                    RfiSubmissionOverrideLog::logOverride(
-                        dailyWorkId: $work->id,
-                        oldDate: $work->rfi_response_date?->format('Y-m-d'),
-                        newDate: $responseDate,
-                        activeObjectionsCount: $work->active_objections_count,
-                        reason: $overrideReason.' (Bulk response status: '.$responseStatus.')',
-                        userId: $userId
-                    );
-
-                    $work->update([
-                        'rfi_response_status' => $responseStatus,
-                        'rfi_response_date' => $responseDate,
-                    ]);
+                    if ($authorizeCallback) {
+                        $authorizeCallback($work);
+                    }
+                    $work->rfi_response_status = $responseStatus;
+                    $work->rfi_response_date = $responseDate;
+                    $work->lock_version = VersionGuard::next($work);
+                    $work->save();
                     $updated[] = [
                         'id' => $work->id,
                         'number' => $work->number,
-                        'override_logged' => true,
                         'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
                     ];
                 } catch (\Exception $e) {
@@ -307,34 +309,142 @@ class DailyWorkService
                     ];
                 }
             }
-        }
 
-        return [
-            'requires_decision' => false,
-            'updated' => $updated,
-            'skipped' => $skipped,
-            'failed' => $failed,
-        ];
+            // Process works with objections based on user decision
+            foreach ($worksWithObjections as $work) {
+                if ($skipObjected) {
+                    $skipped[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'active_objections_count' => $work->active_objections_count,
+                    ];
+
+                    continue;
+                }
+
+                if ($overrideObjected) {
+                    try {
+                        if ($authorizeCallback) {
+                            $authorizeCallback($work);
+                        }
+                        // Log the override
+                        RfiSubmissionOverrideLog::logOverride(
+                            dailyWorkId: $work->id,
+                            oldDate: $work->rfi_response_date?->format('Y-m-d'),
+                            newDate: $responseDate,
+                            activeObjectionsCount: $work->active_objections_count,
+                            reason: $overrideReason.' (Bulk response status: '.$responseStatus.')',
+                            userId: $userId
+                        );
+
+                        $work->rfi_response_status = $responseStatus;
+                        $work->rfi_response_date = $responseDate;
+                        $work->lock_version = VersionGuard::next($work);
+                        $work->save();
+                        $updated[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'override_logged' => true,
+                            'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                        ];
+                    } catch (\Exception $e) {
+                        $failed[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => $e->getMessage(),
+                        ];
+                    }
+                }
+            }
+
+            return [
+                'requires_decision' => false,
+                'updated' => $updated,
+                'skipped' => $skipped,
+                'failed' => $failed,
+            ];
+        });
+    }
+
+    /**
+     * Update a set of daily works under one ordered lock/version boundary.
+     *
+     * @return array<int, DailyWork>
+     */
+    public function bulkUpdateIncharge(array $ids, array $versions, ?string $inchargeId, callable $authorizeCallback): array
+    {
+        return $this->bulkMutate($ids, $versions, $authorizeCallback, function (DailyWork $work) use ($inchargeId): void {
+            $work->incharge = $inchargeId;
+        });
+    }
+
+    /** @return array<int, DailyWork> */
+    public function bulkUpdateStatus(array $ids, array $versions, string $status, callable $authorizeCallback): array
+    {
+        return $this->bulkMutate($ids, $versions, $authorizeCallback, function (DailyWork $work) use ($status): void {
+            $work->status = $status;
+
+            if ($status === DailyWork::STATUS_COMPLETED) {
+                $work->completion_time ??= now();
+            } elseif ($status === DailyWork::STATUS_NEW) {
+                $work->completion_time = null;
+                $work->inspection_result = null;
+            }
+        });
+    }
+
+    /** @return array<int, DailyWork> */
+    public function bulkUpdateCompletionDate(array $ids, array $versions, ?string $completionDate, callable $authorizeCallback): array
+    {
+        return $this->bulkMutate($ids, $versions, $authorizeCallback, function (DailyWork $work) use ($completionDate): void {
+            $work->completion_time = $completionDate;
+        });
+    }
+
+    /** @return array<int, array{id:int,number:string|null}> */
+    public function bulkDelete(array $ids, array $versions, callable $authorizeCallback): array
+    {
+        return DB::transaction(function () use ($ids, $versions, $authorizeCallback): array {
+            $works = $this->lockDailyWorks($ids, $versions);
+
+            foreach ($works as $work) {
+                $authorizeCallback($work);
+            }
+
+            return $works->map(function (DailyWork $work): array {
+                $deleted = ['id' => (int) $work->id, 'number' => $work->number];
+                $work->delete();
+
+                return $deleted;
+            })->all();
+        });
     }
 
     /**
      * Update the incharge user of a DailyWork.
      */
-    public function updateIncharge(DailyWork $dailyWork, ?int $inchargeId): DailyWork
+    public function updateIncharge(DailyWork $dailyWork, ?string $inchargeId, ?int $expectedVersion = null): DailyWork
     {
-        $dailyWork->update(['incharge' => $inchargeId]);
-
-        return $dailyWork;
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($inchargeId): void {
+            $locked->incharge = $inchargeId;
+        });
     }
 
     /**
      * Update the assigned user of a DailyWork.
      */
-    public function updateAssigned(DailyWork $dailyWork, ?int $assignedId): DailyWork
+    public function updateAssigned(DailyWork $dailyWork, ?string $assignedId, ?int $expectedVersion = null): DailyWork
     {
-        $dailyWork->update(['assigned' => $assignedId]);
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($assignedId): void {
+            $locked->assigned = $assignedId;
+        });
+    }
 
-        return $dailyWork;
+    public function updateInspectionDetails(DailyWork $dailyWork, ?string $inspectionDetails, ?int $expectedVersion = null): DailyWork
+    {
+        return $this->mutateDailyWork($dailyWork, $expectedVersion, function (DailyWork $locked) use ($inspectionDetails): void {
+            $locked->inspection_details = $inspectionDetails;
+        });
     }
 
     /**
@@ -372,6 +482,14 @@ class DailyWorkService
 
             $objection->save();
 
+            $objection->statusLogs()->create([
+                'from_status' => null,
+                'to_status' => $objection->status,
+                'notes' => 'Objection created',
+                'changed_by' => (string) $user->id,
+                'changed_at' => now(),
+            ]);
+
             if (Schema::hasTable('daily_work_objection')) {
                 $objection->dailyWorks()->syncWithoutDetaching([
                     $dailyWork->id => [
@@ -398,41 +516,129 @@ class DailyWorkService
     /**
      * Submit an RFI objection.
      */
-    public function submitObjection(RfiObjection $objection): RfiObjection
+    public function submitObjection(RfiObjection $objection, ?int $expectedVersion = null, ?string $actorId = null): RfiObjection
     {
-        $objection->submit('Submitted for review');
-
-        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
+        return $this->transitionObjection($objection, $expectedVersion, fn (RfiObjection $locked) => $locked->submit('Submitted for review', $actorId));
     }
 
     /**
      * Start reviewing an RFI objection.
      */
-    public function startReviewObjection(RfiObjection $objection): RfiObjection
+    public function startReviewObjection(RfiObjection $objection, ?int $expectedVersion = null, ?string $actorId = null): RfiObjection
     {
-        $objection->startReview('Review started');
-
-        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
+        return $this->transitionObjection($objection, $expectedVersion, fn (RfiObjection $locked) => $locked->startReview('Review started', $actorId));
     }
 
     /**
      * Resolve an RFI objection.
      */
-    public function resolveObjection(RfiObjection $objection, ?string $resolutionNotes): RfiObjection
+    public function resolveObjection(RfiObjection $objection, ?string $resolutionNotes, ?int $expectedVersion = null, ?string $actorId = null): RfiObjection
     {
-        $objection->resolve($resolutionNotes);
-
-        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
+        return $this->transitionObjection($objection, $expectedVersion, fn (RfiObjection $locked) => $locked->resolve((string) $resolutionNotes, $actorId));
     }
 
     /**
      * Reject an RFI objection.
      */
-    public function rejectObjection(RfiObjection $objection, ?string $rejectionReason): RfiObjection
+    public function rejectObjection(RfiObjection $objection, ?string $rejectionReason, ?int $expectedVersion = null, ?string $actorId = null): RfiObjection
     {
-        $objection->reject($rejectionReason);
+        return $this->transitionObjection($objection, $expectedVersion, fn (RfiObjection $locked) => $locked->reject((string) $rejectionReason, $actorId));
+    }
 
-        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
+    private function mutateDailyWork(DailyWork $dailyWork, ?int $expectedVersion, callable $mutation): DailyWork
+    {
+        return DB::transaction(function () use ($dailyWork, $expectedVersion, $mutation): DailyWork {
+            $locked = DailyWork::query()->lockForUpdate()->findOrFail($dailyWork->getKey());
+            VersionGuard::assertMatches($locked, $expectedVersion);
+
+            $mutation($locked);
+            $locked->lock_version = VersionGuard::next($locked);
+            $locked->save();
+
+            return $locked->fresh(['inchargeUser:employee_id,name', 'assignedUser:employee_id,name']) ?? $locked;
+        });
+    }
+
+    /**
+     * @return array<int, DailyWork>
+     */
+    private function bulkMutate(array $ids, array $versions, callable $authorizeCallback, callable $mutation): array
+    {
+        return DB::transaction(function () use ($ids, $versions, $authorizeCallback, $mutation): array {
+            $works = $this->lockDailyWorks($ids, $versions);
+
+            foreach ($works as $work) {
+                $authorizeCallback($work);
+            }
+
+            return $works->map(function (DailyWork $work) use ($mutation): DailyWork {
+                $mutation($work);
+                $work->lock_version = VersionGuard::next($work);
+                $work->save();
+
+                return $work->fresh(['inchargeUser:employee_id,name', 'assignedUser:employee_id,name']) ?? $work;
+            })->all();
+        });
+    }
+
+    /**
+     * Acquire locks in a stable order and reject the whole batch if any row is
+     * missing or has changed since the selection was rendered.
+     *
+     * @return Collection<int, DailyWork>
+     */
+    private function lockDailyWorks(array $ids, array $versions, bool $withObjectionCounts = false): Collection
+    {
+        $normalizedIds = collect($ids)
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        $missingVersions = $normalizedIds->filter(fn (int $id): bool => ! array_key_exists($id, $versions));
+        if ($missingVersions->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'versions' => 'Refresh the list and retry; one or more selected records are missing a version token.',
+            ]);
+        }
+
+        $query = DailyWork::query()
+            ->whereIn('id', $normalizedIds->all())
+            ->orderBy('id')
+            ->lockForUpdate();
+
+        if ($withObjectionCounts) {
+            $query->withCount(['objections as active_objections_count' => function ($objectionQuery) {
+                $objectionQuery->whereIn('status', ['draft', 'submitted', 'under_review']);
+            }]);
+        }
+
+        /** @var Collection<int, DailyWork> $works */
+        $works = $query->get();
+
+        if ($works->count() !== $normalizedIds->count()) {
+            throw ValidationException::withMessages([
+                'ids' => 'One or more selected daily works no longer exist. Refresh the list and retry.',
+            ]);
+        }
+
+        foreach ($works as $work) {
+            VersionGuard::assertMatches($work, (int) $versions[$work->id]);
+        }
+
+        return $works;
+    }
+
+    private function transitionObjection(RfiObjection $objection, ?int $expectedVersion, callable $transition): RfiObjection
+    {
+        return DB::transaction(function () use ($objection, $expectedVersion, $transition): RfiObjection {
+            $locked = RfiObjection::query()->lockForUpdate()->findOrFail($objection->getKey());
+            VersionGuard::assertMatches($locked, $expectedVersion);
+            $locked->lock_version = VersionGuard::next($locked);
+            $transition($locked);
+
+            return $locked->fresh(['createdBy:employee_id,name']) ?? $locked;
+        });
     }
 
     /**
@@ -666,6 +872,7 @@ class DailyWorkService
     public function canSubmitObjection(User $user, RfiObjection $objection): bool
     {
         $uid = (string) ($user->employee_id ?? $user->getKey());
+
         return (string) $objection->created_by === $uid || $this->isPrivilegedUser($user);
     }
 
@@ -675,6 +882,7 @@ class DailyWorkService
     public function canViewObjectionFiles(User $user, DailyWork $dailyWork, RfiObjection $objection): bool
     {
         $uid = (string) ($user->employee_id ?? $user->getKey());
+
         return $this->isPrivilegedUser($user)
             || (string) $objection->created_by === $uid
             || $this->canAccessDailyWork($user, $dailyWork);
@@ -690,6 +898,7 @@ class DailyWorkService
         }
 
         $uid = (string) ($user->employee_id ?? $user->getKey());
+
         return $this->isPrivilegedUser($user)
             || (string) $objection->created_by === $uid
             || $this->canAccessDailyWork($user, $dailyWork);

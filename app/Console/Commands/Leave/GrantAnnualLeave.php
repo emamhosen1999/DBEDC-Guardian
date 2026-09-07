@@ -15,7 +15,7 @@ class GrantAnnualLeave extends Command
     public function handle(LeaveAccrualService $accrual): int
     {
         $year = $this->option('year') ? (int) $this->option('year') : Carbon::now()->year;
-        $userId = $this->option('user') ? (int) $this->option('user') : null;
+        $userId = $this->option('user') ? (string) $this->option('user') : null;
 
         $posted = $accrual->grantAnnual($year, $userId, (bool) $this->option('dry-run'));
         $this->info("Annual grant {$year}: {$posted} posting(s)".($this->option('dry-run') ? ' (dry-run)' : ''));

@@ -61,7 +61,9 @@ class PettyCashService
         return DB::transaction(function () use ($loan, $data) {
             $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
             $category = ($data['category'] ?? null);
-            if ($category === 'none') $category = null;
+            if ($category === 'none') {
+                $category = null;
+            }
 
             $transaction = $loan->transactions()->create([
                 'type' => 'expense',
@@ -87,7 +89,9 @@ class PettyCashService
         return DB::transaction(function () use ($loan, $data) {
             $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
             $category = ($data['category'] ?? null);
-            if ($category === 'none') $category = null;
+            if ($category === 'none') {
+                $category = null;
+            }
 
             $transaction = $loan->transactions()->create([
                 'type' => 'reimbursement',
@@ -145,7 +149,9 @@ class PettyCashService
 
             $oldValues = $transaction->toArray();
             $category = ($data['category'] ?? $transaction->category);
-            if ($category === 'none') $category = null;
+            if ($category === 'none') {
+                $category = null;
+            }
 
             $transaction->update([
                 'category' => $category,
@@ -290,25 +296,25 @@ class PettyCashService
         );
 
         // Server-side filters (Phase 4)
-        if (!empty($filters['type']) && $filters['type'] !== 'all') {
+        if (! empty($filters['type']) && $filters['type'] !== 'all') {
             $query->where('type', $filters['type']);
         }
-        if (!empty($filters['category']) && $filters['category'] !== 'all') {
+        if (! empty($filters['category']) && $filters['category'] !== 'all') {
             $query->where('category', $filters['category']);
         }
-        if (!empty($filters['search'])) {
-            $query->where('description', 'LIKE', '%' . $filters['search'] . '%');
+        if (! empty($filters['search'])) {
+            $query->where('description', 'LIKE', '%'.$filters['search'].'%');
         }
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('transaction_date', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('transaction_date', '<=', $filters['date_to']);
         }
-        if (!empty($filters['amount_min'])) {
+        if (! empty($filters['amount_min'])) {
             $query->where('amount', '>=', (float) $filters['amount_min']);
         }
-        if (!empty($filters['amount_max'])) {
+        if (! empty($filters['amount_max'])) {
             $query->where('amount', '<=', (float) $filters['amount_max']);
         }
 
@@ -379,28 +385,28 @@ class PettyCashService
     }
 
     // Phase 3: Multiple funds — return all active loans
-    public function getUserActiveLoans(int $userId)
+    public function getUserActiveLoans(string $userId)
     {
         return PettyCashLoan::forUser($userId)->active()->orderBy('created_at', 'desc')->get();
     }
 
     // Keep single accessor for backward compat
-    public function getUserActiveLoan(int $userId): ?PettyCashLoan
+    public function getUserActiveLoan(string $userId): ?PettyCashLoan
     {
         return PettyCashLoan::forUser($userId)->active()->first();
     }
 
-    public function getUserPendingLoans(int $userId)
+    public function getUserPendingLoans(string $userId)
     {
         return PettyCashLoan::forUser($userId)->where('status', 'pending_approval')->get();
     }
 
-    public function getUserPendingLoan(int $userId): ?PettyCashLoan
+    public function getUserPendingLoan(string $userId): ?PettyCashLoan
     {
         return PettyCashLoan::forUser($userId)->where('status', 'pending_approval')->first();
     }
 
-    public function getUserLoanHistory(int $userId): array
+    public function getUserLoanHistory(string $userId): array
     {
         return PettyCashLoan::forUser($userId)
             ->whereIn('status', ['closed', 'settled', 'rejected'])
@@ -412,7 +418,7 @@ class PettyCashService
             ->toArray();
     }
 
-    public function getAdminOverview(string $status = null): array
+    public function getAdminOverview(?string $status = null): array
     {
         $query = PettyCashLoan::with(['user', 'approver'])->orderBy('created_at', 'desc');
         if ($status) {
@@ -493,7 +499,7 @@ class PettyCashService
             ]);
         } catch (\Exception $e) {
             // Don't fail the main operation if audit logging fails
-            \Log::warning('Petty cash audit log failed: ' . $e->getMessage());
+            \Log::warning('Petty cash audit log failed: '.$e->getMessage());
         }
     }
 }

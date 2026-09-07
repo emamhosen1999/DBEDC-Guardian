@@ -214,7 +214,7 @@ class MobileManagerDashboardApiTest extends TestCase
         ]);
     }
 
-    private function insertLeaveForUser(int $userId, int $leaveTypeId, array $overrides = []): int
+    private function insertLeaveForUser(string $userId, int $leaveTypeId, array $overrides = []): int
     {
         $payload = array_merge([
             'leave_type' => $leaveTypeId,
@@ -246,7 +246,7 @@ class MobileManagerDashboardApiTest extends TestCase
         return (int) DB::table('leaves')->insertGetId($payload);
     }
 
-    private function insertPendingApprovalLeave(int $requesterId, int $approverId, int $leaveTypeId): int
+    private function insertPendingApprovalLeave(string $requesterId, string $approverId, int $leaveTypeId): int
     {
         $approvalChain = [
             [
@@ -284,7 +284,7 @@ class MobileManagerDashboardApiTest extends TestCase
         return (int) DB::table('leaves')->insertGetId($payload);
     }
 
-    private function insertObjectionForDailyWork(DailyWork $dailyWork, int $creatorId, string $status): int
+    private function insertObjectionForDailyWork(DailyWork $dailyWork, string $creatorId, string $status): int
     {
         $payload = [
             'title' => 'Summary Objection '.strtoupper($status),

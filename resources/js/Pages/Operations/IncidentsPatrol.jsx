@@ -14,8 +14,13 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
+import { showOperationMutationErrors } from './mutationFeedback';
 
 export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.incidents.manage') || auth?.roles?.includes('Super Administrator');
     const [openModal, setOpenModal] = useState(false);
     const [selectedIncident, setSelectedIncident] = useState(null);
     const [openTppdModal, setOpenTppdModal] = useState(null);
@@ -52,21 +57,27 @@ export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
                 setOpenModal(false);
                 setTitle('');
                 setDescription('');
-            }
+            },
+            onError: showOperationMutationErrors,
         });
     };
 
-    const handleUpdateStatus = (id, newStatus) => {
-        router.post(`/om/incidents/${id}/status`, {
+    const handleUpdateStatus = (incident, newStatus) => {
+        router.post(`/om/incidents/${incident.id}/status`, {
             status: newStatus,
+            lock_version: incident.lock_version,
         }, {
-            onSuccess: () => setSelectedIncident(null)
+            onSuccess: () => setSelectedIncident(null),
+            onError: showOperationMutationErrors,
         });
     };
 
-    const handleCreateDamageWo = (id) => {
-        router.post(`/om/incidents/${id}/create-damage-wo`, {}, {
-            onSuccess: () => setSelectedIncident(null)
+    const handleCreateDamageWo = (incident) => {
+        router.post(`/om/incidents/${incident.id}/create-damage-wo`, {
+            lock_version: incident.lock_version,
+        }, {
+            onSuccess: () => setSelectedIncident(null),
+            onError: showOperationMutationErrors,
         });
     };
 
@@ -109,9 +120,9 @@ export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
                                         </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="amber" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                {canManage && <Button color="amber" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                     <PlusIcon width={16} height={16} /> Report & Dispatch Patrol
-                                </Button>
+                                </Button>}
                             </Flex>
                         </Box>
 
@@ -237,20 +248,26 @@ export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
                         <Flex justify="end" gap="2" mt="3">
                             <Button variant="soft" color="gray" onClick={() => setSelectedIncident(null)}>Close</Button>
 
-                            {selectedIncident?.status === 'dispatched' && (
-                                <Button color="amber" onClick={() => handleUpdateStatus(selectedIncident.id, 'on_scene')}>
+                            {canManage && selectedIncident?.status === 'detected' && (
+                                <Button color="blue" onClick={() => handleUpdateStatus(selectedIncident, 'dispatched')}>
+                                    Dispatch Patrol Unit
+                                </Button>
+                            )}
+
+                            {canManage && selectedIncident?.status === 'dispatched' && (
+                                <Button color="amber" onClick={() => handleUpdateStatus(selectedIncident, 'on_scene')}>
                                     Arrived On-Scene
                                 </Button>
                             )}
 
-                            {selectedIncident?.status === 'on_scene' && (
-                                <Button color="green" onClick={() => handleUpdateStatus(selectedIncident.id, 'cleared')}>
+                            {canManage && selectedIncident?.status === 'on_scene' && (
+                                <Button color="green" onClick={() => handleUpdateStatus(selectedIncident, 'cleared')}>
                                     Scene Cleared & Lane Reopened
                                 </Button>
                             )}
 
-                            {selectedIncident?.has_asset_damage && (
-                                <Button color="red" variant="soft" onClick={() => handleCreateDamageWo(selectedIncident.id)}>
+                            {canManage && selectedIncident?.has_asset_damage && (
+                                <Button color="red" variant="soft" onClick={() => handleCreateDamageWo(selectedIncident)}>
                                     <WrenchScrewdriverIcon width={16} height={16} /> Spawn TPPD Repair WO
                                 </Button>
                             )}
@@ -260,7 +277,7 @@ export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
             </Dialog.Root>
 
             {/* Report New Incident Modal */}
-            <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
+            <Dialog.Root open={canManage && openModal} onOpenChange={setOpenModal}>
                 <Dialog.Content style={{ maxWidth: 520 }}>
                     <Dialog.Title>Report Incident & Dispatch Emergency Units</Dialog.Title>
                     <Dialog.Description size="2" mb="4">

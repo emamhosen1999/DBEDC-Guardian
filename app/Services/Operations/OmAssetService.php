@@ -5,7 +5,6 @@ namespace App\Services\Operations;
 use App\Models\OmAsset;
 use App\Models\OmAssetConditionSurvey;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class OmAssetService
@@ -37,9 +36,9 @@ class OmAssetService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('asset_code', 'like', "%{$search}%")
-                  ->orWhere('start_chainage', 'like', "%{$search}%")
-                  ->orWhere('location_description', 'like', "%{$search}%");
+                    ->orWhere('asset_code', 'like', "%{$search}%")
+                    ->orWhere('start_chainage', 'like', "%{$search}%")
+                    ->orWhere('location_description', 'like', "%{$search}%");
             });
         }
 
@@ -55,8 +54,9 @@ class OmAssetService
         $active = OmAsset::where('operational_status', 'active')->count();
         $underMaintenance = OmAsset::where('operational_status', 'under_maintenance')->count();
         $critical = OmAsset::where('condition_grade', 'critical')->orWhere('condition_grade', 'poor')->count();
-        $avgScore = round(OmAsset::avg('condition_score') ?: 88.5, 1);
-        $totalValuation = OmAsset::sum('purchase_cost') ?: 185000000.00;
+        $rawAverageScore = OmAsset::avg('condition_score');
+        $avgScore = $rawAverageScore === null ? null : round((float) $rawAverageScore, 1);
+        $totalValuation = OmAsset::sum('purchase_cost');
 
         return [
             'total_assets' => $total,
@@ -75,7 +75,7 @@ class OmAssetService
     {
         if (empty($data['asset_code'])) {
             $prefix = strtoupper(substr($data['category'] ?? 'AST', 0, 4));
-            $data['asset_code'] = 'AST-' . $prefix . '-' . rand(1000, 9999);
+            $data['asset_code'] = 'AST-'.$prefix.'-'.rand(1000, 9999);
         }
 
         return OmAsset::create($data);
@@ -87,6 +87,7 @@ class OmAssetService
     public function updateAsset(OmAsset $asset, array $data): OmAsset
     {
         $asset->update($data);
+
         return $asset->fresh();
     }
 

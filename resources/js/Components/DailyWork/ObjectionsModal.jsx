@@ -116,6 +116,11 @@ const ObjectionsModal = ({
         try {
             const response = await axios.post(route('dailyWorks.objections.attach', dailyWork.id), {
                 objection_ids: selectedObjections.map(id => parseInt(id)),
+                objection_versions: Object.fromEntries(
+                    availableObjections
+                        .filter(objection => selectedObjections.includes(String(objection.id)))
+                        .map(objection => [objection.id, objection.lock_version])
+                ),
             });
             
             showToast.success(response.data.message || 'Objections attached successfully');
@@ -137,7 +142,12 @@ const ObjectionsModal = ({
             }
         } catch (error) {
             console.error('Error attaching objections:', error);
-            showToast.error(error.response?.data?.error || 'Failed to attach objections');
+            if (error.response?.status === 409) {
+                await Promise.all([fetchAttachedObjections(), fetchAvailableObjections()]);
+            }
+            showToast.error(error.response?.status === 409
+                ? 'An objection changed elsewhere. Latest data has been loaded.'
+                : error.response?.data?.error || 'Failed to attach objections');
         } finally {
             setAttaching(false);
         }
@@ -151,8 +161,10 @@ const ObjectionsModal = ({
 
         setDetaching(objectionId);
         try {
+            const objection = attachedObjections.find(item => item.id === objectionId);
             const response = await axios.post(route('dailyWorks.objections.detach', dailyWork.id), {
                 objection_ids: [objectionId],
+                objection_versions: { [objectionId]: objection?.lock_version },
             });
             
             showToast.success(response.data.message || 'Objection detached successfully');
@@ -169,7 +181,12 @@ const ObjectionsModal = ({
             }
         } catch (error) {
             console.error('Error detaching objection:', error);
-            showToast.error(error.response?.data?.error || 'Failed to detach objection');
+            if (error.response?.status === 409) {
+                await Promise.all([fetchAttachedObjections(), fetchAvailableObjections()]);
+            }
+            showToast.error(error.response?.status === 409
+                ? 'This objection changed elsewhere. Latest data has been loaded.'
+                : error.response?.data?.error || 'Failed to detach objection');
         } finally {
             setDetaching(null);
         }

@@ -294,7 +294,7 @@ class MobileSyncEngineHardeningTest extends TestCase
         ]);
     }
 
-    private function insertAttendance(int $userId, string $updatedAt): int
+    private function insertAttendance(string $userId, string $updatedAt): int
     {
         return (int) DB::table('attendances')->insertGetId([
             'user_id' => $userId,
@@ -324,7 +324,7 @@ class MobileSyncEngineHardeningTest extends TestCase
         ]);
     }
 
-    private function insertLeave(int $userId, int $leaveTypeId): int
+    private function insertLeave(string $userId, int $leaveTypeId): int
     {
         $payload = [
             'leave_type' => $leaveTypeId,

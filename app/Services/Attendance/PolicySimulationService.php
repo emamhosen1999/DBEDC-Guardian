@@ -6,7 +6,6 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendancePolicy;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\PolicyProfile;
-use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
 /**
@@ -27,10 +26,10 @@ class PolicySimulationService
 
     /**
      * @param  AttendancePolicy  $draft  An unsaved or saved policy model (id not required).
-     * @param  array<int>  $userIds
+     * @param  array<int, string>  $userIds
      * @param  string  $from  'Y-m-d'
-     * @param  string  $to    'Y-m-d'
-     * @return array{days: int, changed: int, samples: list<array{user_id: int, date: string, before_status: string, after_status: string}>}
+     * @param  string  $to  'Y-m-d'
+     * @return array{days: int, changed: int, samples: list<array{user_id: string, date: string, before_status: string, after_status: string}>}
      */
     public function simulate(AttendancePolicy $draft, array $userIds, string $from, string $to): array
     {

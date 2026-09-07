@@ -46,8 +46,12 @@ export const useUpdateDailyWorkStatus = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dailyWorkId, status }) => 
-      requestJson('patch', `/api/v1/daily-works/${dailyWorkId}/status`, { status }),
+    mutationFn: ({ dailyWorkId, status, inspectionResult, lockVersion }) =>
+      requestJson('patch', `/api/v1/daily-works/${dailyWorkId}/status`, {
+        status,
+        inspection_result: inspectionResult,
+        lock_version: lockVersion,
+      }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-works'] });
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId] });
@@ -62,8 +66,11 @@ export const useUpdateDailyWorkIncharge = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dailyWorkId, inchargeId }) => 
-      requestJson('patch', `/api/v1/daily-works/${dailyWorkId}/incharge`, { incharge_id: inchargeId }),
+    mutationFn: ({ dailyWorkId, inchargeId, lockVersion }) =>
+      requestJson('patch', `/api/v1/daily-works/${dailyWorkId}/incharge`, {
+        incharge: inchargeId,
+        lock_version: lockVersion,
+      }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-works'] });
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId] });
@@ -78,8 +85,11 @@ export const useUpdateDailyWorkAssigned = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dailyWorkId, assignedId }) => 
-      requestJson('patch', `/api/v1/daily-works/${dailyWorkId}/assigned`, { assigned_id: assignedId }),
+    mutationFn: ({ dailyWorkId, assignedId, lockVersion }) =>
+      requestJson('patch', `/api/v1/daily-works/${dailyWorkId}/assigned`, {
+        assigned: assignedId,
+        lock_version: lockVersion,
+      }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-works'] });
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId] });
@@ -122,8 +132,27 @@ export const useSubmitObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dailyWorkId, objectionId }) => 
-      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/submit`),
+    mutationFn: ({ dailyWorkId, objectionId, lockVersion }) =>
+      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/submit`, {
+        lock_version: lockVersion,
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId, 'objections'] });
+    },
+  });
+};
+
+/**
+ * Start objection review mutation
+ */
+export const useReviewObjection = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ dailyWorkId, objectionId, lockVersion }) =>
+      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/review`, {
+        lock_version: lockVersion,
+      }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId, 'objections'] });
     },
@@ -137,8 +166,11 @@ export const useResolveObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dailyWorkId, objectionId, data }) => 
-      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/resolve`, data),
+    mutationFn: ({ dailyWorkId, objectionId, data, lockVersion }) =>
+      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/resolve`, {
+        ...data,
+        lock_version: lockVersion,
+      }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId, 'objections'] });
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId] });
@@ -153,8 +185,11 @@ export const useRejectObjection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dailyWorkId, objectionId, data }) => 
-      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/reject`, data),
+    mutationFn: ({ dailyWorkId, objectionId, data, lockVersion }) =>
+      requestJson('post', `/api/v1/daily-works/${dailyWorkId}/objections/${objectionId}/reject`, {
+        ...data,
+        lock_version: lockVersion,
+      }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId, 'objections'] });
       queryClient.invalidateQueries({ queryKey: ['daily-works', variables.dailyWorkId] });
@@ -202,7 +237,9 @@ export const useDeleteDailyWork = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, page }) => requestJson('delete', '/delete-daily-work', { data: { id, page } }),
+    mutationFn: ({ id, page, lockVersion }) => requestJson('delete', '/delete-daily-work', {
+      data: { id, page, lock_version: lockVersion },
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daily-works'] });
     },

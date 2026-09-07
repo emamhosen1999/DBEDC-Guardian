@@ -27,9 +27,26 @@ describe('makeSignalHandler', () => {
     expect(onSignal).not.toHaveBeenCalled();
   });
 
-  it('treats a string actor_id equal to a numeric selfActorId (coercion)', () => {
+  it('treats equivalent numeric legacy actor values as self', () => {
     const onSignal = vi.fn();
     makeSignalHandler({ selfActorId: 7, onSignal })(snap({ ts: 't', actor_id: '7', action: 'update' }));
     expect(onSignal).not.toHaveBeenCalled();
+  });
+
+  it('compares string employee codes without lossy numeric coercion', () => {
+    const onSignal = vi.fn();
+    const handler = makeSignalHandler({ selfActorId: 'EMP-00042', onSignal });
+
+    handler(snap({ ts: 't1', actor_id: 'EMP-00042', action: 'update' }));
+    handler(snap({ ts: 't2', actor_id: 'EMP-00043', action: 'update' }));
+
+    expect(onSignal).toHaveBeenCalledTimes(1);
+    expect(onSignal).toHaveBeenCalledWith({ ts: 't2', actor_id: 'EMP-00043', action: 'update' });
+  });
+
+  it('does not mistake a missing actor for an unknown current user', () => {
+    const onSignal = vi.fn();
+    makeSignalHandler({ selfActorId: null, onSignal })(snap({ ts: 't', actor_id: null, action: 'update' }));
+    expect(onSignal).toHaveBeenCalledTimes(1);
   });
 });

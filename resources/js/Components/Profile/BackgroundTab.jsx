@@ -7,10 +7,10 @@ const BackgroundTab = ({ user, setUser, canEdit }) => {
     return (
         <Grid columns={{ initial: '1', lg: '2' }} gap="5">
             {/* Education History List + Edit */}
-            <EducationInformationDialog user={user} setUser={setUser} inlineMode={true} />
+            <EducationInformationDialog user={user} setUser={setUser} inlineMode={true} canEdit={canEdit} />
             
             {/* Work Experience List + Edit */}
-            <ExperienceInformationForm user={user} setUser={setUser} inlineMode={true} />
+            <ExperienceInformationForm user={user} setUser={setUser} inlineMode={true} canEdit={canEdit} />
         </Grid>
     );
 };

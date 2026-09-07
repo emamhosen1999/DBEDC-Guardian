@@ -7,7 +7,7 @@ import { showToast } from "@/utils/toastUtils";
 import DateTimePicker from '@/Components/DateTimePicker';
 import InfoRow from "@/Components/InfoRow.jsx";
 
-const PersonalInformationForm = ({ user, setUser }) => {
+const PersonalInformationForm = ({ user, setUser, canEdit = false }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [processing, setProcessing] = useState(false);
     
@@ -59,7 +59,7 @@ const PersonalInformationForm = ({ user, setUser }) => {
         <Panel size="2" variant="surface">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Personal Information</Text>
-                {!isEditing ? (
+                {canEdit && (!isEditing ? (
                     <Button variant="ghost" size="1" onClick={() => setIsEditing(true)}>
                         <Pencil1Icon /> Edit
                     </Button>
@@ -69,7 +69,7 @@ const PersonalInformationForm = ({ user, setUser }) => {
                             <Cross2Icon /> Cancel
                         </Button>
                     </Flex>
-                )}
+                ))}
             </Flex>
 
             {!isEditing ? (

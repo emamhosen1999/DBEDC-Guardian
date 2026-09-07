@@ -118,7 +118,7 @@ class HeartbeatController extends Controller
      * is duplicated, and it is scoped to an UPDATE of an existing row so a
      * format drift degrades to "no rows updated", never to a bogus insert.
      */
-    private function touchTrackedSession(int $userId, Request $request, Carbon $now): void
+    private function touchTrackedSession(string $userId, Request $request, Carbon $now): void
     {
         try {
             $token = $request->user()?->currentAccessToken();

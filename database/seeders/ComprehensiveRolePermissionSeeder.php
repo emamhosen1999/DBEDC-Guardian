@@ -251,10 +251,16 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             'om' => [
                 'om.dashboard.view' => 'View O&M overview and command dashboard',
                 'om.traffic.view' => 'View traffic monitoring center and VMS controller',
+                'om.traffic.manage' => 'Manage VMS messages and traffic operations',
                 'om.toll.view' => 'View toll operations and revenue statistics',
-                'om.incidents.view' => 'View and manage incidents and emergency patrol dispatches',
-                'om.maintenance.view' => 'View and manage routine maintenance work orders',
+                'om.toll.manage' => 'Manage toll audits and operational records',
+                'om.incidents.view' => 'View incidents and emergency patrol dispatches',
+                'om.incidents.manage' => 'Create and manage incidents and patrol dispatches',
+                'om.maintenance.view' => 'View defects and maintenance work orders',
+                'om.maintenance.manage' => 'Create and manage defects and maintenance work orders',
                 'om.equipment.view' => 'View equipment status and asset uptime',
+                'om.equipment.manage' => 'Create and manage equipment and asset records',
+                'om.shift.manage' => 'Create and acknowledge operational shift handovers',
             ],
 
             // HR Performance Management

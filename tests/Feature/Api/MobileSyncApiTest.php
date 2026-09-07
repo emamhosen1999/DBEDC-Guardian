@@ -576,7 +576,7 @@ class MobileSyncApiTest extends TestCase
             ->assertJsonValidationErrors(['mutations']);
     }
 
-    private function insertAttendanceRecord(int $userId, string $updatedAt): int
+    private function insertAttendanceRecord(string $userId, string $updatedAt): int
     {
         return (int) DB::table('attendances')->insertGetId([
             'user_id' => $userId,
@@ -606,7 +606,7 @@ class MobileSyncApiTest extends TestCase
         ]);
     }
 
-    private function insertLeaveForUser(int $userId, int $leaveTypeId, string $updatedAt): int
+    private function insertLeaveForUser(string $userId, int $leaveTypeId, string $updatedAt): int
     {
         $payload = [
             'leave_type' => $leaveTypeId,
@@ -634,7 +634,7 @@ class MobileSyncApiTest extends TestCase
         return (int) DB::table('leaves')->insertGetId($payload);
     }
 
-    private function insertObjectionForDailyWork(DailyWork $dailyWork, int $creatorId, array $overrides = []): int
+    private function insertObjectionForDailyWork(DailyWork $dailyWork, string $creatorId, array $overrides = []): int
     {
         $payload = array_merge([
             'title' => 'Sync objection',

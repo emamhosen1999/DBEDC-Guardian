@@ -1,6 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Box, Button, Flex, Heading, Separator, Text } from '@radix-ui/themes';
 import {
     CalendarIcon,
@@ -16,10 +16,23 @@ import HolidayForm from '@/Forms/HolidayForm.jsx';
 import CopyYearForm from '@/Forms/CopyYearForm.jsx';
 import DeleteHolidayForm from '@/Forms/DeleteHolidayForm.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 const Holidays = ({ title }) => {
-    const { holidays: initialHolidays } = usePage().props;
+    const { auth, holidays: initialHolidays } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
+    const permissions = auth?.permissions ?? [];
+    const isSuperAdministrator = auth?.roles?.includes('Super Administrator');
+    const canCreate = isSuperAdministrator || permissions.includes('holidays.create');
+    const canUpdate = isSuperAdministrator || permissions.includes('holidays.update');
+    const canDelete = isSuperAdministrator || permissions.includes('holidays.delete');
+    const actorId = auth?.user?.id;
+
+    useRealtimeSignals({
+        path: 'holiday/all',
+        selfActorId: actorId,
+        onSignal: () => router.reload({ only: ['holidays', 'stats'], preserveScroll: true, preserveState: true }),
+    });
 
     const safeInitialHolidays = Array.isArray(initialHolidays) ? initialHolidays : [];
     const currentYearHolidays = useMemo(() => {
@@ -32,6 +45,10 @@ const Holidays = ({ title }) => {
     const [modalState, setModalState] = useState({ type: null, holidayId: null, currentHoliday: null });
     const [holidaysData, setHolidaysData] = useState(safeInitialHolidays);
     const [filteredHolidaysData, setFilteredHolidaysData] = useState(currentYearHolidays);
+
+    useEffect(() => {
+        setHolidaysData(Array.isArray(initialHolidays) ? initialHolidays : []);
+    }, [initialHolidays]);
 
     const handleModalOpen = useCallback((type, holidayId = null, holiday = null) => {
         setModalState({ type, holidayId, currentHoliday: holiday });
@@ -87,11 +104,11 @@ const Holidays = ({ title }) => {
         <>
             <Head title={title || 'Company Holidays'} />
 
-            {(modalState.type === 'add_holiday' || modalState.type === 'edit_holiday') && (
+            {((modalState.type === 'add_holiday' && canCreate) || (modalState.type === 'edit_holiday' && canUpdate)) && (
                 <HolidayForm {...modalProps} />
             )}
 
-            {modalState.type === 'copy_year' && (
+            {modalState.type === 'copy_year' && canCreate && (
                 <CopyYearForm
                     open
                     setHolidaysData={updateHolidaysData}
@@ -99,7 +116,7 @@ const Holidays = ({ title }) => {
                 />
             )}
 
-            {modalState.type === 'delete_holiday' && (
+            {modalState.type === 'delete_holiday' && canDelete && (
                 <DeleteHolidayForm
                     open
                     holidayIdToDelete={modalState.holidayId}
@@ -138,14 +155,18 @@ const Holidays = ({ title }) => {
 
                                 {/* Header Actions */}
                                 <Flex gap="2" align="center" wrap="wrap">
-                                    <Button variant="soft" color="gray" onClick={() => handleModalOpen('copy_year')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                        <CopyIcon style={{ width: 16, height: 16 }} />
-                                        {!isMobile && 'Copy Year'}
-                                    </Button>
-                                    <Button color="blue" onClick={() => handleModalOpen('add_holiday')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                        <PlusIcon style={{ width: 16, height: 16 }} />
-                                        {!isMobile && 'Add Holiday'}
-                                    </Button>
+                                    {canCreate && (
+                                        <>
+                                            <Button variant="soft" color="gray" onClick={() => handleModalOpen('copy_year')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                                <CopyIcon style={{ width: 16, height: 16 }} />
+                                                {!isMobile && 'Copy Year'}
+                                            </Button>
+                                            <Button color="blue" onClick={() => handleModalOpen('add_holiday')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                                <PlusIcon style={{ width: 16, height: 16 }} />
+                                                {!isMobile && 'Add Holiday'}
+                                            </Button>
+                                        </>
+                                    )}
                                 </Flex>
                             </Flex>
                         </Box>
@@ -173,6 +194,8 @@ const Holidays = ({ title }) => {
                                         holidaysData={holidaysData}
                                         onEdit={(holiday) => handleModalOpen('edit_holiday', null, holiday)}
                                         onDelete={(holidayId) => handleModalOpen('delete_holiday', holidayId)}
+                                        canEdit={canUpdate}
+                                        canDelete={canDelete}
                                         onFilteredDataChange={setFilteredHolidaysData}
                                     />
                                 </ErrorBoundary>

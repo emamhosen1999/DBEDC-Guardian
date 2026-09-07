@@ -8,6 +8,7 @@ use App\Models\OmWorkOrder;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OmIncidentService
 {
@@ -44,10 +45,10 @@ class OmIncidentService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('incident_number', 'like', "%{$search}%")
-                  ->orWhere('chainage', 'like', "%{$search}%")
-                  ->orWhere('dispatched_unit', 'like', "%{$search}%")
-                  ->orWhere('police_case_number', 'like', "%{$search}%");
+                    ->orWhere('incident_number', 'like', "%{$search}%")
+                    ->orWhere('chainage', 'like', "%{$search}%")
+                    ->orWhere('dispatched_unit', 'like', "%{$search}%")
+                    ->orWhere('police_case_number', 'like', "%{$search}%");
             });
         }
 
@@ -62,8 +63,9 @@ class OmIncidentService
         $activeCount = OmIncident::whereIn('status', ['detected', 'dispatched', 'on_scene'])->count();
         $clearedToday = OmIncident::whereDate('cleared_at', Carbon::today())->count();
         $criticalCount = OmIncident::where('severity', 'critical')->whereIn('status', ['detected', 'dispatched', 'on_scene'])->count();
-        $avgResponse = round(OmIncident::whereNotNull('response_time_minutes')->avg('response_time_minutes') ?: 11.8, 1);
-        $totalTppdClaim = OmIncident::where('has_asset_damage', true)->sum('asset_damage_cost_est') ?: 450000.00;
+        $rawAverageResponse = OmIncident::whereNotNull('response_time_minutes')->avg('response_time_minutes');
+        $avgResponse = $rawAverageResponse === null ? null : round((float) $rawAverageResponse, 1);
+        $totalTppdClaim = OmIncident::where('has_asset_damage', true)->sum('asset_damage_cost_est');
 
         return [
             'active_incidents' => $activeCount,
@@ -77,10 +79,10 @@ class OmIncidentService
     /**
      * Report and Dispatch new Incident.
      */
-    public function createIncident(array $data, int $userId): OmIncident
+    public function createIncident(array $data, string $userId): OmIncident
     {
         return DB::transaction(function () use ($data, $userId) {
-            $incNumber = 'INC-' . date('Ymd') . '-' . rand(100, 999);
+            $incNumber = 'INC-'.date('Ymd').'-'.rand(100, 999);
 
             $incident = OmIncident::create([
                 'incident_number' => $incNumber,
@@ -130,6 +132,24 @@ class OmIncidentService
                 }
             }
 
+            // Dispatch Push & In-App Notification for Major/Critical Incidents
+            if (in_array($incident->severity, ['critical', 'major'], true)) {
+                try {
+                    $recipients = \App\Models\User::permission('om.incidents.manage')->get();
+                    if ($recipients->isNotEmpty()) {
+                        \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\OmAlertNotification(
+                            "EMERGENCY: {$incident->title} ({$incident->incident_number})",
+                            "Severity: {$incident->severity} at {$incident->chainage} ({$incident->direction}). Unit: {$incident->dispatched_unit}.",
+                            'incident_escalated',
+                            $incident->incident_number,
+                            '/om/incidents'
+                        ));
+                    }
+                } catch (\Throwable) {
+                    // Fail-safe
+                }
+            }
+
             return $incident->fresh(['vehicles']);
         });
     }
@@ -137,52 +157,93 @@ class OmIncidentService
     /**
      * Update incident status (e.g., On-Scene, Lane Reopened, Cleared).
      */
-    public function updateStatus(OmIncident $incident, string $status, array $extra = []): OmIncident
+    public function updateStatus(OmIncident $incident, string $status, array $extra, ?int $expectedVersion): OmIncident
     {
-        $update = ['status' => $status];
+        return DB::transaction(function () use ($incident, $status, $extra, $expectedVersion) {
+            $locked = OmIncident::query()->lockForUpdate()->findOrFail($incident->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+            $allowedNextStatus = [
+                'detected' => 'dispatched',
+                'dispatched' => 'on_scene',
+                'on_scene' => 'cleared',
+                'cleared' => 'closed',
+                'closed' => null,
+            ];
 
-        if ($status === 'on_scene' && ! $incident->on_scene_at) {
-            $update['on_scene_at'] = now();
-            if ($incident->reported_at) {
-                $update['response_time_minutes'] = (int) $incident->reported_at->diffInMinutes(now());
+            if ($status === $locked->status) {
+                return $locked->fresh();
             }
-        } elseif ($status === 'cleared' && ! $incident->cleared_at) {
-            $update['cleared_at'] = now();
-            $update['lane_cleared_at'] = now();
-        }
 
-        if (! empty($extra['description'])) {
-            $update['description'] = $extra['description'];
-        }
-        if (! empty($extra['dispatched_unit'])) {
-            $update['dispatched_unit'] = $extra['dispatched_unit'];
-        }
+            if (($allowedNextStatus[$locked->status] ?? null) !== $status) {
+                throw ValidationException::withMessages([
+                    'status' => "Incident cannot transition from {$locked->status} to {$status}.",
+                ]);
+            }
 
-        $incident->update($update);
-        return $incident->fresh();
+            $update = [
+                'status' => $status,
+                'lock_version' => OmVersionGuard::next($locked),
+            ];
+
+            if ($status === 'on_scene' && ! $locked->on_scene_at) {
+                $update['on_scene_at'] = now();
+                if ($locked->reported_at) {
+                    $update['response_time_minutes'] = (int) $locked->reported_at->diffInMinutes(now());
+                }
+            } elseif ($status === 'cleared' && ! $locked->cleared_at) {
+                $update['cleared_at'] = now();
+                $update['lane_cleared_at'] = now();
+            }
+
+            if (! empty($extra['description'])) {
+                $update['description'] = $extra['description'];
+            }
+            if (! empty($extra['dispatched_unit'])) {
+                $update['dispatched_unit'] = $extra['dispatched_unit'];
+            }
+
+            $locked->update($update);
+
+            return $locked->fresh();
+        });
     }
 
     /**
      * Create Work Order from Incident damage.
      */
-    public function createDamageRepairWorkOrder(OmIncident $incident, int $userId): OmWorkOrder
+    public function createDamageRepairWorkOrder(OmIncident $incident, string $userId, int $expectedVersion): OmWorkOrder
     {
-        return OmWorkOrder::create([
-            'work_order_number' => 'WO-' . rand(10000, 99999),
-            'title' => 'Emergency Crash Repair: ' . $incident->title,
-            'work_type' => 'tppd_restoration',
-            'category' => 'guardrail',
-            'location' => $incident->chainage . ' (' . ucfirst($incident->direction) . ')',
-            'priority' => 'emergency',
-            'status' => 'assigned',
-            'assigned_to' => 'Rapid Emergency Repair Crew',
-            'description' => "Post-incident repair for {$incident->incident_number}. Estimated damage: ৳" . number_format($incident->asset_damage_cost_est, 2),
-            'reported_by' => $userId,
-            'assigned_by' => $userId,
-            'target_start_at' => now(),
-            'target_end_at' => now()->addHours(24),
-            'estimated_cost' => $incident->asset_damage_cost_est,
-            'requires_lane_closure' => true,
-        ]);
+        return DB::transaction(function () use ($incident, $userId, $expectedVersion) {
+            $locked = OmIncident::query()->lockForUpdate()->findOrFail($incident->getKey());
+            OmVersionGuard::assertMatches($locked, $expectedVersion);
+
+            if (! $locked->has_asset_damage) {
+                throw ValidationException::withMessages([
+                    'incident' => 'A damage-repair work order requires recorded expressway asset damage.',
+                ]);
+            }
+
+            $workOrder = OmWorkOrder::create([
+                'work_order_number' => 'WO-'.rand(10000, 99999),
+                'title' => 'Emergency Crash Repair: '.$locked->title,
+                'work_type' => 'tppd_restoration',
+                'category' => 'guardrail',
+                'location' => $locked->chainage.' ('.ucfirst($locked->direction).')',
+                'priority' => 'emergency',
+                'status' => 'assigned',
+                'assigned_to' => 'Rapid Emergency Repair Crew',
+                'description' => "Post-incident repair for {$locked->incident_number}. Estimated damage: ৳".number_format($locked->asset_damage_cost_est, 2),
+                'reported_by' => $userId,
+                'assigned_by' => $userId,
+                'target_start_at' => now(),
+                'target_end_at' => now()->addHours(24),
+                'estimated_cost' => $locked->asset_damage_cost_est,
+                'requires_lane_closure' => true,
+            ]);
+
+            $locked->update(['lock_version' => OmVersionGuard::next($locked)]);
+
+            return $workOrder;
+        });
     }
 }

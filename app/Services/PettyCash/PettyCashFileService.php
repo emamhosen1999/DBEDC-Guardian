@@ -12,6 +12,7 @@ class PettyCashFileService
         $media = $transaction->addMedia($file)
             ->usingFileName($this->generateUniqueFileName($file))
             ->toMediaCollection('bills');
+        $transaction->touch();
 
         return [
             'id' => $media->id,
@@ -53,6 +54,7 @@ class PettyCashFileService
         }
 
         $media->delete();
+        $transaction->touch();
 
         return true;
     }

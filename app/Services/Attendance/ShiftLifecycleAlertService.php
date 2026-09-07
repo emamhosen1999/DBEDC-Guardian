@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\RosterDay;
 use App\Models\User;
+use App\Services\Attendance\DTO\ShiftSchedule;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,7 @@ class ShiftLifecycleAlertService
      * Excluded: company holidays (whole day → empty set), users whose effective
      * schedule for the day is off/swap-to-off, and users on approved leave.
      *
-     * @return Collection<int, array{user: User, shift_id: int, shift_code: string, schedule: \App\Services\Attendance\DTO\ShiftSchedule, date: string}>
+     * @return Collection<int, array{user: User, shift_id: int, shift_code: string, schedule: ShiftSchedule, date: string}>
      */
     public function candidates(CarbonInterface $date): Collection
     {
@@ -45,7 +46,7 @@ class ShiftLifecycleAlertService
             ->whereNotNull('shift_id')
             ->distinct()
             ->pluck('user_id')
-            ->map(fn ($id) => (int) $id)
+            ->map(fn ($id) => (string) $id)
             ->all();
 
         if ($userIds === []) {
@@ -63,7 +64,7 @@ class ShiftLifecycleAlertService
         $rows = collect();
 
         foreach ($users as $user) {
-            if (in_array((string) $user->employee_id, $onLeave, true) || in_array((int) $user->employee_id, $onLeave, true)) {
+            if (in_array((string) $user->employee_id, $onLeave, true)) {
                 continue;
             }
 
@@ -92,7 +93,7 @@ class ShiftLifecycleAlertService
      * the date the roster row — and therefore $date here — is keyed on, so this
      * comparison is correct for day and night shifts alike.
      */
-    public function hasPunchedIn(int $userId, string $date): bool
+    public function hasPunchedIn(string $userId, string $date): bool
     {
         return Attendance::query()
             ->where('user_id', $userId)
@@ -109,12 +110,12 @@ class ShiftLifecycleAlertService
     public function resolveManager(User $employee): ?User
     {
         $manager = $employee->reportsTo; // belongsTo report_to
-        if ($manager && (int) $manager->id !== (int) $employee->id && $manager->deleted_at === null) {
+        if ($manager && (string) $manager->id !== (string) $employee->id && $manager->deleted_at === null) {
             return $manager;
         }
 
         $departmentManagerId = $employee->department?->manager_id;
-        if ($departmentManagerId && (int) $departmentManagerId !== (int) $employee->id) {
+        if ($departmentManagerId && (string) $departmentManagerId !== (string) $employee->id) {
             return User::query()
                 ->whereKey($departmentManagerId)
                 ->whereNull('deleted_at')
@@ -146,8 +147,8 @@ class ShiftLifecycleAlertService
     }
 
     /**
-     * @param  array<int, int>  $userIds
-     * @return array<int, int>
+     * @param  array<int, string>  $userIds
+     * @return array<int, string>
      */
     private function usersOnApprovedLeave(array $userIds, string $date): array
     {
@@ -162,7 +163,7 @@ class ShiftLifecycleAlertService
             ->whereDate('from_date', '<=', $date)
             ->whereDate('to_date', '>=', $date)
             ->pluck($column)
-            ->map(fn ($id) => (int) $id)
+            ->map(fn ($id) => (string) $id)
             ->all();
     }
 

@@ -9,13 +9,15 @@ import DateTimePicker from '@/Components/DateTimePicker';
 
 const statusColor = { draft: 'gray', active: 'green', archived: 'amber' };
 
-const scopeLabel = (p) => {
+const scopeLabel = (p, employees, departments, designations) => {
     if (p.scope_type === 'org') return 'Organization';
+    const items = p.scope_type === 'user' ? employees : p.scope_type === 'department' ? departments : designations;
+    const target = items.find(item => String(item.id) === String(p.scope_id));
     const label = p.scope_type.charAt(0).toUpperCase() + p.scope_type.slice(1);
-    return `${label} #${p.scope_id}`;
+    return `${label}: ${target?.name || target?.title || p.scope_id}`;
 };
 
-export default function PoliciesManager() {
+export default function PoliciesManager({ employees = [], departments = [], designations = [] }) {
     const qc = useQueryClient();
     const [formOpen, setFormOpen] = useState(false);
     const [editingPolicy, setEditingPolicy] = useState(null);
@@ -121,7 +123,7 @@ export default function PoliciesManager() {
                             <React.Fragment key={p.id}>
                                 <Table.Row>
                                     <Table.Cell><Text size="2">{p.name}</Text></Table.Cell>
-                                    <Table.Cell><Text size="2" color="gray">{scopeLabel(p)}</Text></Table.Cell>
+                                    <Table.Cell><Text size="2" color="gray">{scopeLabel(p, employees, departments, designations)}</Text></Table.Cell>
                                     <Table.Cell><Badge variant="soft">{p.punch_strictness}</Badge></Table.Cell>
                                     <Table.Cell><Badge color={statusColor[p.status] || 'gray'}>{p.status}</Badge></Table.Cell>
                                     <Table.Cell><Text size="2">v{p.version}</Text></Table.Cell>
@@ -194,6 +196,9 @@ export default function PoliciesManager() {
                 onOpenChange={setFormOpen}
                 onSaved={refresh}
                 policy={editingPolicy}
+                employees={employees}
+                departments={departments}
+                designations={designations}
             />
         </Box>
     );

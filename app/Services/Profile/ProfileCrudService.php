@@ -32,7 +32,7 @@ class ProfileCrudService
     /**
      * Find user by ID
      */
-    public function findUser(int $userId): ?User
+    public function findUser(string $userId): ?User
     {
         return User::find($userId);
     }
@@ -40,9 +40,9 @@ class ProfileCrudService
     /**
      * Get user with relationships for profile display
      */
-    public function getUserWithDetails(int $userId): ?User
+    public function getUserWithDetails(string $userId): ?User
     {
-        $user = User::with(['educations', 'experiences'])->where('id', $userId)->first();
+        $user = User::with(['educations', 'experiences'])->find($userId);
 
         if ($user) {
             foreach ($user->educations as $education) {
@@ -57,7 +57,7 @@ class ProfileCrudService
     /**
      * Delete a user
      */
-    public function deleteUser(int $userId): bool
+    public function deleteUser(string $userId): bool
     {
         $user = $this->findUser($userId);
 

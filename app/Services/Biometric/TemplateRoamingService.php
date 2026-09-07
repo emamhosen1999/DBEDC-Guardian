@@ -203,7 +203,7 @@ class TemplateRoamingService
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function listTemplates(?int $userId = null, ?int $deviceId = null): Collection
+    public function listTemplates(?string $userId = null, ?int $deviceId = null): Collection
     {
         $query = DB::table('biometric_templates as t')
             ->leftJoin('users as u', 'u.id', '=', 't.user_id')
@@ -240,7 +240,7 @@ class TemplateRoamingService
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
-                'user_id' => $row->user_id === null ? null : (int) $row->user_id,
+                'user_id' => $row->user_id === null ? null : (string) $row->user_id,
                 'user_name' => $row->user_name,
                 'employee_id' => $row->employee_id,
                 // The device-side PIN. This is what a restore command carries.
@@ -426,7 +426,7 @@ class TemplateRoamingService
                 $queued[] = [
                     'command_id' => $command->id,
                     'template_id' => (int) $row->id,
-                    'user_id' => (int) $row->user_id,
+                    'user_id' => (string) $row->user_id,
                     'pin' => (string) $row->device_user_id,
                     'fid' => (int) $fid,
                     'size' => $size,

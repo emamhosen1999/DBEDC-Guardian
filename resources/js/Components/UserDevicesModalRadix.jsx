@@ -41,7 +41,9 @@ const UserDevicesModalRadix = ({ user, open, closeModal }) => {
     const fetchUserDevices = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(route('users.devices.index', { user: user.id }));
+            const response = await axios.get(route('admin.users.devices', { userId: user.id }), {
+                headers: { Accept: 'application/json' },
+            });
             setDevices(response.data.devices || []);
         } catch (error) {
             console.error('Failed to fetch user devices:', error);
@@ -56,7 +58,10 @@ const UserDevicesModalRadix = ({ user, open, closeModal }) => {
 
         setProcessing(prev => ({ ...prev, [deviceId]: true }));
         try {
-            await axios.post(route('users.devices.deactivate', { user: user.id, device: deviceId }));
+            await axios.delete(route('admin.users.devices.deactivate', {
+                userId: user.id,
+                deviceId,
+            }));
             setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, is_active: false } : d));
             showToast.success('Device deactivated successfully');
         } catch (error) {

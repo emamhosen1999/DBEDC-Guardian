@@ -25,7 +25,7 @@ class AttendanceReportService
     /**
      * Get all Employee users with their attendances and leaves for a given month.
      */
-    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?int $userId = null, ?int $designationId = null, ?string $employee = null): Collection
+    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?string $userId = null, ?int $designationId = null, ?string $employee = null): Collection
     {
         $query = User::query()
             ->select('users.*')
@@ -335,7 +335,7 @@ class AttendanceReportService
         int $currentMonth,
         int $currentYear,
         bool $isGlobalScope,
-        ?int $userId
+        ?string $userId
     ): array {
         $resolver = app(ScheduleResolver::class);
         $policyResolver = app(PolicyResolver::class);

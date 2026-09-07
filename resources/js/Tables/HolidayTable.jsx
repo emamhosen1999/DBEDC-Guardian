@@ -6,7 +6,6 @@ import {
     MagnifyingGlassIcon,
     Pencil2Icon,
     TrashIcon,
-    EyeOpenIcon,
     ClockIcon,
     CheckCircledIcon,
     MixerHorizontalIcon,
@@ -44,6 +43,8 @@ const HolidayTable = ({
     holidaysData,
     onEdit,
     onDelete,
+    canEdit = false,
+    canDelete = false,
     onFilteredDataChange,
     isLoading = false,
 }) => {
@@ -114,7 +115,7 @@ const HolidayTable = ({
         { name: 'Duration', uid: 'duration' },
         { name: 'Type', uid: 'type' },
         { name: 'Status', uid: 'status' },
-        { name: 'Actions', uid: 'actions' },
+        ...(canEdit || canDelete ? [{ name: 'Actions', uid: 'actions' }] : []),
     ];
 
     const yearOptions = Array.from(
@@ -130,15 +131,16 @@ const HolidayTable = ({
                 </IconButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
-                <DropdownMenu.Item>
-                    <EyeOpenIcon style={{ width: 16, height: 16, marginRight: 8 }} /> View Details
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onClick={() => onEdit?.(holiday)}>
-                    <Pencil2Icon style={{ width: 16, height: 16, marginRight: 8 }} /> Edit Holiday
-                </DropdownMenu.Item>
-                <DropdownMenu.Item color="red" onClick={() => onDelete?.(holiday.id)}>
-                    <TrashIcon style={{ width: 16, height: 16, marginRight: 8 }} /> Delete Holiday
-                </DropdownMenu.Item>
+                {canEdit && (
+                    <DropdownMenu.Item onClick={() => onEdit?.(holiday)}>
+                        <Pencil2Icon style={{ width: 16, height: 16, marginRight: 8 }} /> Edit Holiday
+                    </DropdownMenu.Item>
+                )}
+                {canDelete && (
+                    <DropdownMenu.Item color="red" onClick={() => onDelete?.(holiday.id)}>
+                        <TrashIcon style={{ width: 16, height: 16, marginRight: 8 }} /> Delete Holiday
+                    </DropdownMenu.Item>
+                )}
             </DropdownMenu.Content>
         </DropdownMenu.Root>
     );
@@ -218,7 +220,7 @@ const HolidayTable = ({
                     return <Text size="2">{holiday[columnKey]}</Text>;
             }
         },
-        [getHolidayStatus, onEdit, onDelete],
+        [getHolidayStatus, onEdit, onDelete, canEdit, canDelete],
     );
 
     const FilterChip = ({ label, onRemove }) => (

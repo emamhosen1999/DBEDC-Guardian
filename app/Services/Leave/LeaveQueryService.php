@@ -4,8 +4,8 @@ namespace App\Services\Leave;
 
 use App\Models\HRM\Holiday;
 use App\Models\HRM\Leave;
-use App\Models\HRM\LeaveSetting;
 use App\Models\HRM\LeaveLedger;
+use App\Models\HRM\LeaveSetting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -146,7 +146,7 @@ class LeaveQueryService
     /**
      * Apply date filters to the query
      */
-    private function applyDateFilters($query, ?int $year, ?string $month, bool $isAdmin, int $userId): void
+    private function applyDateFilters($query, ?int $year, ?string $month, bool $isAdmin, string $userId): void
     {
         // Debug logging
         Log::info('LeaveQueryService - applyDateFilters called', [
@@ -302,7 +302,7 @@ class LeaveQueryService
     /**
      * Calculate leave counts and remaining days for users
      */
-    private function calculateLeaveCounts(?int $year, int $currentYear, $user, ?int $specificUserId = null): array
+    private function calculateLeaveCounts(?int $year, int $currentYear, $user, ?string $specificUserId = null): array
     {
         // Use specific user ID if provided, otherwise use authenticated user
         $targetUserId = $specificUserId ?: $user->id;
@@ -460,7 +460,7 @@ class LeaveQueryService
     public function getLeaveBalancesForDashboard(Request $request): array
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -469,7 +469,7 @@ class LeaveQueryService
 
         // Authorization check: Only self or manager/approver can view
         if ($requestedUserId !== (string) ($user->employee_id ?? $user->getKey())
-            && !$user->can('leaves.approve') && !$user->can('leaves.manage')) {
+            && ! $user->can('leaves.approve') && ! $user->can('leaves.manage')) {
             $requestedUserId = (string) ($user->employee_id ?? $user->getKey());
         }
 
@@ -484,13 +484,13 @@ class LeaveQueryService
             'earned' => ['used' => 0, 'total' => 0],
         ];
 
-        if (!$rows->isEmpty()) {
+        if (! $rows->isEmpty()) {
             $byType = $rows->groupBy('leave_type');
             $types = LeaveSetting::whereIn('id', $byType->keys())->get()->keyBy('id');
 
             foreach ($byType as $typeId => $txns) {
                 $typeSetting = $types[$typeId] ?? null;
-                if (!$typeSetting) {
+                if (! $typeSetting) {
                     continue;
                 }
 
@@ -524,7 +524,7 @@ class LeaveQueryService
         } else {
             // Fallback: Calculate from leaves table and LeaveSetting defaults
             $allSettings = LeaveSetting::all();
-            
+
             // Get user leaves for the year
             $userLeaves = Leave::where('user_id', $requestedUserId)
                 ->whereYear('from_date', $year)
@@ -534,13 +534,13 @@ class LeaveQueryService
 
             foreach ($allSettings as $setting) {
                 $typeName = strtolower($setting->type);
-                
+
                 // Sum the no_of_days for approved leaves of this type
                 $used = 0.0;
                 if ($userLeaves->has($setting->id)) {
                     $used = (float) $userLeaves->get($setting->id)->sum('no_of_days');
                 }
-                
+
                 $total = (float) $setting->days;
 
                 $key = null;

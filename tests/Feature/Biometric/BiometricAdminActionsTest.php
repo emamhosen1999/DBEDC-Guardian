@@ -73,7 +73,7 @@ class BiometricAdminActionsTest extends TestCase
      * A stranded punch: captured, attributed to the soft-deleted placeholder
      * resolveOrCreateUser() minted, and parked in unknown_user.
      */
-    private function unknownUserLog(BiometricDevice $device, string $pin, string $punchTime, ?int $userId = null): BiometricAttLog
+    private function unknownUserLog(BiometricDevice $device, string $pin, string $punchTime, ?string $userId = null): BiometricAttLog
     {
         return BiometricAttLog::create([
             'biometric_device_id' => $device->id,

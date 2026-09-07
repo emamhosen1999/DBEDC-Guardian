@@ -27,7 +27,9 @@ class UserFactory extends Factory
         return [
             'user_name' => fake()->name(),
             'name' => fake()->firstName().' '.fake()->lastName(),
-            'employee_id' => fake()->unique()->numberBetween(1000, 99999),
+            // Production employee identifiers are strings (for example EMP-02001).
+            // Keeping the factory realistic prevents integer casts from hiding in tests.
+            'employee_id' => sprintf('EMP-%05d', fake()->unique()->numberBetween(1, 99999)),
             'email' => fake()->unique()->safeEmail(),
             'phone' => fake()->unique()->phoneNumber(),
             'email_verified_at' => now(),

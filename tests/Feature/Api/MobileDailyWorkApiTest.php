@@ -834,7 +834,68 @@ class MobileDailyWorkApiTest extends TestCase
             ->assertJsonValidationErrors(['files.0']);
     }
 
-    private function insertObjectionForDailyWork(DailyWork $dailyWork, int $creatorId, array $overrides = []): int
+    public function test_stale_daily_work_write_returns_conflict_without_overwriting_winner(): void
+    {
+        $user = User::factory()->create();
+        $dailyWork = DailyWork::factory()->forUsers($user, $user)->create([
+            'status' => DailyWork::STATUS_NEW,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/status', [
+            'status' => DailyWork::STATUS_IN_PROGRESS,
+            'lock_version' => 0,
+        ])->assertOk()
+            ->assertJsonPath('data.status', DailyWork::STATUS_IN_PROGRESS)
+            ->assertJsonPath('data.lock_version', 1);
+
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/status', [
+            'status' => DailyWork::STATUS_COMPLETED,
+            'inspection_result' => DailyWork::INSPECTION_PASS,
+            'lock_version' => 0,
+        ])->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error_code', 'STALE_WRITE')
+            ->assertJsonPath('current_version', 1);
+
+        $this->assertDatabaseHas('daily_works', [
+            'id' => $dailyWork->id,
+            'status' => DailyWork::STATUS_IN_PROGRESS,
+            'lock_version' => 1,
+        ]);
+    }
+
+    public function test_stale_objection_transition_returns_conflict_without_duplicate_log(): void
+    {
+        $creator = User::factory()->create();
+        $dailyWork = DailyWork::factory()->forUsers($creator, $creator)->create();
+        $objectionId = $this->insertObjectionForDailyWork($dailyWork, $creator->id);
+
+        Sanctum::actingAs($creator);
+
+        $this->postJson('/api/v1/daily-works/'.$dailyWork->id.'/objections/'.$objectionId.'/submit', [
+            'lock_version' => 0,
+        ])->assertOk()
+            ->assertJsonPath('data.status', RfiObjection::STATUS_SUBMITTED)
+            ->assertJsonPath('data.lock_version', 1);
+
+        $this->postJson('/api/v1/daily-works/'.$dailyWork->id.'/objections/'.$objectionId.'/submit', [
+            'lock_version' => 0,
+        ])->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error_code', 'STALE_WRITE')
+            ->assertJsonPath('current_version', 1);
+
+        $this->assertDatabaseHas('rfi_objections', [
+            'id' => $objectionId,
+            'status' => RfiObjection::STATUS_SUBMITTED,
+            'lock_version' => 1,
+        ]);
+        $this->assertSame(1, DB::table('rfi_objection_status_logs')->where('rfi_objection_id', $objectionId)->count());
+    }
+
+    private function insertObjectionForDailyWork(DailyWork $dailyWork, string $creatorId, array $overrides = []): int
     {
         $payload = array_merge([
             'title' => 'Chainage mismatch',

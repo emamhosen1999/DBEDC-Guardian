@@ -95,7 +95,7 @@ const EmployeesTab = ({ isActive }) => {
     const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
 
     const [filters, setFilters] = useState({ 
-        search: '', 
+        search: typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('search') || ''),
         department: isNonGlobalManager ? String(userDeptId) : 'all', 
         designation: 'all', 
         attendanceType: 'all', 

@@ -16,12 +16,12 @@ class LeaveBalanceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $year = (int) $request->input('year', now()->year);
-        $requestedUserId = (int) ($request->input('user_id') ?: Auth::id());
+        $requestedUserId = (string) ($request->input('user_id') ?: Auth::id());
 
         // Only self, or an approver/manager, may view another user's balances.
-        if ($requestedUserId !== Auth::id()
+        if ($requestedUserId !== (string) Auth::id()
             && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
-            $requestedUserId = (int) Auth::id();
+            $requestedUserId = (string) Auth::id();
         }
 
         $rows = LeaveLedger::query()
@@ -65,11 +65,11 @@ class LeaveBalanceController extends Controller
     public function ledger(Request $request): JsonResponse
     {
         $year = (int) $request->input('year', now()->year);
-        $requestedUserId = (int) ($request->input('user_id') ?: Auth::id());
+        $requestedUserId = (string) ($request->input('user_id') ?: Auth::id());
 
-        if ($requestedUserId !== Auth::id()
+        if ($requestedUserId !== (string) Auth::id()
             && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
-            $requestedUserId = (int) Auth::id();
+            $requestedUserId = (string) Auth::id();
         }
 
         $types = LeaveSetting::pluck('type', 'id');

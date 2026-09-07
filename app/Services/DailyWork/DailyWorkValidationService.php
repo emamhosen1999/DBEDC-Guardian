@@ -110,6 +110,7 @@ class DailyWorkValidationService
 
         return $request->validate([
             'id' => 'required|integer|exists:daily_works,id',
+            'lock_version' => 'required|integer|min:0',
             'date' => 'required|date',
             'number' => 'required|string',
             'planned_time' => 'required|string',

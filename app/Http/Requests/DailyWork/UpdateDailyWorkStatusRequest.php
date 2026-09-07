@@ -34,6 +34,7 @@ class UpdateDailyWorkStatusRequest extends FormRequest
             'id' => ['required', 'exists:daily_works,id'],
             'status' => ['required', Rule::in(DailyWork::$statuses)],
             'inspection_result' => ['nullable', Rule::in(DailyWork::$inspectionResults)],
+            'lock_version' => ['required', 'integer', 'min:0'],
         ];
     }
 

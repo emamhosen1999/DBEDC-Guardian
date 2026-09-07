@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class ShiftController extends Controller
@@ -325,11 +326,46 @@ class ShiftController extends Controller
         }
     }
 
+    /**
+     * Normalize polymorphic scope identifiers without coercing employee codes to zero.
+     *
+     * @return array<int, string|null>
+     */
+    private function normalizeScopeIds(string $scopeType, array $scopeIds): array
+    {
+        if ($scopeType === 'org') {
+            return [null];
+        }
+
+        $ids = collect($scopeIds)
+            ->reject(fn ($id) => $id === null || $id === '')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            throw ValidationException::withMessages(['scope_id' => 'Select at least one scope target.']);
+        }
+
+        $existingCount = match ($scopeType) {
+            'user' => User::whereIn('employee_id', $ids)->count(),
+            'department' => DB::table('departments')->whereIn('id', $ids)->count(),
+            'designation' => Designation::whereIn('id', $ids)->count(),
+            default => 0,
+        };
+
+        if ($existingCount !== $ids->count()) {
+            throw ValidationException::withMessages(['scope_id' => 'One or more selected scope targets are invalid.']);
+        }
+
+        return $ids->all();
+    }
+
     public function storeAssignment(Request $request): JsonResponse
     {
         $data = $request->validate([
             'scope_type' => 'required|in:user,designation,department,org',
-            'scope_id' => 'nullable|integer',
+            'scope_id' => 'nullable',
             'shift_id' => 'nullable|integer|exists:shifts,id',
             'rotation_pattern_id' => 'nullable|integer|exists:shift_rotation_patterns,id',
             'anchor_date' => 'required|date',
@@ -337,6 +373,8 @@ class ShiftController extends Controller
             'effective_to' => 'nullable|date|after_or_equal:effective_from',
             'priority' => 'integer|min:0',
         ]);
+
+        $data['scope_id'] = $this->normalizeScopeIds($data['scope_type'], [$data['scope_id'] ?? null])[0];
 
         $user = auth()->user();
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
@@ -372,7 +410,7 @@ class ShiftController extends Controller
         $data = $request->validate([
             'scope_type' => 'required|in:user,designation,department,org',
             'scope_ids' => 'required_unless:scope_type,org|array',
-            'scope_ids.*' => 'integer',
+            'scope_ids.*' => 'required',
             'shift_id' => 'nullable|integer|exists:shifts,id',
             'rotation_pattern_id' => 'nullable|integer|exists:shift_rotation_patterns,id',
             'anchor_date' => 'required|date',
@@ -386,11 +424,7 @@ class ShiftController extends Controller
         $userDeptId = $user->department_id;
 
         $scopeType = $data['scope_type'];
-        $scopeIds = $scopeType === 'org' ? [null] : ($data['scope_ids'] ?? []);
-
-        if (empty($scopeIds)) {
-            return response()->json(['message' => 'No scope items selected.'], 422);
-        }
+        $scopeIds = $this->normalizeScopeIds($scopeType, $data['scope_ids'] ?? []);
 
         if (! $isGlobal && $userDeptId !== null) {
             $this->validateScopeForManager($scopeType, $scopeIds, $userDeptId);
@@ -443,7 +477,7 @@ class ShiftController extends Controller
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $userDeptId = $user->department_id;
 
-        $query = ShiftAssignment::with(['shift:id,code,name', 'rotationPattern:id,name', 'assigner:id,name'])
+        $query = ShiftAssignment::with(['shift:id,code,name', 'rotationPattern:id,name', 'assigner:employee_id,name'])
             ->orderByDesc('created_at');
 
         if (! $isGlobal && $userDeptId !== null) {
@@ -514,7 +548,7 @@ class ShiftController extends Controller
 
         $data = $request->validate([
             'scope_type' => 'sometimes|in:user,designation,department,org',
-            'scope_id' => 'sometimes|nullable|integer',
+            'scope_id' => 'sometimes|nullable',
             'shift_id' => 'sometimes|nullable|integer|exists:shifts,id',
             'rotation_pattern_id' => 'sometimes|nullable|integer|exists:shift_rotation_patterns,id',
             'anchor_date' => 'sometimes|date',
@@ -522,6 +556,12 @@ class ShiftController extends Controller
             'effective_to' => 'sometimes|nullable|date',
             'priority' => 'sometimes|integer|min:0',
         ]);
+
+        if (array_key_exists('scope_type', $data) || array_key_exists('scope_id', $data)) {
+            $effectiveScopeType = $data['scope_type'] ?? $assignment->scope_type;
+            $effectiveScopeId = array_key_exists('scope_id', $data) ? $data['scope_id'] : $assignment->scope_id;
+            $data['scope_id'] = $this->normalizeScopeIds($effectiveScopeType, [$effectiveScopeId])[0];
+        }
 
         try {
             $assignment = DB::transaction(fn () => $this->shifts->updateAssignment($assignment, $data));

@@ -311,7 +311,7 @@ class MobileLeaveApprovalApiTest extends TestCase
         ]);
     }
 
-    private function insertPendingLeaveForApprover(int $requesterId, int $approverId, int $leaveTypeId): int
+    private function insertPendingLeaveForApprover(string $requesterId, string $approverId, int $leaveTypeId): int
     {
         $approvalChain = [
             [

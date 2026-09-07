@@ -1,15 +1,21 @@
 <?php
+
 // tests/Feature/Notifications/AttendanceTriggerWiringTest.php
+
 namespace Tests\Feature\Notifications;
 
 use App\Http\Controllers\HRM\RosterController;
 use App\Http\Controllers\HRM\ShiftSwapController;
 use App\Models\HRM\ShiftSwapRequest;
-use App\Services\Attendance\RosterService;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
 use App\Notifications\Attendance\ShiftSwapDecidedNotification;
 use App\Notifications\Attendance\ShiftSwapRequestedNotification;
+use App\Services\Attendance\RosterOverlayService;
+use App\Services\Attendance\RosterService;
+use App\Services\Attendance\ShiftSwapService;
+use App\Services\Attendance\WorkTimeComplianceService;
+use App\Services\Realtime\RealtimeSignal;
 use Database\Seeders\NotificationTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -50,17 +56,17 @@ class AttendanceTriggerWiringTest extends TestCase
         // Call the controller's approve method with a mock RosterService.
         // effectiveShiftId: return non-null for requester (they ARE scheduled),
         // null for counterparty (they are FREE on that date) — satisfies rosterAvailabilityProblem.
-        $rosterMock = $this->createMock(\App\Services\Attendance\RosterService::class);
+        $rosterMock = $this->createMock(RosterService::class);
         $rosterMock->method('effectiveShiftId')
-            ->willReturnCallback(fn (int $userId, string $date) => $userId === $requester->id ? 1 : null);
+            ->willReturnCallback(fn (int|string $userId, string $date) => $userId === $requester->id ? 1 : null);
 
         // The swap decision side effects now live in ShiftSwapService (single
         // pipeline). The controller delegates to it, so build it with the same
         // mocked roster + compliance and a mocked realtime signal.
-        $swapService = new \App\Services\Attendance\ShiftSwapService(
+        $swapService = new ShiftSwapService(
             $rosterMock,
-            $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
-            $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
+            $this->createMock(WorkTimeComplianceService::class),
+            $this->createMock(RealtimeSignal::class),
         );
         $controller = new ShiftSwapController($rosterMock, $swapService);
 
@@ -94,11 +100,11 @@ class AttendanceTriggerWiringTest extends TestCase
             'counterparty_status' => 'accepted',
         ]);
 
-        $rosterMock = $this->createMock(\App\Services\Attendance\RosterService::class);
-        $swapService = new \App\Services\Attendance\ShiftSwapService(
+        $rosterMock = $this->createMock(RosterService::class);
+        $swapService = new ShiftSwapService(
             $rosterMock,
-            $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
-            $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
+            $this->createMock(WorkTimeComplianceService::class),
+            $this->createMock(RealtimeSignal::class),
         );
         $controller = new ShiftSwapController($rosterMock, $swapService);
 
@@ -151,9 +157,9 @@ class AttendanceTriggerWiringTest extends TestCase
         // (working-time compliance). Mock returns [] for its array-typed methods (no violations).
         $controller = new RosterController(
             $this->createMock(RosterService::class),
-            $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
-            $this->createMock(\App\Services\Attendance\RosterOverlayService::class),
-            $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
+            $this->createMock(RealtimeSignal::class),
+            $this->createMock(RosterOverlayService::class),
+            $this->createMock(WorkTimeComplianceService::class),
         );
         $request = Request::create('/attendance/roster/cell', 'PUT');
         $request->merge([

@@ -6,6 +6,7 @@ use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Leave\LeaveApprovalService;
+use App\Services\Leave\LeaveAuditService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Collection;
@@ -888,7 +889,7 @@ class LeaveApiService
         }
         DB::table('leaves')->where('id', $leaveId)->update($update);
 
-        app(\App\Services\Leave\LeaveAuditService::class)->record(
+        app(LeaveAuditService::class)->record(
             'cancel', $leaveId, (array) $leave,
             (array) DB::table('leaves')->where('id', $leaveId)->first(),
             'Cancelled via mobile'
@@ -976,7 +977,7 @@ class LeaveApiService
     {
         return [
             'id' => $leave->id,
-            'user_id' => (int) $leave->user_id,
+            'user_id' => (string) $leave->user_id,
             'leave_type' => (int) $leave->leave_type,
             'leave_type_name' => $leave->leave_type_name,
             'leave_type_symbol' => property_exists($leave, 'leave_type_symbol') ? $leave->leave_type_symbol : null,
@@ -1060,7 +1061,7 @@ class LeaveApiService
 
     private function hasOverlappingLeave(
         string $userColumn,
-        int $userId,
+        string $userId,
         Carbon $fromDate,
         Carbon $toDate,
         ?int $exceptLeaveId = null

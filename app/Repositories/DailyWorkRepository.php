@@ -107,7 +107,7 @@ class DailyWorkRepository extends BaseRepository
     /**
      * Get daily works for a specific user
      */
-    public function getUserDailyWorks(int $userId, array $filters = []): Collection
+    public function getUserDailyWorks(string $userId, array $filters = []): Collection
     {
         $filters['user_id'] = $userId;
 
@@ -129,7 +129,7 @@ class DailyWorkRepository extends BaseRepository
     /**
      * Get daily works assigned to a user
      */
-    public function getAssignedDailyWorks(int $assignedId, array $filters = []): Collection
+    public function getAssignedDailyWorks(string $assignedId, array $filters = []): Collection
     {
         $filters['assigned_id'] = $assignedId;
 
@@ -139,7 +139,7 @@ class DailyWorkRepository extends BaseRepository
     /**
      * Get daily works under a user's supervision
      */
-    public function getInchargeDailyWorks(int $inchargeId, array $filters = []): Collection
+    public function getInchargeDailyWorks(string $inchargeId, array $filters = []): Collection
     {
         $filters['incharge_id'] = $inchargeId;
 
@@ -223,7 +223,7 @@ class DailyWorkRepository extends BaseRepository
     /**
      * Update daily work incharge
      */
-    public function updateIncharge(int $dailyWorkId, ?int $inchargeId): DailyWork
+    public function updateIncharge(int $dailyWorkId, ?string $inchargeId): DailyWork
     {
         $dailyWork = $this->findOrFail($dailyWorkId);
         $dailyWork->incharge_id = $inchargeId;
@@ -235,7 +235,7 @@ class DailyWorkRepository extends BaseRepository
     /**
      * Update daily work assigned user
      */
-    public function updateAssigned(int $dailyWorkId, ?int $assignedId): DailyWork
+    public function updateAssigned(int $dailyWorkId, ?string $assignedId): DailyWork
     {
         $dailyWork = $this->findOrFail($dailyWorkId);
         $dailyWork->assigned_id = $assignedId;
@@ -257,7 +257,7 @@ class DailyWorkRepository extends BaseRepository
     /**
      * Get recent daily works for a user
      */
-    public function getRecentDailyWorks(int $userId, int $limit = 10): Collection
+    public function getRecentDailyWorks(string $userId, int $limit = 10): Collection
     {
         return $this->model
             ->where('user_id', $userId)

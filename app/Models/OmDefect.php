@@ -5,12 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OmDefect extends Model
 {
     use HasFactory;
+
+    protected $attributes = ['lock_version' => 0];
 
     protected $fillable = [
         'defect_number',
@@ -34,6 +35,7 @@ class OmDefect extends Model
         'rectification_notes',
         'before_photos',
         'after_photos',
+        'lock_version',
     ];
 
     protected $casts = [
@@ -45,6 +47,7 @@ class OmDefect extends Model
         'longitude' => 'float',
         'before_photos' => 'array',
         'after_photos' => 'array',
+        'lock_version' => 'integer',
     ];
 
     public function asset(): BelongsTo

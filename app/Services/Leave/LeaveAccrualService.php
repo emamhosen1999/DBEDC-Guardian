@@ -16,7 +16,7 @@ class LeaveAccrualService
 {
     public function __construct(private LeaveLedgerService $ledger) {}
 
-    public function grantAnnual(int $year, ?int $userId = null, bool $dryRun = false): int
+    public function grantAnnual(int $year, ?string $userId = null, bool $dryRun = false): int
     {
         $types = LeaveSetting::where('accrual_method', 'annual_upfront')->get();
         $posted = 0;
@@ -49,7 +49,7 @@ class LeaveAccrualService
         return $posted;
     }
 
-    public function accrueMonthly(int $year, int $month, ?int $userId = null, bool $dryRun = false): int
+    public function accrueMonthly(int $year, int $month, ?string $userId = null, bool $dryRun = false): int
     {
         $types = LeaveSetting::where('accrual_method', 'monthly')->get();
         $accrualDate = Carbon::create($year, $month, 1)->startOfMonth();
@@ -94,7 +94,7 @@ class LeaveAccrualService
      * Idempotent — safe to call on every leave request; used to close the
      * "untracked balance = unlimited leave" gap.
      */
-    public function seedFor(int $userId, int $year): void
+    public function seedFor(string $userId, int $year): void
     {
         $this->grantAnnual($year, $userId);
 
@@ -108,18 +108,18 @@ class LeaveAccrualService
         }
     }
 
-    private function users(?int $userId)
+    private function users(?string $userId)
     {
-        return User::query()->when($userId, fn ($q) => $q->where('id', $userId))->get();
+        return User::query()->when($userId, fn ($q) => $q->where('employee_id', $userId))->get();
     }
 
-    private function hasOpening(int $userId, int $typeId, int $year): bool
+    private function hasOpening(string $userId, int $typeId, int $year): bool
     {
         return LeaveLedger::where('user_id', $userId)->where('leave_type', $typeId)
             ->where('period_year', $year)->where('txn_type', 'opening')->exists();
     }
 
-    private function hasAccrualForMonth(int $userId, int $typeId, int $year, int $month): bool
+    private function hasAccrualForMonth(string $userId, int $typeId, int $year, int $month): bool
     {
         return LeaveLedger::where('user_id', $userId)->where('leave_type', $typeId)
             ->where('period_year', $year)->where('txn_type', 'accrual')

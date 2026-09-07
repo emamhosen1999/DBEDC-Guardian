@@ -7,8 +7,10 @@ use App\Services\Monitoring\DatabaseAnalyticsService;
 use App\Services\Monitoring\LogParserService;
 use App\Services\Monitoring\SecurityMonitoringService;
 use App\Services\Monitoring\SystemHealthService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -113,5 +115,46 @@ class SystemMonitoringController extends Controller
             'cache_analysis' => $this->systemHealthService->analyzeCacheUsage(),
             'recommendations' => $this->systemHealthService->generateOptimizationRecommendations(),
         ];
+    }
+
+    public function resolveError(Request $request, string $errorId)
+    {
+        $validated = $request->validate([
+            'resolution_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $query = DB::table('error_logs')->where('error_id', $errorId);
+        if (ctype_digit($errorId)) {
+            $query->orWhere('id', (int) $errorId);
+        }
+
+        $error = $query->first();
+        abort_if($error === null, 404, 'Error log not found.');
+
+        DB::table('error_logs')->where('id', $error->id)->update([
+            'resolved' => true,
+            'resolution_notes' => $validated['resolution_notes'] ?? null,
+            'resolved_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Cache::forget('system_overview');
+
+        return response()->json([
+            'message' => 'Error marked as resolved.',
+            'error_id' => $error->error_id,
+        ]);
+    }
+
+    public function exportReport()
+    {
+        $generatedAt = now();
+        $overview = $this->getSystemOverview();
+
+        return Pdf::loadView('system_monitoring_report', [
+            'generatedAt' => $generatedAt,
+            'generatedBy' => auth()->user()?->name,
+            'overview' => $overview,
+        ])->setPaper('a4')->download('system-report-'.$generatedAt->format('Y-m-d').'.pdf');
     }
 }

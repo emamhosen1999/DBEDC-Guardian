@@ -16,7 +16,7 @@ class CarryForwardService
 {
     public function __construct(private LeaveLedgerService $ledger) {}
 
-    public function rollOver(int $fromYear, int $toYear, ?int $userId = null, bool $dryRun = false): int
+    public function rollOver(int $fromYear, int $toYear, ?string $userId = null, bool $dryRun = false): int
     {
         $types = LeaveSetting::whereNotNull('carry_forward_cap')->get();
         $posted = 0;
@@ -41,7 +41,7 @@ class CarryForwardService
         return $posted;
     }
 
-    public function expireCarried(CarbonInterface $asOf, ?int $userId = null, bool $dryRun = false): int
+    public function expireCarried(CarbonInterface $asOf, ?string $userId = null, bool $dryRun = false): int
     {
         $types = LeaveSetting::whereNotNull('carry_forward_cap')->whereNotNull('carry_expiry_months')->get();
         $posted = 0;
@@ -77,18 +77,18 @@ class CarryForwardService
         return $posted;
     }
 
-    private function users(?int $userId)
+    private function users(?string $userId)
     {
-        return User::query()->when($userId, fn ($q) => $q->where('id', $userId))->get();
+        return User::query()->when($userId, fn ($q) => $q->where('employee_id', $userId))->get();
     }
 
-    private function hasCarry(int $userId, int $typeId, int $toYear): bool
+    private function hasCarry(string $userId, int $typeId, int $toYear): bool
     {
         return LeaveLedger::where('user_id', $userId)->where('leave_type', $typeId)
             ->where('period_year', $toYear)->where('txn_type', 'carry_forward')->exists();
     }
 
-    private function hasExpiry(int $userId, int $typeId, int $year): bool
+    private function hasExpiry(string $userId, int $typeId, int $year): bool
     {
         return LeaveLedger::where('user_id', $userId)->where('leave_type', $typeId)
             ->where('period_year', $year)->where('txn_type', 'carry_expiry')->exists();

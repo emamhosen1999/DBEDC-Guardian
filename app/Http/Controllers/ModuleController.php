@@ -88,6 +88,16 @@ class ModuleController extends Controller
     }
 
     /**
+     * Return the same registry totals used by the module-management page.
+     */
+    public function statistics()
+    {
+        return response()->json([
+            'statistics' => $this->modulePermissionService->getStatistics(),
+        ]);
+    }
+
+    /**
      * Get modules accessible by the current user
      */
     public function getAccessibleModules()

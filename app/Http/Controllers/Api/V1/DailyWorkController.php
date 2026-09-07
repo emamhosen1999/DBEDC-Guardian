@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\StaleModelVersionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ListDailyWorkObjectionsRequest;
 use App\Http\Requests\Api\V1\ListDailyWorksRequest;
@@ -25,6 +26,7 @@ use App\Services\Project\DailyWorkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -233,7 +235,7 @@ class DailyWorkController extends Controller
         }
 
         if ($request->filled('created_by')) {
-            $query->where('created_by', (int) $request->input('created_by'));
+            $query->where('created_by', (string) $request->input('created_by'));
         }
 
         if ($request->filled('search')) {
@@ -321,11 +323,12 @@ class DailyWorkController extends Controller
 
         $status = (string) $request->input('status');
 
-        $this->dailyWorkService->updateStatus(
+        $dailyWork = $this->dailyWorkService->updateStatus(
             $dailyWork,
             $status,
             $request->input('inspection_result'),
-            false // API updates do not modify submission_time
+            false, // API updates do not modify submission_time
+            $request->has('lock_version') ? $request->integer('lock_version') : null
         );
 
         $dailyWork->load([
@@ -351,7 +354,11 @@ class DailyWorkController extends Controller
             return $this->errorResponse('You are not authorized to update incharge for this daily work.', null, 403);
         }
 
-        $this->dailyWorkService->updateIncharge($dailyWork, $request->input('incharge'));
+        $dailyWork = $this->dailyWorkService->updateIncharge(
+            $dailyWork,
+            $request->input('incharge'),
+            $request->has('lock_version') ? $request->integer('lock_version') : null
+        );
 
         $dailyWork->load([
             'inchargeUser:employee_id,name',
@@ -376,7 +383,11 @@ class DailyWorkController extends Controller
             return $this->errorResponse('You are not authorized to update assigned user for this daily work.', null, 403);
         }
 
-        $this->dailyWorkService->updateAssigned($dailyWork, $request->input('assigned'));
+        $dailyWork = $this->dailyWorkService->updateAssigned(
+            $dailyWork,
+            $request->input('assigned'),
+            $request->has('lock_version') ? $request->integer('lock_version') : null
+        );
 
         $dailyWork->load([
             'inchargeUser:employee_id,name',
@@ -458,6 +469,8 @@ class DailyWorkController extends Controller
             $objection = $this->objectionService->create($dailyWork, $request->all(), $request->user());
 
             return $this->successResponse($this->transformObjection($objection), 'Objection created successfully.', 201);
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -467,6 +480,7 @@ class DailyWorkController extends Controller
 
     public function submitObjection(Request $request, int $dailyWorkId, int $objectionId): JsonResponse
     {
+        $validated = $request->validate(['lock_version' => ['sometimes', 'integer', 'min:0']]);
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
@@ -488,11 +502,13 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->objectionService->submit($objection, $request->user());
+            $objection = $this->objectionService->submit($objection, $request->user(), $validated['lock_version'] ?? null);
 
             return $this->successResponse($this->transformObjection($objection), 'Objection submitted for review.');
         } catch (\InvalidArgumentException $exception) {
             return $this->errorResponse($exception->getMessage(), null, 422);
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -502,6 +518,7 @@ class DailyWorkController extends Controller
 
     public function startReviewObjection(Request $request, int $dailyWorkId, int $objectionId): JsonResponse
     {
+        $validated = $request->validate(['lock_version' => ['sometimes', 'integer', 'min:0']]);
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
@@ -523,11 +540,13 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->objectionService->startReview($objection, $request->user());
+            $objection = $this->objectionService->startReview($objection, $request->user(), $validated['lock_version'] ?? null);
 
             return $this->successResponse($this->transformObjection($objection), 'Objection is now under review.');
         } catch (\InvalidArgumentException $exception) {
             return $this->errorResponse($exception->getMessage(), null, 422);
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -558,11 +577,18 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->objectionService->resolve($objection, $request->input('resolution_notes'), $request->user());
+            $objection = $this->objectionService->resolve(
+                $objection,
+                $request->input('resolution_notes'),
+                $request->user(),
+                $request->has('lock_version') ? $request->integer('lock_version') : null
+            );
 
             return $this->successResponse($this->transformObjection($objection), 'Objection resolved successfully.');
         } catch (\InvalidArgumentException $exception) {
             return $this->errorResponse($exception->getMessage(), null, 422);
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -594,11 +620,18 @@ class DailyWorkController extends Controller
 
         try {
             $reason = $request->input('resolution_notes', $request->input('rejection_reason'));
-            $objection = $this->objectionService->reject($objection, $reason, $request->user());
+            $objection = $this->objectionService->reject(
+                $objection,
+                $reason,
+                $request->user(),
+                $request->has('lock_version') ? $request->integer('lock_version') : null
+            );
 
             return $this->successResponse($this->transformObjection($objection), 'Objection rejected.');
         } catch (\InvalidArgumentException $exception) {
             return $this->errorResponse($exception->getMessage(), null, 422);
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -670,6 +703,8 @@ class DailyWorkController extends Controller
                 count($uploadedFiles).' file(s) uploaded successfully.',
                 201
             );
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -708,6 +743,8 @@ class DailyWorkController extends Controller
                 ['total_files' => $this->countObjectionFiles($objection)],
                 'File deleted successfully.'
             );
+        } catch (StaleModelVersionException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -900,7 +937,7 @@ class DailyWorkController extends Controller
      * users); assignee candidates are keyed by the in-charge id and only built for the
      * in-charges present on the current page that this user is allowed to reassign.
      *
-     * @param  \Illuminate\Support\Collection<int, DailyWork>  $dailyWorks
+     * @param  Collection<int, DailyWork>  $dailyWorks
      * @return array{incharge_candidates: array<int, array{id:int,name:string}>, assigned_candidates_by_incharge: array<int, array<int, array{id:int,name:string}>>}
      */
     private function buildTopLevelAssignmentOptions($dailyWorks, User $user): array
@@ -1101,6 +1138,7 @@ class DailyWorkController extends Controller
 
         return [
             'id' => (int) $dailyWork->id,
+            'lock_version' => (int) $dailyWork->lock_version,
             'date' => $this->normalizeDate($dailyWork->date),
             'number' => $dailyWork->number,
             'status' => $dailyWork->status,
@@ -1120,14 +1158,14 @@ class DailyWorkController extends Controller
             'rfi_submission_date' => $this->normalizeDate($dailyWork->rfi_submission_date),
             'active_objections_count' => (int) ($dailyWork->active_objections_count ?? 0),
             'has_active_objections' => (bool) $dailyWork->has_active_objections,
-            'incharge' => $dailyWork->incharge ? (int) $dailyWork->incharge : null,
-            'assigned' => $dailyWork->assigned ? (int) $dailyWork->assigned : null,
+            'incharge' => $dailyWork->incharge ? (string) $dailyWork->incharge : null,
+            'assigned' => $dailyWork->assigned ? (string) $dailyWork->assigned : null,
             'incharge_user' => ($canViewIncharge || $canUpdateIncharge) && $dailyWork->inchargeUser ? [
-                'id' => (int) $dailyWork->inchargeUser->id,
+                'id' => (string) $dailyWork->inchargeUser->id,
                 'name' => $dailyWork->inchargeUser->name,
             ] : null,
             'assigned_user' => ($canViewAssigned || $canUpdateAssigned) && $dailyWork->assignedUser ? [
-                'id' => (int) $dailyWork->assignedUser->id,
+                'id' => (string) $dailyWork->assignedUser->id,
                 'name' => $dailyWork->assignedUser->name,
             ] : null,
             'permissions' => [
@@ -1146,6 +1184,7 @@ class DailyWorkController extends Controller
     {
         return [
             'id' => (int) $objection->id,
+            'lock_version' => (int) $objection->lock_version,
             'title' => $objection->title,
             'category' => $objection->category,
             'category_label' => $objection->category_label,
@@ -1159,7 +1198,7 @@ class DailyWorkController extends Controller
             'is_active' => (bool) $objection->is_active,
             'files_count' => (int) $objection->files_count,
             'created_by' => $objection->createdBy ? [
-                'id' => (int) $objection->createdBy->id,
+                'id' => (string) $objection->createdBy->id,
                 'name' => $objection->createdBy->name,
             ] : null,
             'created_at' => $this->normalizeDateTime($objection->created_at),

@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\ClientErrorController;
 use App\Http\Controllers\Admin\DeviceSessionController;
 use App\Http\Controllers\Admin\FeatureFlagController;
 use App\Http\Controllers\Admin\NotificationSettingsController;
+use App\Http\Controllers\Aeon\AeonController;
+use App\Http\Controllers\Aeon\AeonPageController;
 use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\FirebaseTokenController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HRM\CompOffController;
 use App\Http\Controllers\HRM\CoverageController;
@@ -36,11 +39,11 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ObjectionController;
 use App\Http\Controllers\OperationsMaintenanceController;
+use App\Http\Controllers\OmRenovationController;
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
 use App\Http\Controllers\Quality\NcrController;
-use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RfiObjectionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Settings\AttendanceSettingController;
@@ -120,14 +123,23 @@ Route::middleware($middlewareStack)->group(function () {
 
     // Employee Dashboard route
     Route::get('/employee-dashboard', [DashboardController::class, 'employeeIndex'])->name('employee-dashboard');
+    Route::get('/search', GlobalSearchController::class)->name('search');
 
     // Quality — NCR register (full CRUD + status workflow)
-    Route::middleware(['permission:quality.ncr.view'])->prefix('quality')->name('quality.')->group(function () {
-        Route::get('/ncr', [NcrController::class, 'index'])->name('ncr.index');
-        Route::post('/ncr', [NcrController::class, 'store'])->name('ncr.store');
-        Route::put('/ncr/{ncr}', [NcrController::class, 'update'])->name('ncr.update');
-        Route::patch('/ncr/{ncr}/transition', [NcrController::class, 'transition'])->name('ncr.transition');
-        Route::delete('/ncr/{ncr}', [NcrController::class, 'destroy'])->name('ncr.destroy');
+    Route::prefix('quality')->name('quality.')->group(function () {
+        Route::middleware('permission:quality.ncr.view')->group(function () {
+            Route::get('/ncr', [NcrController::class, 'index'])->name('ncr.index');
+        });
+        Route::middleware('permission:quality.ncr.create')->group(function () {
+            Route::post('/ncr', [NcrController::class, 'store'])->name('ncr.store');
+        });
+        Route::middleware('permission:quality.ncr.update')->group(function () {
+            Route::put('/ncr/{ncr}', [NcrController::class, 'update'])->name('ncr.update');
+            Route::patch('/ncr/{ncr}/transition', [NcrController::class, 'transition'])->name('ncr.transition');
+        });
+        Route::middleware('permission:quality.ncr.delete')->group(function () {
+            Route::delete('/ncr/{ncr}', [NcrController::class, 'destroy'])->name('ncr.destroy');
+        });
     });
 
     // Security Dashboard route - available to authenticated users
@@ -302,27 +314,36 @@ Route::middleware($middlewareStack)->group(function () {
     // Holiday routes (Legacy - redirects to Time Off Management)
     Route::middleware(['permission:holidays.view'])->group(function () {
         Route::get('/holidays', [HolidayController::class, 'index'])->name('holidays');
-        Route::post('/holidays-add', [HolidayController::class, 'create'])->name('holidays-add');
-        Route::delete('/holidays-delete', [HolidayController::class, 'delete'])->name('holidays-delete');
+        Route::get('/api/holidays', [HolidayController::class, 'listJson'])->name('api.holidays');
+        Route::get('/api/holidays/stats', [HolidayController::class, 'stats'])->name('holidays.stats');
+        Route::get('/api/holidays/{holiday}', [HolidayController::class, 'show'])->name('api.holidays.show');
 
         // Legacy redirect for old holiday routes
         Route::get('/holidays-legacy', [HolidayController::class, 'index'])->name('holidays-legacy');
     });
+    Route::post('/holidays-add', [HolidayController::class, 'create'])
+        ->middleware('permission:holidays.create')
+        ->name('holidays-add');
+    Route::delete('/holidays-delete', [HolidayController::class, 'delete'])
+        ->middleware('permission:holidays.delete')
+        ->name('holidays-delete');
 
-    // Profile Routes - own profile access
-    Route::middleware(['permission:profile.own.view'])->group(function () {
+    // Profile reads are owner-scoped unless the actor has user-directory access.
+    Route::middleware(['permission:profile.own.view|users.view'])->group(function () {
         Route::get('/profile/{user}', [ProfileController::class, 'index'])->name('profile');
+        Route::get('/profile/{user}/stats', [ProfileController::class, 'stats'])->name('profile.stats');
+        Route::get('/profile/{user}/export', [ProfileController::class, 'export'])->name('profile.export');
+        Route::post('/profile/{user}/track-view', [ProfileController::class, 'trackView'])->name('profile.trackView');
+    });
+
+    // Profile writes are independently owner/administrator authorized in each controller.
+    Route::middleware(['permission:profile.own.update|users.update'])->group(function () {
         Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
-        Route::delete('/profile/delete', [ProfileController::class, 'delete'])->name('profile.delete');
+        Route::delete('/profile/delete', [ProfileController::class, 'destroy'])->name('profile.delete');
 
         // Profile Image Routes - dedicated endpoints for profile image management
         Route::post('/profile/image/upload', [ProfileImageController::class, 'upload'])->name('profile.image.upload');
         Route::delete('/profile/image/remove', [ProfileImageController::class, 'remove'])->name('profile.image.remove');
-
-        // New API endpoints for enhanced profile functionality (consistent with other modules)
-        Route::get('/profile/{user}/stats', [ProfileController::class, 'stats'])->name('profile.stats');
-        Route::get('/profile/{user}/export', [ProfileController::class, 'export'])->name('profile.export');
-        Route::post('/profile/{user}/track-view', [ProfileController::class, 'trackView'])->name('profile.trackView');
 
         // Education Routes:
         Route::post('/education/update', [EducationController::class, 'update'])->name('education.update');
@@ -411,6 +432,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/employees', [UserController::class, 'index'])->name('employees');
         Route::get('/employees/paginate', [UserController::class, 'employees'])->name('employees.paginate');
         Route::get('/employees/stats', [UserController::class, 'employeeStats'])->name('employees.stats');
+        Route::get('/employees/{id}', [UserController::class, 'show'])->name('employees.show');
     });
 
     // The Master Organization Page (Redirected to Employees Console)
@@ -440,9 +462,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Holiday management routes
     Route::middleware(['permission:holidays.create'])->post('/holiday-add', [HolidayController::class, 'create'])->name('holiday-add');
+    Route::middleware(['permission:holidays.create'])->post('/api/holidays', [HolidayController::class, 'create'])->name('api.holidays.store');
+    Route::middleware(['permission:holidays.update'])->put('/holidays/{holiday}', [HolidayController::class, 'update'])->name('holiday-update');
+    Route::middleware(['permission:holidays.update'])->put('/api/holidays/{holiday}', [HolidayController::class, 'update'])->name('api.holidays.update');
     Route::middleware(['permission:holidays.create'])->post('/holidays-restore', [HolidayController::class, 'restore'])->name('holidays-restore');
     Route::middleware(['permission:holidays.create'])->post('/holidays-copy-year', [HolidayController::class, 'copyYear'])->name('holidays-copy-year');
     Route::middleware(['permission:holidays.delete'])->delete('/holiday-delete', [HolidayController::class, 'delete'])->name('holiday-delete');
+    Route::middleware(['permission:holidays.delete'])->delete('/api/holidays/{holiday}', [HolidayController::class, 'destroy'])->name('api.holidays.destroy');
 
     // User management routes - CONSOLIDATED & REFACTORED
     Route::middleware(['permission:users.view'])->group(function () {
@@ -687,23 +713,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware(['permission:attendance.view|attendance.settings'])->group(function () {
-        // Shift management routes
+        // Shift and roster reads
         Route::get('/attendance/shifts', [ShiftController::class, 'index'])->name('attendance.shifts.index');
+        Route::get('/attendance/rotation-patterns', [ShiftController::class, 'indexPatterns'])->name('attendance.patterns.index');
+        Route::get('/attendance/shift-assignments', [ShiftController::class, 'assignmentsIndex'])->name('attendance.assignments.index');
+        Route::get('/attendance/roster', [RosterController::class, 'index'])->name('attendance.roster.index');
+    });
+
+    Route::middleware(['permission:attendance.settings'])->group(function () {
+        // Shift and roster mutations
         Route::post('/attendance/shifts', [ShiftController::class, 'store'])->name('attendance.shifts.store');
         Route::put('/attendance/shifts/{id}', [ShiftController::class, 'update'])->name('attendance.shifts.update');
         Route::delete('/attendance/shifts/{id}', [ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
-        Route::get('/attendance/rotation-patterns', [ShiftController::class, 'indexPatterns'])->name('attendance.patterns.index');
         Route::post('/attendance/rotation-patterns', [ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
         Route::put('/attendance/rotation-patterns/{id}', [ShiftController::class, 'updatePattern'])->name('attendance.patterns.update');
         Route::delete('/attendance/rotation-patterns/{id}', [ShiftController::class, 'destroyPattern'])->name('attendance.patterns.destroy');
         Route::post('/attendance/shift-assignments', [ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
         Route::post('/attendance/shift-assignments/bulk', [ShiftController::class, 'storeBulkAssignment'])->name('attendance.assignments.storeBulk');
-        Route::get('/attendance/shift-assignments', [ShiftController::class, 'assignmentsIndex'])->name('attendance.assignments.index');
         Route::put('/attendance/shift-assignments/{id}', [ShiftController::class, 'updateAssignment'])->name('attendance.assignments.update');
         Route::delete('/attendance/shift-assignments/{id}', [ShiftController::class, 'destroyAssignment'])->name('attendance.assignments.destroy');
 
-        // Roster management routes
-        Route::get('/attendance/roster', [RosterController::class, 'index'])->name('attendance.roster.index');
         Route::post('/attendance/roster/generate', [RosterController::class, 'generate'])->name('attendance.roster.generate');
         Route::put('/attendance/roster/cell', [RosterController::class, 'updateCell'])->name('attendance.roster.cell');
     });
@@ -737,7 +766,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Task management routes
     Route::middleware(['permission:tasks.view'])->group(function () {
         Route::get('/tasks-all', [TaskController::class, 'allTasks'])->name('allTasks');
-        Route::post('/tasks-filtered', [TaskController::class, 'filterTasks'])->name('filterTasks');
     });
 
     Route::middleware(['permission:tasks.create'])->post('/task/add', [TaskController::class, 'addTask'])->name('addTask');
@@ -746,6 +774,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:employees.view'])->group(function () {
         Route::get('/work-location', [WorkLocationController::class, 'showWorkLocations'])->name('showWorkLocations');
         Route::get('/work-location_json', [WorkLocationController::class, 'allWorkLocations'])->name('allWorkLocations');
+        Route::get('/work-locations/{workLocation}', [WorkLocationController::class, 'show'])->name('workLocations.show');
     });
 
     Route::middleware(['permission:attendance.settings'])->post('/work-locations/add', [WorkLocationController::class, 'addWorkLocation'])->name('addWorkLocation');
@@ -760,30 +789,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:jurisdiction.create'])->post('/jurisdictions/add', [JurisdictionController::class, 'addJurisdiction'])->name('addJurisdiction');
     Route::middleware(['permission:jurisdiction.delete'])->post('/jurisdictions/delete', [JurisdictionController::class, 'deleteJurisdiction'])->name('deleteJurisdiction');
     Route::middleware(['permission:jurisdiction.update'])->post('/jurisdictions/update', [JurisdictionController::class, 'updateJurisdiction'])->name('updateJurisdiction');
-});
-
-Route::middleware(['auth', 'verified'])->group(function () {
-
-    Route::get('/tasks-all-se', [TaskController::class, 'allTasks'])->name('allTasksSE');
-    Route::post('/tasks-filtered-se', [TaskController::class, 'filterTasks'])->name('filterTasksSE');
-    Route::get('/tasks/se', [TaskController::class, 'showTasks'])->name('showTasksSE');
-    Route::post('/task/add-se', [TaskController::class, 'addTask'])->name('addTaskSE');
-    Route::post('/task/update-inspection-details', [TaskController::class, 'updateInspectionDetails'])->name('updateInspectionDetails');
-    Route::post('/task/update-status', [TaskController::class, 'updateTaskStatus'])->name('updateTaskStatus');
-    Route::post('/task/assign', [TaskController::class, 'assignTask'])->name('assignTask');
-    Route::post('/task/update-completion-date-time-se', [TaskController::class, 'updateCompletionDateTime'])->name('updateCompletionDateTimeSE');
-    Route::get('/tasks/daily-summary-se', [DailyWorkSummaryController::class, 'showDailySummary', 'title' => 'Daily Summary'])->name('showDailySummarySE');
-    Route::post('/tasks/daily-summary-filtered-se', [DailyWorkSummaryController::class, 'filterSummary'])->name('filterSummarySE');
-    Route::get('/get-latest-timestamp', [TaskController::class, 'getLatestTimestamp'])->name('getLatestTimestamp');
-    Route::get('/tasks/daily-summary-json', [DailyWorkSummaryController::class, 'dailySummary'])->name('dailySummaryJSON');
-
-    Route::get('/reports', [ReportController::class, 'showReports'])->name('showReports');
-    Route::get('/reports-json', [ReportController::class, 'allReports'])->name('allReports');
-    Route::post('/reports/add', [ReportController::class, 'addReport'])->name('addReport');
-    Route::post('/reports/delete', [ReportController::class, 'deleteReport'])->name('deleteReport');
-    Route::post('/reports/update', [ReportController::class, 'updateReport'])->name('updateReport');
-    Route::post('/tasks/attach-report', [TaskController::class, 'attachReport'])->name('attachReport');
-    Route::post('/tasks/detach-report', [TaskController::class, 'detachReport'])->name('detachReport');
 });
 
 // Redirect old routes to unified admin page
@@ -947,36 +952,158 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Operations & Maintenance (O&M) and Traffic Monitoring Center (TMC / ITS) Routes
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])->name('om.dashboard');
-    Route::get('/om/defects', [OperationsMaintenanceController::class, 'defects'])->name('om.defects');
-    Route::post('/om/defects', [OperationsMaintenanceController::class, 'storeDefect'])->name('om.defects.store');
-    Route::post('/om/defects/{id}/convert-to-wo', [OperationsMaintenanceController::class, 'convertDefectToWorkOrder'])->name('om.defects.convert-wo');
-    
-    Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])->name('om.work-orders');
-    Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])->name('om.work-orders.store');
-    Route::post('/om/work-orders/{id}/approve', [OperationsMaintenanceController::class, 'approveWorkOrder'])->name('om.work-orders.approve');
-    Route::post('/om/work-orders/{id}/start', [OperationsMaintenanceController::class, 'startWorkOrder'])->name('om.work-orders.start');
-    Route::post('/om/work-orders/{id}/complete', [OperationsMaintenanceController::class, 'completeWorkOrder'])->name('om.work-orders.complete');
-    Route::post('/om/work-orders/{id}/verify', [OperationsMaintenanceController::class, 'verifyWorkOrder'])->name('om.work-orders.verify');
-    
-    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])->name('om.incidents');
-    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])->name('om.incidents.store');
-    Route::post('/om/incidents/{id}/status', [OperationsMaintenanceController::class, 'updateIncidentStatus'])->name('om.incidents.status');
-    Route::post('/om/incidents/{id}/create-damage-wo', [OperationsMaintenanceController::class, 'createIncidentDamageWorkOrder'])->name('om.incidents.damage-wo');
+    Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])
+        ->middleware('permission:om.dashboard.view')->name('om.dashboard');
 
-    Route::get('/om/assets', [OperationsMaintenanceController::class, 'assets'])->name('om.assets');
-    Route::post('/om/assets', [OperationsMaintenanceController::class, 'storeAsset'])->name('om.assets.store');
-    
-    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])->name('om.traffic');
-    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])->name('om.vms.update');
-    
-    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])->name('om.toll');
-    Route::post('/om/toll-operations/audit', [OperationsMaintenanceController::class, 'storeShiftAudit'])->name('om.toll.audit.store');
-    
-    Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])->name('om.equipment');
-    Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])->name('om.shift-logs');
-    Route::post('/om/shift-logs', [OperationsMaintenanceController::class, 'storeShiftLog'])->name('om.shift-logs.store');
-    Route::post('/om/shift-logs/{id}/acknowledge', [OperationsMaintenanceController::class, 'acknowledgeShiftLog'])->name('om.shift-logs.acknowledge');
+    Route::get('/om/defects', [OperationsMaintenanceController::class, 'defects'])
+        ->middleware('permission:om.maintenance.view')->name('om.defects');
+    Route::post('/om/defects', [OperationsMaintenanceController::class, 'storeDefect'])
+        ->middleware('permission:om.maintenance.manage')->name('om.defects.store');
+    Route::post('/om/defects/{id}/convert-to-wo', [OperationsMaintenanceController::class, 'convertDefectToWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('om.defects.convert-wo');
+
+    Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])
+        ->middleware('permission:om.maintenance.view')->name('om.work-orders');
+    Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('om.work-orders.store');
+    Route::post('/om/work-orders/{id}/approve', [OperationsMaintenanceController::class, 'approveWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('om.work-orders.approve');
+    Route::post('/om/work-orders/{id}/start', [OperationsMaintenanceController::class, 'startWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('om.work-orders.start');
+    Route::post('/om/work-orders/{id}/complete', [OperationsMaintenanceController::class, 'completeWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('om.work-orders.complete');
+    Route::post('/om/work-orders/{id}/verify', [OperationsMaintenanceController::class, 'verifyWorkOrder'])
+        ->middleware('permission:om.maintenance.manage')->name('om.work-orders.verify');
+
+    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])
+        ->middleware('permission:om.incidents.view')->name('om.incidents');
+    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])
+        ->middleware('permission:om.incidents.manage')->name('om.incidents.store');
+    Route::post('/om/incidents/{id}/status', [OperationsMaintenanceController::class, 'updateIncidentStatus'])
+        ->middleware('permission:om.incidents.manage')->name('om.incidents.status');
+    Route::post('/om/incidents/{id}/create-damage-wo', [OperationsMaintenanceController::class, 'createIncidentDamageWorkOrder'])
+        ->middleware('permission:om.incidents.manage')->name('om.incidents.damage-wo');
+
+    Route::get('/om/assets', [OperationsMaintenanceController::class, 'assets'])
+        ->middleware('permission:om.equipment.view')->name('om.assets');
+    Route::post('/om/assets', [OperationsMaintenanceController::class, 'storeAsset'])
+        ->middleware('permission:om.equipment.manage')->name('om.assets.store');
+
+    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])
+        ->middleware('permission:om.traffic.view')->name('om.traffic');
+    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])
+        ->middleware('permission:om.traffic.manage')->name('om.vms.update');
+
+    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])
+        ->middleware('permission:om.toll.view')->name('om.toll');
+    Route::post('/om/toll-operations/audit', [OperationsMaintenanceController::class, 'storeShiftAudit'])
+        ->middleware('permission:om.toll.manage')->name('om.toll.audit.store');
+
+    Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])
+        ->middleware('permission:om.equipment.view')->name('om.equipment');
+    Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])
+        ->middleware('permission:om.dashboard.view')->name('om.shift-logs');
+    Route::post('/om/shift-logs', [OperationsMaintenanceController::class, 'storeShiftLog'])
+        ->middleware('permission:om.shift.manage')->name('om.shift-logs.store');
+    Route::post('/om/shift-logs/{id}/acknowledge', [OperationsMaintenanceController::class, 'acknowledgeShiftLog'])
+        ->middleware('permission:om.shift.manage')->name('om.shift-logs.acknowledge');
+});
+
+// Phase 1 O&M Renovation Routes (PM, Inspections, SLA, Analytics, Safety)
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Preventive Maintenance Scheduler
+    Route::get('/om/preventive-maintenance', [OmRenovationController::class, 'preventiveMaintenance'])
+        ->middleware('permission:om.maintenance.view')->name('om.pm');
+    Route::post('/om/preventive-maintenance', [OmRenovationController::class, 'storePreventiveSchedule'])
+        ->middleware('permission:om.maintenance.manage')->name('om.pm.store');
+    Route::post('/om/preventive-maintenance/generate', [OmRenovationController::class, 'generatePmWorkOrders'])
+        ->middleware('permission:om.maintenance.manage')->name('om.pm.generate');
+    Route::post('/om/preventive-maintenance/{id}/toggle', [OmRenovationController::class, 'togglePmSchedule'])
+        ->middleware('permission:om.maintenance.manage')->name('om.pm.toggle');
+
+    // Inspections & Checklists
+    Route::get('/om/inspections', [OmRenovationController::class, 'inspections'])
+        ->middleware('permission:om.maintenance.view')->name('om.inspections');
+    Route::post('/om/inspection-templates', [OmRenovationController::class, 'storeInspectionTemplate'])
+        ->middleware('permission:om.maintenance.manage')->name('om.inspection-templates.store');
+    Route::post('/om/inspections', [OmRenovationController::class, 'submitInspection'])
+        ->middleware('permission:om.maintenance.manage')->name('om.inspections.store');
+    Route::post('/om/inspections/{id}/review', [OmRenovationController::class, 'reviewInspection'])
+        ->middleware('permission:om.maintenance.manage')->name('om.inspections.review');
+
+    // SLA Compliance Dashboard
+    Route::get('/om/sla-compliance', [OmRenovationController::class, 'slaCompliance'])
+        ->middleware('permission:om.dashboard.view')->name('om.sla');
+    Route::post('/om/sla-breaches/{id}/acknowledge', [OmRenovationController::class, 'acknowledgeSlaBreach'])
+        ->middleware('permission:om.maintenance.manage')->name('om.sla.acknowledge');
+
+    // O&M Analytics & Reports
+    Route::get('/om/analytics', [OmRenovationController::class, 'analytics'])
+        ->middleware('permission:om.dashboard.view')->name('om.analytics');
+
+    // Asset Maintenance Timeline
+    Route::get('/om/assets/{id}/timeline', [OmRenovationController::class, 'assetTimeline'])
+        ->middleware('permission:om.equipment.view')->name('om.assets.timeline');
+
+    // Safety Management
+    Route::get('/om/safety', [OmRenovationController::class, 'safety'])
+        ->middleware('permission:om.dashboard.view')->name('om.safety');
+    Route::post('/om/safety', [OmRenovationController::class, 'storeSafetyIncident'])
+        ->middleware('permission:om.maintenance.manage')->name('om.safety.store');
+    Route::post('/om/safety/{id}/status', [OmRenovationController::class, 'updateSafetyStatus'])
+        ->middleware('permission:om.maintenance.manage')->name('om.safety.status');
+
+    // Phase 2 O&M Renovation Routes (Calendar, Contractors, Inventory, Environmental, Toolbox Talks)
+    Route::get('/om/work-orders-calendar', [OmRenovationController::class, 'workOrderCalendar'])
+        ->middleware('permission:om.maintenance.view')->name('om.work-orders.calendar');
+
+    Route::get('/om/contractors', [OmRenovationController::class, 'contractors'])
+        ->middleware('permission:om.maintenance.view')->name('om.contractors');
+    Route::post('/om/contractors', [OmRenovationController::class, 'storeContractor'])
+        ->middleware('permission:om.maintenance.manage')->name('om.contractors.store');
+
+    Route::get('/om/inventory', [OmRenovationController::class, 'inventory'])
+        ->middleware('permission:om.maintenance.view')->name('om.inventory');
+    Route::post('/om/work-orders/{id}/materials', [OmRenovationController::class, 'logWorkOrderMaterial'])
+        ->middleware('permission:om.maintenance.manage')->name('om.work-orders.materials.store');
+
+    Route::get('/om/environmental', [OmRenovationController::class, 'environmental'])
+        ->middleware('permission:om.dashboard.view')->name('om.environmental');
+    Route::post('/om/environmental', [OmRenovationController::class, 'storeEnvironmentalLog'])
+        ->middleware('permission:om.maintenance.manage')->name('om.environmental.store');
+
+    Route::get('/om/toolbox-talks', [OmRenovationController::class, 'toolboxTalks'])
+        ->middleware('permission:om.dashboard.view')->name('om.toolbox-talks');
+    Route::post('/om/toolbox-talks', [OmRenovationController::class, 'storeToolboxTalk'])
+        ->middleware('permission:om.maintenance.manage')->name('om.toolbox-talks.store');
+
+    // Phase 3 O&M Advanced Research Routes (TPPD, IRI Roughness, WIM Overload, Markov Pavement, ITS RCM)
+    Route::get('/om/tppd-claims', [OmRenovationController::class, 'tppdClaims'])
+        ->middleware('permission:om.incidents.view')->name('om.tppd');
+    Route::post('/om/tppd-claims', [OmRenovationController::class, 'storeTppdClaim'])
+        ->middleware('permission:om.incidents.manage')->name('om.tppd.store');
+    Route::post('/om/tppd-claims/{id}/status', [OmRenovationController::class, 'updateTppdStatus'])
+        ->middleware('permission:om.incidents.manage')->name('om.tppd.status');
+
+    Route::get('/om/iri-roughness', [OmRenovationController::class, 'iriHeatmap'])
+        ->middleware('permission:om.dashboard.view')->name('om.iri');
+
+    Route::get('/om/wim-overload', [OmRenovationController::class, 'wimOverloadAnalytics'])
+        ->middleware('permission:om.dashboard.view')->name('om.wim');
+
+    Route::get('/om/pavement-deterioration', [OmRenovationController::class, 'pavementDeterioration'])
+        ->middleware('permission:om.dashboard.view')->name('om.pavement.deterioration');
+
+    Route::get('/om/its-rcm', [OmRenovationController::class, 'rcmReliability'])
+        ->middleware('permission:om.equipment.view')->name('om.its.rcm');
+
+    // AI Edge Vision Distress Queue
+    Route::get('/om/ai-distress-queue', [OmRenovationController::class, 'aiDistressQueue'])
+        ->middleware('permission:om.maintenance.view')->name('om.ai-distress');
+    Route::post('/om/ai-distress/batch-convert', [OmRenovationController::class, 'batchConvertAiDetections'])
+        ->middleware('permission:om.maintenance.manage')->name('om.ai-distress.convert');
+    Route::post('/om/ai-distress/{id}/reject', [OmRenovationController::class, 'rejectAiDetection'])
+        ->middleware('permission:om.maintenance.manage')->name('om.ai-distress.reject');
 });
 
 // Notification Settings Routes (admin)
@@ -1006,14 +1133,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Aeon AI Copilot Routes
 Route::middleware(['auth', 'verified'])->prefix('aeon')->name('aeon.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Aeon\AeonPageController::class, 'index'])->name('index');
-    Route::post('/message', [\App\Http\Controllers\Aeon\AeonController::class, 'message'])->name('message');
-    Route::post('/message/stream', [\App\Http\Controllers\Aeon\AeonController::class, 'stream'])->name('message.stream');
-    Route::get('/conversations', [\App\Http\Controllers\Aeon\AeonController::class, 'conversations'])->name('conversations.index');
-    Route::get('/conversations/{id}', [\App\Http\Controllers\Aeon\AeonController::class, 'show'])->name('conversations.show');
-    Route::delete('/conversations/{id}', [\App\Http\Controllers\Aeon\AeonController::class, 'destroy'])->name('conversations.destroy');
-    Route::post('/messages/{id}/feedback', [\App\Http\Controllers\Aeon\AeonController::class, 'feedback'])->name('messages.feedback');
+    Route::get('/', [AeonPageController::class, 'index'])->name('index');
+    Route::post('/message', [AeonController::class, 'message'])->name('message');
+    Route::post('/message/stream', [AeonController::class, 'stream'])->name('message.stream');
+    Route::get('/conversations', [AeonController::class, 'conversations'])->name('conversations.index');
+    Route::get('/conversations/{id}', [AeonController::class, 'show'])->name('conversations.show');
+    Route::delete('/conversations/{id}', [AeonController::class, 'destroy'])->name('conversations.destroy');
+    Route::post('/messages/{id}/feedback', [AeonController::class, 'feedback'])->name('messages.feedback');
 });
 
 require __DIR__.'/auth.php';
-

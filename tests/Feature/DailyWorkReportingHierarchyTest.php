@@ -314,7 +314,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
             'Employee should see exactly the same daily works as manager (manager\'s incharge works)');
     }
 
-    private function createDailyWork(string $number, int $inchargeId, int $assignedId, string $date, string $status): DailyWork
+    private function createDailyWork(string $number, string $inchargeId, string $assignedId, string $date, string $status): DailyWork
     {
         return DailyWork::create([
             'date' => $date,

@@ -6,6 +6,10 @@ use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
 use App\Notifications\RfiObjectionNotification;
+use App\Exceptions\StaleModelVersionException;
+use App\Services\Concurrency\VersionGuard;
+use App\Services\DailyWork\ObjectionService;
+use App\Services\Realtime\RealtimeSignal;
 use App\Traits\ChainageMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +20,10 @@ use Inertia\Response;
 class ObjectionController extends Controller
 {
     use ChainageMatcher;
+
+    public function __construct(
+        private readonly ObjectionService $objectionService
+    ) {}
 
     /**
      * Get statistics for objections.
@@ -191,7 +199,7 @@ class ObjectionController extends Controller
 
             DB::commit();
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'created');
+            app(RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'created');
 
             return response()->json([
                 'message' => 'Objection created successfully.',
@@ -227,41 +235,47 @@ class ObjectionController extends Controller
             'chainage_range_to' => 'nullable|string|max:50',   // Range end: K37+540
             'description' => 'sometimes|required|string|max:5000',
             'reason' => 'sometimes|required|string|max:5000',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
         try {
-            // Use new fields if provided, otherwise fall back to legacy
-            $chainageFrom = $validated['chainage_range_from'] ?? $validated['chainage_from'] ?? $objection->chainage_from;
-            $chainageTo = $validated['chainage_range_to'] ?? $validated['chainage_to'] ?? $objection->chainage_to;
+            $objection = DB::transaction(function () use ($objection, $validated): RfiObjection {
+                $locked = RfiObjection::query()->lockForUpdate()->findOrFail($objection->id);
+                VersionGuard::assertMatches($locked, (int) $validated['lock_version']);
 
-            // Update the model (use legacy fields for backward compatibility)
-            $updateData = array_filter([
-                'title' => $validated['title'] ?? null,
-                'category' => $validated['category'] ?? null,
-                'type' => array_key_exists('type', $validated) ? $validated['type'] : null,
-                'chainage_from' => $chainageFrom,
-                'chainage_to' => $chainageTo,
-                'description' => $validated['description'] ?? null,
-                'reason' => $validated['reason'] ?? null,
-            ], fn ($value, $key) => $value !== null || $key === 'type', ARRAY_FILTER_USE_BOTH);
+                $chainageFrom = $validated['chainage_range_from'] ?? $validated['chainage_from'] ?? $locked->chainage_from;
+                $chainageTo = $validated['chainage_range_to'] ?? $validated['chainage_to'] ?? $locked->chainage_to;
+                $updateData = array_filter([
+                    'title' => $validated['title'] ?? null,
+                    'category' => $validated['category'] ?? null,
+                    'type' => array_key_exists('type', $validated) ? $validated['type'] : null,
+                    'chainage_from' => $chainageFrom,
+                    'chainage_to' => $chainageTo,
+                    'description' => $validated['description'] ?? null,
+                    'reason' => $validated['reason'] ?? null,
+                ], fn ($value, $key) => $value !== null || $key === 'type', ARRAY_FILTER_USE_BOTH);
+                $updateData['lock_version'] = VersionGuard::next($locked);
+                $locked->update($updateData);
 
-            $objection->update($updateData);
+                if (isset($validated['specific_chainages']) || isset($validated['chainage_range_from']) || isset($validated['chainage_from'])) {
+                    $specificChainagesArray = array_filter(
+                        array_map('trim', preg_split('/\s*,\s*/', $validated['specific_chainages'] ?? '')),
+                        fn ($ch) => ! empty($ch)
+                    );
+                    $locked->syncChainages($specificChainagesArray, $chainageFrom, $chainageTo);
+                }
 
-            // Sync chainages to the new table if any chainage fields were provided
-            if (isset($validated['specific_chainages']) || isset($validated['chainage_range_from']) || isset($validated['chainage_from'])) {
-                // Pass the raw chainage strings, not parsed meters
-                $specificChainagesStr = $validated['specific_chainages'] ?? '';
-                $specificChainagesArray = array_filter(
-                    array_map('trim', preg_split('/\s*,\s*/', $specificChainagesStr)),
-                    fn ($ch) => ! empty($ch)
-                );
-                $objection->syncChainages($specificChainagesArray, $chainageFrom, $chainageTo);
-            }
+                return $locked;
+            });
+
+            app(RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'updated');
 
             return response()->json([
                 'message' => 'Objection updated successfully.',
                 'objection' => $objection->fresh(['createdBy:employee_id,name', 'dailyWorks:id,number', 'chainages']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to update objection.',
@@ -281,13 +295,21 @@ class ObjectionController extends Controller
             'rfi_ids' => 'required|array|min:1',
             'rfi_ids.*' => 'exists:daily_works,id',
             'attachment_notes' => 'nullable|string|max:1000',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
         try {
-            $objection->attachToRfis(
-                $validated['rfi_ids'],
-                $validated['attachment_notes'] ?? null
-            );
+            $objection = DB::transaction(function () use ($objection, $validated): RfiObjection {
+                $locked = RfiObjection::query()->lockForUpdate()->findOrFail($objection->id);
+                VersionGuard::assertMatches($locked, (int) $validated['lock_version']);
+                $locked->attachToRfis($validated['rfi_ids'], $validated['attachment_notes'] ?? null);
+                $locked->lock_version = VersionGuard::next($locked);
+                $locked->save();
+
+                return $locked;
+            });
+
+            app(RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'attached');
 
             // Notify RFI incharges
             $this->notifyRfiIncharges($objection, $validated['rfi_ids'], 'attached');
@@ -296,6 +318,8 @@ class ObjectionController extends Controller
                 'message' => 'Objection attached to RFIs successfully.',
                 'objection' => $objection->load(['dailyWorks:id,number,location']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to attach objection to RFIs.',
@@ -314,15 +338,28 @@ class ObjectionController extends Controller
         $validated = $request->validate([
             'rfi_ids' => 'required|array|min:1',
             'rfi_ids.*' => 'exists:daily_works,id',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
         try {
-            $detachedCount = $objection->detachFromRfis($validated['rfi_ids']);
+            [$objection, $detachedCount] = DB::transaction(function () use ($objection, $validated): array {
+                $locked = RfiObjection::query()->lockForUpdate()->findOrFail($objection->id);
+                VersionGuard::assertMatches($locked, (int) $validated['lock_version']);
+                $detached = $locked->detachFromRfis($validated['rfi_ids']);
+                $locked->lock_version = VersionGuard::next($locked);
+                $locked->save();
+
+                return [$locked, $detached];
+            });
+
+            app(RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'detached');
 
             return response()->json([
                 'message' => "Objection detached from {$detachedCount} RFI(s) successfully.",
                 'objection' => $objection->load(['dailyWorks:id,number,location']),
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to detach objection from RFIs.',
@@ -726,18 +763,26 @@ class ObjectionController extends Controller
     /**
      * Delete an objection.
      */
-    public function destroy(RfiObjection $objection): JsonResponse
+    public function destroy(Request $request, RfiObjection $objection): JsonResponse
     {
         $this->authorize('delete', $objection);
 
-        try {
-            $objection->delete();
+        $validated = $request->validate(['lock_version' => ['required', 'integer', 'min:0']]);
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'deleted');
+        try {
+            DB::transaction(function () use ($objection, $validated): void {
+                $locked = RfiObjection::query()->lockForUpdate()->findOrFail($objection->id);
+                VersionGuard::assertMatches($locked, (int) $validated['lock_version']);
+                $locked->delete();
+            });
+
+            app(RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'deleted');
 
             return response()->json([
                 'message' => 'Objection deleted successfully.',
             ]);
+        } catch (StaleModelVersionException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to delete objection.',
@@ -749,90 +794,50 @@ class ObjectionController extends Controller
     /**
      * Submit an objection for review.
      */
-    public function submit(RfiObjection $objection): JsonResponse
+    public function submit(Request $request, RfiObjection $objection): JsonResponse
     {
         $this->authorize('submit', $objection);
+        $validated = $request->validate(['lock_version' => ['required', 'integer', 'min:0']]);
 
         try {
-            return DB::transaction(function () use ($objection) {
-                // Lock the row to prevent race conditions
-                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
+            $objection = $this->objectionService->submit(
+                $objection,
+                $request->user(),
+                (int) $validated['lock_version']
+            );
 
-                if ($objection->status !== RfiObjection::STATUS_DRAFT) {
-                    return response()->json([
-                        'error' => 'Only draft objections can be submitted. Status may have changed.',
-                    ], 409);
-                }
-
-                $oldStatus = $objection->status;
-                $objection->update(['status' => RfiObjection::STATUS_SUBMITTED]);
-
-                // Log status change
-                $objection->statusLogs()->create([
-                    'from_status' => $oldStatus,
-                    'to_status' => RfiObjection::STATUS_SUBMITTED,
-                    'notes' => 'Submitted for review',
-                    'changed_by' => auth()->id(),
-                    'changed_at' => now(),
-                ]);
-
-                app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'submitted');
-
-                return response()->json([
-                    'message' => 'Objection submitted for review.',
-                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                    'statistics' => $this->getStatistics(),
-                ]);
-            });
-        } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to submit objection.',
-                'message' => $e->getMessage(),
-            ], 500);
+                'message' => 'Objection submitted for review.',
+                'objection' => $objection->load(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
     /**
      * Start review of an objection.
      */
-    public function review(RfiObjection $objection): JsonResponse
+    public function review(Request $request, RfiObjection $objection): JsonResponse
     {
         $this->authorize('review', $objection);
+        $validated = $request->validate(['lock_version' => ['required', 'integer', 'min:0']]);
 
         try {
-            return DB::transaction(function () use ($objection) {
-                // Lock the row to prevent race conditions
-                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
+            $objection = $this->objectionService->startReview(
+                $objection,
+                $request->user(),
+                (int) $validated['lock_version']
+            );
 
-                if ($objection->status !== RfiObjection::STATUS_SUBMITTED) {
-                    return response()->json([
-                        'error' => 'Only submitted objections can be put under review. Status may have changed.',
-                    ], 409);
-                }
-
-                $oldStatus = $objection->status;
-                $objection->update(['status' => RfiObjection::STATUS_UNDER_REVIEW]);
-
-                // Log status change
-                $objection->statusLogs()->create([
-                    'from_status' => $oldStatus,
-                    'to_status' => RfiObjection::STATUS_UNDER_REVIEW,
-                    'notes' => 'Review started',
-                    'changed_by' => auth()->id(),
-                    'changed_at' => now(),
-                ]);
-
-                return response()->json([
-                    'message' => 'Objection is now under review.',
-                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                    'statistics' => $this->getStatistics(),
-                ]);
-            });
-        } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to start review.',
-                'message' => $e->getMessage(),
-            ], 500);
+                'message' => 'Objection is now under review.',
+                'objection' => $objection->load(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
@@ -845,55 +850,24 @@ class ObjectionController extends Controller
 
         $validated = $request->validate([
             'resolution_notes' => 'required|string|max:5000',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
         try {
-            return DB::transaction(function () use ($objection, $validated) {
-                // Lock the row to prevent race conditions
-                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
+            $objection = $this->objectionService->resolve(
+                $objection,
+                $validated['resolution_notes'],
+                $request->user(),
+                (int) $validated['lock_version']
+            );
 
-                if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
-                    return response()->json([
-                        'error' => 'Only submitted or under-review objections can be resolved. Status may have changed.',
-                    ], 409);
-                }
-
-                $oldStatus = $objection->status;
-                $objection->update([
-                    'status' => RfiObjection::STATUS_RESOLVED,
-                    'resolution_notes' => $validated['resolution_notes'],
-                    'resolved_by' => auth()->id(),
-                    'resolved_at' => now(),
-                ]);
-
-                // Log status change
-                $objection->statusLogs()->create([
-                    'from_status' => $oldStatus,
-                    'to_status' => RfiObjection::STATUS_RESOLVED,
-                    'notes' => $validated['resolution_notes'],
-                    'changed_by' => auth()->id(),
-                    'changed_at' => now(),
-                ]);
-
-                // Notify creator and RFI incharges
-                $rfiIds = $objection->dailyWorks()->pluck('daily_works.id')->toArray();
-                if (! empty($rfiIds)) {
-                    $this->notifyRfiIncharges($objection, $rfiIds, 'resolved');
-                }
-
-                app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'resolved');
-
-                return response()->json([
-                    'message' => 'Objection resolved successfully.',
-                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                    'statistics' => $this->getStatistics(),
-                ]);
-            });
-        } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to resolve objection.',
-                'message' => $e->getMessage(),
-            ], 500);
+                'message' => 'Objection resolved successfully.',
+                'objection' => $objection->load(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
@@ -906,49 +880,24 @@ class ObjectionController extends Controller
 
         $validated = $request->validate([
             'resolution_notes' => 'required|string|max:5000',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
         try {
-            return DB::transaction(function () use ($objection, $validated) {
-                // Lock the row to prevent race conditions
-                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
+            $objection = $this->objectionService->reject(
+                $objection,
+                $validated['resolution_notes'],
+                $request->user(),
+                (int) $validated['lock_version']
+            );
 
-                if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
-                    return response()->json([
-                        'error' => 'Only submitted or under-review objections can be rejected. Status may have changed.',
-                    ], 409);
-                }
-
-                $oldStatus = $objection->status;
-                $objection->update([
-                    'status' => RfiObjection::STATUS_REJECTED,
-                    'resolution_notes' => $validated['resolution_notes'],
-                    'resolved_by' => auth()->id(),
-                    'resolved_at' => now(),
-                ]);
-
-                // Log status change
-                $objection->statusLogs()->create([
-                    'from_status' => $oldStatus,
-                    'to_status' => RfiObjection::STATUS_REJECTED,
-                    'notes' => $validated['resolution_notes'],
-                    'changed_by' => auth()->id(),
-                    'changed_at' => now(),
-                ]);
-
-                app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'rejected');
-
-                return response()->json([
-                    'message' => 'Objection rejected.',
-                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                    'statistics' => $this->getStatistics(),
-                ]);
-            });
-        } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to reject objection.',
-                'message' => $e->getMessage(),
-            ], 500);
+                'message' => 'Objection rejected.',
+                'objection' => $objection->load(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
@@ -963,7 +912,7 @@ class ObjectionController extends Controller
             $query = RfiObjection::query()
                 ->with([
                     'createdBy:employee_id,name',
-                    'resolvedBy:id,name',
+                    'resolvedBy:employee_id,name',
                     'dailyWorks:id,number,location,type,date,rfi_submission_date',
                 ]);
 

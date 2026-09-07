@@ -2,15 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\OmAsset;
 use App\Models\OmDefect;
 use App\Models\OmIncident;
-use App\Models\OmShiftLog;
-use App\Models\OmTollRecord;
-use App\Models\OmTollShiftAudit;
-use App\Models\OmWorkOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class OperationsMaintenanceTest extends TestCase
@@ -23,6 +20,24 @@ class OperationsMaintenanceTest extends TestCase
     {
         parent::setUp();
         $this->user = User::factory()->create();
+
+        $permissions = [
+            'om.dashboard.view',
+            'om.defects.view',
+            'om.defects.manage',
+            'om.incidents.view',
+            'om.incidents.manage',
+            'om.maintenance.view',
+            'om.maintenance.manage',
+            'om.toll.view',
+            'om.toll.manage',
+        ];
+
+        foreach ($permissions as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+
+        $this->user->givePermissionTo($permissions);
     }
 
     public function test_om_dashboard_returns_successful_data(): void
@@ -70,7 +85,7 @@ class OperationsMaintenanceTest extends TestCase
     public function test_can_convert_defect_to_work_order(): void
     {
         $defect = OmDefect::create([
-            'defect_number' => 'DEF-TEST-' . rand(1000, 9999),
+            'defect_number' => 'DEF-TEST-'.rand(1000, 9999),
             'title' => 'Guardrail Collision Test',
             'distress_type' => 'guardrail_crash_damage',
             'chainage' => 'Ch 22+800',
@@ -88,6 +103,7 @@ class OperationsMaintenanceTest extends TestCase
                 'category' => 'guardrail',
                 'assigned_to' => 'Roadside Crew Alpha',
                 'estimated_cost' => 35000,
+                'lock_version' => $defect->lock_version,
             ]);
 
         $response->assertStatus(200)
@@ -118,10 +134,18 @@ class OperationsMaintenanceTest extends TestCase
         $response->assertStatus(200);
         $incidentId = $response->json('incident.id');
 
-        // Update to on_scene
+        $this->actingAs($this->user)
+            ->postJson("/om/incidents/{$incidentId}/status", [
+                'status' => 'dispatched',
+                'lock_version' => $response->json('incident.lock_version'),
+            ])
+            ->assertStatus(200);
+
+        // Update to on_scene after dispatch.
         $statusRes = $this->actingAs($this->user)
             ->postJson("/om/incidents/{$incidentId}/status", [
                 'status' => 'on_scene',
+                'lock_version' => 0,
             ]);
 
         $statusRes->assertStatus(200);
@@ -156,8 +180,9 @@ class OperationsMaintenanceTest extends TestCase
 
     public function test_mobile_field_endpoints(): void
     {
-        $response = $this->actingAs($this->user)
-            ->getJson('/api/v1/om/field/overview');
+        Sanctum::actingAs($this->user);
+
+        $response = $this->getJson('/api/v1/om/field/overview');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -168,5 +193,120 @@ class OperationsMaintenanceTest extends TestCase
                     'open_defects',
                 ],
             ]);
+    }
+
+    public function test_mobile_rejects_a_stale_incident_mutation_with_current_version(): void
+    {
+        $incident = OmIncident::create([
+            'incident_number' => 'INC-CONFLICT-001',
+            'title' => 'Concurrent incident',
+            'incident_type' => 'vehicle_breakdown',
+            'chainage' => 'Ch 11+200',
+            'direction' => 'northbound',
+            'severity' => 'major',
+            'status' => 'detected',
+            'reported_at' => now(),
+        ]);
+
+        Sanctum::actingAs($this->user);
+
+        $this->postJson("/api/v1/om/field/incidents/{$incident->id}", [
+            'status' => 'dispatched',
+            'lock_version' => 0,
+        ])->assertOk()->assertJsonPath('incident.lock_version', 1);
+
+        $this->postJson("/api/v1/om/field/incidents/{$incident->id}", [
+            'status' => 'on_scene',
+            'lock_version' => 0,
+        ])->assertStatus(409)
+            ->assertJsonPath('error_code', 'STALE_WRITE')
+            ->assertJsonPath('current_version', 1);
+
+        $this->assertDatabaseHas('om_incidents', [
+            'id' => $incident->id,
+            'status' => 'dispatched',
+            'lock_version' => 1,
+        ]);
+    }
+
+    public function test_inertia_om_mutation_redirects_instead_of_returning_raw_json(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->from('/om/incidents')
+            ->post('/om/incidents', [
+                'title' => 'Inertia response contract',
+                'incident_type' => 'vehicle_breakdown',
+                'chainage' => 'Ch 12+300',
+                'direction' => 'southbound',
+                'severity' => 'minor',
+            ]);
+
+        $response->assertRedirect('/om/incidents')
+            ->assertSessionHas('success');
+    }
+
+    public function test_inertia_stale_write_refreshes_page_with_a_conflict_error(): void
+    {
+        $incident = OmIncident::create([
+            'incident_number' => 'INC-INERTIA-CONFLICT',
+            'title' => 'Inertia concurrency test',
+            'incident_type' => 'vehicle_breakdown',
+            'chainage' => 'Ch 13+400',
+            'direction' => 'northbound',
+            'severity' => 'major',
+            'status' => 'detected',
+            'reported_at' => now(),
+        ]);
+
+        $this->actingAs($this->user)
+            ->postJson("/om/incidents/{$incident->id}/status", [
+                'status' => 'dispatched',
+                'lock_version' => 0,
+            ])->assertOk();
+
+        $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->from('/om/incidents')
+            ->post("/om/incidents/{$incident->id}/status", [
+                'status' => 'on_scene',
+                'lock_version' => 0,
+            ])->assertRedirect('/om/incidents')
+            ->assertSessionHasErrors('conflict');
+
+        $this->assertSame('dispatched', $incident->fresh()->status);
+    }
+
+    public function test_mobile_field_overview_only_returns_authorized_domains(): void
+    {
+        OmIncident::create([
+            'incident_number' => 'INC-ACCESS-001',
+            'title' => 'Restricted incident',
+            'incident_type' => 'vehicle_breakdown',
+            'chainage' => 'Ch 8+200',
+            'direction' => 'northbound',
+            'severity' => 'minor',
+            'status' => 'detected',
+            'reported_at' => now(),
+        ]);
+        OmDefect::create([
+            'defect_number' => 'DEF-ACCESS-001',
+            'title' => 'Visible maintenance defect',
+            'distress_type' => 'pothole',
+            'chainage' => 'Ch 9+100',
+            'direction' => 'southbound',
+            'severity' => 'medium',
+            'status' => 'reported',
+        ]);
+
+        $maintenanceViewer = User::factory()->create();
+        $maintenanceViewer->givePermissionTo('om.maintenance.manage');
+        Sanctum::actingAs($maintenanceViewer);
+
+        $this->getJson('/api/v1/om/field/overview')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.active_incidents')
+            ->assertJsonCount(1, 'data.open_defects')
+            ->assertJsonPath('data.active_patrol_shift', null);
     }
 }

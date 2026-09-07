@@ -28,10 +28,14 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
         description: currentRow?.description || '',
         side: currentRow?.side || 'SR-R',
         qty_layer: currentRow?.qty_layer || '',
+        status: currentRow?.status || 'new',
+        inspection_result: currentRow?.inspection_result || null,
+        completion_time: currentRow?.completion_time || null,
     });
 
     const [errors, setErrors] = useState({});
     const [processing, setProcessing] = useState(false);
+    const [conflict, setConflict] = useState(false);
     const [dataChanged, setDataChanged] = useState(false);
     const [formLoading, setFormLoading] = useState(true);
     const [validationStatus, setValidationStatus] = useState({});
@@ -236,6 +240,10 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
     };
 
     async function handleSubmit(event) {
+        if (conflict) {
+            event.preventDefault();
+            return;
+        }
         event.preventDefault();
         
         // Validate form before submission
@@ -250,7 +258,8 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
             try {
                 const response = await axios.post(route(`dailyWorks.${modalType}`), {
                     ruleSet: 'details',
-                    ...dailyWorkData
+                    ...dailyWorkData,
+                    ...(modalType === 'update' ? { lock_version: currentRow?.lock_version } : {}),
                 });
 
                 if (response.status === 200) {
@@ -267,7 +276,10 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                 }
             } catch (error) {
                 console.error('Form submission error:', error);
-                if (error.response?.status === 422) {
+                if (error.response?.status === 409) {
+                    setConflict(true);
+                    reject(['This record changed after you opened it. Copy any unsaved edits, then close and refresh before editing again.']);
+                } else if (error.response?.status === 422) {
                     const validationErrors = error.response.data.errors || {};
                     setErrors(validationErrors);
                     
@@ -341,6 +353,8 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                             )}
                         </Flex>
                     </Dialog.Title>
+
+                    {conflict && <Text as="p" color="red" role="alert" mb="3">This record changed. Your unsaved text is preserved here; copy it before closing, then refresh the list and reopen the record.</Text>}
 
                     <Box style={{ overflowY: 'auto', maxHeight: 'min(65vh, 520px)' }} py="3">
                         {formLoading ? (
@@ -497,7 +511,7 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                         </Flex>
                         <Flex gap="2">
                             <Button type="button" variant="outline" color="gray" onClick={closeModal} disabled={processing} size="2">Cancel</Button>
-                            <Button type="submit" color="indigo" loading={processing} disabled={processing || !dataChanged || Object.keys(errors).length > 0} size="2">
+                            <Button type="submit" color="indigo" loading={processing} disabled={conflict || processing || !dataChanged || Object.keys(errors).length > 0} size="2">
                                 {!processing && (modalType === 'add' ? <FileTextIcon style={{ width: 14, height: 14 }} /> : <CheckCircledIcon style={{ width: 14, height: 14 }} />)}
                                 {processing ? (modalType === 'add' ? 'Creating...' : 'Updating...') : (modalType === 'add' ? 'Create Work' : 'Update Work')}
                             </Button>

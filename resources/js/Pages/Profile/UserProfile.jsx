@@ -13,16 +13,15 @@ import OverviewTab from '@/Components/Profile/OverviewTab.jsx';
 import EmploymentAndBankTab from '@/Components/Profile/EmploymentAndBankTab.jsx';
 import BackgroundTab from '@/Components/Profile/BackgroundTab.jsx';
 
-const UserProfile = ({ title, allUsers, departments, designations }) => {
+const UserProfile = ({ title, allUsers = [], departments = [], designations = [], can = {} }) => {
     const { auth, user: initialUser } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     
     const [user, setUser] = useState(initialUser);
     const [activeTab, setActiveTab] = useState('personal');
 
-    const canEditProfile = auth.permissions?.includes('profile.own.update') || 
-                           auth.permissions?.includes('profile.update') || 
-                           auth.user.id === user.id;
+    const canEditProfile = Boolean(can.edit);
+    const canManageEmployment = Boolean(can.manageEmployment);
 
     const completionPercentage = 60;
 
@@ -90,7 +89,14 @@ const UserProfile = ({ title, allUsers, departments, designations }) => {
                                 </Tabs.Content>
 
                                 <Tabs.Content value="employment">
-                                    <EmploymentAndBankTab user={user} setUser={setUser} canEdit={canEditProfile} />
+                                    <EmploymentAndBankTab
+                                        user={user}
+                                        setUser={setUser}
+                                        departments={departments}
+                                        designations={designations}
+                                        allUsers={allUsers}
+                                        canEdit={canManageEmployment}
+                                    />
                                 </Tabs.Content>
 
                                 <Tabs.Content value="background">

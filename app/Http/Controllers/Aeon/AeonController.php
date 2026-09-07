@@ -22,7 +22,7 @@ class AeonController extends Controller
      */
     public function message(AeonMessageRequest $request): JsonResponse
     {
-        $userId = $request->user()?->id !== null && is_numeric($request->user()->id) ? (int) $request->user()->id : $request->user()?->id;
+        $userId = (string) $request->user()->getKey();
         $message = (string) $request->input('message');
         $conversationId = $request->input('conversation_id') ? (int) $request->input('conversation_id') : null;
         $context = (array) $request->input('context', []);
@@ -37,7 +37,7 @@ class AeonController extends Controller
      */
     public function stream(AeonMessageRequest $request): StreamedResponse
     {
-        $userId = $request->user()?->id !== null && is_numeric($request->user()->id) ? (int) $request->user()->id : $request->user()?->id;
+        $userId = (string) $request->user()->getKey();
         $message = (string) $request->input('message');
         $conversationId = $request->input('conversation_id') ? (int) $request->input('conversation_id') : null;
         $context = (array) $request->input('context', []);
@@ -78,7 +78,7 @@ class AeonController extends Controller
      */
     public function conversations(Request $request): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $userId = (string) $request->user()->getKey();
         $conversations = Conversation::where('user_id', $userId)
             ->whereNull('archived_at')
             ->orderByDesc('updated_at')
@@ -93,7 +93,7 @@ class AeonController extends Controller
      */
     public function show(int $id, Request $request): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $userId = (string) $request->user()->getKey();
         $conversation = Conversation::where('id', $id)
             ->where('user_id', $userId)
             ->with(['messages' => fn ($q) => $q->orderBy('id')])
@@ -107,7 +107,7 @@ class AeonController extends Controller
      */
     public function feedback(int $id, Request $request): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $userId = (string) $request->user()->getKey();
         $value = $request->input('value'); // 1, -1, or 0 (clear)
 
         $message = Message::where('id', $id)
@@ -124,7 +124,7 @@ class AeonController extends Controller
      */
     public function destroy(int $id, Request $request): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $userId = (string) $request->user()->getKey();
         $conversation = Conversation::where('id', $id)
             ->where('user_id', $userId)
             ->firstOrFail();

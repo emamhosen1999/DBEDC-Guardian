@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OmAsset;
 use App\Models\OmDefect;
 use App\Models\OmEquipment;
 use App\Models\OmIncident;
@@ -16,9 +15,12 @@ use App\Services\Operations\OmDefectService;
 use App\Services\Operations\OmIncidentService;
 use App\Services\Operations\OmShiftService;
 use App\Services\Operations\OmTollAuditService;
+use App\Services\Operations\OmVersionGuard;
 use App\Services\Operations\OmWorkOrderService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,14 +40,15 @@ class OperationsMaintenanceController extends Controller
      */
     public function dashboard(Request $request): Response|JsonResponse
     {
+        $equipmentUptime = OmEquipment::avg('uptime_pct');
         $stats = [
             'today_toll_revenue' => $this->tollService->getTollSummary()['total_revenue_today'],
             'etc_vehicle_ratio' => $this->tollService->getTollSummary()['etc_percentage'],
-            'active_incidents_count' => OmIncident::whereIn('status', ['detected', 'dispatched', 'on_scene'])->count() ?: 3,
-            'open_work_orders_count' => OmWorkOrder::whereIn('status', ['pending', 'assigned', 'in_progress'])->count() ?: 7,
-            'active_lane_closures_count' => OmLaneClosurePermit::where('status', 'active')->count() ?: 1,
-            'open_defects_count' => OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])->count() ?: 4,
-            'equipment_uptime_pct' => round(OmEquipment::avg('uptime_pct') ?: 99.8, 2),
+            'active_incidents_count' => OmIncident::whereIn('status', ['detected', 'dispatched', 'on_scene'])->count(),
+            'open_work_orders_count' => OmWorkOrder::whereIn('status', ['pending', 'assigned', 'in_progress'])->count(),
+            'active_lane_closures_count' => OmLaneClosurePermit::where('status', 'active')->count(),
+            'open_defects_count' => OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])->count(),
+            'equipment_uptime_pct' => $equipmentUptime === null ? null : round((float) $equipmentUptime, 2),
             'avg_patrol_response_min' => $this->incidentService->getIncidentStats()['avg_response_time_min'],
         ];
 
@@ -107,7 +110,7 @@ class OperationsMaintenanceController extends Controller
     /**
      * Store new Road Distress Defect
      */
-    public function storeDefect(Request $request): JsonResponse
+    public function storeDefect(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -122,17 +125,18 @@ class OperationsMaintenanceController extends Controller
 
         $defect = $this->defectService->createDefect($validated, $request->user()?->id);
 
-        return response()->json([
-            'success' => true,
-            'message' => "Defect {$defect->defect_number} logged successfully with {$defect->sla_hours}h SLA.",
-            'defect' => $defect,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Defect {$defect->defect_number} logged successfully with {$defect->sla_hours}h SLA.",
+            'defect',
+            $defect
+        );
     }
 
     /**
      * Convert Defect to Maintenance Work Order
      */
-    public function convertDefectToWorkOrder(Request $request, int $id): JsonResponse
+    public function convertDefectToWorkOrder(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $defect = OmDefect::findOrFail($id);
         $validated = $request->validate([
@@ -143,15 +147,22 @@ class OperationsMaintenanceController extends Controller
             'contractor_name' => 'nullable|string',
             'estimated_cost' => 'nullable|numeric',
             'requires_lane_closure' => 'nullable|boolean',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
-        $wo = $this->defectService->convertToWorkOrder($defect, $validated, $request->user()?->id ?? 1);
+        $wo = $this->defectService->convertToWorkOrder(
+            $defect,
+            $validated,
+            (string) $request->user()->getKey(),
+            (int) $validated['lock_version']
+        );
 
-        return response()->json([
-            'success' => true,
-            'message' => "Work Order {$wo->work_order_number} generated from Defect {$defect->defect_number}.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Work Order {$wo->work_order_number} generated from Defect {$defect->defect_number}.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
@@ -181,7 +192,7 @@ class OperationsMaintenanceController extends Controller
     /**
      * Store new Work Order
      */
-    public function storeWorkOrder(Request $request): JsonResponse
+    public function storeWorkOrder(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -198,82 +209,100 @@ class OperationsMaintenanceController extends Controller
             'lane_closure' => 'nullable|array',
         ]);
 
-        $wo = $this->workOrderService->createWorkOrder($validated, $request->user()?->id ?? 1);
+        $wo = $this->workOrderService->createWorkOrder($validated, (string) $request->user()->getKey());
 
-        return response()->json([
-            'success' => true,
-            'message' => "Maintenance Work Order {$wo->work_order_number} issued successfully.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Maintenance Work Order {$wo->work_order_number} issued successfully.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
      * Approve Work Order
      */
-    public function approveWorkOrder(Request $request, int $id): JsonResponse
+    public function approveWorkOrder(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $wo = OmWorkOrder::findOrFail($id);
-        $wo = $this->workOrderService->approveWorkOrder($wo, $request->user()?->id ?? 1);
+        $validated = $request->validate(['lock_version' => 'required|integer|min:0']);
+        $wo = $this->workOrderService->approveWorkOrder(
+            $wo,
+            (string) $request->user()->getKey(),
+            (int) $validated['lock_version']
+        );
 
-        return response()->json([
-            'success' => true,
-            'message' => "Work Order {$wo->work_order_number} approved and dispatched to crew.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Work Order {$wo->work_order_number} approved and dispatched to crew.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
      * Start Work Order
      */
-    public function startWorkOrder(Request $request, int $id): JsonResponse
+    public function startWorkOrder(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $wo = OmWorkOrder::findOrFail($id);
-        $wo = $this->workOrderService->startWorkOrder($wo);
+        $validated = $request->validate(['lock_version' => 'required|integer|min:0']);
+        $wo = $this->workOrderService->startWorkOrder($wo, (int) $validated['lock_version']);
 
-        return response()->json([
-            'success' => true,
-            'message' => "Work Order {$wo->work_order_number} is now IN PROGRESS with active safety zone.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Work Order {$wo->work_order_number} is now IN PROGRESS with active safety zone.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
      * Complete Work Order (Submit for QC Verification)
      */
-    public function completeWorkOrder(Request $request, int $id): JsonResponse
+    public function completeWorkOrder(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $wo = OmWorkOrder::findOrFail($id);
         $validated = $request->validate([
             'actual_cost' => 'nullable|numeric',
             'materials' => 'nullable|array',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
-        $wo = $this->workOrderService->completeWorkOrder($wo, $validated);
+        $wo = $this->workOrderService->completeWorkOrder($wo, $validated, (int) $validated['lock_version']);
 
-        return response()->json([
-            'success' => true,
-            'message' => "Work Order {$wo->work_order_number} marked COMPLETED. Pending QC verification.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Work Order {$wo->work_order_number} marked COMPLETED. Pending QC verification.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
      * Verify and Sign Off Work Order (QA/QC Close)
      */
-    public function verifyWorkOrder(Request $request, int $id): JsonResponse
+    public function verifyWorkOrder(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $wo = OmWorkOrder::findOrFail($id);
         $validated = $request->validate([
             'qc_notes' => 'nullable|string',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
-        $wo = $this->workOrderService->verifyAndClose($wo, $request->user()?->id ?? 1, $validated['qc_notes'] ?? null);
+        $wo = $this->workOrderService->verifyAndClose(
+            $wo,
+            (string) $request->user()->getKey(),
+            $validated['qc_notes'] ?? null,
+            (int) $validated['lock_version']
+        );
 
-        return response()->json([
-            'success' => true,
-            'message' => "Work Order {$wo->work_order_number} verified and closed successfully.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Work Order {$wo->work_order_number} verified and closed successfully.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
@@ -303,7 +332,7 @@ class OperationsMaintenanceController extends Controller
     /**
      * Store new Incident & Dispatch Patrol
      */
-    public function storeIncident(Request $request): JsonResponse
+    public function storeIncident(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -323,49 +352,63 @@ class OperationsMaintenanceController extends Controller
             'vehicles' => 'nullable|array',
         ]);
 
-        $incident = $this->incidentService->createIncident($validated, $request->user()?->id ?? 1);
+        $incident = $this->incidentService->createIncident($validated, (string) $request->user()->getKey());
 
-        return response()->json([
-            'success' => true,
-            'message' => "Incident {$incident->incident_number} logged and patrol units dispatched.",
-            'incident' => $incident,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Incident {$incident->incident_number} logged and patrol units dispatched.",
+            'incident',
+            $incident
+        );
     }
 
     /**
      * Update Incident Status
      */
-    public function updateIncidentStatus(Request $request, int $id): JsonResponse
+    public function updateIncidentStatus(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $incident = OmIncident::findOrFail($id);
         $validated = $request->validate([
             'status' => 'required|in:detected,dispatched,on_scene,cleared,closed',
             'description' => 'nullable|string',
             'dispatched_unit' => 'nullable|string',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
-        $incident = $this->incidentService->updateStatus($incident, $validated['status'], $validated);
+        $incident = $this->incidentService->updateStatus(
+            $incident,
+            $validated['status'],
+            $validated,
+            (int) $validated['lock_version']
+        );
 
-        return response()->json([
-            'success' => true,
-            'message' => "Incident {$incident->incident_number} updated to {$validated['status']}.",
-            'incident' => $incident,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Incident {$incident->incident_number} updated to {$validated['status']}.",
+            'incident',
+            $incident
+        );
     }
 
     /**
      * Create Post-Incident Damage Work Order
      */
-    public function createIncidentDamageWorkOrder(Request $request, int $id): JsonResponse
+    public function createIncidentDamageWorkOrder(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $incident = OmIncident::findOrFail($id);
-        $wo = $this->incidentService->createDamageRepairWorkOrder($incident, $request->user()?->id ?? 1);
+        $validated = $request->validate(['lock_version' => 'required|integer|min:0']);
+        $wo = $this->incidentService->createDamageRepairWorkOrder(
+            $incident,
+            (string) $request->user()->getKey(),
+            (int) $validated['lock_version']
+        );
 
-        return response()->json([
-            'success' => true,
-            'message' => "TPPD Emergency Repair Work Order {$wo->work_order_number} initiated.",
-            'work_order' => $wo,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "TPPD Emergency Repair Work Order {$wo->work_order_number} initiated.",
+            'work_order',
+            $wo
+        );
     }
 
     /**
@@ -395,7 +438,7 @@ class OperationsMaintenanceController extends Controller
     /**
      * Store new Asset
      */
-    public function storeAsset(Request $request): JsonResponse
+    public function storeAsset(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -415,11 +458,12 @@ class OperationsMaintenanceController extends Controller
 
         $asset = $this->assetService->createAsset($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => "Asset {$asset->asset_code} registered in expressway inventory.",
-            'asset' => $asset,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Asset {$asset->asset_code} registered in expressway inventory.",
+            'asset',
+            $asset
+        );
     }
 
     /**
@@ -450,28 +494,36 @@ class OperationsMaintenanceController extends Controller
     /**
      * Update Variable Message Sign
      */
-    public function updateVmsMessage(Request $request): JsonResponse
+    public function updateVmsMessage(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'id' => 'required|exists:om_vms_messages,id',
             'message_line1' => 'required|string|max:100',
             'message_line2' => 'nullable|string|max:100',
             'type' => 'required|in:info,warning,emergency,speed_limit',
+            'lock_version' => 'required|integer|min:0',
         ]);
 
-        $vms = OmVmsMessage::findOrFail($validated['id']);
-        $vms->update([
-            'message_line1' => $validated['message_line1'],
-            'message_line2' => $validated['message_line2'] ?? null,
-            'type' => $validated['type'],
-            'updated_by_operator_at' => now(),
-        ]);
+        $vms = DB::transaction(function () use ($validated) {
+            $locked = OmVmsMessage::query()->lockForUpdate()->findOrFail($validated['id']);
+            OmVersionGuard::assertMatches($locked, (int) $validated['lock_version']);
+            $locked->update([
+                'message_line1' => $validated['message_line1'],
+                'message_line2' => $validated['message_line2'] ?? null,
+                'type' => $validated['type'],
+                'updated_by_operator_at' => now(),
+                'lock_version' => OmVersionGuard::next($locked),
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Variable Message Sign updated and broadcast live.',
-            'vms' => $vms,
-        ]);
+            return $locked->fresh();
+        });
+
+        return $this->mutationResponse(
+            $request,
+            'Variable Message Sign updated and broadcast live.',
+            'vms',
+            $vms
+        );
     }
 
     /**
@@ -507,7 +559,7 @@ class OperationsMaintenanceController extends Controller
     /**
      * Store Toll Shift Reconciliation Audit
      */
-    public function storeShiftAudit(Request $request): JsonResponse
+    public function storeShiftAudit(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'plaza_name' => 'nullable|string',
@@ -524,13 +576,14 @@ class OperationsMaintenanceController extends Controller
             'auditor_notes' => 'nullable|string',
         ]);
 
-        $audit = $this->tollService->recordShiftAudit($validated, $request->user()?->id ?? 1);
+        $audit = $this->tollService->recordShiftAudit($validated, (string) $request->user()->getKey());
 
-        return response()->json([
-            'success' => true,
-            'message' => "Toll Shift Reconciliation Audit {$audit->audit_code} submitted.",
-            'audit' => $audit,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Toll Shift Reconciliation Audit {$audit->audit_code} submitted.",
+            'audit',
+            $audit
+        );
     }
 
     /**
@@ -577,7 +630,7 @@ class OperationsMaintenanceController extends Controller
     /**
      * Store new Shift Handover Record
      */
-    public function storeShiftLog(Request $request): JsonResponse
+    public function storeShiftLog(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'shift_date' => 'required|date',
@@ -585,30 +638,54 @@ class OperationsMaintenanceController extends Controller
             'weather_condition' => 'nullable|in:clear,rain,heavy_fog,storm_high_winds',
             'handover_notes' => 'required|string',
             'equipment_exceptions' => 'nullable|string',
-            'incoming_operator_id' => 'nullable|exists:users,id',
+            'incoming_operator_id' => 'nullable|exists:users,employee_id',
         ]);
 
-        $log = $this->shiftService->createShiftLog($validated, $request->user()?->id ?? 1);
+        $log = $this->shiftService->createShiftLog($validated, (string) $request->user()->getKey());
 
-        return response()->json([
-            'success' => true,
-            'message' => "Shift Handover {$log->shift_code} logged successfully.",
-            'shift_log' => $log,
-        ]);
+        return $this->mutationResponse(
+            $request,
+            "Shift Handover {$log->shift_code} logged successfully.",
+            'shift_log',
+            $log
+        );
     }
 
     /**
      * Acknowledge / Dual Sign-off Shift Log
      */
-    public function acknowledgeShiftLog(Request $request, int $id): JsonResponse
+    public function acknowledgeShiftLog(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $log = OmShiftLog::findOrFail($id);
-        $log = $this->shiftService->acknowledgeShiftLog($log, $request->user()?->id ?? 1);
+        $validated = $request->validate(['lock_version' => 'required|integer|min:0']);
+        $log = $this->shiftService->acknowledgeShiftLog(
+            $log,
+            (string) $request->user()->getKey(),
+            (int) $validated['lock_version']
+        );
+
+        return $this->mutationResponse(
+            $request,
+            "Shift Handover {$log->shift_code} acknowledged and signed off.",
+            'shift_log',
+            $log
+        );
+    }
+
+    private function mutationResponse(
+        Request $request,
+        string $message,
+        string $resourceKey,
+        mixed $resource
+    ): JsonResponse|RedirectResponse {
+        if ($request->header('X-Inertia')) {
+            return back()->with('success', $message);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => "Shift Handover {$log->shift_code} acknowledged and signed off.",
-            'shift_log' => $log,
+            'message' => $message,
+            $resourceKey => $resource,
         ]);
     }
 }

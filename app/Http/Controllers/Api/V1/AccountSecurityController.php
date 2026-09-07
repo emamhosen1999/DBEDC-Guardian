@@ -10,7 +10,6 @@ use App\Services\DeviceAuthService;
 use App\Services\RefreshTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -270,7 +269,7 @@ class AccountSecurityController extends Controller
      *
      * @return array<string, array<int, int>>
      */
-    protected function tokenIdMapForUser(int $userId): array
+    protected function tokenIdMapForUser(string $userId): array
     {
         $rows = DB::table('user_sessions')
             ->select('session_id', 'device_info')

@@ -14,8 +14,13 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
+import { showOperationMutationErrors } from './mutationFeedback';
 
 export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters }) {
+    useOperationsRealtimeRefresh();
+
+    const canManage = auth?.permissions?.includes('om.maintenance.manage') || auth?.roles?.includes('Super Administrator');
     const [openCreateModal, setOpenCreateModal] = useState(false);
     const [selectedWo, setSelectedWo] = useState(null);
     const [openQcModal, setOpenQcModal] = useState(null);
@@ -53,25 +58,35 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
                 setOpenCreateModal(false);
                 setTitle('');
                 setDescription('');
-            }
+            },
+            onError: showOperationMutationErrors,
         });
     };
 
-    const handleApprove = (id) => {
-        router.post(`/om/work-orders/${id}/approve`, {}, {
-            onSuccess: () => setSelectedWo(null)
+    const handleApprove = (workOrder) => {
+        router.post(`/om/work-orders/${workOrder.id}/approve`, {
+            lock_version: workOrder.lock_version,
+        }, {
+            onSuccess: () => setSelectedWo(null),
+            onError: showOperationMutationErrors,
         });
     };
 
-    const handleStart = (id) => {
-        router.post(`/om/work-orders/${id}/start`, {}, {
-            onSuccess: () => setSelectedWo(null)
+    const handleStart = (workOrder) => {
+        router.post(`/om/work-orders/${workOrder.id}/start`, {
+            lock_version: workOrder.lock_version,
+        }, {
+            onSuccess: () => setSelectedWo(null),
+            onError: showOperationMutationErrors,
         });
     };
 
-    const handleComplete = (id) => {
-        router.post(`/om/work-orders/${id}/complete`, {}, {
-            onSuccess: () => setSelectedWo(null)
+    const handleComplete = (workOrder) => {
+        router.post(`/om/work-orders/${workOrder.id}/complete`, {
+            lock_version: workOrder.lock_version,
+        }, {
+            onSuccess: () => setSelectedWo(null),
+            onError: showOperationMutationErrors,
         });
     };
 
@@ -81,12 +96,14 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
 
         router.post(`/om/work-orders/${openQcModal.id}/verify`, {
             qc_notes: qcNotes,
+            lock_version: openQcModal.lock_version,
         }, {
             onSuccess: () => {
                 setOpenQcModal(null);
                 setSelectedWo(null);
                 setQcNotes('');
-            }
+            },
+            onError: showOperationMutationErrors,
         });
     };
 
@@ -136,9 +153,9 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
                                         </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="blue" onClick={() => setOpenCreateModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                {canManage && <Button color="blue" onClick={() => setOpenCreateModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                     <PlusIcon width={16} height={16} /> Issue Work Order
-                                </Button>
+                                </Button>}
                             </Flex>
                         </Box>
 
@@ -286,25 +303,25 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
                         <Flex justify="end" gap="2" mt="3">
                             <Button variant="soft" color="gray" onClick={() => setSelectedWo(null)}>Close</Button>
 
-                            {selectedWo?.status === 'pending' && (
-                                <Button color="green" onClick={() => handleApprove(selectedWo.id)}>
+                            {canManage && selectedWo?.status === 'pending' && (
+                                <Button color="green" onClick={() => handleApprove(selectedWo)}>
                                     <CheckCircleIcon width={16} height={16} /> Approve & Dispatch
                                 </Button>
                             )}
 
-                            {selectedWo?.status === 'assigned' && (
-                                <Button color="purple" onClick={() => handleStart(selectedWo.id)}>
+                            {canManage && selectedWo?.status === 'assigned' && (
+                                <Button color="purple" onClick={() => handleStart(selectedWo)}>
                                     <PlayIcon width={16} height={16} /> Activate Work Zone
                                 </Button>
                             )}
 
-                            {selectedWo?.status === 'in_progress' && (
-                                <Button color="indigo" onClick={() => handleComplete(selectedWo.id)}>
+                            {canManage && selectedWo?.status === 'in_progress' && (
+                                <Button color="indigo" onClick={() => handleComplete(selectedWo)}>
                                     <DocumentCheckIcon width={16} height={16} /> Mark Completed
                                 </Button>
                             )}
 
-                            {selectedWo?.status === 'completed' && (
+                            {canManage && selectedWo?.status === 'completed' && (
                                 <Button color="green" onClick={() => setOpenQcModal(selectedWo)}>
                                     <ShieldCheckIcon width={16} height={16} /> QC Joint Verification
                                 </Button>
@@ -315,7 +332,7 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
             </Dialog.Root>
 
             {/* QC Joint Verification Modal */}
-            <Dialog.Root open={!!openQcModal} onOpenChange={(open) => !open && setOpenQcModal(null)}>
+            <Dialog.Root open={canManage && !!openQcModal} onOpenChange={(open) => !open && setOpenQcModal(null)}>
                 <Dialog.Content style={{ maxWidth: 480 }}>
                     <Dialog.Title>Joint QA/QC Inspection Sign-off</Dialog.Title>
                     <Dialog.Description size="2" mb="3">
@@ -337,7 +354,7 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
             </Dialog.Root>
 
             {/* Create Work Order Modal */}
-            <Dialog.Root open={openCreateModal} onOpenChange={setOpenCreateModal}>
+            <Dialog.Root open={canManage && openCreateModal} onOpenChange={setOpenCreateModal}>
                 <Dialog.Content style={{ maxWidth: 520 }}>
                     <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
                     <Dialog.Description size="2" mb="4">

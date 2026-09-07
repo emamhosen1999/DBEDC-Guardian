@@ -54,10 +54,10 @@ class ObjectionService
         $objection = $this->dailyWorkService->storeObjection($dailyWork, $data, $actor);
 
         if ((string) $objection->status === RfiObjection::STATUS_SUBMITTED) {
-            $this->notify($objection, RfiObjectionNotification::EVENT_SUBMITTED, (int) $actor->id);
+            $this->notify($objection, RfiObjectionNotification::EVENT_SUBMITTED, (string) $actor->id);
         }
 
-        $this->realtime->touch('objection', 'all', (int) $actor->id, 'created');
+        $this->realtime->touch('objection', 'all', (string) $actor->id, 'created');
 
         return $objection;
     }
@@ -65,12 +65,12 @@ class ObjectionService
     /**
      * Submit a draft objection for review.
      */
-    public function submit(RfiObjection $objection, User $actor): RfiObjection
+    public function submit(RfiObjection $objection, User $actor, ?int $expectedVersion = null): RfiObjection
     {
-        $objection = $this->dailyWorkService->submitObjection($objection);
+        $objection = $this->dailyWorkService->submitObjection($objection, $expectedVersion, (string) $actor->id);
 
-        $this->notify($objection, RfiObjectionNotification::EVENT_SUBMITTED, (int) $actor->id);
-        $this->realtime->touch('objection', 'all', (int) $actor->id, 'submitted');
+        $this->notify($objection, RfiObjectionNotification::EVENT_SUBMITTED, (string) $actor->id);
+        $this->realtime->touch('objection', 'all', (string) $actor->id, 'submitted');
 
         return $objection;
     }
@@ -78,11 +78,11 @@ class ObjectionService
     /**
      * Move a submitted objection to under review. Notifies nobody (web parity).
      */
-    public function startReview(RfiObjection $objection, User $actor): RfiObjection
+    public function startReview(RfiObjection $objection, User $actor, ?int $expectedVersion = null): RfiObjection
     {
-        $objection = $this->dailyWorkService->startReviewObjection($objection);
+        $objection = $this->dailyWorkService->startReviewObjection($objection, $expectedVersion, (string) $actor->id);
 
-        $this->realtime->touch('objection', 'all', (int) $actor->id, 'review');
+        $this->realtime->touch('objection', 'all', (string) $actor->id, 'review');
 
         return $objection;
     }
@@ -90,12 +90,12 @@ class ObjectionService
     /**
      * Resolve an objection and notify the creator + affected stakeholders.
      */
-    public function resolve(RfiObjection $objection, ?string $resolutionNotes, User $actor): RfiObjection
+    public function resolve(RfiObjection $objection, ?string $resolutionNotes, User $actor, ?int $expectedVersion = null): RfiObjection
     {
-        $objection = $this->dailyWorkService->resolveObjection($objection, $resolutionNotes);
+        $objection = $this->dailyWorkService->resolveObjection($objection, $resolutionNotes, $expectedVersion, (string) $actor->id);
 
-        $this->notify($objection, RfiObjectionNotification::EVENT_RESOLVED, (int) $actor->id);
-        $this->realtime->touch('objection', 'all', (int) $actor->id, 'resolved');
+        $this->notify($objection, RfiObjectionNotification::EVENT_RESOLVED, (string) $actor->id);
+        $this->realtime->touch('objection', 'all', (string) $actor->id, 'resolved');
 
         return $objection;
     }
@@ -103,12 +103,12 @@ class ObjectionService
     /**
      * Reject an objection and notify the creator + affected stakeholders.
      */
-    public function reject(RfiObjection $objection, ?string $rejectionReason, User $actor): RfiObjection
+    public function reject(RfiObjection $objection, ?string $rejectionReason, User $actor, ?int $expectedVersion = null): RfiObjection
     {
-        $objection = $this->dailyWorkService->rejectObjection($objection, $rejectionReason);
+        $objection = $this->dailyWorkService->rejectObjection($objection, $rejectionReason, $expectedVersion, (string) $actor->id);
 
-        $this->notify($objection, RfiObjectionNotification::EVENT_REJECTED, (int) $actor->id);
-        $this->realtime->touch('objection', 'all', (int) $actor->id, 'rejected');
+        $this->notify($objection, RfiObjectionNotification::EVENT_REJECTED, (string) $actor->id);
+        $this->realtime->touch('objection', 'all', (string) $actor->id, 'rejected');
 
         return $objection;
     }
@@ -120,9 +120,9 @@ class ObjectionService
      * RfiObjectionController::notifyStakeholders(). Fail-open: a notification
      * failure is logged and swallowed so it can never break the write path.
      *
-     * @param  int|null  $actorId  the acting user, excluded from the recipients
+     * @param  string|null  $actorId  the acting employee, excluded from the recipients
      */
-    public function notify(RfiObjection $objection, string $event, ?int $actorId): void
+    public function notify(RfiObjection $objection, string $event, ?string $actorId): void
     {
         try {
             $dailyWorks = $objection->dailyWorks()

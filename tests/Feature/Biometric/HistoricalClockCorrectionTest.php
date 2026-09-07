@@ -1551,7 +1551,7 @@ class HistoricalClockCorrectionTest extends TestCase
         return $id;
     }
 
-    private function attendance(int $userId, string $date, ?string $punchin, ?string $punchout): int
+    private function attendance(string $userId, string $date, ?string $punchin, ?string $punchout): int
     {
         return (int) DB::table('attendances')->insertGetId([
             'user_id' => $userId,

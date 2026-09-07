@@ -576,7 +576,7 @@ class AttendanceController extends Controller
     {
         try {
             $date = $request->query('date', now()->toDateString());
-            $userId = (int) Auth::id();
+            $userId = (string) Auth::id();
 
             $page = (int) $request->query('page', 1);
             $perPage = (int) $request->query('perPage', 10);
@@ -816,7 +816,7 @@ class AttendanceController extends Controller
         try {
             $currentMonth = (int) $request->get('currentMonth', now()->month);
             $currentYear = (int) $request->get('currentYear', now()->year);
-            $userId = $request->get('userId') ? (int) $request->get('userId') : null;
+            $userId = $request->get('userId') ? (string) $request->get('userId') : null;
             $routeName = $request->route()?->getName();
             if ($routeName === 'attendance.myMonthlyStats' || ! Auth::user()->can('attendance.view')) {
                 $userId = Auth::id();
@@ -1007,7 +1007,7 @@ class AttendanceController extends Controller
             // Shift-based, idempotent, audited — the ONE definition, shared with
             // the mobile mark-present parity endpoint.
             $attendance = app(AttendanceDayPartitionService::class)
-                ->markPresent((int) $validated['user_id'], (string) $validated['date'], $request);
+                ->markPresent((string) $validated['user_id'], (string) $validated['date'], $request);
 
             return response()->json([
                 'success' => true,
@@ -1485,7 +1485,7 @@ class AttendanceController extends Controller
 
     public function auditHistory(int $id): JsonResponse
     {
-        $logs = AttendanceAuditLog::with('actor:id,name')
+        $logs = AttendanceAuditLog::with('actor:employee_id,name')
             ->where('attendance_id', $id)
             ->orderByDesc('created_at')
             ->orderByDesc('id')

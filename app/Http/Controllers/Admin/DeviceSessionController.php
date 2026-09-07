@@ -84,7 +84,7 @@ class DeviceSessionController extends Controller
         $refreshCounts = $this->activeRefreshTokenCounts($userIds);
 
         $sessions = $rows->map(function (UserDevice $device) use ($tokenIdMap, $tokenStats, $refreshCounts) {
-            $key = $this->mapKey((int) $device->user_id, (string) $device->device_id);
+            $key = $this->mapKey((string) $device->user_id, (string) $device->device_id);
             $tokenIds = $tokenIdMap[$key] ?? [];
             $stats = $tokenStats[$key] ?? ['active' => 0, 'last_used_at' => null];
             $refreshActive = $refreshCounts[$key] ?? 0;
@@ -284,7 +284,7 @@ class DeviceSessionController extends Controller
                 continue;
             }
 
-            $map[$this->mapKey((int) $row->user_id, $deviceId)][] = $tokenId;
+            $map[$this->mapKey((string) $row->user_id, $deviceId)][] = $tokenId;
         }
 
         return $map;
@@ -363,7 +363,7 @@ class DeviceSessionController extends Controller
                 $q->whereNull('expires_at')->orWhere('expires_at', '>', Carbon::now());
             })
             ->get()
-            ->groupBy(fn (RefreshToken $token) => $this->mapKey((int) $token->user_id, (string) $token->device_id))
+            ->groupBy(fn (RefreshToken $token) => $this->mapKey((string) $token->user_id, (string) $token->device_id))
             ->map->count()
             ->all();
     }
@@ -392,7 +392,7 @@ class DeviceSessionController extends Controller
         ];
     }
 
-    protected function mapKey(int $userId, string $deviceId): string
+    protected function mapKey(string $userId, string $deviceId): string
     {
         return $userId.'|'.trim($deviceId);
     }

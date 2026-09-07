@@ -59,7 +59,7 @@ class TrackSecurityActivity
     /**
      * Detect potential security anomalies
      */
-    private function detectSecurityAnomalies(Request $request, int $userId): void
+    private function detectSecurityAnomalies(Request $request, string $userId): void
     {
         try {
             $currentIp = $request->ip();

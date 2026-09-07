@@ -10,7 +10,6 @@ use App\Models\Aeon\Message;
 use App\Services\Aeon\Data\SchemaCatalog;
 use App\Services\Aeon\Tools\ToolRegistry;
 use Closure;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -137,6 +136,7 @@ class AeonService
                         'name' => $name,
                         'response' => ['note' => 'Duplicate query detected. Please synthesize final answer.'],
                     ];
+
                     continue;
                 }
                 $seenToolCalls[$callHash] = true;
@@ -211,9 +211,9 @@ class AeonService
         }
 
         $emit(match ($name) {
-            'query_data' => 'Querying DBEDC database (' . ($args['entity'] ?? 'records') . ')…',
-            'prepare_operation' => 'Generating interactive form for ' . ($args['entity'] ?? 'action') . '…',
-            'navigate' => 'Locating module route (' . ($args['destination'] ?? '') . ')…',
+            'query_data' => 'Querying DBEDC database ('.($args['entity'] ?? 'records').')…',
+            'prepare_operation' => 'Generating interactive form for '.($args['entity'] ?? 'action').'…',
+            'navigate' => 'Locating module route ('.($args['destination'] ?? '').')…',
             default => "Running {$name}…",
         });
 
@@ -284,7 +284,7 @@ class AeonService
         }
 
         return Conversation::create([
-            'user_id' => $userId ? (int) $userId : 0,
+            'user_id' => (string) $userId,
             'title' => Str::limit($firstPrompt, 40),
         ]);
     }

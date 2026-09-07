@@ -107,7 +107,7 @@ class SwapApprovalPipelineTest extends TestCase
             /** @var array<int, array{entity:string,bucket:string,actorId:?int,action:string}> */
             public array $calls = [];
 
-            public function touch(string $entity, string $bucket, ?int $actorId, string $action = 'update'): void
+            public function touch(string $entity, string $bucket, int|string|null $actorId, string $action = 'update'): void
             {
                 $this->calls[] = compact('entity', 'bucket', 'actorId', 'action');
             }

@@ -641,7 +641,7 @@ class CorrectHistoricalClockOffset extends Command
                     $scan['max_date'] = $scan['max_date'] === null ? $date : max($scan['max_date'], $date);
                 }
 
-                $scan['users'][(int) $row->user_id] = true;
+                $scan['users'][(string) $row->user_id] = true;
 
                 if ($shift['crosses_date']) {
                     $scan['crossing_count']++;
@@ -746,7 +746,7 @@ class CorrectHistoricalClockOffset extends Command
 
         return [
             'id' => (int) $row->id,
-            'user_id' => (int) $row->user_id,
+            'user_id' => (string) $row->user_id,
             'date' => substr((string) $row->date, 0, 10),
             // Keyed by column, and the single source of truth for what this run
             // writes: both the UPDATE and the ledger rows are built from it, so

@@ -9,6 +9,8 @@ class OmVmsMessage extends Model
 {
     use HasFactory;
 
+    protected $attributes = ['lock_version' => 0];
+
     protected $fillable = [
         'vms_code',
         'location',
@@ -17,10 +19,12 @@ class OmVmsMessage extends Model
         'type',
         'is_active',
         'updated_by_operator_at',
+        'lock_version',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'updated_by_operator_at' => 'datetime',
+        'lock_version' => 'integer',
     ];
 }

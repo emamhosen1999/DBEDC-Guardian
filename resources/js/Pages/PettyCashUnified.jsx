@@ -14,6 +14,7 @@ import {
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { usePettyCashRealtimeRefresh } from '@/Hooks/usePettyCashRealtimeRefresh';
 
 import OverviewPanel from '@/Components/PettyCash/OverviewPanel.jsx';
 import TransactionsPanel from '@/Components/PettyCash/TransactionsPanel.jsx';
@@ -25,6 +26,8 @@ import PettyCashLoanForm from '@/Forms/PettyCashLoanForm.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canApprove, categories = {} }) => {
+    usePettyCashRealtimeRefresh();
+
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
 

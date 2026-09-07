@@ -737,7 +737,13 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
    MAIN SETTINGS TAB
    ═══════════════════════════════════════════════════════════ */
 const SettingsTab = () => {
-    const { attendanceSettings: initSettings, attendanceTypes: initTypes } = usePage().props;
+    const {
+        attendanceSettings: initSettings,
+        attendanceTypes: initTypes,
+        employees = [],
+        departments = [],
+        designations = [],
+    } = usePage().props;
 
     const [activeSubTab, setActiveSubTab] = useState('general');
     const [settings,   setSettings]   = useState(initSettings || {});
@@ -1218,7 +1224,7 @@ const SettingsTab = () => {
                 {/* ── Policies Tab ───────────────────────────── */}
                 <Tabs.Content value="policies">
                     <Box py="3">
-                        <PoliciesManager />
+                        <PoliciesManager employees={employees} departments={departments} designations={designations} />
                     </Box>
                 </Tabs.Content>
             </Tabs.Root>

@@ -3,12 +3,15 @@
 namespace App\Models\HRM;
 
 use App\Models\User;
+use App\Observers\HolidayRealtimeObserver;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 
+#[ObservedBy([HolidayRealtimeObserver::class])]
 class Holiday extends Model
 {
     use HasFactory, SoftDeletes;
