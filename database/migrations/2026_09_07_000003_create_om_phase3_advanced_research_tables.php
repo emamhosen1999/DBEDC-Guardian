@@ -20,7 +20,7 @@ return new class extends Migration
             Schema::create('om_tppd_claims', function (Blueprint $table) {
                 $table->id();
                 $table->string('claim_number', 50)->unique(); // e.g. TPPD-2026-001
-                $table->foreignId('incident_id')->nullable()->constrained('om_incidents')->nullOnDelete();
+                $table->unsignedBigInteger('incident_id')->nullable();
                 $table->date('incident_date');
                 $table->string('chainage', 50)->nullable();
                 $table->string('direction', 20)->nullable();
@@ -39,11 +39,13 @@ return new class extends Migration
                 $table->enum('status', ['drafted', 'submitted_police', 'submitted_insurance', 'settled', 'disputed', 'written_off'])->default('drafted');
                 $table->date('recovery_date')->nullable();
                 $table->text('notes')->nullable();
-                $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->unsignedBigInteger('created_by_user_id')->nullable();
                 $table->timestamps();
 
                 $table->index(['incident_date', 'status']);
                 $table->index('vehicle_registration_number');
+                $table->index('incident_id');
+                $table->index('created_by_user_id');
             });
         }
 
@@ -51,7 +53,7 @@ return new class extends Migration
         if (! Schema::hasTable('om_iri_readings')) {
             Schema::create('om_iri_readings', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('patrol_shift_id')->nullable();
+                $table->unsignedBigInteger('patrol_shift_id')->nullable();
                 $table->dateTime('recorded_at');
                 $table->decimal('chainage_km', 7, 3); // e.g. 14.200
                 $table->string('direction', 20)->default('northbound');
@@ -64,6 +66,7 @@ return new class extends Migration
 
                 $table->index(['chainage_km', 'direction']);
                 $table->index('recorded_at');
+                $table->index('patrol_shift_id');
             });
         }
 

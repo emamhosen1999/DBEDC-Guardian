@@ -16,7 +16,7 @@ class OmRenovationSeeder extends Seeder
      */
     public function run(): void
     {
-        $adminId = DB::table('users')->min('id') ?: 1;
+        $adminId = \App\Models\User::value('employee_id') ?: 1;
 
         // ───────────────────────────────────────────────
         // 1. Standard Inspection Templates

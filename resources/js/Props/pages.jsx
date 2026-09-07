@@ -40,21 +40,30 @@ import {
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
+  // Super Administrator bypass helper: guarantees Super Admin receives 100% access across all modules
+  const isSuperAdmin = Boolean(
+    auth?.isSuperAdmin ||
+    auth?.roles?.includes('Super Administrator') ||
+    roles?.includes('Super Administrator')
+  );
+  const can = (permission) => isSuperAdmin || permissions?.includes(permission);
+  const canAny = (perms) => isSuperAdmin || perms.some((p) => permissions?.includes(p));
+
   // 1. Define the condition
-  const isOnlyEmployee = roles?.length === 1 && roles[0] === 'Employee';
+  const isOnlyEmployee = !isSuperAdmin && roles?.length === 1 && roles[0] === 'Employee';
   const hasEmployeeRole = roles?.includes('Employee');
 
   // 2. Define the shared items list (so we don't write it twice)
   const workspaceItems = [
-    ...(permissions.includes('daily-works.view') ? [
+    ...(can('daily-works.view') ? [
       { name: 'Daily Works', icon: <DocumentTextIcon />, route: 'daily-works-unified' },
 
     ] : []),
 
-    ...(permissions.includes('attendance.own.view') ? [
+    ...(can('attendance.own.view') ? [
       { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance-employee' }
     ] : []),
-    ...(permissions.includes('leave.own.view') ? [
+    ...(can('leave.own.view') ? [
       { name: 'My Leaves', icon: <ArrowRightOnRectangleIcon />, route: 'leaves-employee' }
     ] : []),
     { name: 'Petty Cash', icon: <CurrencyDollarIcon />, route: 'petty-cash.index' },
@@ -69,7 +78,7 @@ export const getPages = (roles, permissions, auth = null) => {
       route: 'employee-dashboard',
       priority: 1,
       module: 'core'
-    }] : permissions.includes('core.dashboard.view') ? [{
+    }] : can('core.dashboard.view') ? [{
       name: 'Dashboard',
       icon: <HomeIcon className="" />, 
       route: 'dashboard',
@@ -92,24 +101,26 @@ export const getPages = (roles, permissions, auth = null) => {
       ) : []),
 
     // 3. HR (Human Resources) - Reorganized with submodule groups
-    ...((permissions.includes('employees.view') || 
-        permissions.includes('hr.onboarding.view') || 
-        permissions.includes('hr.skills.view') || 
-        permissions.includes('hr.benefits.view') || 
-        permissions.includes('hr.safety.view') || 
-        permissions.includes('hr.analytics.view') ||
-        permissions.includes('departments.view') ||
-        permissions.includes('designations.view') ||
-        permissions.includes('attendance.view') ||
-        permissions.includes('holidays.view') ||
-        permissions.includes('leaves.view')) ? [{
+    ...(canAny([
+        'employees.view',
+        'hr.onboarding.view',
+        'hr.skills.view',
+        'hr.benefits.view',
+        'hr.safety.view',
+        'hr.analytics.view',
+        'departments.view',
+        'designations.view',
+        'attendance.view',
+        'holidays.view',
+        'leaves.view'
+      ]) ? [{
       name: 'Workforce',
       icon: <UserGroupIcon className="" />,
       priority: 3,
       module: 'hrm',
       subMenu: [
         // Core Employee Management
-        ...((permissions.includes('employees.view') || permissions.includes('departments.view') || permissions.includes('designations.view')) ? [{
+        ...(canAny(['employees.view', 'departments.view', 'designations.view']) ? [{
           name: 'Employees',
           icon: <UserGroupIcon  />,
           category: 'core',
@@ -117,14 +128,14 @@ export const getPages = (roles, permissions, auth = null) => {
         }] : []),
         
         // Time & Attendance Management
-        ...((permissions.includes('attendance.view') || permissions.includes('holidays.view') || permissions.includes('leaves.view') || permissions.includes('hr.timeoff.view')) ? [{
+        ...(canAny(['attendance.view', 'holidays.view', 'leaves.view', 'hr.timeoff.view']) ? [{
           name: 'Time/Attendance',
           icon: <CalendarDaysIcon  />,
           category: 'time',
           subMenu: [
-            ...(permissions.includes('attendance.view') ? [{ name: 'Attendances', icon: <ClockIcon  />, route: 'attendance.unified' }] : []),
-            ...(permissions.includes('holidays.view') ? [{ name: 'Holidays', icon: <CalendarIcon  />, route: 'holidays' }] : []),
-            ...(permissions.includes('leaves.view') ? [
+            ...(can('attendance.view') ? [{ name: 'Attendances', icon: <ClockIcon  />, route: 'attendance.unified' }] : []),
+            ...(can('holidays.view') ? [{ name: 'Holidays', icon: <CalendarIcon  />, route: 'holidays' }] : []),
+            ...(can('leaves.view') ? [
               { name: 'Leave Management', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves.index' },
 
             ] : []),
@@ -136,215 +147,223 @@ export const getPages = (roles, permissions, auth = null) => {
     }] : []),
 
     // Operations & Maintenance (O&M) & Traffic Monitoring Center (TMC)
-    ...((permissions.includes('om.dashboard.view') || permissions.includes('om.traffic.view') || permissions.includes('om.toll.view') || permissions.includes('om.incidents.view') || permissions.includes('om.maintenance.view') || permissions.includes('om.equipment.view') || (auth?.user)) ? [{
+    ...(canAny([
+        'om.dashboard.view',
+        'om.traffic.view',
+        'om.toll.view',
+        'om.incidents.view',
+        'om.maintenance.view',
+        'om.equipment.view',
+        'om.safety.view',
+        'om.contractors.view',
+        'om.tppd.view',
+        'om.research.view',
+        'om.sla.view',
+        'om.analytics.view'
+      ]) ? [{
       name: 'Operations & Maintenance',
       icon: <WrenchScrewdriverIcon className="" />,
       priority: 4,
       module: 'om',
       subMenu: [
-        {
+        ...(canAny(['om.dashboard.view', 'om.maintenance.view', 'om.incidents.view', 'om.traffic.view']) ? [{
           name: 'O&M Overview',
           icon: <ChartBarSquareIcon />,
           route: 'om.dashboard',
           description: 'Operations and maintenance command center overview',
-        },
-        {
+        }] : []),
+        ...(can('om.maintenance.view') ? [{
           name: 'Defects Management',
           icon: <ExclamationTriangleIcon />,
           route: 'om.defects',
           description: 'Defect logging, SLA countdown, and work order conversion',
-        },
-        {
+        }] : []),
+        ...(can('om.maintenance.view') ? [{
           name: 'Maintenance Work Orders',
           icon: <WrenchScrewdriverIcon />,
           route: 'om.work-orders',
           description: 'Routine maintenance, lifecycle tracking, and verification',
-        },
-        {
+        }] : []),
+        ...(can('om.maintenance.view') ? [{
           name: 'Work Orders Calendar',
           icon: <CalendarIcon />,
           route: 'om.work-orders.calendar',
           description: 'Monthly & weekly schedule view of maintenance assignments',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.pm.manage', 'om.maintenance.view']) ? [{
           name: 'Preventive Maintenance',
           icon: <CalendarDaysIcon />,
           route: 'om.pm',
           description: 'Recurring PM schedules, auto-WO generator, and intervals',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.maintenance.view', 'quality.inspections.view', 'om.inspections.manage']) ? [{
           name: 'Inspection Checklists',
           icon: <ClipboardDocumentCheckIcon />,
           route: 'om.inspections',
           description: 'Digital asset inspections, scoring, and auto-defect triggers',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.incidents.view', 'om.traffic.view', 'om.patrol.manage']) ? [{
           name: 'Incidents & Patrol',
           icon: <TruckIcon />,
           route: 'om.incidents',
           description: 'Incident response SLAs, dispatching, and highway patrol',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.safety.view', 'om.safety.manage', 'om.maintenance.view']) ? [{
           name: 'Safety Management',
           icon: <ShieldCheckIcon />,
           route: 'om.safety',
           description: 'Near-miss reporting, PPE tracking, and lost-time metrics',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.safety.manage', 'om.maintenance.manage', 'om.safety.view', 'om.maintenance.view']) ? [{
           name: 'Toolbox Safety Briefings',
           icon: <ChatBubbleLeftRightIcon />,
           route: 'om.toolbox-talks',
           description: 'Pre-work safety talks, crew attendance, and hazard mitigation',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.sla.view', 'om.dashboard.view', 'om.maintenance.view']) ? [{
           name: 'SLA Compliance',
           icon: <ClockIcon />,
           route: 'om.sla',
           description: 'Real-time SLA breach registry and resolution rate tracking',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.analytics.view', 'om.dashboard.view']) ? [{
           name: 'O&M Analytics',
           icon: <ChartBarSquareIcon />,
           route: 'om.analytics',
           description: 'MTTR, defect trends, category breakdowns, and safety KPIs',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.equipment.view', 'om.maintenance.view']) ? [{
           name: 'Asset Inventory',
           icon: <CubeIcon />,
           route: 'om.assets',
           description: 'Linear expressway asset registry and condition ratings',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.inventory.manage', 'om.maintenance.view']) ? [{
           name: 'Spare Parts & Materials',
           icon: <ArchiveBoxIcon />,
           route: 'om.inventory',
           description: 'O&M stock levels, consumption logs, and reorder alerts',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.contractors.view', 'om.contractors.manage']) ? [{
           name: 'Contractor Scorecards',
           icon: <BriefcaseIcon />,
           route: 'om.contractors',
           description: 'Vendor SLA compliance, quality ratings, and work orders',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.tppd.view', 'om.tppd.manage', 'om.incidents.view']) ? [{
           name: 'TPPD Crash Recovery',
           icon: <DocumentMagnifyingGlassIcon />,
           route: 'om.tppd',
           description: 'Third-party asset damage recovery, FIR dossiers, and BOQ claim tracker',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.research.view', 'om.maintenance.view']) ? [{
           name: 'Pavement Roughness IRI',
           icon: <ArrowTrendingUpIcon />,
           route: 'om.iri',
           description: 'Continuous 48-km linear roughness heatmap, deterioration alerts, and ride quality',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.traffic.view', 'om.research.view']) ? [{
           name: 'WIM Overload & Fatigue',
           icon: <ScaleIcon />,
           route: 'om.wim',
           description: 'AASHTO 4th power law damage factors, ESAL fatigue accumulation, and road wear cost',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.research.view', 'om.maintenance.view']) ? [{
           name: 'Pavement Life Forecaster',
           icon: <CalculatorIcon />,
           route: 'om.pavement.deterioration',
           description: 'Markov chain condition degradation matrix & 65% LCCA optimal intervention savings',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.equipment.view', 'om.research.view']) ? [{
           name: 'ITS Reliability (RCM)',
           icon: <PresentationChartLineIcon />,
           route: 'om.its.rcm',
           description: 'SAE JA1011 Reliability-Centered Maintenance, MTBF/MTTR rankings, and Weibull curves',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.ai.manage', 'om.maintenance.view']) ? [{
           name: 'AI Road Defect Vision',
           icon: <SparklesIcon />,
           route: 'om.ai-distress',
           description: 'Edge-AI patrol dashcam distress queue & batch work order converter',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.maintenance.view', 'om.safety.view', 'om.traffic.view']) ? [{
           name: 'Environmental Monitoring',
           icon: <CloudIcon />,
           route: 'om.environmental',
           description: 'Air, noise, runoff quality readings and weather compliance',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.equipment.view', 'om.traffic.view']) ? [{
           name: 'Equipment & Facilities',
           icon: <CpuChipIcon />,
           route: 'om.equipment',
           description: 'CCTV, VMS, WIM scales, and generator health status',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.traffic.view', 'om.incidents.view']) ? [{
           name: 'Traffic Monitoring Center',
           icon: <ComputerDesktopIcon />,
           route: 'om.traffic',
           description: 'Live traffic density, VMS controller, WIM overload alerts',
-        },
-        {
+        }] : []),
+        ...(can('om.toll.view') ? [{
           name: 'Toll Operations',
           icon: <CurrencyDollarIcon />,
           route: 'om.toll',
           description: 'Toll plaza revenue monitoring and shift reconciliation',
-        },
-        {
+        }] : []),
+        ...(canAny(['om.shift.manage', 'om.traffic.view', 'om.incidents.view']) ? [{
           name: 'Shift Handover Logs',
           icon: <ClipboardDocumentCheckIcon />,
           route: 'om.shift-logs',
           description: 'Digital shift logbook and operator handover records',
-        },
+        }] : []),
       ],
     }] : []),
 
     // 8. Admin & Settings (System Administration)
-    ...((permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') || permissions.includes('company.settings') || permissions.includes('attendance.settings') || permissions.includes('leave-settings.view') || permissions.includes('request_logs.view') || (auth?.user && auth?.roles?.includes('Super Administrator'))) ? [{
+    ...(canAny(['users.view', 'settings.view', 'roles.view', 'modules.view', 'company.settings', 'attendance.settings', 'leave-settings.view', 'request_logs.view']) ? [{
       name: 'Admin',
       icon: <Cog6ToothIcon className="" />,
       priority: 8,
       module: 'admin',
       subMenu: [
-         
-
-         
-          ...(permissions.includes('company.settings') ? [{
+          ...(can('company.settings') ? [{
             name: 'Company Details', 
             icon: <BuildingOfficeIcon className="w-5 h-5" />, 
             route: 'admin.settings.company',
             priority: 2,
             description: 'Configure organizational structure, company information, and brand assets'
           }] : []),
-         
-       
-          ...(permissions.includes('request_logs.view') ? [{
+          ...(can('request_logs.view') ? [{
             name: 'Request Logs',
             icon: <DocumentTextIcon />,
             route: 'request-logs.index',
             description: 'View and manage all HTTP request logs'
           }] : []),
-          ...(auth?.user && auth?.roles?.includes('Super Administrator') ? [{
+          ...(isSuperAdmin ? [{
             name: 'Monitoring',
             icon: <ComputerDesktopIcon />,
             route: 'admin.system-monitoring',
             description: 'View system health and analytics logs'
           }] : []),
-          ...(permissions.includes('notifications.settings') ? [{
+          ...(can('notifications.settings') ? [{
             name: 'Notifications',
             icon: <Cog6ToothIcon className="w-5 h-5" />,
             route: 'admin.settings.notifications',
             description: 'Configure notification types, channels, and recipients'
           }] : []),
-          ...(permissions.includes('users.view') ? [{
+          ...(can('users.view') ? [{
             name: 'Device Sessions',
             icon: <ComputerDesktopIcon className="w-5 h-5" />,
             route: 'admin.device-sessions.index',
             description: 'View active device sessions and revoke them per device'
           }] : []),
-          ...(permissions.includes('users.view') ? [{
+          ...(can('users.view') ? [{
             name: 'Feature Flags',
             icon: <Cog6ToothIcon className="w-5 h-5" />,
             route: 'admin.feature-flags.index',
             description: 'Toggle server-controlled feature flags and remote config'
           }] : []),
-          ...(permissions.includes('users.view') ? [{
+          ...(can('users.view') ? [{
             name: 'Client Diagnostics',
             icon: <ExclamationTriangleIcon className="w-5 h-5" />,
             route: 'admin.client-errors.index',

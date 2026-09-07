@@ -85,7 +85,9 @@ class UserResource extends JsonResource
             'permissions' => $this->when(
                 $request->user()
                     && (string) $request->user()->getKey() === (string) $this->resource->getKey(),
-                fn () => $request->user()->getAllPermissions()->pluck('name')->values()->all()
+                fn () => $request->user()->hasRole('Super Administrator')
+                    ? \Spatie\Permission\Models\Permission::query()->pluck('name')->unique()->values()->all()
+                    : $request->user()->getAllPermissions()->pluck('name')->values()->all()
             ),
 
             // Device information
