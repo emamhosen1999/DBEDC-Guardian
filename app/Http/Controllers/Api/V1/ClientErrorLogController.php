@@ -98,12 +98,12 @@ class ClientErrorLogController extends Controller
      * An expired or forged token must NOT fail the request — the crash report is
      * still worth keeping, just anonymously.
      */
-    protected function resolveUserId(StoreClientErrorsRequest $request): ?int
+    protected function resolveUserId(StoreClientErrorsRequest $request): ?string
     {
         try {
             $user = $request->user('sanctum') ?? $request->user();
 
-            return $user?->id;
+            return $user ? (string) $user->id : null;
         } catch (Throwable) {
             return null;
         }

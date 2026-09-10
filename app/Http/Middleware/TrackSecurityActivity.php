@@ -143,13 +143,13 @@ class TrackSecurityActivity
     private function getSeverityForEvent(string $eventType): string
     {
         $severityMap = [
-            'ip_address_change' => 'warning',
-            'multiple_active_sessions' => 'info',
+            'ip_address_change' => 'medium',
+            'multiple_active_sessions' => 'low',
             'suspicious_activity' => 'critical',
-            'failed_login' => 'warning',
+            'failed_login' => 'medium',
         ];
 
-        return $severityMap[$eventType] ?? 'info';
+        return $severityMap[$eventType] ?? 'low';
     }
 
     /**

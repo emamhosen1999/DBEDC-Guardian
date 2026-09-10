@@ -28,6 +28,18 @@ class StoreClientErrorsRequest extends FormRequest
     }
 
     /**
+     * Auto-wrap single event root payloads into batch envelope for backwards compatibility.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('events') && $this->filled('message')) {
+            $this->merge([
+                'events' => [$this->all()],
+            ]);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array

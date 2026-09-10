@@ -148,6 +148,12 @@ class ServerErrorReporter
             return false;
         }
 
+        // Never capture faults from the telemetry ingest endpoint itself to prevent meta-loops
+        $request = static::currentRequest();
+        if ($request && $request->is('api/v1/client-errors*')) {
+            return false;
+        }
+
         // Explicitly capture validation and data-integrity failures so invalid data
         // errors from clients/forms are visible in Client Diagnostics.
         if ($e instanceof ValidationException) {
@@ -281,10 +287,12 @@ class ServerErrorReporter
      * Attribution. Must never itself throw — resolving the user touches the
      * session/DB, which may be the very thing that is broken.
      */
-    protected static function userId(?Request $request): ?int
+    protected static function userId(?Request $request): ?string
     {
         try {
-            return $request?->user()?->id;
+            $user = $request?->user();
+
+            return $user ? (string) $user->id : null;
         } catch (Throwable) {
             return null;
         }
