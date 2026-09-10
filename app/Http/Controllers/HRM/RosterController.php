@@ -255,6 +255,34 @@ class RosterController extends Controller
 
     public function updateCell(Request $request): JsonResponse
     {
+        $normalizedUserId = $request->input('user_id') !== null ? (string) $request->input('user_id') : null;
+
+        $normalizedShiftId = $request->input('shift_id');
+        if ($normalizedShiftId === '' || $normalizedShiftId === '0' || $normalizedShiftId === 0) {
+            $normalizedShiftId = null;
+        } elseif ($normalizedShiftId !== null && is_numeric($normalizedShiftId)) {
+            $normalizedShiftId = (int) $normalizedShiftId;
+        }
+
+        $normalizedWorkLocationId = $request->input('work_location_id');
+        if ($normalizedWorkLocationId === '' || $normalizedWorkLocationId === 'home' || $normalizedWorkLocationId === '0' || $normalizedWorkLocationId === 0) {
+            $normalizedWorkLocationId = null;
+        } elseif ($normalizedWorkLocationId !== null && is_numeric($normalizedWorkLocationId)) {
+            $normalizedWorkLocationId = (int) $normalizedWorkLocationId;
+        }
+
+        $shiftIdsInput = $request->input('shift_ids');
+        $normalizedShiftIds = is_array($shiftIdsInput)
+            ? array_values(array_filter(array_map(fn ($id) => is_numeric($id) ? (int) $id : null, $shiftIdsInput), fn ($id) => $id !== null))
+            : ($normalizedShiftId !== null ? [$normalizedShiftId] : []);
+
+        $request->merge([
+            'user_id' => $normalizedUserId,
+            'shift_id' => $normalizedShiftId,
+            'work_location_id' => $normalizedWorkLocationId,
+            'shift_ids' => $normalizedShiftIds,
+        ]);
+
         $data = $request->validate([
             'user_id' => 'required|string|exists:users,employee_id',
             'date' => 'required|date',

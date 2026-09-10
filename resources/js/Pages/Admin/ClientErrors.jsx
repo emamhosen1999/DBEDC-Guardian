@@ -39,10 +39,11 @@ const relative = (value) => {
 
 const SEVERITY_COLOR = { fatal: 'red', error: 'orange', warning: 'amber' };
 
-/* ── stream identity: one board, two sources ── */
+/* ── stream identity: one board, three sources ── */
 const SOURCE_META = {
   mobile: { label: 'Mobile', color: 'violet', Icon: MobileIcon },
   server: { label: 'Server', color: 'cyan', Icon: GlobeIcon },
+  web: { label: 'Web', color: 'blue', Icon: GlobeIcon },
 };
 
 const SourceBadge = ({ source }) => {
@@ -209,9 +210,10 @@ const ClientErrors = ({
                   { key: 'fatal', title: 'Fatal unresolved', value: summary.fatal_unresolved ?? 0, color: 'red' },
                   { key: 'mobile', title: 'Mobile unresolved', value: summary.mobile_unresolved ?? 0, color: 'violet' },
                   { key: 'server', title: 'Server unresolved', value: summary.server_unresolved ?? 0, color: 'cyan' },
-                  { key: '24h', title: 'Occurrences (24h)', value: summary.occurrences_last_24h ?? 0, color: 'blue' },
+                  { key: 'web', title: 'Web unresolved', value: summary.web_unresolved ?? 0, color: 'blue' },
+                  { key: '24h', title: 'Occurrences (24h)', value: summary.occurrences_last_24h ?? 0, color: 'indigo' },
                 ]}
-                columns={{ initial: '2', sm: '3', md: '6' }}
+                columns={{ initial: '2', sm: '3', md: '7' }}
                 mb="4"
               />
 

@@ -47,15 +47,15 @@ export default function ItsRcmReliability({ auth, rcm }) {
         },
         {
             id: 3,
-            name: 'Overhead Variable Message Signs (VMS)',
-            category: 'Signage',
+            name: 'Solar Highway Lighting & Optical Fiber Network',
+            category: 'Electrical & Comms',
             mtbf_hours: 1950,
             mttr_minutes: 40,
             availability_percentage: 99.45,
-            failure_modes: 'Power supply capacitor dry-out, LED pixel cluster failure',
+            failure_modes: 'Solar charge controller degradation, optical splice attenuation',
             weibull_phase: 'random_failures',
             maintenance_strategy: 'scheduled_overhaul',
-            next_rcm_action: 'Replace auxiliary 24V PSU fans before summer heat peaks',
+            next_rcm_action: 'Replace backup battery packs and inspect junction enclosures',
         },
         {
             id: 4,
@@ -151,7 +151,7 @@ export default function ItsRcmReliability({ auth, rcm }) {
                             <Badge color="cyan" variant="soft">ISO 55000 Asset Reliability</Badge>
                         </Flex>
                         <Text size="2" color="gray">
-                            FMEA failure modes, MTBF and MTTR metrics, and Weibull bath-tub wear-out curves for Dhaka Bypass cameras, VMS, WIM, and toll plazas.
+                            FMEA failure modes, MTBF and MTTR metrics, and Weibull bath-tub wear-out curves for Dhaka Bypass cameras, fiber telemetry, WIM sensors, and power systems.
                         </Text>
                     </Box>
                     <Button size="3" variant="solid" color="indigo" onClick={() => router.visit(route('om.pm'))}>
@@ -260,7 +260,7 @@ export default function ItsRcmReliability({ auth, rcm }) {
                                         <Text size="2" weight="bold">Useful Life / Constant Random (Beta = 1.0)</Text>
                                         <Badge color="green">4 Subsystems</Badge>
                                     </Flex>
-                                    <Text size="1" color="gray" mt="1">CCTV cameras, optical fiber, generators, and VMS experiencing normal stress-induced random events.</Text>
+                                    <Text size="1" color="gray" mt="1">CCTV cameras, optical fiber, and generators experiencing normal stress-induced random events.</Text>
                                 </Card>
 
                                 <Card style={{ borderLeft: '4px solid var(--red-9)' }}>
@@ -268,7 +268,7 @@ export default function ItsRcmReliability({ auth, rcm }) {
                                         <Text size="2" weight="bold">Wear-Out Phase (Beta &gt; 1.0)</Text>
                                         <Badge color="red">2 Subsystems (High Priority)</Badge>
                                     </Flex>
-                                    <Text size="1" color="gray" mt="1">WIM piezo quartz sensors and toll barrier torque springs entering mechanical fatigue.</Text>
+                                    <Text size="1" color="gray" mt="1">WIM piezo quartz sensors and emergency gate actuator springs entering mechanical fatigue.</Text>
                                 </Card>
                             </Flex>
                         </Panel>

@@ -38,7 +38,7 @@ export default function EquipmentFacilities({ auth, equipment }) {
                                     </Box>
                                     <Box>
                                         <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Equipment & Hardware Asset Health</Heading>
-                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Live Uptime Monitoring: CCTV Cameras, VMS Display Panels, WIM Scales & Power Generators</Text>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Live Uptime Monitoring: CCTV Cameras, Optical Sensors, WIM Scales & Power Generators</Text>
                                     </Box>
                                 </Flex>
                             </Flex>

@@ -8,14 +8,12 @@ use App\Models\OmIncident;
 use App\Models\OmLaneClosurePermit;
 use App\Models\OmShiftLog;
 use App\Models\OmTrafficLog;
-use App\Models\OmVmsMessage;
 use App\Models\OmWorkOrder;
 use App\Services\Operations\OmAssetService;
 use App\Services\Operations\OmDefectService;
 use App\Services\Operations\OmIncidentService;
 use App\Services\Operations\OmLookupService;
 use App\Services\Operations\OmShiftService;
-use App\Services\Operations\OmTollAuditService;
 use App\Services\Operations\OmVersionGuard;
 use App\Services\Operations\OmWorkOrderService;
 use Illuminate\Http\JsonResponse;
@@ -32,7 +30,6 @@ class OperationsMaintenanceController extends Controller
         protected OmDefectService $defectService,
         protected OmWorkOrderService $workOrderService,
         protected OmIncidentService $incidentService,
-        protected OmTollAuditService $tollService,
         protected OmShiftService $shiftService,
         protected OmLookupService $lookupService
     ) {}
@@ -549,7 +546,6 @@ class OperationsMaintenanceController extends Controller
     public function trafficMonitoring(Request $request): Response|JsonResponse
     {
         $trafficSections = OmTrafficLog::latest('recorded_at')->get();
-        $vmsMessages = OmVmsMessage::all();
         $overloadAlerts = OmTrafficLog::where('overload_count', '>', 0)->latest()->get();
 
         if ($request->wantsJson() && ! $request->header('X-Inertia')) {

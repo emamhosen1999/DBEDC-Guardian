@@ -92,7 +92,6 @@ class ServerErrorReporter
         RecordsNotFoundException::class,
         AuthenticationException::class,
         AuthorizationException::class,
-        ValidationException::class,
         TokenMismatchException::class,
         MaintenanceModeException::class,
     ];
@@ -149,15 +148,30 @@ class ServerErrorReporter
             return false;
         }
 
+        // Explicitly capture validation and data-integrity failures so invalid data
+        // errors from clients/forms are visible in Client Diagnostics.
+        if ($e instanceof ValidationException) {
+            return true;
+        }
+
+        // Explicitly capture optimistic concurrency conflicts (stale writes).
+        if ($e instanceof \App\Exceptions\StaleModelVersionException) {
+            return true;
+        }
+
         foreach (static::IGNORED as $ignored) {
             if ($e instanceof $ignored) {
                 return false;
             }
         }
 
-        // Generic rule: any HTTP exception that resolves to a 4xx is the client
-        // being told "no" correctly. Only 5xx means we failed.
+        // For HTTP exceptions: capture actionable 4xx errors (400 Bad Request, 409 Conflict, 422 Unprocessable),
+        // while continuing to ignore background noise (404, 401, 403, 419, 429).
         if ($e instanceof HttpExceptionInterface && $e->getStatusCode() < 500) {
+            $status = $e->getStatusCode();
+            if (in_array($status, [400, 409, 422], true)) {
+                return true;
+            }
             return false;
         }
 
@@ -172,16 +186,49 @@ class ServerErrorReporter
     protected static function sampleFor(Throwable $e, ?Request $request): array
     {
         $status = $e instanceof HttpExceptionInterface ? $e->getStatusCode() : 500;
+        $severity = $e instanceof \Error ? 'fatal' : ($status < 500 ? 'warning' : 'error');
+        $context = [];
+
+        // Specialized handling for ValidationException: surface failing fields & sanitized input
+        if ($e instanceof ValidationException) {
+            $status = 422;
+            $severity = 'warning';
+            $errors = $e->errors();
+            $firstField = array_key_first($errors);
+            $firstMsg = $firstField && ! empty($errors[$firstField]) ? (string) $errors[$firstField][0] : 'Validation failed.';
+            $fieldCount = count($errors);
+            $message = "Validation failed on [{$firstField}]: {$firstMsg}".($fieldCount > 1 ? ' (+'.($fieldCount - 1).' other fields)' : '');
+
+            $context['validation_errors'] = $errors;
+            $context['invalid_fields'] = array_keys($errors);
+            if ($request) {
+                try {
+                    $context['input'] = \Illuminate\Support\Arr::except(
+                        $request->except(['password', 'password_confirmation', 'secret', 'token', '_token', 'device_secret', 'pin']),
+                        ['password', 'token']
+                    );
+                } catch (Throwable) {}
+            }
+        } elseif ($e instanceof \App\Exceptions\StaleModelVersionException) {
+            $status = 409;
+            $severity = 'warning';
+            $message = $e->getMessage();
+            $context['current_version'] = $e->currentVersion;
+            $context['requested_version'] = $request?->input('version');
+        } else {
+            $message = (string) mb_substr($e->getMessage() !== '' ? $e->getMessage() : get_class($e), 0, 2000);
+            if ($e instanceof \Illuminate\Database\QueryException) {
+                $context['sql'] = $e->getSql();
+            }
+        }
 
         return [
             // `error_type` carries the exception CLASS for server rows — the
             // same column the mobile stream uses for its JS error name, so the
             // admin table and search need no special-casing.
-            'error_type' => static::truncate(get_class($e), 191),
-            'message' => (string) mb_substr($e->getMessage() !== '' ? $e->getMessage() : get_class($e), 0, 2000),
-            // A PHP \Error (TypeError, ParseError, out-of-memory) is unrecoverable
-            // at the point it is thrown — that is the server's "fatal".
-            'severity' => $e instanceof \Error ? 'fatal' : 'error',
+            'error_type' => static::truncate(class_basename($e), 191),
+            'message' => $message,
+            'severity' => $severity,
             'stack' => static::stackFor($e),
             'file' => static::truncate(ClientErrorLog::relativePath($e->getFile()), 255),
             'line' => $e->getLine() ?: null,
@@ -193,6 +240,7 @@ class ServerErrorReporter
             // Server rows carry no device/platform facts; `screen` doubles as the
             // human-readable location so the existing list column stays useful.
             'screen' => $request ? static::truncate($request->method().' /'.ltrim($request->path(), '/'), 191) : null,
+            'context' => ! empty($context) ? $context : null,
         ];
     }
 

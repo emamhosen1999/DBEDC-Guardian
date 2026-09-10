@@ -81,7 +81,7 @@ class Project extends Model implements HasMedia
 
     public function resources()
     {
-        return $this->belongsToMany(User::class, 'project_resources')
+        return $this->belongsToMany(User::class, 'project_resources', 'project_id', 'user_id', 'id', 'employee_id')
             ->withPivot('role', 'allocation_percentage', 'start_date', 'end_date')
             ->withTimestamps();
     }

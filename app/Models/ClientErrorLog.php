@@ -33,11 +33,13 @@ class ClientErrorLog extends Model
      *
      * Both are triaged on the SAME screen: they are two halves of one incident.
      */
-    public const SOURCES = ['mobile', 'server'];
+    public const SOURCES = ['mobile', 'server', 'web'];
 
     public const SOURCE_MOBILE = 'mobile';
 
     public const SOURCE_SERVER = 'server';
+
+    public const SOURCE_WEB = 'web';
 
     /** Cap on the distinct device/user id sets kept per group (bounded JSON). */
     protected const BLAST_RADIUS_CAP = 100;
@@ -221,15 +223,21 @@ class ClientErrorLog extends Model
     {
         $now = Carbon::now();
 
+        $occurredAt = static::parseTimestamp($event['occurred_at'] ?? null) ?? $now;
+        $deviceId = static::str($event['device_id'] ?? null, 191);
+        $platform = strtolower((string) static::str($event['platform'] ?? null, 32));
+
+        $source = strtolower(trim((string) ($event['source'] ?? '')));
+        if (! in_array($source, static::SOURCES, true)) {
+            $source = ($platform === 'web') ? self::SOURCE_WEB : self::SOURCE_MOBILE;
+        }
+
         $fingerprint = static::fingerprintFor(
             $event['error_type'] ?? null,
             $event['message'] ?? '',
             $event['stack'] ?? null,
+            $source,
         );
-
-        $occurredAt = static::parseTimestamp($event['occurred_at'] ?? null) ?? $now;
-        $deviceId = static::str($event['device_id'] ?? null, 191);
-        $platform = strtolower((string) static::str($event['platform'] ?? null, 32));
 
         $severity = strtolower(trim((string) ($event['severity'] ?? 'error')));
         if (! in_array($severity, static::SEVERITIES, true)) {
@@ -264,17 +272,24 @@ class ClientErrorLog extends Model
             'session_id' => static::str($event['session_id'] ?? null, 191),
             'breadcrumbs' => $breadcrumbs,
             'context' => is_array($event['context'] ?? null) ? $event['context'] : null,
+            'file' => static::str($event['file'] ?? null, 255),
+            'line' => isset($event['line']) ? (int) $event['line'] : null,
+            'http_method' => static::str($event['http_method'] ?? null, 10),
+            'path' => static::str($event['path'] ?? null, 255),
+            'route_name' => static::str($event['route_name'] ?? null, 191),
+            'status_code' => isset($event['status_code']) ? (int) $event['status_code'] : null,
+            'request_id' => static::str($event['request_id'] ?? null, 64),
             'occurred_at' => $occurredAt,
             'last_seen_at' => $now,
         ];
 
         return static::upsertGroup(
             $fingerprint,
-            self::SOURCE_MOBILE,
+            $source,
             $sample,
-            deviceId: $deviceId,
+            deviceId: $deviceId ?: static::str($sample['path'] ?? null, 191),
             userId: $userId,
-            tallyKey: $platform,
+            tallyKey: $platform ?: strtolower((string) ($sample['http_method'] ?? '')),
         );
     }
 

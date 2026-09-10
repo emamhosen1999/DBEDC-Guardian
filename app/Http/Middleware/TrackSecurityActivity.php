@@ -34,21 +34,25 @@ class TrackSecurityActivity
     private function updateSessionActivity(Request $request): void
     {
         try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('user_sessions')) {
+                return;
+            }
+
             $sessionId = $request->session()->getId();
             $userId = Auth::id();
 
             // Update last activity for the current session
-            DB::table('user_sessions_tracking')
+            DB::table('user_sessions')
                 ->where('session_id', $sessionId)
                 ->where('user_id', $userId)
-                ->where('is_active', true)
+                ->where('is_current', true)
                 ->update([
                     'last_activity' => now(),
                     'updated_at' => now(),
                 ]);
 
             // Detect potential security anomalies
-            $this->detectSecurityAnomalies($request, $userId);
+            $this->detectSecurityAnomalies($request, (string) $userId);
 
         } catch (\Exception $e) {
             // Don't break the application flow
@@ -62,13 +66,17 @@ class TrackSecurityActivity
     private function detectSecurityAnomalies(Request $request, string $userId): void
     {
         try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('user_sessions')) {
+                return;
+            }
+
             $currentIp = $request->ip();
             $currentUserAgent = $request->userAgent();
 
             // Check for IP address changes within active sessions
-            $existingSessions = DB::table('user_sessions_tracking')
+            $existingSessions = DB::table('user_sessions')
                 ->where('user_id', $userId)
-                ->where('is_active', true)
+                ->where('is_current', true)
                 ->where('ip_address', '!=', $currentIp)
                 ->count();
 
@@ -83,9 +91,9 @@ class TrackSecurityActivity
             }
 
             // Check for unusual login patterns (e.g., multiple devices)
-            $activeSessionsCount = DB::table('user_sessions_tracking')
+            $activeSessionsCount = DB::table('user_sessions')
                 ->where('user_id', $userId)
-                ->where('is_active', true)
+                ->where('is_current', true)
                 ->count();
 
             if ($activeSessionsCount > 3) { // Configurable threshold
@@ -108,6 +116,10 @@ class TrackSecurityActivity
     private function logSecurityEvent(string $eventType, array $data): void
     {
         try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('security_events')) {
+                return;
+            }
+
             DB::table('security_events')->insert([
                 'user_id' => $data['user_id'] ?? null,
                 'event_type' => $eventType,

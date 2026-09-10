@@ -75,22 +75,41 @@ Route::post('/log-error', function (Request $request) {
             'timestamp' => 'required|string',
         ]);
 
-        DB::table('error_logs')->insert([
-            'error_id' => $validated['error_id'],
-            'message' => $validated['message'],
-            'stack_trace' => $validated['stack'] ?? null,
-            'component_stack' => $validated['component_stack'] ?? null,
-            'url' => $validated['url'],
-            'user_agent' => $validated['user_agent'] ?? null,
-            'user_id' => $request->user()?->id,
-            'ip_address' => $request->ip(),
-            'metadata' => json_encode([
-                'timestamp' => $validated['timestamp'],
-                'session_id' => session()->getId(),
-            ]),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            \App\Models\ClientErrorLog::record([
+                'source' => 'web',
+                'platform' => 'web',
+                'error_type' => 'FrontendCrash',
+                'message' => $validated['message'],
+                'stack' => $validated['stack'] ?? null,
+                'screen' => parse_url($validated['url'], PHP_URL_PATH) ?: $validated['url'],
+                'severity' => 'fatal',
+                'context' => [
+                    'error_id' => $validated['error_id'],
+                    'component_stack' => $validated['component_stack'] ?? null,
+                    'user_agent' => $validated['user_agent'] ?? null,
+                ],
+            ], $request->user()?->employee_id ?? $request->user()?->id);
+        } catch (\Throwable) {}
+
+        if (Schema::hasTable('error_logs')) {
+            DB::table('error_logs')->insert([
+                'error_id' => $validated['error_id'],
+                'message' => $validated['message'],
+                'stack_trace' => $validated['stack'] ?? null,
+                'component_stack' => $validated['component_stack'] ?? null,
+                'url' => $validated['url'],
+                'user_agent' => $validated['user_agent'] ?? null,
+                'user_id' => $request->user()?->id,
+                'ip_address' => $request->ip(),
+                'metadata' => json_encode([
+                    'timestamp' => $validated['timestamp'],
+                    'session_id' => session()->getId(),
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         return response()->json(['success' => true]);
     } catch (Exception $e) {
@@ -311,8 +330,6 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
         ->middleware('permission:om.dashboard.view')->name('api.v1.om.dashboard');
     Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])
         ->middleware('permission:om.traffic.view')->name('api.v1.om.traffic');
-    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])
-        ->middleware('permission:om.toll.view')->name('api.v1.om.toll');
     Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])
         ->middleware('permission:om.incidents.view')->name('api.v1.om.incidents');
     Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])
@@ -331,8 +348,6 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
         ->middleware('permission:om.equipment.view')->name('api.v1.om.equipment');
     Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])
         ->middleware('permission:om.dashboard.view')->name('api.v1.om.shift-logs');
-    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])
-        ->middleware('permission:om.traffic.manage')->name('api.v1.om.vms.update');
 
     // Dedicated Field Worker API
     Route::get('/om/field/overview', [OmMobileApiController::class, 'fieldOverview'])
@@ -408,12 +423,6 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
         ->middleware('permission:om.dashboard.view')->name('api.v1.om.pavement.deterioration');
     Route::get('/om/its-rcm', [OmRenovationController::class, 'rcmReliability'])
         ->middleware('permission:om.equipment.view')->name('api.v1.om.its.rcm');
-    Route::get('/om/ai-distress-queue', [OmRenovationController::class, 'aiDistressQueue'])
-        ->middleware('permission:om.maintenance.view')->name('api.v1.om.ai-distress');
-    Route::post('/om/field/ai-distress-batch', [OmRenovationController::class, 'storeAiDetectionsMobile'])
-        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.field.ai-distress.store');
-    Route::post('/om/ai-distress/batch-convert', [OmRenovationController::class, 'batchConvertAiDetections'])
-        ->middleware('permission:om.maintenance.manage')->name('api.v1.om.ai-distress.convert');
 
     // Self-service account security (scoped to the authenticated user).
     Route::post('/account/change-password', [AccountSecurityController::class, 'changePassword'])->name('api.v1.account.change-password');

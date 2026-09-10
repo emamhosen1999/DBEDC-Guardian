@@ -371,7 +371,7 @@ class ClientErrorController extends Controller
                 ->where('severity', 'fatal')
                 ->count(),
             // Per-stream unresolved counts: the header answers "is the pain in
-            // the app or in the API?" before any filter is touched.
+            // the mobile app, web app, or in the API?" before any filter is touched.
             'mobile_unresolved' => ClientErrorLog::query()
                 ->whereNull('resolved_at')
                 ->where('source', ClientErrorLog::SOURCE_MOBILE)
@@ -379,6 +379,10 @@ class ClientErrorController extends Controller
             'server_unresolved' => ClientErrorLog::query()
                 ->whereNull('resolved_at')
                 ->where('source', ClientErrorLog::SOURCE_SERVER)
+                ->count(),
+            'web_unresolved' => ClientErrorLog::query()
+                ->whereNull('resolved_at')
+                ->where('source', ClientErrorLog::SOURCE_WEB)
                 ->count(),
             'total_occurrences' => (int) ClientErrorLog::query()->sum('count'),
             'groups_last_24h' => ClientErrorLog::query()

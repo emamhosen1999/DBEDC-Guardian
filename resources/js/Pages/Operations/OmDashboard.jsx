@@ -29,14 +29,11 @@ export default function OmDashboard({
     trafficSections,
     recentWorkOrders,
     recentDefects,
-    vmsBoards,
     activeLaneClosures
 }) {
     useOperationsRealtimeRefresh();
 
     const defaultStats = stats || {
-        today_toll_revenue: 0,
-        etc_vehicle_ratio: 0,
         active_incidents_count: 0,
         open_work_orders_count: 0,
         active_lane_closures_count: 0,
@@ -117,7 +114,7 @@ export default function OmDashboard({
                                             Expressway O&M Command Center
                                         </Heading>
                                         <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
-                                            Dhaka Bypass Expressway (N-105) PPP · Live Toll, Traffic Telemetry, Patrol Dispatch & Work Zones
+                                            Dhaka Bypass Expressway (N-105) PPP · Maintenance Lifecycle, Traffic Telemetry, Patrol Dispatch & Work Zones
                                         </Text>
                                     </Box>
                                 </Flex>

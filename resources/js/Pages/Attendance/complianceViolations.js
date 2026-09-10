@@ -24,7 +24,7 @@ export function normalizeViolations(raw) {
 
     if (typeof raw === 'object') {
         return Object.entries(raw).flatMap(([userId, list]) =>
-            (Array.isArray(list) ? list : []).map(v => ({ userId: Number(userId), ...v }))
+            (Array.isArray(list) ? list : []).map(v => ({ userId: String(userId), ...v }))
         );
     }
 

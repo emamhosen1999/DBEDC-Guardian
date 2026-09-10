@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { attachDeviceId, handleDeviceMismatch } from './utils/deviceAuth';
+import { reportWebError } from './utils/diagnosticReporter';
 
 window.axios = axios;
 
@@ -31,7 +32,7 @@ axios.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Handle device mismatch errors globally
+// Handle device mismatch and diagnostic reporting globally
 axios.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -43,6 +44,34 @@ axios.interceptors.response.use(
         if ((statusCode === 401 || statusCode === 403) && mismatchReason === 'invalid_device') {
             handleDeviceMismatch(responsePayload.error || responsePayload.message || 'Your session is no longer valid for this device.');
         }
+
+        // Report validation errors (422), stale write conflicts (409), bad requests (400), and 5xx to diagnostics
+        const reqUrl = String(error.config?.url || '');
+        if (
+            !reqUrl.includes('client-errors') &&
+            !reqUrl.includes('log-error') &&
+            (statusCode === 422 || statusCode === 409 || statusCode === 400 || statusCode >= 500)
+        ) {
+            const validationErrors = responsePayload.errors || null;
+            const validationMsg = validationErrors && typeof validationErrors === 'object'
+                ? Object.entries(validationErrors).map(([f, msgs]) => `${f}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`).join('; ')
+                : null;
+            const errorMsg = validationMsg || responsePayload.message || error.message || `Request failed (${statusCode})`;
+
+            reportWebError({
+                message: errorMsg,
+                errorType: statusCode === 422 ? 'ValidationError' : (statusCode === 409 ? 'StaleModelVersionError' : 'AxiosHttpError'),
+                severity: statusCode >= 500 ? 'error' : 'warning',
+                statusCode,
+                httpMethod: error.config?.method,
+                path: reqUrl,
+                context: {
+                    validation_errors: validationErrors,
+                    status_text: error.response?.statusText,
+                },
+            });
+        }
+
         return Promise.reject(error);
     }
 );

@@ -148,10 +148,18 @@ class ObjectionService
             // and without an explicit guard Spatie would resolve to 'sanctum',
             // throw RoleDoesNotExist, and silently drop EVERY recipient.
             if ($event === RfiObjectionNotification::EVENT_SUBMITTED) {
-                $managers = User::role(['Super Admin', 'Admin', 'Project Manager', 'Consultant'], 'web')
-                    ->whereNull('deleted_at')
-                    ->get();
-                $usersToNotify = $usersToNotify->merge($managers);
+                $targetRoles = ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant'];
+                $availableRoles = \Spatie\Permission\Models\Role::whereIn('name', $targetRoles)
+                    ->where('guard_name', 'web')
+                    ->pluck('name')
+                    ->all();
+
+                if (! empty($availableRoles)) {
+                    $managers = User::role($availableRoles, 'web')
+                        ->whereNull('deleted_at')
+                        ->get();
+                    $usersToNotify = $usersToNotify->merge($managers);
+                }
             }
 
             // Terminal decisions loop the creator back in.

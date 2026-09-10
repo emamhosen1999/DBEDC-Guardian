@@ -56,14 +56,13 @@ export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
         open_incidents_count: 0,
         active_lane_closures_count: 0,
         cctv_offline_count: 0,
-        vms_offline_count: 0,
         wim_offline_count: 0,
     };
 
     const statItems = [
         { key: 'incidents', title: 'Open Incidents Carried', value: metrics.open_incidents_count, color: 'amber', icon: <ExclamationTriangleIcon /> },
         { key: 'closures', title: 'Active Lane Closures', value: metrics.active_lane_closures_count, color: 'blue', icon: <ClockIcon /> },
-        { key: 'its_status', title: 'Offline ITS Hardware', value: `${metrics.cctv_offline_count + metrics.vms_offline_count + metrics.wim_offline_count} Devices`, color: 'green', icon: <CheckCircleIcon /> },
+        { key: 'its_status', title: 'Offline ITS Hardware', value: `${(metrics.cctv_offline_count || 0) + (metrics.wim_offline_count || 0)} Devices`, color: 'green', icon: <CheckCircleIcon /> },
     ];
 
     return (

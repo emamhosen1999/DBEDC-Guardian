@@ -3,6 +3,7 @@ import React from 'react';
 import { Button, Box, Flex, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, ReloadIcon, HomeIcon } from '@radix-ui/react-icons';
 import { router } from '@inertiajs/react';
+import { reportWebError } from '@/utils/diagnosticReporter';
 
 /**
  * Enhanced Error Boundary Component
@@ -16,21 +17,21 @@ class ErrorBoundary extends React.Component {
             error: null,
             errorInfo: null,
             errorId: null,
-            showDetails: false
+            showDetails: false,
         };
     }
 
     static getDerivedStateFromError(error) {
         return {
             hasError: true,
-            errorId: Date.now().toString(36) + Math.random().toString(36).substr(2)
+            errorId: Date.now().toString(36) + Math.random().toString(36).substr(2),
         };
     }
 
     componentDidCatch(error, errorInfo) {
         this.setState({
             error,
-            errorInfo
+            errorInfo,
         });
 
         // Log error to monitoring service
@@ -39,21 +40,33 @@ class ErrorBoundary extends React.Component {
 
     logErrorToService = async (error, errorInfo) => {
         try {
+            reportWebError({
+                message: error?.message || 'React component render crash',
+                errorType: error?.name || 'ReactRenderError',
+                severity: 'fatal',
+                stack: error?.stack,
+                screen: typeof window !== 'undefined' ? window.location.pathname : '',
+                context: {
+                    error_id: this.state.errorId,
+                    component_stack: errorInfo?.componentStack,
+                },
+            });
+
             await fetch('/api/log-error', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
                 },
                 body: JSON.stringify({
                     error_id: this.state.errorId,
-                    message: error.message,
-                    stack: error.stack,
-                    component_stack: errorInfo.componentStack,
-                    url: window.location.href,
-                    user_agent: navigator.userAgent,
-                    timestamp: new Date().toISOString()
-                })
+                    message: error?.message || 'Unknown error',
+                    stack: error?.stack || '',
+                    component_stack: errorInfo?.componentStack || '',
+                    url: typeof window !== 'undefined' ? window.location.href : '',
+                    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+                    timestamp: new Date().toISOString(),
+                }),
             });
         } catch (logError) {
             console.error('Failed to log error:', logError);
@@ -66,7 +79,7 @@ class ErrorBoundary extends React.Component {
             error: null,
             errorInfo: null,
             errorId: null,
-            showDetails: false
+            showDetails: false,
         });
     };
 
@@ -78,25 +91,27 @@ class ErrorBoundary extends React.Component {
         // Instead of full page reload, try to recover gracefully
         // First try to retry the component
         this.handleRetry();
-        
+
         // If that doesn't work, navigate to dashboard instead of reload
         setTimeout(() => {
             if (this.state.hasError) {
                 this.handleGoHome();
             }
         }, 1000);
-    };    render() {
+    };
+
+    render() {
         if (this.state.hasError) {
             const { error, errorInfo, errorId } = this.state;
-            
+
             // Check if it is a widget-level error (inside Grid rows)
             const isWidget = this.props.compact || (errorInfo?.componentStack && (
-                errorInfo.componentStack.includes('PersonalOverviewCard') || 
-                errorInfo.componentStack.includes('PunchStatusCard') || 
-                errorInfo.componentStack.includes('QuickLinksWidget') || 
-                errorInfo.componentStack.includes('AttendanceChartWidget') || 
-                errorInfo.componentStack.includes('PendingTasksWidget') || 
-                errorInfo.componentStack.includes('UpcomingHolidaysWidget') || 
+                errorInfo.componentStack.includes('PersonalOverviewCard') ||
+                errorInfo.componentStack.includes('PunchStatusCard') ||
+                errorInfo.componentStack.includes('QuickLinksWidget') ||
+                errorInfo.componentStack.includes('AttendanceChartWidget') ||
+                errorInfo.componentStack.includes('PendingTasksWidget') ||
+                errorInfo.componentStack.includes('UpcomingHolidaysWidget') ||
                 errorInfo.componentStack.includes('UpdatesCards') ||
                 errorInfo.componentStack.includes('WeatherWidget') ||
                 errorInfo.componentStack.includes('ClockWidget')

@@ -92,9 +92,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // reporter — see ServerErrorReporter::shouldCapture for the full list
         // and its reasoning.
         //
-        // This runs IN ADDITION to Laravel's default logging (the callback
-        // returns void, so the log channel still receives the exception) and is
-        // fully self-contained: it can never throw, and it cannot recurse.
+        $exceptions->stopIgnoring(ValidationException::class);
+        $exceptions->dontReportDuplicates();
+
         $exceptions->report(function (Throwable $e) {
             ServerErrorReporter::capture($e);
         });
@@ -102,11 +102,20 @@ return Application::configure(basePath: dirname(__DIR__))
         // Inertia mutations use redirect-based errors. This both refreshes the
         // page props to the winning version and invokes the caller's onError.
         $exceptions->render(function (StaleModelVersionException $e, $request) {
+            ServerErrorReporter::capture($e, $request);
+
             if (! $request->header('X-Inertia')) {
                 return null;
             }
 
             return back()->withErrors(['conflict' => $e->getMessage()]);
+        });
+
+        // Ensure ValidationException on Inertia/web requests is recorded in Client Diagnostics
+        $exceptions->render(function (ValidationException $e, $request) {
+            ServerErrorReporter::capture($e, $request);
+
+            return null; // Continue with standard Inertia/Laravel redirect
         });
 
         // Standardize all API exception responses
@@ -115,6 +124,8 @@ return Application::configure(basePath: dirname(__DIR__))
             if (! $request->expectsJson() && ! $request->is('api/*')) {
                 return null;
             }
+
+            ServerErrorReporter::capture($e, $request);
 
             $statusCode = 500;
             $errorCode = 'INTERNAL_SERVER_ERROR';

@@ -137,7 +137,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
 
     // Employee options + default selection for the per-employee calendar view.
     const employeeOptions = useMemo(
-        () => rows.map(([id, row]) => ({ id: Number(id), name: row.name || 'Unknown' })),
+        () => rows.map(([id, row]) => ({ id: String(id), name: row.name || 'Unknown' })),
         [rows]
     );
     const selectedIsAvailable = employeeOptions.some(e => String(e.id) === String(selectedEmployeeId));
@@ -181,11 +181,11 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const updateCell = useOptimisticMutation({
         mutationFn: ({ userId, date, shiftIds, workLocationId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
             data: {
-                user_id: Number(userId),
+                user_id: String(userId),
                 date,
-                shift_ids: shiftIds,
-                shift_id: shiftIds?.[0] ?? null, // legacy back-compat
-                work_location_id: workLocationId ?? null,
+                shift_ids: Array.isArray(shiftIds) ? shiftIds.map(Number) : [],
+                shift_id: shiftIds?.[0] ? Number(shiftIds[0]) : null, // legacy back-compat
+                work_location_id: workLocationId && workLocationId !== 'home' ? Number(workLocationId) : null,
                 expected_updated_at: expectedUpdatedAt ?? null,
             },
         }),
@@ -232,7 +232,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 return;
             }
 
-            showToast.error(err?.message || 'Failed to update roster cell.');
+            // Extract field-level validation messages if present
+            const validationMsg = err?.response?.data?.errors
+                ? Object.entries(err.response.data.errors).map(([f, msgs]) => `${f}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`).join('; ')
+                : null;
+            const errorMsg = validationMsg || err?.response?.data?.message || err?.message || 'Failed to update roster cell.';
+            showToast.error(errorMsg);
         },
     });
 

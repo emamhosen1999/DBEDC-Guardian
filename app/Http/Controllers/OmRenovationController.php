@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OmAiDetection;
 use App\Models\OmAsset;
 use App\Models\OmAssetConditionSurvey;
 use App\Models\OmDefect;
@@ -10,7 +9,6 @@ use App\Models\OmInspection;
 use App\Models\OmSlaBreach;
 use App\Models\OmTppdClaim;
 use App\Models\OmWorkOrder;
-use App\Services\Operations\OmAiDistressService;
 use App\Services\Operations\OmAnalyticsService;
 use App\Services\Operations\OmContractorService;
 use App\Services\Operations\OmEnvironmentalService;
@@ -47,8 +45,7 @@ class OmRenovationController extends Controller
         protected OmIriProfilingService $iriService,
         protected OmWimAnalysisService $wimService,
         protected OmPavementDeteriorationService $pavementDeteriorationService,
-        protected OmRcmService $rcmService,
-        protected OmAiDistressService $aiService
+        protected OmRcmService $rcmService
     ) {}
 
     // ───────────────────────────────────────────────
@@ -760,95 +757,8 @@ class OmRenovationController extends Controller
     }
 
     // ───────────────────────────────────────────────
-    // Phase 3: Smartphone Edge-AI Automated Pavement Distress Queue
+    // End Phase 3 Routes
     // ───────────────────────────────────────────────
-
-    public function aiDistressQueue(Request $request): Response|JsonResponse
-    {
-        $filters = $request->only(['status', 'distress_type', 'severity', 'search']);
-        $detections = $this->aiService->getDetections($filters, 15);
-        $stats = $this->aiService->getAiStats();
-
-        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
-            return response()->json(['success' => true, 'stats' => $stats, 'detections' => $detections]);
-        }
-
-        return Inertia::render('Operations/AiDistressQueue', [
-            'detections' => $detections,
-            'stats' => $stats,
-            'filters' => $filters,
-        ]);
-    }
-
-    public function batchConvertAiDetections(Request $request): JsonResponse|RedirectResponse
-    {
-        $validated = $request->validate([
-            'detection_ids' => 'required|array|min:1',
-            'detection_ids.*' => 'integer',
-            'title' => 'required|string|max:255',
-            'priority' => 'required|in:low,medium,high,critical',
-            'chainage' => 'nullable|string|max:100',
-            'description' => 'nullable|string',
-        ]);
-
-        $wo = $this->aiService->batchConvertToWorkOrder(
-            $validated['detection_ids'],
-            $validated,
-            $request->user()?->id
-        );
-
-        return $this->mutationResponse(
-            $request,
-            "Created unified Work Order from " . count($validated['detection_ids']) . " AI detections.",
-            'work_order',
-            $wo
-        );
-    }
-
-    public function rejectAiDetection(Request $request, int $id): JsonResponse|RedirectResponse
-    {
-        $validated = $request->validate([
-            'reason' => 'nullable|string|max:255',
-        ]);
-
-        $this->aiService->rejectDetection($id, $validated['reason'] ?? null, $request->user()?->id);
-
-        return $this->mutationResponse(
-            $request,
-            "AI detection flagged as false positive.",
-            'id',
-            $id
-        );
-    }
-
-    public function storeAiDetectionsMobile(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'patrol_shift_id' => 'nullable|integer',
-            'detections' => 'required|array|min:1',
-            'detections.*.distress_type' => 'required|string',
-            'detections.*.confidence_score' => 'required|numeric',
-            'detections.*.chainage' => 'nullable|string',
-            'detections.*.direction' => 'nullable|string',
-            'detections.*.latitude' => 'nullable|numeric',
-            'detections.*.longitude' => 'nullable|numeric',
-            'detections.*.estimated_area_sqm' => 'nullable|numeric',
-            'detections.*.severity' => 'nullable|string',
-            'detections.*.bounding_box' => 'nullable|array',
-            'detections.*.notes' => 'nullable|string',
-        ]);
-
-        $count = $this->aiService->ingestBatch(
-            $validated['detections'],
-            $validated['patrol_shift_id'] ?? null
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => "Ingested {$count} edge-AI distress detections from patrol dashcam.",
-            'count' => $count,
-        ]);
-    }
 
 
 
