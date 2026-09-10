@@ -69,6 +69,15 @@ return new class extends Migration
                 // Ignore if already VARCHAR or not supported
             }
         }
+
+        // 3. Widen overdue_hours on om_sla_breaches to INT UNSIGNED to avoid out-of-range overflow
+        if (Schema::hasTable('om_sla_breaches')) {
+            try {
+                DB::statement("ALTER TABLE om_sla_breaches MODIFY COLUMN overdue_hours INT UNSIGNED NOT NULL DEFAULT 0");
+            } catch (\Throwable $e) {
+                // Ignore
+            }
+        }
     }
 
     /**

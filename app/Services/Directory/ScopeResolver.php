@@ -30,6 +30,6 @@ class ScopeResolver
         }
 
         // Default: only self.
-        return $query->where('id', $requester->id);
+        return $query->where($requester->getKeyName(), $requester->getKey());
     }
 }

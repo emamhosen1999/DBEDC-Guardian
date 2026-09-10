@@ -20,6 +20,8 @@ class OmSlaService
             ->get();
 
         foreach ($overdueDefects as $defect) {
+            $overdueHours = $defect->sla_due_at ? max(0, min(65535, (int) now()->diffInHours($defect->sla_due_at))) : 0;
+
             // Check if breach already recorded
             $existing = OmSlaBreach::where('entity_type', 'defect')
                 ->where('entity_id', $defect->id)
@@ -28,7 +30,7 @@ class OmSlaService
             if ($existing) {
                 // Update overdue hours
                 $existing->update([
-                    'overdue_hours' => (int) now()->diffInHours($defect->sla_due_at),
+                    'overdue_hours' => $overdueHours,
                     'escalation_level' => $this->calculateEscalationLevel($defect),
                 ]);
 
@@ -39,11 +41,11 @@ class OmSlaService
                 'entity_type' => 'defect',
                 'entity_id' => $defect->id,
                 'entity_number' => $defect->defect_number,
-                'sla_hours' => $defect->sla_hours,
-                'sla_started_at' => $defect->created_at,
-                'sla_due_at' => $defect->sla_due_at,
-                'breached_at' => $defect->sla_due_at,
-                'overdue_hours' => (int) now()->diffInHours($defect->sla_due_at),
+                'sla_hours' => (int) ($defect->sla_hours ?? 24),
+                'sla_started_at' => $defect->created_at ?? now(),
+                'sla_due_at' => $defect->sla_due_at ?? now(),
+                'breached_at' => $defect->sla_due_at ?? now(),
+                'overdue_hours' => $overdueHours,
                 'escalation_level' => $this->calculateEscalationLevel($defect),
             ]);
 

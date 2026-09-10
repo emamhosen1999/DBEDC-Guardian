@@ -40,15 +40,9 @@ class OmAiDistressService
                 });
             }
 
-            $paginated = $query->paginate($perPage)->withQueryString();
-
-            if ($paginated->isEmpty()) {
-                return $this->getMockDetections($filters);
-            }
-
-            return $paginated;
+            return $query->paginate($perPage)->withQueryString();
         } catch (\Throwable $e) {
-            return $this->getMockDetections($filters);
+            return (new OmAiDetection)->newQuery()->paginate($perPage);
         }
     }
 
@@ -56,32 +50,33 @@ class OmAiDistressService
     {
         if (! Schema::hasTable('om_ai_detections')) {
             return [
-                'total_detections' => 142,
-                'pending_review' => 18,
-                'approved_work_orders' => 112,
-                'false_positive_rejected' => 12,
-                'mean_confidence_score' => 91.4,
-                'high_severity_count' => 8,
+                'total_detections' => 0,
+                'pending_review' => 0,
+                'approved_work_orders' => 0,
+                'false_positive_rejected' => 0,
+                'mean_confidence_score' => 0.0,
+                'high_severity_count' => 0,
             ];
         }
 
         try {
+            $avgConfidence = OmAiDetection::avg('confidence_score');
             return [
                 'total_detections' => OmAiDetection::count(),
                 'pending_review' => OmAiDetection::where('status', 'pending_review')->count(),
                 'approved_work_orders' => OmAiDetection::where('status', 'approved_work_order')->count(),
                 'false_positive_rejected' => OmAiDetection::where('status', 'rejected_false_positive')->count(),
-                'mean_confidence_score' => round(OmAiDetection::avg('confidence_score') * 100, 1),
+                'mean_confidence_score' => $avgConfidence !== null ? round($avgConfidence * 100, 1) : 0.0,
                 'high_severity_count' => OmAiDetection::whereIn('severity', ['high', 'critical'])->where('status', 'pending_review')->count(),
             ];
         } catch (\Throwable $e) {
             return [
-                'total_detections' => 142,
-                'pending_review' => 18,
-                'approved_work_orders' => 112,
-                'false_positive_rejected' => 12,
-                'mean_confidence_score' => 91.4,
-                'high_severity_count' => 8,
+                'total_detections' => 0,
+                'pending_review' => 0,
+                'approved_work_orders' => 0,
+                'false_positive_rejected' => 0,
+                'mean_confidence_score' => 0.0,
+                'high_severity_count' => 0,
             ];
         }
     }
@@ -160,101 +155,5 @@ class OmAiDistressService
         ]);
 
         return true;
-    }
-
-    private function getMockDetections(array $filters = []): array
-    {
-        $all = [
-            [
-                'id' => 1,
-                'detection_code' => 'AID-2026-0901',
-                'distress_type' => 'pothole',
-                'confidence_score' => 0.94,
-                'chainage' => 'Ch 14+350',
-                'direction' => 'northbound',
-                'latitude' => 23.9482,
-                'longitude' => 90.5821,
-                'estimated_area_sqm' => 0.45,
-                'severity' => 'critical',
-                'status' => 'pending_review',
-                'bounding_box' => [120, 340, 260, 480],
-                'notes' => 'Severe pothole in outer heavy lane. Risk of tyre blowout.',
-                'created_at' => now()->subHours(2)->toDateTimeString(),
-            ],
-            [
-                'id' => 2,
-                'detection_code' => 'AID-2026-0902',
-                'distress_type' => 'alligator_crack',
-                'confidence_score' => 0.88,
-                'chainage' => 'Ch 18+100',
-                'direction' => 'northbound',
-                'latitude' => 23.9620,
-                'longitude' => 90.5750,
-                'estimated_area_sqm' => 3.20,
-                'severity' => 'high',
-                'status' => 'pending_review',
-                'bounding_box' => [80, 200, 420, 510],
-                'notes' => 'Fatigue cracking pattern in wheel path. Base moisture ingress possible.',
-                'created_at' => now()->subHours(3)->toDateTimeString(),
-            ],
-            [
-                'id' => 3,
-                'detection_code' => 'AID-2026-0903',
-                'distress_type' => 'longitudinal_crack',
-                'confidence_score' => 0.91,
-                'chainage' => 'Ch 22+800',
-                'direction' => 'southbound',
-                'latitude' => 23.9850,
-                'longitude' => 90.5610,
-                'estimated_area_sqm' => 1.80,
-                'severity' => 'medium',
-                'status' => 'approved_work_order',
-                'work_order_id' => 104,
-                'bounding_box' => [150, 100, 180, 600],
-                'notes' => 'Construction joint opening along centerline. Seal before monsoon.',
-                'created_at' => now()->subHours(8)->toDateTimeString(),
-            ],
-            [
-                'id' => 4,
-                'detection_code' => 'AID-2026-0904',
-                'distress_type' => 'road_debris',
-                'confidence_score' => 0.96,
-                'chainage' => 'Ch 09+400',
-                'direction' => 'southbound',
-                'latitude' => 23.9210,
-                'longitude' => 90.5980,
-                'estimated_area_sqm' => 0.80,
-                'severity' => 'critical',
-                'status' => 'pending_review',
-                'bounding_box' => [200, 300, 310, 410],
-                'notes' => 'Blown truck tire tread carcass obstructing median lane.',
-                'created_at' => now()->subMinutes(45)->toDateTimeString(),
-            ],
-            [
-                'id' => 5,
-                'detection_code' => 'AID-2026-0905',
-                'distress_type' => 'rutting',
-                'confidence_score' => 0.82,
-                'chainage' => 'Ch 31+200',
-                'direction' => 'northbound',
-                'latitude' => 24.0320,
-                'longitude' => 90.5280,
-                'estimated_area_sqm' => 4.50,
-                'severity' => 'medium',
-                'status' => 'pending_review',
-                'bounding_box' => [50, 180, 500, 450],
-                'notes' => 'Channelized rutting in outer freight lane from overloaded heavy trucks.',
-                'created_at' => now()->subDay()->toDateTimeString(),
-            ],
-        ];
-
-        if (! empty($filters['status']) && $filters['status'] !== 'all') {
-            $all = array_values(array_filter($all, fn ($d) => $d['status'] === $filters['status']));
-        }
-        if (! empty($filters['distress_type']) && $filters['distress_type'] !== 'all') {
-            $all = array_values(array_filter($all, fn ($d) => $d['distress_type'] === $filters['distress_type']));
-        }
-
-        return $all;
     }
 }

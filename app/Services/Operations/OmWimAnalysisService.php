@@ -45,7 +45,16 @@ class OmWimAnalysisService
 
         $logs = OmWimFatigueLog::latest('log_date')->take(100)->get();
         if ($logs->isEmpty()) {
-            return $this->getMockOverview();
+            return [
+                'total_weighed_trucks' => 0,
+                'overloaded_trucks' => 0,
+                'overload_rate_pct' => 0.0,
+                'critical_overloads' => 0,
+                'cumulative_esal' => 0.0,
+                'total_damage_cost_bdt' => 0.0,
+                'by_plaza' => [],
+                'recent_overloads' => [],
+            ];
         }
 
         $totalVehicles = $logs->count();
@@ -74,52 +83,6 @@ class OmWimAnalysisService
             'total_damage_cost_bdt' => $totalDamageCost,
             'by_plaza' => $byPlaza,
             'recent_overloads' => $logs->where('overload_percentage', '>', 0)->take(15)->values()->all(),
-        ];
-    }
-
-    private function getMockOverview(): array
-    {
-        return [
-            'total_weighed_trucks' => 4580,
-            'overloaded_trucks' => 742,
-            'overload_rate_pct' => 16.2,
-            'critical_overloads' => 189,
-            'cumulative_esal' => 38940.5,
-            'total_damage_cost_bdt' => 1485600.0,
-            'by_plaza' => [
-                ['plaza' => 'Kanchan Toll Plaza', 'total_weighed' => 2450, 'overload_count' => 412, 'avg_damage_factor' => 3.24, 'total_damage_bdt' => 842000.0],
-                ['plaza' => 'Bhogra Toll Plaza', 'total_weighed' => 2130, 'overload_count' => 330, 'avg_damage_factor' => 2.85, 'total_damage_bdt' => 643600.0],
-            ],
-            'recent_overloads' => [
-                [
-                    'id' => 1,
-                    'log_date' => now()->toDateString(),
-                    'toll_plaza' => 'Kanchan Toll Plaza',
-                    'lane_number' => 'Lane 04 (Truck Slow)',
-                    'axle_class' => '5-Axle Semi-Trailer',
-                    'gross_weight_tonnes' => 52.4,
-                    'statutory_weight_limit' => 38.0,
-                    'overload_percentage' => 37.9,
-                    'fourth_power_damage_factor' => 3.61,
-                    'esal_equivalent' => 17.1,
-                    'estimated_damage_cost_bdt' => 1250.0,
-                    'intercepted_by_patrol' => true,
-                ],
-                [
-                    'id' => 2,
-                    'log_date' => now()->toDateString(),
-                    'toll_plaza' => 'Kanchan Toll Plaza',
-                    'lane_number' => 'Lane 05',
-                    'axle_class' => '3-Axle Rigid Truck',
-                    'gross_weight_tonnes' => 32.8,
-                    'statutory_weight_limit' => 22.0,
-                    'overload_percentage' => 49.1,
-                    'fourth_power_damage_factor' => 4.93,
-                    'esal_equivalent' => 26.2,
-                    'estimated_damage_cost_bdt' => 1880.0,
-                    'intercepted_by_patrol' => false,
-                ],
-            ],
         ];
     }
 }
