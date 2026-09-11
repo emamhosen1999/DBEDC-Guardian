@@ -2,8 +2,10 @@
 
 namespace App\Services\Operations;
 
+use App\Models\OmActivityLog;
 use App\Models\OmIncident;
 use App\Models\OmIncidentVehicle;
+use App\Models\OmTppdClaim;
 use App\Models\OmWorkOrder;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -242,6 +244,59 @@ class OmIncidentService
             ]);
 
             $locked->update(['lock_version' => OmVersionGuard::next($locked)]);
+
+            // Auto-link or auto-draft TPPD claim if not already present
+            $existingClaim = OmTppdClaim::where('incident_id', $locked->id)->first();
+            if (! $existingClaim) {
+                $vehicle = $locked->vehicles()->first();
+                OmTppdClaim::create([
+                    'claim_number' => 'TPPD-'.date('Ymd').'-'.rand(1000, 9999),
+                    'incident_id' => $locked->id,
+                    'incident_date' => $locked->reported_at ? $locked->reported_at->toDateString() : now()->toDateString(),
+                    'chainage' => $locked->chainage,
+                    'direction' => $locked->direction,
+                    'vehicle_registration_number' => $vehicle?->vehicle_registration_number ?? 'Pending Police Report',
+                    'driver_name' => $vehicle?->driver_name,
+                    'driver_license_number' => $vehicle?->driver_license_number,
+                    'insurance_company' => $vehicle?->insurance_company,
+                    'insurance_policy_number' => $vehicle?->insurance_policy_number,
+                    'damaged_components' => [
+                        'description' => $vehicle?->damage_to_expressway_asset ?? 'Crash damage to expressway infrastructure',
+                        'cost' => (float) $locked->asset_damage_cost_est,
+                    ],
+                    'estimated_repair_cost' => (float) $locked->asset_damage_cost_est,
+                    'claimed_amount' => (float) $locked->asset_damage_cost_est,
+                    'status' => 'draft',
+                    'notes' => "Auto-drafted upon generation of emergency damage repair work order {$workOrder->work_order_number}.",
+                    'created_by_user_id' => $userId,
+                ]);
+            }
+
+            // Create activity logs for end-to-end traceability
+            OmActivityLog::create([
+                'entity_type' => 'incident',
+                'entity_id' => $locked->id,
+                'action' => 'damage_work_order_created',
+                'user_id' => $userId,
+                'notes' => "Created emergency damage restoration work order {$workOrder->work_order_number}",
+                'metadata' => [
+                    'work_order_id' => $workOrder->id,
+                    'work_order_number' => $workOrder->work_order_number,
+                    'estimated_cost' => $workOrder->estimated_cost,
+                ],
+            ]);
+
+            OmActivityLog::create([
+                'entity_type' => 'work_order',
+                'entity_id' => $workOrder->id,
+                'action' => 'created_from_incident',
+                'user_id' => $userId,
+                'notes' => "Work order generated from incident {$locked->incident_number}",
+                'metadata' => [
+                    'incident_id' => $locked->id,
+                    'incident_number' => $locked->incident_number,
+                ],
+            ]);
 
             return $workOrder;
         });

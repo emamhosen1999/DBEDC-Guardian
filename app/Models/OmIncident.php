@@ -96,4 +96,9 @@ class OmIncident extends Model
         return $this->hasMany(OmActivityLog::class, 'entity_id')
             ->where('entity_type', 'incident');
     }
+
+    public function tppdClaims(): HasMany
+    {
+        return $this->hasMany(OmTppdClaim::class, 'incident_id');
+    }
 }

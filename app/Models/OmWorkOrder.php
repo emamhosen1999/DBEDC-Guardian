@@ -18,6 +18,8 @@ class OmWorkOrder extends Model
         'work_order_number',
         'defect_id',
         'asset_id',
+        'preventive_schedule_id',
+        'inspection_id',
         'title',
         'work_type',
         'category',
@@ -65,6 +67,16 @@ class OmWorkOrder extends Model
     public function asset(): BelongsTo
     {
         return $this->belongsTo(OmAsset::class, 'asset_id');
+    }
+
+    public function preventiveSchedule(): BelongsTo
+    {
+        return $this->belongsTo(OmPreventiveSchedule::class, 'preventive_schedule_id');
+    }
+
+    public function inspection(): BelongsTo
+    {
+        return $this->belongsTo(OmInspection::class, 'inspection_id');
     }
 
     public function reporter(): BelongsTo

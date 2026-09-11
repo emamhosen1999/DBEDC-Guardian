@@ -1013,6 +1013,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:om.shift.manage')->name('om.shift-logs.store');
     Route::post('/om/shift-logs/{id}/acknowledge', [OperationsMaintenanceController::class, 'acknowledgeShiftLog'])
         ->middleware('permission:om.shift.manage')->name('om.shift-logs.acknowledge');
+
+    Route::post('/om/toll-operations/audit', [OperationsMaintenanceController::class, 'submitTollShiftAudit'])
+        ->middleware('permission:om.toll.manage|om.dashboard.view')->name('om.toll-operations.audit');
 });
 
 // Phase 1 O&M Renovation Routes (PM, Inspections, SLA, Analytics, Safety)

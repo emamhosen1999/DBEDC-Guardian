@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Box, Flex, Text, Heading, Button, Badge, Table, TextField, Separator, Card, Grid } from '@radix-ui/themes';
 import { DocumentTextIcon, PrinterIcon, ArrowDownTrayIcon, CalendarIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import * as XLSX from 'xlsx';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
@@ -16,6 +17,58 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const handleExportExcel = () => {
+        const rows = (defects || []).map((d, index) => ({
+            'SL #': index + 1,
+            'Defect Number': d.defect_number || 'N/A',
+            'Location (Chainage)': d.chainage || 'N/A',
+            'Carriageway Direction': d.direction ? d.direction.toUpperCase() : 'N/A',
+            'Defect Category': (d.category || d.distress_type || 'General').replace(/_/g, ' ').toUpperCase(),
+            'Distress Type / Title': d.title || d.distress_type || 'N/A',
+            'Severity': (d.severity || 'Medium').toUpperCase(),
+            'Status': (d.status || 'Reported').replace(/_/g, ' ').toUpperCase(),
+            'SLA Target (Hours)': d.sla_hours ?? 24,
+            'Reported By': d.reporter?.name || 'Patrol Unit',
+            'Reported At': d.reported_at || d.created_at || 'N/A',
+            'Contractor Assigned': d.work_orders?.[0]?.contractor_name || 'In-House Crew',
+            'Remarks / QC Notes': d.description || '',
+        }));
+
+        const summaryRows = [
+            { 'KPI Metric': 'Daily Report Date', 'Value': selectedDate },
+            { 'KPI Metric': 'Inspection Team', 'Value': summary?.inspection_team || 'SE: Prodip - Habib' },
+            { 'KPI Metric': 'Weather Condition', 'Value': summary?.weather || 'Fair' },
+            { 'KPI Metric': 'Observed Traffic Flow', 'Value': summary?.traffic_condition || 'Normal Corridor Flow' },
+            { 'KPI Metric': 'Overall Pavement Condition', 'Value': summary?.overall_pavement_condition || 'Fair to Good' },
+            { 'KPI Metric': 'Cumulative Open Defects', 'Value': summary?.cumulative_open_defects ?? 0 },
+            { 'KPI Metric': 'New Defects Today', 'Value': summary?.new_defects_today ?? 0 },
+            { 'KPI Metric': 'Defects Repaired Today', 'Value': summary?.repaired_today ?? 0 },
+            { 'KPI Metric': 'Critical Safety Hazards', 'Value': summary?.open_by_severity?.critical ?? 0 },
+            { 'KPI Metric': 'Major Safety Hazards', 'Value': summary?.open_by_severity?.major ?? 0 },
+            { 'KPI Metric': 'Moderate Defects', 'Value': summary?.open_by_severity?.moderate ?? 0 },
+            { 'KPI Metric': 'Minor Defects', 'Value': summary?.open_by_severity?.minor ?? 0 },
+            { 'KPI Metric': 'Executive Submission Time', 'Value': summary?.reported_to_ceo || '09:15 AM' },
+            { 'KPI Metric': 'Report Prepared By', 'Value': summary?.report_prepared_by || 'QC Department' },
+        ];
+
+        const workbook = XLSX.utils.book_new();
+
+        const defectSheet = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ 'Status': 'No defects recorded for this date' }]);
+        const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+
+        defectSheet['!cols'] = [
+            { wch: 6 }, { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 18 },
+            { wch: 28 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 22 },
+            { wch: 20 }, { wch: 22 }, { wch: 35 }
+        ];
+        summarySheet['!cols'] = [{ wch: 30 }, { wch: 35 }];
+
+        XLSX.utils.book_append_sheet(workbook, defectSheet, 'Defect Register');
+        XLSX.utils.book_append_sheet(workbook, summarySheet, 'Executive Summary');
+
+        XLSX.writeFile(workbook, `Daily_Maintenance_Report_N105_${selectedDate}.xlsx`);
     };
 
     const statItems = [
@@ -70,6 +123,9 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
                                     </Flex>
                                     <Button color="gray" variant="soft" onClick={handlePrint} style={{ borderRadius: 10 }}>
                                         <PrinterIcon width={16} height={16} /> Print / Export PDF
+                                    </Button>
+                                    <Button color="green" variant="soft" onClick={handleExportExcel} style={{ borderRadius: 10 }}>
+                                        <ArrowDownTrayIcon width={16} height={16} /> Export Excel (.xlsx)
                                     </Button>
                                 </Flex>
                             </Flex>

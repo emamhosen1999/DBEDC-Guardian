@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Button, Badge, Table, Dialog, Select, TextArea, Separator } from '@radix-ui/themes';
-import { ClipboardDocumentCheckIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { Box, Flex, Text, Heading, Button, Badge, Table, Dialog, Select, TextArea, TextField, Separator } from '@radix-ui/themes';
+import { ClipboardDocumentCheckIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, EyeIcon, PlusIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
@@ -14,6 +14,18 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
     const canManage = auth?.permissions?.includes('om.maintenance.manage') || auth?.roles?.includes('Super Administrator');
     const [reviewModal, setReviewModal] = useState(null);
     const [reviewNotes, setReviewNotes] = useState('');
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [submittingTemplate, setSubmittingTemplate] = useState(false);
+    const [templateForm, setTemplateForm] = useState({
+        name: '',
+        description: '',
+        asset_category: 'pavement',
+        max_score: 100,
+        pass_threshold: 70,
+        auto_create_defect_on_fail: true,
+        photo_required: true,
+        sections_text: '1. Pavement Surface Integrity (Cracking, Potholes, Rutting)\n2. Drainage & Runoff Clearance (Curb Inlets, Culverts, Ditches)\n3. Road Markings & Signage Retroreflectivity',
+    });
 
     const inspectionList = inspections?.data || [];
 
@@ -21,6 +33,50 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
         router.post(`/om/inspections/${id}/review`, { notes: reviewNotes }, {
             onSuccess: () => { setReviewModal(null); setReviewNotes(''); },
             onError: showOperationMutationErrors,
+        });
+    };
+
+    const handleCreateTemplate = () => {
+        if (!templateForm.name.trim()) return;
+        setSubmittingTemplate(true);
+
+        const lines = templateForm.sections_text.split('\n').map(l => l.trim()).filter(Boolean);
+        const checklist_sections = lines.map((line, idx) => ({
+            id: `sec_${idx + 1}`,
+            title: line.replace(/^\d+[\.\)]\s*/, ''),
+            weight: Math.round(100 / Math.max(1, lines.length)),
+            items: [
+                { id: `item_${idx + 1}_1`, description: `Visual inspection and condition rating of ${line.replace(/^\d+[\.\)]\s*/, '')}`, max_points: 10 }
+            ]
+        }));
+
+        router.post('/om/inspection-templates', {
+            name: templateForm.name,
+            description: templateForm.description,
+            asset_category: templateForm.asset_category,
+            max_score: Number(templateForm.max_score),
+            pass_threshold: Number(templateForm.pass_threshold),
+            auto_create_defect_on_fail: templateForm.auto_create_defect_on_fail,
+            photo_required: templateForm.photo_required,
+            checklist_sections: checklist_sections.length > 0 ? checklist_sections : [
+                { id: 'sec_1', title: 'General Inspection Items', weight: 100, items: [{ id: 'item_1', description: 'Overall asset condition check', max_points: 10 }] }
+            ],
+        }, {
+            onSuccess: () => {
+                setShowTemplateModal(false);
+                setTemplateForm({
+                    name: '',
+                    description: '',
+                    asset_category: 'pavement',
+                    max_score: 100,
+                    pass_threshold: 70,
+                    auto_create_defect_on_fail: true,
+                    photo_required: true,
+                    sections_text: '1. Pavement Surface Integrity (Cracking, Potholes, Rutting)\n2. Drainage & Runoff Clearance (Curb Inlets, Culverts, Ditches)\n3. Road Markings & Signage Retroreflectivity',
+                });
+            },
+            onError: showOperationMutationErrors,
+            onFinish: () => setSubmittingTemplate(false),
         });
     };
 
@@ -69,9 +125,16 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
                 ]} />
 
                 {/* Templates Overview */}
-                {templates && templates.length > 0 && (
-                    <Panel mt="4">
-                        <Heading size="4" mb="3">Active Inspection Templates</Heading>
+                <Panel mt="4">
+                    <Flex justify="between" align="center" mb="3">
+                        <Heading size="4">Active Inspection Templates</Heading>
+                        {canManage && (
+                            <Button size="2" color="blue" onClick={() => setShowTemplateModal(true)} style={{ borderRadius: 8 }}>
+                                <PlusIcon width={16} height={16} /> New Template
+                            </Button>
+                        )}
+                    </Flex>
+                    {templates && templates.length > 0 ? (
                         <Flex gap="3" wrap="wrap">
                             {templates.map(t => (
                                 <Box key={t.id} style={{border: '1px solid var(--gray-6)', borderRadius: 8, padding: 12, minWidth: 200}}>
@@ -82,8 +145,10 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
                                 </Box>
                             ))}
                         </Flex>
-                    </Panel>
-                )}
+                    ) : (
+                        <Text size="2" color="gray">No inspection templates defined yet.</Text>
+                    )}
+                </Panel>
 
                 {/* Inspection Records Table */}
                 <Panel mt="4">
@@ -152,6 +217,119 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
                                 <Flex justify="end" gap="2" mt="3">
                                     <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
                                     <Button color="blue" onClick={() => handleReview(reviewModal?.id)}>Mark Reviewed</Button>
+                                </Flex>
+                            </Dialog.Content>
+                        </Dialog.Root>
+
+                        {/* Create Inspection Template Modal */}
+                        <Dialog.Root open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+                            <Dialog.Content maxWidth="520px">
+                                <Dialog.Title>Create Inspection Template</Dialog.Title>
+                                <Dialog.Description size="2" color="gray" mb="3">
+                                    Define standard QC criteria and scoring rules for highway asset condition surveys.
+                                </Dialog.Description>
+                                
+                                <Flex direction="column" gap="3">
+                                    <Box>
+                                        <Text size="2" weight="bold" mb="1" as="div">Template Name</Text>
+                                        <TextField.Root
+                                            placeholder="e.g., Routine Bridge Pier & Bearing Inspection"
+                                            value={templateForm.name}
+                                            onChange={e => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
+                                        />
+                                    </Box>
+                                    
+                                    <Flex gap="3">
+                                        <Box style={{ flex: 1 }}>
+                                            <Text size="2" weight="bold" mb="1" as="div">Asset Category</Text>
+                                            <Select.Root
+                                                value={templateForm.asset_category}
+                                                onValueChange={val => setTemplateForm(prev => ({ ...prev, asset_category: val }))}
+                                            >
+                                                <Select.Trigger style={{ width: '100%' }} />
+                                                <Select.Content>
+                                                    <Select.Item value="pavement">Pavement & Carriageway</Select.Item>
+                                                    <Select.Item value="bridge">Bridges & Flyovers</Select.Item>
+                                                    <Select.Item value="drainage">Drainage & Culverts</Select.Item>
+                                                    <Select.Item value="lighting">Lighting & Power</Select.Item>
+                                                    <Select.Item value="guardrail">Guardrails & Barriers</Select.Item>
+                                                    <Select.Item value="signage">Signage & Gantries</Select.Item>
+                                                    <Select.Item value="toll_plaza">Toll Plaza & Canopy</Select.Item>
+                                                    <Select.Item value="general">General Corridor</Select.Item>
+                                                </Select.Content>
+                                            </Select.Root>
+                                        </Box>
+                                        <Box style={{ width: 140 }}>
+                                            <Text size="2" weight="bold" mb="1" as="div">Pass Threshold %</Text>
+                                            <TextField.Root
+                                                type="number"
+                                                min="1"
+                                                max="100"
+                                                value={templateForm.pass_threshold}
+                                                onChange={e => setTemplateForm(prev => ({ ...prev, pass_threshold: e.target.value }))}
+                                            />
+                                        </Box>
+                                    </Flex>
+
+                                    <Box>
+                                        <Text size="2" weight="bold" mb="1" as="div">Description / Scope</Text>
+                                        <TextArea
+                                            placeholder="Scope, test equipment, and environmental conditions required..."
+                                            value={templateForm.description}
+                                            onChange={e => setTemplateForm(prev => ({ ...prev, description: e.target.value }))}
+                                            rows={2}
+                                        />
+                                    </Box>
+
+                                    <Box>
+                                        <Text size="2" weight="bold" mb="1" as="div">Checklist Sections (One section per line)</Text>
+                                        <TextArea
+                                            value={templateForm.sections_text}
+                                            onChange={e => setTemplateForm(prev => ({ ...prev, sections_text: e.target.value }))}
+                                            rows={4}
+                                        />
+                                        <Text size="1" color="gray" mt="1" as="div">
+                                            Each line becomes an actionable inspection section with auto-assigned scoring weight.
+                                        </Text>
+                                    </Box>
+
+                                    <Flex gap="4" align="center" mt="1">
+                                        <Flex gap="2" align="center">
+                                            <input
+                                                type="checkbox"
+                                                id="chk_auto_defect"
+                                                checked={templateForm.auto_create_defect_on_fail}
+                                                onChange={e => setTemplateForm(prev => ({ ...prev, auto_create_defect_on_fail: e.target.checked }))}
+                                            />
+                                            <label htmlFor="chk_auto_defect" style={{ fontSize: 13, cursor: 'pointer' }}>
+                                                Auto-create Defect on failure
+                                            </label>
+                                        </Flex>
+                                        <Flex gap="2" align="center">
+                                            <input
+                                                type="checkbox"
+                                                id="chk_photo_req"
+                                                checked={templateForm.photo_required}
+                                                onChange={e => setTemplateForm(prev => ({ ...prev, photo_required: e.target.checked }))}
+                                            />
+                                            <label htmlFor="chk_photo_req" style={{ fontSize: 13, cursor: 'pointer' }}>
+                                                Photo evidence mandatory
+                                            </label>
+                                        </Flex>
+                                    </Flex>
+                                </Flex>
+
+                                <Flex justify="end" gap="2" mt="4">
+                                    <Dialog.Close>
+                                        <Button variant="soft" color="gray">Cancel</Button>
+                                    </Dialog.Close>
+                                    <Button
+                                        color="blue"
+                                        disabled={!templateForm.name.trim() || submittingTemplate}
+                                        onClick={handleCreateTemplate}
+                                    >
+                                        {submittingTemplate ? 'Saving...' : 'Create Template'}
+                                    </Button>
                                 </Flex>
                             </Dialog.Content>
                         </Dialog.Root>

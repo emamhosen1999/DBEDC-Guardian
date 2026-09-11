@@ -128,15 +128,39 @@ class OmDefectService
 
             $woNumber = 'WO-'.rand(10000, 99999);
 
+            $rawPriority = $woData['priority'] ?? $locked->severity;
+            $priority = match ($rawPriority) {
+                'critical', 'emergency' => 'emergency',
+                'high' => 'high',
+                'low' => 'low',
+                default => 'medium',
+            };
+
+            $rawCategory = $woData['category'] ?? $this->mapDistressToCategory($locked->distress_type);
+            $validCategories = ['pavement', 'guardrail', 'lighting', 'drainage', 'bridge', 'signage'];
+            $category = in_array($rawCategory, $validCategories, true) ? $rawCategory : 'pavement';
+
+            $rawWorkType = $woData['work_type'] ?? 'routine_corrective';
+            $workType = match ($rawWorkType) {
+                'corrective' => 'routine_corrective',
+                'preventive' => 'preventive_scheduled',
+                'emergency' => 'emergency_repair',
+                'periodic' => 'periodic_rehabilitation',
+                'tppd' => 'tppd_restoration',
+                default => in_array($rawWorkType, ['routine_corrective', 'preventive_scheduled', 'emergency_repair', 'periodic_rehabilitation', 'tppd_restoration'], true)
+                    ? $rawWorkType
+                    : 'routine_corrective',
+            };
+
             $workOrder = OmWorkOrder::create([
                 'work_order_number' => $woNumber,
                 'defect_id' => $locked->id,
                 'asset_id' => $locked->asset_id,
                 'title' => $woData['title'] ?? ('Rectification: '.$locked->title),
-                'work_type' => $woData['work_type'] ?? 'routine_corrective',
-                'category' => $woData['category'] ?? $this->mapDistressToCategory($locked->distress_type),
+                'work_type' => $workType,
+                'category' => $category,
                 'location' => $locked->chainage.' ('.ucfirst($locked->direction).')',
-                'priority' => $woData['priority'] ?? $locked->severity,
+                'priority' => $priority,
                 'status' => 'assigned',
                 'assigned_to' => $woData['assigned_to'] ?? 'Road Maintenance Crew A',
                 'contractor_name' => $woData['contractor_name'] ?? null,

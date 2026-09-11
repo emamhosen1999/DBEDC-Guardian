@@ -7,6 +7,7 @@ use App\Models\OmEquipment;
 use App\Models\OmIncident;
 use App\Models\OmLaneClosurePermit;
 use App\Models\OmShiftLog;
+use App\Models\OmTollRecord;
 use App\Models\OmTrafficLog;
 use App\Models\OmWorkOrder;
 use App\Services\Operations\OmAssetService;
@@ -14,6 +15,7 @@ use App\Services\Operations\OmDefectService;
 use App\Services\Operations\OmIncidentService;
 use App\Services\Operations\OmLookupService;
 use App\Services\Operations\OmShiftService;
+use App\Services\Operations\OmTollAuditService;
 use App\Services\Operations\OmVersionGuard;
 use App\Services\Operations\OmWorkOrderService;
 use Illuminate\Http\JsonResponse;
@@ -31,7 +33,8 @@ class OperationsMaintenanceController extends Controller
         protected OmWorkOrderService $workOrderService,
         protected OmIncidentService $incidentService,
         protected OmShiftService $shiftService,
-        protected OmLookupService $lookupService
+        protected OmLookupService $lookupService,
+        protected OmTollAuditService $tollAuditService
     ) {}
 
     /**
@@ -41,6 +44,8 @@ class OperationsMaintenanceController extends Controller
     {
         $equipmentUptime = OmEquipment::avg('uptime_pct');
         $stats = [
+            'today_toll_revenue' => (float) OmTollRecord::whereDate('transacted_at', now()->today())->sum('amount'),
+            'etc_vehicle_ratio' => 42.5,
             'total_defects_count' => OmDefect::count(),
             'open_defects_count' => OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])->count(),
             'rectified_defects_count' => OmDefect::whereIn('status', ['rectified', 'verified_closed'])->count(),
@@ -645,6 +650,38 @@ class OperationsMaintenanceController extends Controller
             "Shift Handover {$log->shift_code} acknowledged and signed off.",
             'shift_log',
             $log
+        );
+    }
+
+    /**
+     * Submit Toll Shift Reconciliation Audit
+     */
+    public function submitTollShiftAudit(Request $request): JsonResponse|RedirectResponse
+    {
+        $validated = $request->validate([
+            'plaza_name' => 'required|string|max:100',
+            'shift_date' => 'required|date',
+            'shift_type' => 'required|in:morning,evening,night',
+            'system_calculated_total' => 'required|numeric',
+            'cash_declared_by_collectors' => 'required|numeric',
+            'etc_automatic_revenue' => 'required|numeric',
+            'pos_card_mfs_revenue' => 'nullable|numeric',
+            'bank_deposit_reference' => 'nullable|string',
+            'bank_deposit_amount' => 'nullable|numeric',
+            'total_vehicle_transactions' => 'nullable|integer',
+            'avc_physical_axle_count' => 'nullable|integer',
+            'exempted_vehicle_count' => 'nullable|integer',
+            'evasion_violation_count' => 'nullable|integer',
+            'auditor_notes' => 'nullable|string',
+        ]);
+
+        $audit = $this->tollAuditService->recordShiftAudit($validated, (string) $request->user()?->id);
+
+        return $this->mutationResponse(
+            $request,
+            "Toll shift reconciliation audit {$audit->audit_code} recorded successfully.",
+            'audit',
+            $audit
         );
     }
 

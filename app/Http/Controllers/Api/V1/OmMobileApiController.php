@@ -68,6 +68,10 @@ class OmMobileApiController extends Controller
                 'active_incidents' => $activeIncidents,
                 'assigned_work_orders' => $assignedWorkOrders,
                 'open_defects' => $openDefects,
+                // Aliases for mobile components expecting short keys
+                'incidents' => $activeIncidents,
+                'work_orders' => $assignedWorkOrders,
+                'defects' => $openDefects,
             ],
         ]);
     }

@@ -20,9 +20,12 @@ class OmLookupController extends Controller
      */
     public function activeLookups(): JsonResponse
     {
+        $lookups = $this->lookupService->getGroupedLookups();
+
         return response()->json([
             'success' => true,
-            'lookups' => $this->lookupService->getGroupedLookups(),
+            'data' => $lookups,
+            'lookups' => $lookups,
         ]);
     }
 

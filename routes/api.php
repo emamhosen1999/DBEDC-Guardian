@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
 use App\Http\Controllers\Api\VersionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationsMaintenanceController;
+use App\Http\Controllers\OmLookupController;
 use App\Http\Controllers\OmRenovationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -42,6 +43,11 @@ Route::post('/biometric/webhook', [BiometricWebhookController::class, 'handle'])
 Route::post('/biometric/heartbeat', [BiometricWebhookController::class, 'heartbeat'])
     ->middleware('throttle:60,1')
     ->name('api.biometric.heartbeat');
+
+// Active O&M Lookups (Public / Mobile bootstrap)
+Route::get('/om/lookups', [OmLookupController::class, 'activeLookups'])
+    ->middleware('throttle:60,1')
+    ->name('api.om.lookups');
 
 // ZKTeco ADMS routes are in routes/iclock.php (registered without /api prefix
 // via bootstrap/app.php → then callback). The MB460 hardcodes /iclock/cdata.
@@ -348,6 +354,9 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
         ->middleware('permission:om.equipment.view')->name('api.v1.om.equipment');
     Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])
         ->middleware('permission:om.dashboard.view')->name('api.v1.om.shift-logs');
+
+    Route::get('/om/lookups', [OmLookupController::class, 'activeLookups'])
+        ->name('api.v1.om.lookups');
 
     // Dedicated Field Worker API
     Route::get('/om/field/overview', [OmMobileApiController::class, 'fieldOverview'])
