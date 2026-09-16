@@ -1,8 +1,7 @@
-const CACHE_NAME = 'dbedc-guardian-v2.0.1';
+const CACHE_NAME = 'dbedc-guardian-v2.0.2';
 const PRECACHE_URLS = [
   '/mobile/',
   '/mobile/index.html',
-  '/mobile/login.html',
   '/mobile/manifest.json',
   '/mobile/favicon.ico',
   '/mobile/icon-192.png',
