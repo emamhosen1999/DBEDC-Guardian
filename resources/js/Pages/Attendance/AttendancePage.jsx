@@ -8,6 +8,7 @@ import {
     DesktopIcon, SymbolIcon, UpdateIcon
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import dayjs from 'dayjs';
 
 import DailyTimesheetTab  from './DailyTimesheetTab';
@@ -35,8 +36,11 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
 
-    /* ── shared state ─────────────────────────────────────── */
-    const [activeTab,    setActiveTab]    = useState('timesheet');
+    /* Each tab is a distinct view with its own data, so it belongs in the URL:
+       /attendance?tab=roster survives a refresh and can be shared. */
+    const f = useQueryFilters({ mode: 'client', defaults: { tab: 'timesheet' }, debounceKeys: [] });
+    const setTab = f.set;
+    const setActiveTab = useCallback((val) => setTab('tab', val), [setTab]);
     const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [selectedMonth,setSelectedMonth]= useState(dayjs().format('YYYY-MM'));
 
@@ -84,6 +88,10 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
             : []
         ),
     ];
+
+    /* A URL can name a tab this user may not open — a stale link, or a permission
+       revoked since. Fall back to the first tab rather than render nothing. */
+    const activeTab = tabs.some(t => t.value === f.values.tab) ? f.values.tab : tabs[0].value;
 
     /* ── render ───────────────────────────────────────────── */
     return (

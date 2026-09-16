@@ -12,11 +12,32 @@ import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 
 const RoleManagement = ({ title, roles = [], permissions = [], permissionsGrouped = {}, role_has_permissions = [], enterprise_modules = [] }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedRole, setSelectedRole] = useState(roles[0]?.id || null);
-    const [selectedTab, setSelectedTab] = useState('roles');
+    /* The tab and the role being inspected are what the page is "showing", so
+       they go in the URL: an admin can link a colleague straight to a role. */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { tab: 'roles', role: '' },
+        debounceKeys: [],
+    });
+    const ROLE_TABS = ['roles', 'permissions', 'modules'];
+    const selectedTab = ROLE_TABS.includes(f.values.tab) ? f.values.tab : 'roles';
+    const setSelectedTab = (value) => f.set('tab', value);
+
+    // A role named in the URL may have been deleted, or may not be visible to
+    // this admin — fall back to the first role rather than showing nothing.
+    const urlRole = f.values.role === '' ? null : Number(f.values.role);
+    const selectedRole = roles.some((r) => r.id === urlRole) ? urlRole : roles[0]?.id ?? null;
+    const setSelectedRole = (value) => f.set('role', value);
+
+    /* Searching the permission list is a transient lookup aid, not part of the
+       view worth sharing, so it is remembered rather than put in the URL. */
+    const [ui, setUi] = usePersistentPageState('Administration/RoleManagement', { searchTerm: '' });
+    const searchTerm = ui.searchTerm;
+    const setSearchTerm = (value) => setUi({ searchTerm: value });
 
     const rolePermissionsMap = useMemo(() => {
         const map = new Map();

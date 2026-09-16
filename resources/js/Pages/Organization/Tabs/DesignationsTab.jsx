@@ -12,6 +12,7 @@ import {
     PersonIcon, MagnifyingGlassIcon, PlusIcon, Cross2Icon
 } from '@radix-ui/react-icons';
 import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
 import PageToolbar from '@/Components/PageToolbar';
@@ -39,8 +40,23 @@ const DesignationsTab = ({ isActive }) => {
         return maxDept ? String(maxDept[0]) : 'all';
     }, [departments, allDesignations]);
 
-    const [filters, setFilters] = useState({ search: '', status: 'all', department: defaultDepartment });
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10 });
+    /* ── filters: server state, so they live in the URL. Rows come from
+         react-query, so a change updates the URL without a server round trip.
+         `department` defaults to the busiest department, preserving the existing
+         preselection; it is computed from props present on first render. ── */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { search: '', status: 'all', department: defaultDepartment, page: 1, per_page: 10 },
+    });
+    const filters = useMemo(
+        () => ({ search: f.values.search, status: f.values.status, department: f.values.department }),
+        [f.values.search, f.values.status, f.values.department],
+    );
+    const pagination = useMemo(
+        () => ({ currentPage: f.values.page, perPage: f.values.per_page }),
+        [f.values.page, f.values.per_page],
+    );
+    const { set: setFilter, setPage, setPerPage } = f;
 
     const canCreate = auth.permissions?.includes('designations.create') || false;
     const canEdit = auth.permissions?.includes('designations.update') || false;
@@ -56,16 +72,14 @@ const DesignationsTab = ({ isActive }) => {
     });
 
     const { data: stats } = useDesignationsQuery.useDesignationStats();
+    useClampPage(f, designationsData?.last_page);
 
-    // Auto-refetch when filters or pagination changes
-    useEffect(() => {
-        if (isActive) {
-            refetch();
-        }
-    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.department, isActive, refetch]);
-
-    const handleFilterChange = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setPagination(prev => ({ ...prev, currentPage: 1 })); };
-    const clearFilters = () => { setFilters({ search: '', status: 'all', department: 'all' }); setPagination(p => ({ ...p, currentPage: 1 })); };
+    // Search goes through the debounced draft; selects commit immediately. The
+    // hook returns to page 1 on any filter change. (react-query refetches on
+    // its own when the key changes, so no effect is needed here.)
+    const handleFilterChange = (key, value) => (key === 'search' ? f.setDraft('search', value) : setFilter(key, value));
+    // "Clear" shows every department, which differs from the busiest-department default.
+    const clearFilters = () => f.setMany({ search: '', status: 'all', department: 'all' });
 
     const openModal = (type, designation = null) => setModalState({ type, designation });
     const closeModal = () => setModalState({ type: null, designation: null });
@@ -106,7 +120,7 @@ const DesignationsTab = ({ isActive }) => {
                 addLabel={!isMobile ? 'Add Designation' : 'Add'}
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={filters.search}
+                        searchValue={f.draft.search}
                         onSearchChange={(val) => handleFilterChange('search', val)}
                         searchPlaceholder="Search designations..."
                         showFilterToggle={false}
@@ -155,8 +169,8 @@ const DesignationsTab = ({ isActive }) => {
                         onEdit={canEdit ? (d) => openModal('edit_designation', d) : undefined}
                         onDelete={canDelete ? (d) => openModal('delete_designation', d) : undefined}
                         pagination={pagination}
-                        onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
-                        onRowsPerPageChange={(perPage) => setPagination(p => ({ ...p, perPage, currentPage: 1 }))}
+                        onPageChange={setPage}
+                        onRowsPerPageChange={setPerPage}
                     />
                 )}
             </Box>

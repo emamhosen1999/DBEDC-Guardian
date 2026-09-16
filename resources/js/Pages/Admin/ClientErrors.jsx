@@ -12,6 +12,7 @@ import {
 import axios from 'axios';
 import { format, formatDistanceToNow } from 'date-fns';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import { Panel } from '@/Components/ui/Panel';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { showToast } from '@/utils/toastUtils';
@@ -87,48 +88,37 @@ const PlatformBreakdown = ({ counts = {} }) => {
   );
 };
 
+// `filters` still arrives from the controller but is not read here: the URL is
+// the source of truth and useQueryFilters reads it directly.
 const ClientErrors = ({
-  errors = [], pagination = {}, filters = {}, options = {}, summary = {}, can = {},
+  errors = [], pagination = {}, options = {}, summary = {}, can = {},
 }) => {
-  const [search, setSearch] = useState(filters.search ?? '');
+  /* The URL is the single source of truth for every filter. The two free-text
+     fields are debounced so typing leaves one history entry, not one per key. */
+  const f = useQueryFilters({
+    routeName: 'admin.client-errors.index',
+    defaults: {
+      search: '',
+      status: 'unresolved',
+      severity: 'all',
+      source: 'all',
+      platform: '',
+      app_version: '',
+      screen: '',
+      from: '',
+      to: '',
+      page: 1,
+    },
+    debounceKeys: ['search', 'screen'],
+  });
+
+  const search = f.draft.search;
+  const setSearch = useCallback((value) => f.setDraft('search', value), [f.setDraft]);
+  const goToPage = useCallback((page) => f.setPage(page), [f.setPage]);
+
   const [detail, setDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [resolvingId, setResolvingId] = useState(null);
-
-  /* The URL is the single source of truth for every filter. */
-  const query = useCallback((overrides = {}) => ({
-    search,
-    status: filters.status ?? 'unresolved',
-    severity: filters.severity ?? 'all',
-    source: filters.source ?? 'all',
-    platform: filters.platform ?? '',
-    app_version: filters.app_version ?? '',
-    screen: filters.screen ?? '',
-    from: filters.from ?? '',
-    to: filters.to ?? '',
-    ...overrides,
-  }), [search, filters]);
-
-  const apply = useCallback((overrides) => {
-    router.get(route('admin.client-errors.index'), query(overrides), {
-      preserveState: true, preserveScroll: true, replace: true,
-    });
-  }, [query]);
-
-  /* Debounced server-side search. */
-  useEffect(() => {
-    if ((filters.search ?? '') === search) return undefined;
-
-    const timer = setTimeout(() => apply({ search }), 350);
-
-    return () => clearTimeout(timer);
-  }, [search, filters.search, apply]);
-
-  const goToPage = useCallback((page) => {
-    router.get(route('admin.client-errors.index'), query({ page }), {
-      preserveState: true, preserveScroll: true,
-    });
-  }, [query]);
 
   const openDetail = useCallback(async (row) => {
     setLoadingDetail(true);
@@ -171,6 +161,7 @@ const ClientErrors = ({
 
   const currentPage = pagination.current_page ?? 1;
   const lastPage = pagination.last_page ?? 1;
+  useClampPage(f, pagination.last_page);
 
   return (
     <App>
@@ -231,8 +222,8 @@ const ClientErrors = ({
                 </TextField.Root>
 
                 <Select.Root
-                  value={filters.status ?? 'unresolved'}
-                  onValueChange={(value) => apply({ status: value })}
+                  value={f.values.status}
+                  onValueChange={(value) => f.set('status', value)}
                 >
                   <Select.Trigger placeholder="Status" />
                   <Select.Content>
@@ -243,8 +234,8 @@ const ClientErrors = ({
                 </Select.Root>
 
                 <Select.Root
-                  value={filters.source ?? 'all'}
-                  onValueChange={(value) => apply({ source: value })}
+                  value={f.values.source}
+                  onValueChange={(value) => f.set('source', value)}
                 >
                   <Select.Trigger placeholder="Source" />
                   <Select.Content>
@@ -258,8 +249,8 @@ const ClientErrors = ({
                 </Select.Root>
 
                 <Select.Root
-                  value={filters.severity ?? 'all'}
-                  onValueChange={(value) => apply({ severity: value })}
+                  value={f.values.severity}
+                  onValueChange={(value) => f.set('severity', value)}
                 >
                   <Select.Trigger placeholder="Severity" />
                   <Select.Content>
@@ -273,8 +264,8 @@ const ClientErrors = ({
                 </Select.Root>
 
                 <Select.Root
-                  value={filters.platform || 'all'}
-                  onValueChange={(value) => apply({ platform: value === 'all' ? '' : value })}
+                  value={f.values.platform || 'all'}
+                  onValueChange={(value) => f.set('platform', value === 'all' ? '' : value)}
                 >
                   <Select.Trigger placeholder="Platform" />
                   <Select.Content>
@@ -286,8 +277,8 @@ const ClientErrors = ({
                 </Select.Root>
 
                 <Select.Root
-                  value={filters.app_version || 'all'}
-                  onValueChange={(value) => apply({ app_version: value === 'all' ? '' : value })}
+                  value={f.values.app_version || 'all'}
+                  onValueChange={(value) => f.set('app_version', value === 'all' ? '' : value)}
                 >
                   <Select.Trigger placeholder="App version" />
                   <Select.Content>
@@ -304,26 +295,22 @@ const ClientErrors = ({
               <Flex align="center" gap="3" wrap="wrap">
                 <TextField.Root
                   placeholder="Screen"
-                  defaultValue={filters.screen ?? ''}
-                  onBlur={(event) => {
-                    if ((filters.screen ?? '') !== event.target.value) {
-                      apply({ screen: event.target.value });
-                    }
-                  }}
+                  value={f.draft.screen}
+                  onChange={(event) => f.setDraft('screen', event.target.value)}
                   style={{ maxWidth: 160 }}
                 />
                 <Flex align="center" gap="2">
                   <Text size="1" color="gray">Last seen</Text>
                   <TextField.Root
                     type="date"
-                    value={filters.from ?? ''}
-                    onChange={(event) => apply({ from: event.target.value })}
+                    value={f.values.from}
+                    onChange={(event) => f.set('from', event.target.value)}
                   />
                   <Text size="1" color="gray">to</Text>
                   <TextField.Root
                     type="date"
-                    value={filters.to ?? ''}
-                    onChange={(event) => apply({ to: event.target.value })}
+                    value={f.values.to}
+                    onChange={(event) => f.set('to', event.target.value)}
                   />
                 </Flex>
               </Flex>
@@ -471,6 +458,7 @@ const ClientErrors = ({
                   size="1"
                   variant="soft"
                   disabled={currentPage <= 1}
+                  aria-label="Previous page"
                   onClick={() => goToPage(currentPage - 1)}
                 >
                   <ChevronLeftIcon />
@@ -480,6 +468,7 @@ const ClientErrors = ({
                   size="1"
                   variant="soft"
                   disabled={currentPage >= lastPage}
+                  aria-label="Next page"
                   onClick={() => goToPage(currentPage + 1)}
                 >
                   <ChevronRightIcon />

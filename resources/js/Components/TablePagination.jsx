@@ -19,6 +19,8 @@ const TablePagination = ({
 
     return (
         <Flex
+            as="nav"
+            aria-label="Pagination"
             align="center"
             justify="between"
             pt="3"
@@ -87,6 +89,8 @@ const TablePagination = ({
                                 disabled={loading}
                                 variant={page === currentPage ? 'solid' : 'soft'}
                                 color={page === currentPage ? 'blue' : 'gray'}
+                                aria-label={`Page ${page}`}
+                                aria-current={page === currentPage ? 'page' : undefined}
                                 onClick={() => onPageChange?.(page)}
                                 style={{ borderRadius: 8, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}
                             >

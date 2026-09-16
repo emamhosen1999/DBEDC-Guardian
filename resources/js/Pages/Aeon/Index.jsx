@@ -3,6 +3,7 @@ import { Head, usePage, router } from '@inertiajs/react';
 import { Flex, Box, Text, Heading, Badge, Button } from '@radix-ui/themes';
 import { Plus, History, Download, MapPin, Radio, ShieldCheck, Activity, Cpu, Sparkles, Send } from 'lucide-react';
 import App from '../../Layouts/App.jsx';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import AeonConversation from '../../aeon/AeonConversation.jsx';
 import AeonAura from '../../aeon/AeonAura.jsx';
 import AeonCore from '../../aeon/AeonCore.jsx';
@@ -13,7 +14,10 @@ export default function AeonConsole() {
   const { auth } = usePage().props;
   const aeon = useAeon();
   const [conversations, setConversations] = useState([]);
-  const [activeTab, setActiveTab] = useState('chat');
+  /* Each tab is a distinct workspace, so it belongs in the URL. */
+  const f = useQueryFilters({ mode: 'client', defaults: { tab: 'chat' }, debounceKeys: [] });
+  const activeTab = f.values.tab;
+  const setActiveTab = (value) => f.set('tab', value);
 
   useEffect(() => {
     fetchAeonConversations()

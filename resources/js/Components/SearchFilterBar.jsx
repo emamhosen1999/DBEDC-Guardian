@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { Box, Flex, Text, TextField, Button, Badge, Spinner, IconButton } from '@radix-ui/themes';
 import { MagnifyingGlassIcon, MixerHorizontalIcon, Cross2Icon } from '@radix-ui/react-icons';
 
@@ -34,6 +34,10 @@ export default function SearchFilterBar({
     style,
     className,
 }) {
+    // Lets the filter toggle name the panel it opens, so assistive tech can
+    // report "Filters, expanded" and jump to the panel.
+    const panelId = useId();
+
     return (
         <Box mb={mb} className={className} style={style}>
             {/* Top Toolbar Row: Search + Filter Toggle + Extra Actions */}
@@ -50,7 +54,10 @@ export default function SearchFilterBar({
                     {showSearch && (
                         <Box style={{ flex: 1, maxWidth: searchMaxWidth }}>
                             <TextField.Root
+                                type="search"
                                 placeholder={searchPlaceholder}
+                                aria-label={searchPlaceholder}
+                                aria-busy={searchLoading && Boolean(searchValue)}
                                 value={searchValue}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
                                 size="2"
@@ -85,7 +92,8 @@ export default function SearchFilterBar({
                             variant={showFilters ? 'solid' : 'surface'}
                             color={showFilters || activeFiltersCount > 0 ? 'indigo' : 'gray'}
                             onClick={onToggleFilters}
-                            aria-label="Toggle filters"
+                            aria-expanded={showFilters}
+                            aria-controls={panelId}
                             style={{ borderRadius: 10, cursor: 'pointer' }}
                         >
                             <MixerHorizontalIcon width="16" height="16" />
@@ -115,6 +123,9 @@ export default function SearchFilterBar({
             {/* Expandable Filter Drawer Panel */}
             {showFilters && children && (
                 <Box
+                    id={panelId}
+                    role="region"
+                    aria-label={filterButtonLabel}
                     mb="3"
                     p={{ initial: '3', sm: '4' }}
                     style={{
@@ -142,6 +153,16 @@ export default function SearchFilterBar({
                 </Box>
             )}
 
+            {/* Screen-reader status: how many filters narrow the list right now. */}
+            <span
+                aria-live="polite"
+                style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+            >
+                {activeFilterChips?.length
+                    ? `${activeFilterChips.length} filter${activeFilterChips.length === 1 ? '' : 's'} active`
+                    : ''}
+            </span>
+
             {/* Active Filter Chips / Badges Row */}
             {activeFilterChips && activeFilterChips.length > 0 && (
                 <Flex wrap="wrap" gap="2" align="center" mt="2">
@@ -165,6 +186,7 @@ export default function SearchFilterBar({
                                     variant="ghost"
                                     color="gray"
                                     onClick={chip.onRemove}
+                                    aria-label={`Remove ${chip.label} filter`}
                                     style={{ width: 14, height: 14, cursor: 'pointer', padding: 0 }}
                                 >
                                     <Cross2Icon width="12" height="12" />

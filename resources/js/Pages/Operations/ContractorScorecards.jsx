@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Box, Flex, Text, Heading, Button, Badge, Table, TextField, Dialog, Select, TextArea, Card, Progress } from '@radix-ui/themes';
 import {
@@ -13,6 +13,7 @@ import {
     MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
 import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
@@ -26,9 +27,27 @@ export default function ContractorScorecards({ auth, contractors, stats, filters
     const [editingContractor, setEditingContractor] = useState(null);
 
     // Filter states
-    const [search, setSearch] = useState(filters?.search || '');
-    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
-    const [tradeFilter, setTradeFilter] = useState(filters?.trade_specialty || 'all');
+    /* Applied filters live in the URL, so a refresh or a copied link reproduces
+       this list. This page filters on an explicit "Filter" press rather than as
+       you type, so the three controls below are an uncommitted draft until then. */
+    const f = useQueryFilters({
+        defaults: { search: '', status: 'all', trade_specialty: 'all', page: 1 },
+        debounceKeys: [],
+    });
+
+    const appliedKey = JSON.stringify([f.values.search, f.values.status, f.values.trade_specialty]);
+    const [search, setSearch] = useState(f.values.search);
+    const [statusFilter, setStatusFilter] = useState(f.values.status);
+    const [tradeFilter, setTradeFilter] = useState(f.values.trade_specialty);
+
+    // Re-seed the controls when the applied set changes underneath them — Back,
+    // Forward, or landing on a link someone shared.
+    useEffect(() => {
+        const [nextSearch, nextStatus, nextTrade] = JSON.parse(appliedKey);
+        setSearch(nextSearch);
+        setStatusFilter(nextStatus);
+        setTradeFilter(nextTrade);
+    }, [appliedKey]);
 
     // Form states
     const [companyName, setCompanyName] = useState('');
@@ -129,13 +148,11 @@ export default function ContractorScorecards({ auth, contractors, stats, filters
         });
     };
 
-    const handleFilter = () => {
-        router.get('/om/contractors', {
-            search: search || undefined,
-            status: statusFilter !== 'all' ? statusFilter : undefined,
-            trade_specialty: tradeFilter !== 'all' ? tradeFilter : undefined,
-        }, { preserveState: true });
-    };
+    const handleFilter = () => f.setMany({
+        search,
+        status: statusFilter,
+        trade_specialty: tradeFilter,
+    });
 
     const statusBadgeColor = (s) => ({
         active: 'green',

@@ -2,6 +2,7 @@ import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import App from '@/Layouts/App';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import TablePagination from '@/Components/TablePagination.jsx';
 import {
@@ -13,12 +14,21 @@ import { Box, Flex, Text, Heading, Button, Badge, Spinner, Separator } from '@ra
 import { BellIcon, CheckCircledIcon } from '@radix-ui/react-icons';
 
 const NotificationsIndex = ({ title }) => {
-    const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
+    /* Pagination is server state, so it lives in the URL: a refresh or a copied
+       link opens the same page of notifications. Rows come from react-query, so
+       paging updates the URL client-side without a server round trip. */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { page: 1, per_page: 20 },
+        debounceKeys: [],
+    });
+    const page = f.values.page;
+    const perPage = f.values.per_page;
 
     const { data, isLoading, isError } = useNotificationsList({ page, per_page: perPage });
     const markReadMutation = useMarkRead();
     const markAllReadMutation = useMarkAllRead();
+    useClampPage(f, data?.pagination?.last_page);
 
     const items = data?.data ?? [];
     const apiPagination = data?.pagination ?? { current_page: 1, per_page: perPage, total: 0 };
@@ -131,8 +141,8 @@ const NotificationsIndex = ({ title }) => {
                             <TablePagination
                                 pagination={pagination}
                                 loading={isLoading}
-                                onPageChange={setPage}
-                                onRowsPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+                                onPageChange={f.setPage}
+                                onRowsPerPageChange={f.setPerPage}
                             />
                         </Panel>
                     </Flex>

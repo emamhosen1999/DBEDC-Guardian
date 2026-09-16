@@ -182,6 +182,11 @@ class LoginController extends Controller
         $request->session()->regenerate();
         $request->session()->put('device_id', $deviceId);
 
+        // A session can end without an explicit sign-out (timeout, closed tab),
+        // leaving the previous user's remembered page state in this browser's
+        // history. Clear it on the way in as well as on the way out.
+        Inertia::clearHistory();
+
         // Register/update device with secure token
         $device = $this->deviceAuthService->registerDevice(
             $user,
@@ -268,6 +273,12 @@ class LoginController extends Controller
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        // Wipe the Inertia history state this browser is holding. Remembered
+        // page state (filters, expanded rows, open panels) is stored in history
+        // entries, so without this the next person to sign in on this browser
+        // could press Back and see the previous user's view.
+        Inertia::clearHistory();
 
         return redirect('/login');
     }

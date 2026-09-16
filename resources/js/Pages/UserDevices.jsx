@@ -11,6 +11,7 @@ import {
 import axios from 'axios';
 import { format, formatDistanceToNow } from 'date-fns';
 import App from "@/Layouts/App.jsx";
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { showToast } from '@/utils/toastUtils';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useUserDevicesQuery from '@/api/queries/useUserDevicesQuery';
@@ -32,10 +33,21 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
   });
   const [deviceItems, setDeviceItems] = useState(devices ?? []);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('recent');
+  /* These narrow the device list already on screen rather than changing what
+     the server returns, but they are worth surviving a refresh and worth
+     sharing, so they go in the URL. The change is client-side only. */
+  const f = useQueryFilters({
+    mode: 'client',
+    defaults: { search: '', status: 'all', type: 'all', sort: 'recent' },
+    debounceKeys: ['search'],
+  });
+  const searchTerm = f.values.search;
+  const statusFilter = f.values.status;
+  const setStatusFilter = (value) => f.set('status', value);
+  const typeFilter = f.values.type;
+  const setTypeFilter = (value) => f.set('type', value);
+  const sortBy = f.values.sort;
+  const setSortBy = (value) => f.set('sort', value);
 
   const [processing, setProcessing] = useState({
     refresh: false,
@@ -399,8 +411,8 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               <Flex direction={{ initial: 'column', lg: 'row' }} align={{ initial: 'stretch', lg: 'center' }} justify="between" gap="3" mb="4">
                 <Box style={{ flex: 1, maxWidth: 350 }}>
                   <SearchFilterBar
-                    searchValue={searchTerm}
-                    onSearchChange={setSearchTerm}
+                    searchValue={f.draft.search}
+                    onSearchChange={(value) => f.setDraft('search', value)}
                     searchPlaceholder="Search by name, platform, model, IP..."
                     mb="0"
                   />

@@ -13,6 +13,8 @@ import {
 } from '@heroicons/react/24/outline';
 import * as useSystemMonitoringQuery from '@/api/queries/useSystemMonitoringQuery';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import QueryState from '@/Components/Common/QueryState';
@@ -43,10 +45,29 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
     const { app } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 768px)');
 
-    const [autoRefresh, setAutoRefresh] = useState(true);
-    const [refreshInterval, setRefreshInterval] = useState('30');
-    const [selectedTab, setSelectedTab] = useState('overview');
-    const [timePeriod, setTimePeriod] = useState('24h');
+    /* Which panel and which window are what the server is asked for, so they
+       live in the URL and an on-call engineer can share the exact view. */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { tab: 'overview', period: '24h' },
+        debounceKeys: [],
+    });
+    const MONITORING_TABS = ['overview', 'database', 'performance', 'security', 'compliance'];
+    const selectedTab = MONITORING_TABS.includes(f.values.tab) ? f.values.tab : 'overview';
+    const setSelectedTab = (value) => f.set('tab', value);
+    const timePeriod = f.values.period;
+    const setTimePeriod = (value) => f.set('period', value);
+
+    /* How often to poll is this operator's standing preference, not part of the
+       view being shared, so it is remembered rather than put in the URL. */
+    const [ui, setUi] = usePersistentPageState('Administration/SystemMonitoring', {
+        autoRefresh: true,
+        refreshInterval: '30',
+    });
+    const autoRefresh = ui.autoRefresh;
+    const setAutoRefresh = (value) => setUi({ autoRefresh: value });
+    const refreshInterval = ui.refreshInterval;
+    const setRefreshInterval = (value) => setUi({ refreshInterval: value });
 
     // React Query hooks
     const { data: monitoringData, isLoading, isError, error, refetch } = useSystemMonitoringQuery.useSystemMonitoringMetrics({ type: selectedTab, period: timePeriod });

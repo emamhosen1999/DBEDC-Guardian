@@ -2,6 +2,8 @@ import { Panel } from '@/Components/ui/Panel';
 import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Select, TextField, Badge, Spinner } from '@radix-ui/themes';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import {
     BuildingOffice2Icon,
     PlusIcon,
@@ -27,7 +29,9 @@ import dayjs from 'dayjs';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
 
-const Departments = ({ title, departments: initialDepartments, managers, parentDepartments, stats: initialStats, filters: initialFilters }) => {
+// `filters` is still sent by the controller but is no longer read here: the URL
+// is the source of truth for filter state, and useQueryFilters reads it directly.
+const Departments = ({ title, departments: initialDepartments, managers, parentDepartments, stats: initialStats }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 639px)');
     const isTablet = useMediaQuery('(max-width: 767px)');
@@ -37,46 +41,48 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         department: null
     });
     
-    const [filters, setFilters] = useState({
-        search: initialFilters?.search || '',
-        status: initialFilters?.status || 'all',
-        parentDepartment: initialFilters?.parentDepartment || 'all'
+    /* ── server-driven state lives in the URL, so a refresh or a copied link
+         reproduces exactly this list. Rows come from react-query, so filter
+         changes update the URL client-side without a server round trip. ── */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: {
+            search: '',
+            status: 'all',
+            parent_department: 'all',
+            page: 1,
+            per_page: 10,
+        },
     });
-    
-    const [viewMode, setViewMode] = useState('table');
-    
-    const [pagination, setPagination] = useState({
-        currentPage: initialDepartments?.current_page || 1,
-        perPage: initialDepartments?.per_page || 10
-    });
-    
+
+    /* ── presentation-only, remembered across navigation ── */
+    const [ui, setUi] = usePersistentPageState('Departments/Index', { viewMode: 'table' });
+    const viewMode = ui.viewMode;
+    const setViewMode = useCallback((mode) => setUi({ viewMode: mode }), [setUi]);
+
+    const pagination = { currentPage: f.values.page, perPage: f.values.per_page };
+
     const { data: departmentsData, isLoading: loading, refetch } = useDepartmentsQuery.useDepartmentsList({
-        page: pagination.currentPage,
-        per_page: pagination.perPage,
-        search: filters.search,
-        status: filters.status,
-        parent_department: filters.parentDepartment
+        page: f.values.page,
+        per_page: f.values.per_page,
+        search: f.values.search,
+        status: f.values.status,
+        parent_department: f.values.parent_department,
     });
 
     const { data: stats } = useDepartmentsQuery.useDepartmentStats();
+    useClampPage(f, departmentsData?.last_page);
     
     const canCreateDepartment = auth?.permissions?.includes('departments.create') || false;
     const canEditDepartment = auth?.permissions?.includes('departments.update') || false;
     const canDeleteDepartment = auth?.permissions?.includes('departments.delete') || false;
     
-    const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-    };
-    
     const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
+        f.setPage(page);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
-    
-    const handleRowsPerPageChange = (rowsPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: rowsPerPage, currentPage: 1 }));
-    };
+
+    const handleRowsPerPageChange = (rowsPerPage) => f.setPerPage(rowsPerPage);
     
     const openModal = (type, department = null) => {
         setModalState({ type, department });
@@ -269,8 +275,8 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             <Box style={{ flex: 1, minWidth: '240px' }}>
                                 <TextField.Root
                                     placeholder="Search by name, code, or location..."
-                                    value={filters.search}
-                                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                                    value={f.draft.search}
+                                    onChange={(e) => f.setDraft('search', e.target.value)}
                                     style={{ borderRadius: 10 }}
                                 >
                                     <TextField.Slot><MagnifyingGlassIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} /></TextField.Slot>
@@ -278,7 +284,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             </Box>
 
                             <Box style={{ minWidth: '150px' }}>
-                                <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
+                                <Select.Root value={f.values.status} onValueChange={(v) => f.set('status', v)}>
                                     <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
                                     <Select.Content>
                                         <Select.Item value="all">All Statuses</Select.Item>
@@ -289,7 +295,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             </Box>
 
                             <Box style={{ minWidth: '180px' }}>
-                                <Select.Root value={filters.parentDepartment} onValueChange={(v) => handleFilterChange('parentDepartment', v)}>
+                                <Select.Root value={f.values.parent_department} onValueChange={(v) => f.set('parent_department', v)}>
                                     <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
                                     <Select.Content>
                                         <Select.Item value="all">All Parent Depts</Select.Item>

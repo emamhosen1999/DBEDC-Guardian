@@ -1,5 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import { Head } from '@inertiajs/react';
 import { route } from 'ziggy-js';
 import App from '@/Layouts/App';
@@ -29,66 +30,13 @@ const RequestLogs = ({ title }) => {
     const [showDetails, setShowDetails] = useState(null);
     const [confirmClearAll, setConfirmClearAll] = useState(false);
 
-    const [filters, setFilters] = useState({
-        search: '',
-        ip_address: '',
-        user_id: '',
-        method: '',
-        status: '',
-        start_date: '',
-        end_date: '',
-    });
-
-    const [pagination, setPagination] = useState({
-        current_page: 1,
-        per_page: 50,
-        total: 0,
-    });
-
-    // React Query hook
-    const { data: logsData, isLoading: loading, refetch } = useRequestLogsQuery.useRequestLogsList({
-        page: pagination.current_page,
-        per_page: pagination.per_page,
-        ...filters,
-    });
-
-    const deleteLogMutation = useRequestLogsQuery.useDeleteLog();
-    const bulkDeleteLogs = useRequestLogsQuery.useBulkDeleteLogs();
-    const clearAllLogsMutation = useRequestLogsQuery.useClearAllLogs();
-    const exportLogsMutation = useRequestLogsQuery.useExportLogs();
-    const isMutating = deleteLogMutation.isPending || bulkDeleteLogs.isPending || clearAllLogsMutation.isPending || exportLogsMutation.isPending;
-
-    const logs = logsData?.data || [];
-    const paginationData = logsData || { current_page: 1, per_page: 50, total: 0 };
-
-    // Update pagination when data changes
-    useEffect(() => {
-        setPagination({
-            current_page: paginationData.current_page,
-            per_page: paginationData.per_page,
-            total: paginationData.total,
-        });
-    }, [paginationData]);
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, per_page: newPerPage, current_page: 1 }));
-    };
-
-    useEffect(() => {
-        refetch();
-    }, []);
-
-    const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
-    };
-
-    const applyFilters = () => {
-        setPagination(prev => ({ ...prev, current_page: 1 }));
-        refetch();
-    };
-
-    const resetFilters = () => {
-        setFilters({
+    /* ── Applied filters live in the URL, so a refresh or a copied link
+         reproduces this view. Rows come from react-query, so applying a filter
+         updates the URL client-side without a server round trip. ── */
+    const f = useQueryFilters({
+        mode: 'client',
+        debounceKeys: [],
+        defaults: {
             search: '',
             ip_address: '',
             user_id: '',
@@ -96,9 +44,66 @@ const RequestLogs = ({ title }) => {
             status: '',
             start_date: '',
             end_date: '',
-        });
-        refetch();
+            page: 1,
+            per_page: 50,
+        },
+    });
+
+    /* This page filters on an explicit "Apply", not as you type. The form below
+       is therefore an uncommitted draft; the URL still holds what is applied. */
+    const applied = useMemo(() => ({
+        search: f.values.search,
+        ip_address: f.values.ip_address,
+        user_id: f.values.user_id,
+        method: f.values.method,
+        status: f.values.status,
+        start_date: f.values.start_date,
+        end_date: f.values.end_date,
+    }), [f.values.search, f.values.ip_address, f.values.user_id, f.values.method, f.values.status, f.values.start_date, f.values.end_date]);
+
+    const appliedKey = JSON.stringify(applied);
+    const [filters, setFilters] = useState(applied);
+
+    // Re-seed the form whenever the applied set changes underneath it — Back,
+    // Forward, a reset, or landing on a link someone shared.
+    useEffect(() => {
+        setFilters(JSON.parse(appliedKey));
+    }, [appliedKey]);
+
+    // React Query hook
+    const { data: logsData, isLoading: loading, refetch } = useRequestLogsQuery.useRequestLogsList({
+        page: f.values.page,
+        per_page: f.values.per_page,
+        ...applied,
+    });
+
+    const deleteLogMutation = useRequestLogsQuery.useDeleteLog();
+    const bulkDeleteLogs = useRequestLogsQuery.useBulkDeleteLogs();
+    const clearAllLogsMutation = useRequestLogsQuery.useClearAllLogs();
+    const exportLogsMutation = useRequestLogsQuery.useExportLogs();
+    useClampPage(f, logsData?.last_page);
+    const isMutating = deleteLogMutation.isPending || bulkDeleteLogs.isPending || clearAllLogsMutation.isPending || exportLogsMutation.isPending;
+
+    const logs = logsData?.data || [];
+    const paginationData = logsData || { current_page: 1, per_page: 50, total: 0 };
+
+    const pagination = {
+        current_page: f.values.page,
+        per_page: f.values.per_page,
+        total: paginationData.total ?? 0,
     };
+
+    const handleRowsPerPageChange = (newPerPage) => f.setPerPage(newPerPage);
+
+    /** Stage a value in the form. Nothing is fetched until "Apply". */
+    const handleFilterChange = (key, value) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+    };
+
+    const applyFilters = () => f.setMany(filters);
+
+    /** Clears the applied query only — never the user's standing preferences. */
+    const resetFilters = () => f.reset();
 
     const toggleLogSelection = (id) => {
         const newSelected = new Set(selectedLogs);
@@ -581,7 +586,7 @@ const RequestLogs = ({ title }) => {
                                                 perPage: pagination.per_page,
                                                 total: pagination.total
                                             }}
-                                            onPageChange={(page) => { setPagination(prev => ({ ...prev, current_page: page })); refetch(); }}
+                                            onPageChange={(page) => f.setPage(page)}
                                             onRowsPerPageChange={handleRowsPerPageChange}
                                             loading={loading}
                                         />

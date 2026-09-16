@@ -291,13 +291,25 @@ class ProfileController extends Controller
                 }
             }
 
-            // Sorting
-            $sortField = $request->get('sort_field', 'name');
-            $sortDirection = $request->get('sort_direction', 'asc');
+            // Sorting — only ever order by a column we have named here. An
+            // unknown column reaches the database as invalid SQL, and an unknown
+            // direction makes orderBy() throw, so both are resolved to a default
+            // rather than trusted.
+            $allowedSorts = ['name', 'email', 'employee_id', 'phone', 'created_at'];
+
+            $sortField = in_array($request->get('sort_field'), $allowedSorts, true)
+                ? $request->get('sort_field')
+                : 'name';
+
+            $sortDirection = strtolower((string) $request->get('sort_direction')) === 'desc'
+                ? 'desc'
+                : 'asc';
+
             $query->orderBy($sortField, $sortDirection);
 
-            // Pagination
-            $perPage = $request->get('per_page', 15);
+            // Pagination — clamped so a hand-edited ?per_page= cannot ask the
+            // database for the whole table.
+            $perPage = min(max((int) $request->get('per_page', 15), 5), 100);
             $profiles = $query->paginate($perPage);
 
             return response()->json([

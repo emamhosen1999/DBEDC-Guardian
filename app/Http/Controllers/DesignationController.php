@@ -101,7 +101,7 @@ class DesignationController extends Controller
             });
         }
 
-        $designations = $query->paginate($request->input('per_page', 10));
+        $designations = $query->paginate(min(max((int) $request->input('per_page', 10), 5), 100));
 
         $designations->getCollection()->transform(function ($designation) {
             return [

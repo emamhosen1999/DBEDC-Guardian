@@ -11,6 +11,8 @@ const EnhancedDailyWorksExportForm = lazy(() => import("@/Forms/EnhancedDailyWor
 const EnhancedDailyWorkSummaryExportForm = lazy(() => import("@/Forms/EnhancedDailyWorkSummaryExportForm.jsx"));
 const ImportPreviewModalRadix = lazy(() => import("@/Forms/ImportPreviewModalRadix.jsx"));
 import App from "@/Layouts/App.jsx";
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import DailyWorksTable from '@/Tables/DailyWorksTable.jsx';
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import JurisdictionsManager from '@/Pages/Project/Jurisdictions/JurisdictionsManager.jsx';
@@ -67,14 +69,33 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     console.log('[DailyWorksUnified Props] jurisdictions:', jurisdictions);
     console.log('[DailyWorksUnified Props] users:', users);
 
-    // Tab state — honor ?tab= query param (e.g. redirect from /jurisdiction)
-    const initialTab = (() => {
-        if (typeof window === 'undefined') return 'works';
-        const t = new URLSearchParams(window.location.search).get('tab');
-        const allowed = ['works', 'summary', 'objections', 'jurisdictions'];
-        return allowed.includes(t) ? t : 'works';
-    })();
-    const [activeTab, setActiveTab] = useState(initialTab); // 'works' | 'summary' | 'objections' | 'jurisdictions'
+    /* ── Everything that decides which rows the server returns lives in the URL,
+         so a refresh or a copied link reproduces this exact view. Rows are
+         fetched with axios rather than Inertia props, so committing a filter
+         updates the URL client-side without a server round trip.
+
+         This replaces three hand-rolled `URLSearchParams` reads and the separate
+         pieces of local state that shadowed them. ── */
+    const DAILY_WORK_TABS = ['works', 'summary', 'objections', 'jurisdictions'];
+
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: {
+            tab: 'works',
+            search: '',
+            status: 'all',
+            incharge: [],
+            jurisdiction: [],
+            date: overallEndDate,
+            start: overallEndDate,
+            end: overallEndDate,
+            page: 1,
+            per_page: 30,
+        },
+    });
+
+    const activeTab = DAILY_WORK_TABS.includes(f.values.tab) ? f.values.tab : 'works';
+    const setActiveTab = (value) => f.set('tab', value);
 
     // Import file state for preservation when preview modal opens
     const [importFile, setImportFile] = useState(null);
@@ -91,46 +112,45 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     const [modeSwitch, setModeSwitch] = useState(false);
     const [totalRows, setTotalRows] = useState(0);
     const [lastPage, setLastPage] = useState(0);
+    // 0 means "not loaded yet"; the clamp waits for a real count.
+    useClampPage(f, lastPage > 0 ? lastPage : undefined);
     const [filteredData, setFilteredData] = useState([]);
     const [currentRow, setCurrentRow] = useState();
     const [taskIdToDelete, setTaskIdToDelete] = useState(null);
     const [openModalType, setOpenModalType] = useState(null);
-    const [search, setSearch] = useState(() => {
-        if (typeof window === 'undefined') return '';
-        return new URLSearchParams(window.location.search).get('search') || '';
-    });
-    const [perPage, setPerPage] = useState(30);
-    const [currentPage, setCurrentPage] = useState(1);
-    
-    // Global search links include the record's date, including historical RFIs.
-    const initialDate = (() => {
-        if (typeof window === 'undefined') return overallEndDate;
-        const requested = new URLSearchParams(window.location.search).get('date');
-        return requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) && dayjs(requested).isValid()
-            ? requested : overallEndDate;
-    })();
-    // Date state management
-    const [selectedDate, setSelectedDate] = useState(initialDate);
-    const [dateRange, setDateRange] = useState({
-        start: initialDate,
-        end: initialDate
-    });
-    
+    const search = f.draft.search;
+    const perPage = f.values.per_page;
+    const currentPage = f.values.page;
+
+    // `date` drives the mobile single-day view; `start`/`end` the desktop range.
+    // A global-search link can arrive with ?date= for a historical record.
+    const selectedDate = f.values.date;
+    const dateRange = useMemo(
+        () => ({ start: f.values.start, end: f.values.end }),
+        [f.values.start, f.values.end],
+    );
+
     const [dateBounds, setDateBounds] = useState({
         min: overallStartDate,
         max: overallEndDate
     });
-    
-    // Filter state
-    const [filterData, setFilterData] = useState({
-        status: 'all',
-        incharge: [],
-        jurisdiction: [],
-        startDate: initialDate,
-        endDate: initialDate
-    });
-    
-    const [showFilters, setShowFilters] = useState(false);
+
+    // Memoised so its identity only changes when a filter actually changes —
+    // `fetchData` depends on it, and an unstable object would refetch on every render.
+    const filterData = useMemo(() => ({
+        status: f.values.status,
+        incharge: f.values.incharge,
+        jurisdiction: f.values.jurisdiction,
+        startDate: f.values.start,
+        endDate: f.values.end,
+    }), [f.values.status, f.values.incharge, f.values.jurisdiction, f.values.start, f.values.end]);
+
+    /* Whether the filter panel is open is presentation only, so it is remembered
+       rather than put in the URL. */
+    const [ui, setUi] = usePersistentPageState('Project/DailyWorksUnified', { showFilters: false });
+    const showFilters = ui.showFilters;
+    const setShowFilters = (value) =>
+        setUi((prev) => ({ showFilters: typeof value === 'function' ? value(prev.showFilters) : value }));
 
     // Summary tab state
     const [summaryFilteredData, setSummaryFilteredData] = useState([]);
@@ -366,9 +386,9 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     // Enhanced refresh function
     const refreshData = useCallback(() => {
-        setCurrentPage(1);
+        f.setPage(1);
         fetchData();
-    }, [fetchData]);
+    }, [f.setPage, fetchData]);
 
     // Live updates: when ANOTHER user changes a daily-work status, refetch silently (~1s).
     useRealtimeSignals({
@@ -386,25 +406,15 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         };
     }, []);
 
-    // Event handlers
-    const handleSearch = (event) => {
-        setSearch(event.target.value);
-        setCurrentPage(1);
-    };
+    // Event handlers. Each writes to the URL once; the hook resets to page 1 on
+    // any filter change and debounces the search box.
+    const handleSearch = (event) => f.setDraft('search', event.target.value);
 
-    const handlePageChange = (page) => {
-        setCurrentPage(page);
-    };
+    const handlePageChange = (page) => f.setPage(page);
 
-    const handleDateChange = (date) => {
-        setSelectedDate(date);
-        setCurrentPage(1);
-    };
+    const handleDateChange = (date) => f.set('date', date);
 
-    const handleDateRangeChange = (range) => {
-        setDateRange(range);
-        setCurrentPage(1);
-    };
+    const handleDateRangeChange = (range) => f.setMany({ start: range.start, end: range.end });
 
     const buildFilterParams = () => {
         const filters = {
@@ -481,8 +491,8 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                 const remainingOnCurrentPage = data.filter(item => item.id !== taskIdToDelete).length;
 
                 if (remainingOnCurrentPage === 0 && newTotal > 0 && currentPage > 1) {
-                    const targetPage = currentPage - 1;
-                    setCurrentPage(targetPage);
+                    // The last row on this page is gone — step back a page.
+                    f.setPage(currentPage - 1);
                 } else {
                     setData(prevData => prevData.filter(item => item.id !== taskIdToDelete));
                     setTotalRows(newTotal);
@@ -577,16 +587,15 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
             const latestDate = importedDates[0];
             setDateBounds(prev => ({ ...prev, max: latestDate }));
             if (isMobile) {
-                setSelectedDate(latestDate);
+                f.set('date', latestDate);
             } else {
-                // Navigate view to the imported date — useEffect[dateRange] will fetch automatically
-                setDateRange({ start: latestDate, end: latestDate });
+                // Navigate the view to the imported date; the fetch effect follows.
+                f.setMany({ start: latestDate, end: latestDate });
             }
         } else {
             // No date info in results, just refresh current view
             fetchData(true);
         }
-        setCurrentPage(1);
     };
 
     const handlePreviewReady = (file, data) => {
@@ -672,12 +681,12 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     // Enhanced useEffect for mobile/desktop mode switching and initial load
     useEffect(() => {
         if (isMobile && !selectedDate) {
-            setSelectedDate(overallEndDate);
+            f.set('date', overallEndDate);
         }
-        
+
         setModeSwitch(true);
         setTableLoading(true);
-        setCurrentPage(1);
+        f.setPage(1);
         
         fetchData(true).finally(() => {
             setModeSwitch(false);
@@ -937,8 +946,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                     size="2"
                                                     value={filterData.status}
                                                     onValueChange={(value) => {
-                                                        setFilterData(prev => ({ ...prev, status: value }));
-                                                        setCurrentPage(1);
+                                                        f.set('status', value);
                                                     }}
                                                 >
                                                     <Select.Trigger style={{ width: '100%' }} placeholder="Select status..." />
@@ -979,11 +987,10 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                                             ? [...filterData.incharge, String(u.id)]
                                                                             : filterData.incharge.filter(id => id !== String(u.id));
                                                                         
-                                                                        setFilterData(prev => ({
-                                                                            ...prev,
+                                                                        f.setMany({
                                                                             incharge: newValues,
-                                                                            jurisdiction: newValues.length ? [] : prev.jurisdiction
-                                                                        }));
+                                                                            jurisdiction: newValues.length ? [] : filterData.jurisdiction,
+                                                                        });
                                                                     }}
                                                                 >
                                                                     {u.name}
@@ -1018,11 +1025,10 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                                             ? [...filterData.jurisdiction, String(j.id)]
                                                                             : filterData.jurisdiction.filter(id => id !== String(j.id));
                                                                             
-                                                                        setFilterData(prev => ({
-                                                                            ...prev,
+                                                                        f.setMany({
                                                                             jurisdiction: newValues,
-                                                                            incharge: newValues.length ? [] : prev.incharge
-                                                                        }));
+                                                                            incharge: newValues.length ? [] : filterData.incharge,
+                                                                        });
                                                                     }}
                                                                 >
                                                                     {j.displayLabel}
@@ -1040,8 +1046,13 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                     variant="soft"
                                                     color="red"
                                                     onClick={() => {
-                                                        setFilterData({ status: 'all', incharge: [], jurisdiction: [], startDate: overallStartDate, endDate: overallEndDate });
-                                                        setCurrentPage(1);
+                                                        f.setMany({
+                                                            status: 'all',
+                                                            incharge: [],
+                                                            jurisdiction: [],
+                                                            start: overallStartDate,
+                                                            end: overallEndDate,
+                                                        });
                                                     }}
                                                 >
                                                     Clear Filters
@@ -1138,7 +1149,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                             size="1" 
                                                             variant="ghost" 
                                                             color="gray" 
-                                                            onClick={() => { setSearch(''); setCurrentPage(1); }} 
+                                                            onClick={() => f.setDraft('search', '')} 
                                                             aria-label="Clear search"
                                                         >
                                                             <Cross2Icon width="14" height="14" />

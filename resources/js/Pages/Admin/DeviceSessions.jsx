@@ -12,6 +12,7 @@ import {
 import axios from 'axios';
 import { format, formatDistanceToNow } from 'date-fns';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import { Panel } from '@/Components/ui/Panel';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { showToast } from '@/utils/toastUtils';
@@ -49,43 +50,23 @@ const Metric = ({ label, value, color = 'gray' }) => (
   </Panel>
 );
 
-const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary = {} }) => {
-  const [search, setSearch] = useState(filters.search ?? '');
-  const [status, setStatus] = useState(filters.status ?? 'all');
+// `filters` still arrives from the controller but is not read here: the URL is
+// the source of truth and useQueryFilters reads it directly.
+const DeviceSessions = ({ sessions = [], pagination = {}, summary = {} }) => {
+  /* Search, status and page are server state, so they live in the URL. */
+  const f = useQueryFilters({
+    routeName: 'admin.device-sessions.index',
+    defaults: { search: '', status: 'all', page: 1 },
+  });
+
+  const search = f.draft.search;
+  const setSearch = useCallback((value) => f.setDraft('search', value), [f.setDraft]);
+  const status = f.values.status;
+  const applyStatus = useCallback((next) => f.set('status', next), [f.set]);
+  const goToPage = useCallback((page) => f.setPage(page), [f.setPage]);
+
   const [target, setTarget] = useState(null);
   const [revoking, setRevoking] = useState(false);
-
-  /* Debounced server-side search; keeps the URL as the single source of truth. */
-  useEffect(() => {
-    if ((filters.search ?? '') === search) return undefined;
-
-    const timer = setTimeout(() => {
-      router.get(
-        route('admin.device-sessions.index'),
-        { search, status },
-        { preserveState: true, preserveScroll: true, replace: true },
-      );
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [search, status, filters.search]);
-
-  const applyStatus = useCallback((next) => {
-    setStatus(next);
-    router.get(
-      route('admin.device-sessions.index'),
-      { search, status: next },
-      { preserveState: true, preserveScroll: true, replace: true },
-    );
-  }, [search]);
-
-  const goToPage = useCallback((page) => {
-    router.get(
-      route('admin.device-sessions.index'),
-      { search, status, page },
-      { preserveState: true, preserveScroll: true },
-    );
-  }, [search, status]);
 
   const revoke = useCallback(async () => {
     if (!target) return;
@@ -113,6 +94,7 @@ const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary 
 
   const currentPage = pagination.current_page ?? 1;
   const lastPage = pagination.last_page ?? 1;
+  useClampPage(f, pagination.last_page);
 
   return (
     <App>
@@ -300,6 +282,7 @@ const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary 
                   size="1"
                   variant="soft"
                   disabled={currentPage <= 1}
+                  aria-label="Previous page"
                   onClick={() => goToPage(currentPage - 1)}
                 >
                   <ChevronLeftIcon />
@@ -309,6 +292,7 @@ const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary 
                   size="1"
                   variant="soft"
                   disabled={currentPage >= lastPage}
+                  aria-label="Next page"
                   onClick={() => goToPage(currentPage + 1)}
                 >
                   <ChevronRightIcon />

@@ -6,14 +6,18 @@ import * as XLSX from 'xlsx';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 
 export default function DailyMaintenanceReport({ auth, summary, defects, date }) {
-    const [selectedDate, setSelectedDate] = useState(date || new Date().toISOString().substring(0, 10));
-
-    const handleDateChange = (newDate) => {
-        setSelectedDate(newDate);
-        router.get('/om/daily-report', { date: newDate }, { preserveState: true });
-    };
+    /* The report date is what the server is asked for, so it lives in the URL.
+       The default is left empty rather than "today" so that a date the user
+       picked always stays visible in the link they copy. */
+    const f = useQueryFilters({
+        defaults: { date: '' },
+        debounceKeys: [],
+    });
+    const selectedDate = f.values.date || date || new Date().toISOString().substring(0, 10);
+    const handleDateChange = (newDate) => f.set('date', newDate);
 
     const handlePrint = () => {
         window.print();

@@ -6,6 +6,7 @@ import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
 import { showOperationMutationErrors } from './mutationFeedback';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 
 export default function OmLookupsManager({ auth, lookups, filters, lookupTypes }) {
     const canManage = auth?.permissions?.includes('om.dashboard.view') || auth?.roles?.includes('Super Administrator');
@@ -20,13 +21,17 @@ export default function OmLookupsManager({ auth, lookups, filters, lookupTypes }
     const [badgeColor, setBadgeColor] = useState('blue');
     const [sortOrder, setSortOrder] = useState('0');
     const [description, setDescription] = useState('');
-    const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+    /* Type and search are server state, so they live in the URL. */
+    const f = useQueryFilters({
+        defaults: { type: 'all', search: '', page: 1 },
+    });
+    const searchTerm = f.draft.search;
 
     const lookupList = lookups?.data || [];
 
     const handleOpenCreate = () => {
         setEditingLookup(null);
-        setType(filters?.type !== 'all' ? filters?.type : 'defect_category');
+        setType(f.values.type !== 'all' ? f.values.type : 'defect_category');
         setKey('');
         setLabel('');
         setSlaHours('');
@@ -80,13 +85,12 @@ export default function OmLookupsManager({ auth, lookups, filters, lookupTypes }
         });
     };
 
-    const handleFilterChange = (newType) => {
-        router.get('/om/lookups', { type: newType, search: searchTerm }, { preserveState: true });
-    };
+    const handleFilterChange = (newType) => f.set('type', newType);
 
+    // Search commits on its own after a pause; submitting just skips the wait.
     const handleSearchSubmit = (e) => {
         e.preventDefault();
-        router.get('/om/lookups', { type: filters?.type || 'all', search: searchTerm }, { preserveState: true });
+        f.setMany({ search: f.draft.search });
     };
 
     const statItems = [
@@ -135,7 +139,7 @@ export default function OmLookupsManager({ auth, lookups, filters, lookupTypes }
                             <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" justify="between" align={{ initial: 'stretch', sm: 'center' }}>
                                 <Flex gap="2" align="center" wrap="wrap">
                                     <Text size="2" weight="bold">Filter Category:</Text>
-                                    <Select.Root value={filters?.type || 'all'} onValueChange={handleFilterChange}>
+                                    <Select.Root value={f.values.type} onValueChange={handleFilterChange}>
                                         <Select.Trigger style={{ minWidth: 220 }} />
                                         <Select.Content>
                                             {lookupTypes.map(t => (
@@ -147,7 +151,7 @@ export default function OmLookupsManager({ auth, lookups, filters, lookupTypes }
 
                                 <form onSubmit={handleSearchSubmit}>
                                     <Flex gap="2">
-                                        <TextField.Root placeholder="Search label or key..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: 240 }} />
+                                        <TextField.Root placeholder="Search label or key..." value={searchTerm} onChange={e => f.setDraft('search', e.target.value)} style={{ width: 240 }} />
                                         <Button type="submit" variant="soft" color="gray">Search</Button>
                                     </Flex>
                                 </form>

@@ -274,6 +274,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         setShowFilters,
         filterData,
         setFilterData,
+        resetFilters,
         cancelPendingRequest,
         fetchData,
         refreshData,
@@ -282,7 +283,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         handleFilterChange,
         handlePageChange,
         toggleExpanded,
-    } = useObjectionsListState({ initialObjections, initialFilters: filters, isMobile });
+    } = useObjectionsListState({ initialObjections, isMobile });
 
     // Live updates: when ANOTHER user changes any objection, refetch the list + stats (~1s).
     const realtimeActorId = usePage().props?.auth?.user?.id ?? null;
@@ -575,11 +576,6 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const formatStatus = (status) => {
         return statusConfig[status]?.label || status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
     };
-
-    // Effect for filter and pagination changes
-    useEffect(() => {
-        fetchData();
-    }, [filterData, currentPage]);
 
     // Action buttons configuration
     const actionButtons = [
@@ -2029,11 +2025,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 onFilterChange={handleFilterChange}
                                 statuses={statuses}
                                 categories={categories}
-                                onClearFilters={() => {
-                                    setFilterData({ status: 'all', category: 'all', creator: '' });
-                                    setSearch('');
-                                    setCurrentPage(1);
-                                }}
+                                onClearFilters={resetFilters}
                             />
 
                             {/* Objections Table/List */}

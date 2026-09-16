@@ -15,6 +15,7 @@ import {
 import App from '@/Layouts/App.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { usePettyCashRealtimeRefresh } from '@/Hooks/usePettyCashRealtimeRefresh';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 
 import OverviewPanel from '@/Components/PettyCash/OverviewPanel.jsx';
 import TransactionsPanel from '@/Components/PettyCash/TransactionsPanel.jsx';
@@ -31,7 +32,12 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
 
-    const [activeTab, setActiveTab] = useState('overview');
+    /* Each tab is a distinct view of the fund, so it belongs in the URL:
+       /petty-cash?tab=audit survives a refresh and can be shared. Tabs the user
+       cannot open fall back to the overview rather than rendering nothing. */
+    const f = useQueryFilters({ mode: 'client', defaults: { tab: 'overview' }, debounceKeys: [] });
+    const setTab = f.set;
+    const setActiveTab = useCallback((val) => setTab('tab', val), [setTab]);
     const [showLoanForm, setShowLoanForm] = useState(false);
     const [selectedFundId, setSelectedFundId] = useState(
         activeLoans.length > 0 ? String(activeLoans[0].id) : ''
@@ -52,6 +58,18 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
         if (!selectedFundId) return activeLoansList[0] || null;
         return activeLoansList.find(l => String(l.id) === selectedFundId) || activeLoansList[0] || null;
     }, [selectedFundId, activeLoansList]);
+
+    /* Which tabs actually exist depends on the selected fund and on approval
+       rights, so a stale or hand-edited ?tab= can name one that is not rendered.
+       Resolve it against the real set instead of showing an empty panel. */
+    const availableTabs = [
+        'overview',
+        ...(selectedLoan ? ['transactions', 'analytics'] : []),
+        'history',
+        ...(canApprove ? ['manager'] : []),
+        ...(selectedLoan ? ['audit'] : []),
+    ];
+    const activeTab = availableTabs.includes(f.values.tab) ? f.values.tab : 'overview';
 
     const handleLoanCreated = useCallback(() => {
         setShowLoanForm(false);

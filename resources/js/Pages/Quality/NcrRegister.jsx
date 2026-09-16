@@ -7,6 +7,7 @@ import {
     MagnifyingGlassIcon, PlusIcon, Pencil1Icon, TrashIcon, Cross2Icon, DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import DateTimePicker from '@/Components/DateTimePicker';
 import StatsCards from '@/Components/StatsCards';
@@ -31,23 +32,37 @@ const STATUS = {
 const chLabel = (m) => (m == null ? null : `Ch ${Math.floor(m / 1000)}+${String(m % 1000).padStart(3, '0')}`);
 
 export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can = {} }) {
-    const [q, setQ] = useState('');
-    const [fStatus, setFStatus] = useState('all');
-    const [fSev, setFSev] = useState('all');
+    /* These narrow the register that is already on screen rather than changing
+       what the server returns, but they are worth sharing and worth surviving a
+       refresh, so they go in the URL. The change is client-side only — no
+       request is issued when a filter moves. */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { q: '', status: 'all', severity: 'all' },
+        debounceKeys: ['q'],
+    });
+    const q = f.draft.q;
+    const setQ = (value) => f.setDraft('q', value);
+    const fStatus = f.values.status;
+    const setFStatus = (value) => f.set('status', value);
+    const fSev = f.values.severity;
+    const setFSev = (value) => f.set('severity', value);
     const [detail, setDetail] = useState(null);
     const [editing, setEditing] = useState(null); // null | {} (new) | ncr (edit)
     const [busy, setBusy] = useState(false);
+
+    const appliedQ = f.values.q;
 
     const filtered = useMemo(() => ncrs.filter((n) => {
         if (fStatus === 'open' && !n.is_open) return false;
         if (fStatus !== 'all' && fStatus !== 'open' && n.status !== fStatus) return false;
         if (fSev !== 'all' && n.severity !== fSev) return false;
-        if (q) {
+        if (appliedQ) {
             const hay = `${n.ncr_number} ${n.title} ${n.description} ${n.department ?? ''}`.toLowerCase();
-            if (!hay.includes(q.toLowerCase())) return false;
+            if (!hay.includes(appliedQ.toLowerCase())) return false;
         }
         return true;
-    }), [ncrs, q, fStatus, fSev]);
+    }), [ncrs, appliedQ, fStatus, fSev]);
 
     const refresh = () => router.reload({ only: ['ncrs', 'stats'] });
 

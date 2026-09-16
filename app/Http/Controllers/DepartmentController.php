@@ -42,7 +42,7 @@ class DepartmentController extends Controller
         }
 
         // Get departments with pagination
-        $departments = $query->paginate($request->get('per_page', 20));
+        $departments = $query->paginate(min(max((int) $request->get('per_page', 20), 5), 100));
 
         // Get all employees for manager dropdown
         $managers = User::orderBy('name')->get(['employee_id as id', 'employee_id', 'name']);
@@ -376,7 +376,7 @@ class DepartmentController extends Controller
         }
 
         // Get departments with pagination
-        $departments = $query->paginate($request->input('per_page', 10));
+        $departments = $query->paginate(min(max((int) $request->input('per_page', 10), 5), 100));
 
         return response()->json([
             'departments' => $departments,

@@ -13,6 +13,7 @@ import {
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 
 import AdminLeavesPanel    from '@/Components/LeaveUnified/AdminLeavesPanel.jsx';
 import SummaryPanel        from '@/Components/LeaveUnified/SummaryPanel.jsx';
@@ -29,7 +30,14 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
     const canSettings = auth.roles?.includes('Administrator')
                      || auth.roles?.includes('Super Administrator')  || false;
 
-    const [activeTab, setActiveTab] = useState('all');
+    /* ── persisted UI state (survives Inertia navigation) ── */
+    /* Each tab is a distinct view of leave data, so it belongs in the URL:
+       /leaves?tab=balances survives a refresh and can be shared. */
+    const f = useQueryFilters({ mode: 'client', defaults: { tab: 'all' }, debounceKeys: [] });
+    const LEAVE_TABS = ['all', 'summary', 'analytics', 'balances', 'settings'];
+    const activeTab = LEAVE_TABS.includes(f.values.tab) ? f.values.tab : 'all';
+    const setTab = f.set;
+    const setActiveTab = useCallback((val) => setTab('tab', val), [setTab]);
 
     /* quick-count badge populated by AdminLeavesPanel callback */
     const [counts, setCounts] = useState({ all: 0 });

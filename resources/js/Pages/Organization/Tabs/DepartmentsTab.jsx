@@ -11,6 +11,8 @@ import {
     TableIcon, StackIcon, Pencil1Icon, SewingPinIcon
 } from '@radix-ui/react-icons';
 import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import QueryState from '@/Components/Common/QueryState';
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
@@ -73,10 +75,31 @@ const DepartmentsTab = ({ isActive }) => {
 
     const [modalState, setModalState] = useState({ type: null, department: null });
 
-    const [viewMode, setViewMode] = useState('table');
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState({ search: '', status: 'all', parentDepartment: 'all' });
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10 });
+    /* ── view: presentation only, remembered across navigation ── */
+    const [ui, setUi] = usePersistentPageState('Departments/List', { viewMode: 'table', showFilters: false });
+    const viewMode = ui.viewMode;
+    const setViewMode = useCallback((value) => setUi({ viewMode: value }), [setUi]);
+    const showFilters = ui.showFilters;
+    const setShowFilters = useCallback(
+        (value) => setUi((prev) => ({ showFilters: typeof value === 'function' ? value(prev.showFilters) : value })),
+        [setUi],
+    );
+
+    /* ── filters: server state, so they live in the URL. Rows come from
+         react-query, so a change updates the URL without a server round trip. ── */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { search: '', status: 'all', parentDepartment: 'all', page: 1, per_page: 10 },
+    });
+    const filters = useMemo(
+        () => ({ search: f.values.search, status: f.values.status, parentDepartment: f.values.parentDepartment }),
+        [f.values.search, f.values.status, f.values.parentDepartment],
+    );
+    const pagination = useMemo(
+        () => ({ currentPage: f.values.page, perPage: f.values.per_page }),
+        [f.values.page, f.values.per_page],
+    );
+    const { set: setFilter, setPage, setPerPage } = f;
 
     const canCreate = auth?.permissions?.includes('departments.create') || false;
     const canEdit = auth?.permissions?.includes('departments.update') || false;
@@ -92,17 +115,13 @@ const DepartmentsTab = ({ isActive }) => {
     });
 
     const { data: stats } = useDepartmentsQuery.useDepartmentStats();
+    useClampPage(f, departmentsData?.last_page);
 
-    // Auto-refetch when filters or pagination changes
-    useEffect(() => {
-        if (isActive) {
-            refetch();
-        }
-    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.parentDepartment, isActive, refetch]);
-
-    const handleFilterChange = (key, value) => { setFilters(p => ({ ...p, [key]: value })); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const clearFilters = () => { setFilters({ search: '', status: 'all', parentDepartment: 'all' }); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const hasActiveFilters = filters.search || filters.status !== 'all' || filters.parentDepartment !== 'all';
+    // Search goes through the debounced draft; selects commit immediately. The
+    // hook returns to page 1 on any filter change.
+    const handleFilterChange = (key, value) => (key === 'search' ? f.setDraft('search', value) : setFilter(key, value));
+    const clearFilters = () => f.reset();
+    const hasActiveFilters = f.isFiltered;
 
     const openModal = (type, department = null) => setModalState({ type, department });
     const closeModal = () => setModalState({ type: null, department: null });
@@ -149,7 +168,7 @@ const DepartmentsTab = ({ isActive }) => {
                 addLabel={!isMobile ? 'Add Department' : 'Add'}
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={filters.search}
+                        searchValue={f.draft.search}
                         onSearchChange={val => handleFilterChange('search', val)}
                         searchPlaceholder="Search departments..."
                         showFilterToggle
@@ -214,8 +233,8 @@ const DepartmentsTab = ({ isActive }) => {
                         isMobile={isMobile}
                         isTablet={isTablet}
                         pagination={pagination}
-                        onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
-                        onRowsPerPageChange={(perPage) => setPagination(p => ({ ...p, perPage, currentPage: 1 }))}
+                        onPageChange={setPage}
+                        onRowsPerPageChange={setPerPage}
                     />
                 )}
             </QueryState>

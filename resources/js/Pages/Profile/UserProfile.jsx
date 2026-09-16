@@ -6,6 +6,7 @@ import {
     PersonIcon, DownloadIcon, FileTextIcon, BackpackIcon, HeartIcon
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
 import ProfileCard from '@/Components/Profile/ProfileCard.jsx';
@@ -18,7 +19,12 @@ const UserProfile = ({ title, allUsers = [], departments = [], designations = []
     const isMobile = useMediaQuery('(max-width: 640px)');
     
     const [user, setUser] = useState(initialUser);
-    const [activeTab, setActiveTab] = useState('personal');
+    /* Each tab is a distinct section of the profile, so it belongs in the URL:
+       a colleague can be sent straight to ?tab=employment. */
+    const f = useQueryFilters({ mode: 'client', defaults: { tab: 'personal' }, debounceKeys: [] });
+    const PROFILE_TABS = ['personal', 'employment', 'background', 'dependents'];
+    const activeTab = PROFILE_TABS.includes(f.values.tab) ? f.values.tab : 'personal';
+    const setActiveTab = (value) => f.set('tab', value);
 
     const canEditProfile = Boolean(can.edit);
     const canManageEmployment = Boolean(can.manageEmployment);

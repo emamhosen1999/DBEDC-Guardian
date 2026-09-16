@@ -13,6 +13,8 @@ import {
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import QueryState from '@/Components/Common/QueryState';
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
@@ -85,25 +87,59 @@ const EmployeesTab = ({ isActive }) => {
     /* ── dialog state ── */
     const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-    /* ── view ── */
-    const [viewMode, setViewMode] = useState('table');
-    const [showFilters, setShowFilters] = useState(false);
+    /* ── view: presentation only, remembered across navigation ── */
+    const [ui, setUi] = usePersistentPageState('Employees/List', { viewMode: 'table', showFilters: false });
+    const viewMode = ui.viewMode;
+    const setViewMode = useCallback((value) => setUi({ viewMode: value }), [setUi]);
+    const showFilters = ui.showFilters;
+    const setShowFilters = useCallback(
+        (value) => setUi((prev) => ({ showFilters: typeof value === 'function' ? value(prev.showFilters) : value })),
+        [setUi],
+    );
 
-    /* ── filters ── */
+    /* ── filters: server state, so they live in the URL. A refresh or a copied
+         link reproduces this exact list; rows come from react-query, so a filter
+         change updates the URL client-side without a server round trip.
+         This tab shares the URL with the page-level `?tab=`; each hook leaves
+         the other's params alone. ── */
     const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
     const userDeptId = auth?.user?.department_id;
     const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
 
-    const [filters, setFilters] = useState({ 
-        search: typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('search') || ''),
-        department: isNonGlobalManager ? String(userDeptId) : 'all', 
-        designation: 'all', 
-        attendanceType: 'all', 
-        role: 'all', 
-        status: 'all', 
-        showDeleted: false 
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: {
+            search: '',
+            // A department manager's list is scoped to their department by default.
+            department: isNonGlobalManager ? String(userDeptId) : 'all',
+            designation: 'all',
+            attendanceType: 'all',
+            role: 'all',
+            status: 'all',
+            showDeleted: false,
+            page: 1,
+            per_page: 10,
+        },
     });
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10, total: 0 });
+
+    const filters = useMemo(() => ({
+        search: f.values.search,
+        department: f.values.department,
+        designation: f.values.designation,
+        attendanceType: f.values.attendanceType,
+        role: f.values.role,
+        status: f.values.status,
+        showDeleted: f.values.showDeleted,
+    }), [f.values.search, f.values.department, f.values.designation, f.values.attendanceType, f.values.role, f.values.status, f.values.showDeleted]);
+
+    // Page and size are URL state; the total comes back with the rows.
+    const [serverTotal, setServerTotal] = useState(0);
+    const pagination = useMemo(
+        () => ({ currentPage: f.values.page, perPage: f.values.per_page, total: serverTotal }),
+        [f.values.page, f.values.per_page, serverTotal],
+    );
+
+    const { set: setFilter, setMany: setFilterValues, setPage, setPerPage } = f;
 
     /* ── React Query hooks ── */
     const { data: employeesResponse, isLoading: loading, isError, error, refetch } = useEmployeesQuery.useEmployeesList({
@@ -113,6 +149,7 @@ const EmployeesTab = ({ isActive }) => {
     });
 
     const { data: statsData, refetch: refetchStats } = useEmployeesQuery.useEmployeeStats();
+    useClampPage(f, employeesResponse?.last_page);
 
     /* ── local state ── */
     const [employees, setEmployees] = useState([]);
@@ -132,22 +169,18 @@ const EmployeesTab = ({ isActive }) => {
         if (employeesResponse) {
             setEmployees(employeesResponse.data || []);
             setTotalRows(employeesResponse.total || 0);
-            setPagination(prev => ({ ...prev, total: employeesResponse.total || 0 }));
+            setServerTotal(employeesResponse.total || 0);
         }
     }, [employeesResponse]);
 
     /* ── Auto-refetch when filters or pagination changes ── */
-    useEffect(() => {
-        if (isActive) {
-            refetch();
-        }
-    }, [pagination.currentPage, pagination.perPage, filters.search, filters.department, filters.designation, filters.attendanceType, filters.role, filters.status, filters.showDeleted, isActive, refetch]);
-
     /* ── filter helpers ── */
-    const handleSearchChange = (value) => { setFilters(p => ({ ...p, search: value })); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const handleDeptChange = (value) => { setFilters(p => ({ ...p, department: value, designation: 'all' })); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const clearFilters = () => { setFilters({ search: '', department: 'all', designation: 'all', attendanceType: 'all', role: 'all', status: 'all', showDeleted: false }); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const hasActiveFilters = filters.search || filters.department !== 'all' || filters.designation !== 'all' || filters.attendanceType !== 'all' || filters.role !== 'all' || filters.status !== 'all' || filters.showDeleted;
+    // Each writes the URL once; the hook returns to page 1 on any filter change
+    // and debounces the search box so typing leaves one history entry.
+    const handleSearchChange = (value) => f.setDraft('search', value);
+    const handleDeptChange = (value) => setFilterValues({ department: value, designation: 'all' });
+    const clearFilters = () => f.reset();
+    const hasActiveFilters = f.isFiltered;
 
     /* ── optimistic updates ── */
     const updateEmployeeOptimized = useCallback((id, fields) => {
@@ -156,7 +189,7 @@ const EmployeesTab = ({ isActive }) => {
     const deleteEmployeeOptimized = useCallback((id) => {
         setEmployees(prev => prev.filter(e => e.id !== id));
         setTotalRows(prev => Math.max(0, prev - 1));
-        setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        setServerTotal(prev => Math.max(0, prev - 1));
         refetchStats();
         refetch();
     }, [refetch, refetchStats]);
@@ -187,20 +220,20 @@ const EmployeesTab = ({ isActive }) => {
         }
         if (filters.designation !== 'all') {
             const d = designations?.find(item => String(item.id) === String(filters.designation));
-            chips.push({ label: 'Designation', value: d?.title || filters.designation, onRemove: () => setFilters(p => ({ ...p, designation: 'all' })) });
+            chips.push({ label: 'Designation', value: d?.title || filters.designation, onRemove: () => setFilter('designation', 'all') });
         }
         if (filters.attendanceType !== 'all') {
             const a = attendanceTypes?.find(item => String(item.id) === String(filters.attendanceType));
-            chips.push({ label: 'Attendance', value: a?.name || filters.attendanceType, onRemove: () => setFilters(p => ({ ...p, attendanceType: 'all' })) });
+            chips.push({ label: 'Attendance', value: a?.name || filters.attendanceType, onRemove: () => setFilter('attendanceType', 'all') });
         }
         if (filters.role !== 'all') {
-            chips.push({ label: 'Role', value: filters.role, onRemove: () => setFilters(p => ({ ...p, role: 'all' })) });
+            chips.push({ label: 'Role', value: filters.role, onRemove: () => setFilter('role', 'all') });
         }
         if (filters.status !== 'all') {
-            chips.push({ label: 'Status', value: filters.status === 'active' ? 'Active' : 'Inactive', onRemove: () => setFilters(p => ({ ...p, status: 'all' })) });
+            chips.push({ label: 'Status', value: filters.status === 'active' ? 'Active' : 'Inactive', onRemove: () => setFilter('status', 'all') });
         }
         if (filters.showDeleted) {
-            chips.push({ label: 'Deleted', value: 'Included', onRemove: () => setFilters(p => ({ ...p, showDeleted: false })) });
+            chips.push({ label: 'Deleted', value: 'Included', onRemove: () => setFilter('showDeleted', false) });
         }
         return chips;
     }, [filters, departments, designations, attendanceTypes]);
@@ -222,7 +255,7 @@ const EmployeesTab = ({ isActive }) => {
                 addLabel={!isMobile ? 'Add Employee' : 'Add'}
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={filters.search}
+                        searchValue={f.draft.search}
                         onSearchChange={handleSearchChange}
                         searchPlaceholder="Search employee name, ID, email..."
                         showFilterToggle
@@ -248,7 +281,7 @@ const EmployeesTab = ({ isActive }) => {
                             )}
                             <Box>
                                 <Text size="2" color="gray" mb="1" as="div">Designation</Text>
-                                <Select.Root size="2" value={filters.designation} onValueChange={v => { setFilters(p => ({ ...p, designation: v })); setPagination(p => ({ ...p, currentPage: 1 })); }} disabled={filters.department === 'all'}>
+                                <Select.Root size="2" value={filters.designation} onValueChange={v => setFilter('designation', v)} disabled={filters.department === 'all'}>
                                     <Select.Trigger style={{ width: '100%' }} placeholder={filters.department === 'all' ? 'Select Department First' : 'All Designations'} />
                                     <Select.Content>
                                         <Select.Item value="all">All Designations</Select.Item>
@@ -258,7 +291,7 @@ const EmployeesTab = ({ isActive }) => {
                             </Box>
                             <Box>
                                 <Text size="2" color="gray" mb="1" as="div">Attendance Type</Text>
-                                <Select.Root size="2" value={filters.attendanceType} onValueChange={v => { setFilters(p => ({ ...p, attendanceType: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Root size="2" value={filters.attendanceType} onValueChange={v => setFilter('attendanceType', v)}>
                                     <Select.Trigger style={{ width: '100%' }} placeholder="All Types" />
                                     <Select.Content>
                                         <Select.Item value="all">All Attendance Types</Select.Item>
@@ -268,7 +301,7 @@ const EmployeesTab = ({ isActive }) => {
                             </Box>
                             <Box>
                                 <Text size="2" color="gray" mb="1" as="div">System Role</Text>
-                                <Select.Root size="2" value={filters.role} onValueChange={v => { setFilters(p => ({ ...p, role: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Root size="2" value={filters.role} onValueChange={v => setFilter('role', v)}>
                                     <Select.Trigger style={{ width: '100%' }} placeholder="All Roles" />
                                     <Select.Content>
                                         <Select.Item value="all">All Roles</Select.Item>
@@ -278,7 +311,7 @@ const EmployeesTab = ({ isActive }) => {
                             </Box>
                             <Box>
                                 <Text size="2" color="gray" mb="1" as="div">Status</Text>
-                                <Select.Root size="2" value={filters.status} onValueChange={v => { setFilters(p => ({ ...p, status: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Root size="2" value={filters.status} onValueChange={v => setFilter('status', v)}>
                                     <Select.Trigger style={{ width: '100%' }} placeholder="Active / Inactive" />
                                     <Select.Content>
                                         <Select.Item value="all">All Statuses</Select.Item>
@@ -291,7 +324,7 @@ const EmployeesTab = ({ isActive }) => {
                                 <Checkbox 
                                     id="showDeletedEmployees"
                                     checked={filters.showDeleted}
-                                    onCheckedChange={checked => { setFilters(p => ({ ...p, showDeleted: !!checked })); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                                    onCheckedChange={checked => setFilter('showDeleted', !!checked)}
                                 />
                                 <Text size="2" color="gray" htmlFor="showDeletedEmployees" as="label" style={{ cursor: 'pointer', userSelect: 'none' }}>Include Deleted</Text>
                             </Flex>
@@ -326,10 +359,10 @@ const EmployeesTab = ({ isActive }) => {
                     <Flex justify="between" align="center" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
                         <Text size="2" color="gray">{startRow}–{endRow} of {pagination.total}</Text>
                         <Flex gap="2">
-                            <Button size="2" variant="soft" color="gray" disabled={pagination.currentPage <= 1} onClick={() => setPagination(p => ({ ...p, currentPage: p.currentPage - 1 }))}>
+                            <Button size="2" variant="soft" color="gray" disabled={pagination.currentPage <= 1} onClick={() => setPage(pagination.currentPage - 1)}>
                                 <ChevronLeftIcon /> Prev
                             </Button>
-                            <Button size="2" variant="soft" color="gray" disabled={pagination.currentPage >= totalPages} onClick={() => setPagination(p => ({ ...p, currentPage: p.currentPage + 1 }))}>
+                            <Button size="2" variant="soft" color="gray" disabled={pagination.currentPage >= totalPages} onClick={() => setPage(pagination.currentPage + 1)}>
                                 Next <ChevronRightIcon />
                             </Button>
                         </Flex>
@@ -350,8 +383,8 @@ const EmployeesTab = ({ isActive }) => {
                     loading={loading}
                     updateEmployeeOptimized={updateEmployeeOptimized}
                     deleteEmployeeOptimized={deleteEmployeeOptimized}
-                    onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
-                    onRowsPerPageChange={(perPage) => setPagination(p => ({ ...p, perPage, currentPage: 1 }))}
+                    onPageChange={setPage}
+                    onRowsPerPageChange={setPerPage}
                     auth={auth}
                     roles={roles}
                 />

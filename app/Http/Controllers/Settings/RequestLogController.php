@@ -50,7 +50,7 @@ class RequestLogController extends Controller
         }
 
         $logs = $query->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 50));
+            ->paginate(min(max((int) $request->get('per_page', 50), 5), 200));
 
         return response()->json($logs);
     }

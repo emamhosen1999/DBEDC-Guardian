@@ -10,6 +10,7 @@ import App from '@/Layouts/App.jsx';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 
 import DesignationTable from '@/Tables/DesignationTable.jsx';
 import DesignationForm from '@/Forms/DesignationForm.jsx';
@@ -35,50 +36,46 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
         return maxDept ? String(maxDept[0]) : 'all';
     }, [departments, allDesignations]);
 
-    const [filters, setFilters] = useState({
-        search: initialFilters?.search || '',
-        status: initialFilters?.status || 'all',
-        department: initialFilters?.department || defaultDepartment,
-    });
-    
-    const [pagination, setPagination] = useState({
-        currentPage: initialDesignations?.current_page || 1,
-        perPage: initialDesignations?.per_page || 10
+    /* ── server-driven state lives in the URL, so a refresh or a copied link
+         reproduces this list. Rows come from react-query, so filter changes
+         update the URL client-side without a server round trip.
+         `department` defaults to the busiest department, preserving the
+         pre-existing preselection; that value is computed from props that are
+         present on first render, so it is stable. ── */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: {
+            search: '',
+            status: 'all',
+            department: defaultDepartment,
+            page: 1,
+            per_page: 10,
+        },
     });
 
-    // React Query hooks
+    const pagination = { currentPage: f.values.page, perPage: f.values.per_page };
+
     const { data: designationsData, isLoading: loading, refetch } = useDesignationsQuery.useDesignationsList({
-        page: pagination.currentPage,
-        per_page: pagination.perPage,
-        search: filters.search,
-        status: filters.status,
-        department: filters.department !== 'all' ? filters.department : undefined
+        page: f.values.page,
+        per_page: f.values.per_page,
+        search: f.values.search,
+        status: f.values.status,
+        department: f.values.department !== 'all' ? f.values.department : undefined
     });
 
     const { data: stats } = useDesignationsQuery.useDesignationStats();
+    useClampPage(f, designationsData?.last_page);
 
     const canCreateDesignation = auth.permissions?.includes('designations.create') || false;
     const canEditDesignation = auth.permissions?.includes('designations.update') || false;
     const canDeleteDesignation = auth.permissions?.includes('designations.delete') || false;
 
-    // Auto-refetch when filters or pagination changes
-    useEffect(() => {
-        refetch();
-    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.department, refetch]);
-
-    const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-    };
-
     const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
+        f.setPage(page);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
+    const handleRowsPerPageChange = (newPerPage) => f.setPerPage(newPerPage);
 
     const openModal = (type, designation = null) => setModalState({ type, designation });
     const closeModal = () => setModalState({ type: null, designation: null });
@@ -148,8 +145,8 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                             <Box style={{ flex: 1, minWidth: '240px' }}>
                                 <TextField.Root 
                                     placeholder="Search by title..." 
-                                    value={filters.search} 
-                                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                                    value={f.draft.search} 
+                                    onChange={(e) => f.setDraft('search', e.target.value)}
                                     style={{ borderRadius: 10 }}
                                 >
                                     <TextField.Slot><MagnifyingGlassIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} /></TextField.Slot>
@@ -157,7 +154,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                             </Box>
                             
                             <Box style={{ minWidth: '180px' }}>
-                                <Select.Root value={filters.department} onValueChange={(v) => handleFilterChange('department', v)}>
+                                <Select.Root value={f.values.department} onValueChange={(v) => f.set('department', v)}>
                                     <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
                                     <Select.Content>
                                         <Select.Item value="all">All Departments</Select.Item>
@@ -169,7 +166,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                             </Box>
 
                             <Box style={{ minWidth: '150px' }}>
-                                <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
+                                <Select.Root value={f.values.status} onValueChange={(v) => f.set('status', v)}>
                                     <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
                                     <Select.Content>
                                         <Select.Item value="all">All Status</Select.Item>

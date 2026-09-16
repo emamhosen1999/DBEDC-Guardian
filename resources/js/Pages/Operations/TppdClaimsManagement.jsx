@@ -18,6 +18,7 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 import { showOperationMutationErrors } from './mutationFeedback';
 
@@ -37,8 +38,13 @@ export default function TppdClaimsManagement({ auth, claims, stats, filters = {}
     const claimList = claims?.data || claims || [];
 
     // Filter states
-    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
-    const [search, setSearch] = useState(filters?.search || '');
+    /* Status and search are server state, so they live in the URL. */
+    const f = useQueryFilters({
+        routeName: 'om.tppd',
+        defaults: { status: 'all', search: '', page: 1 },
+    });
+    const statusFilter = f.values.status;
+    const search = f.draft.search;
 
     // Modals
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -111,14 +117,12 @@ export default function TppdClaimsManagement({ auth, claims, stats, filters = {}
         },
     ];
 
-    const handleFilterChange = (status) => {
-        setStatusFilter(status);
-        router.get(route('om.tppd'), { status, search }, { preserveState: true, replace: true });
-    };
+    const handleFilterChange = (status) => f.set('status', status);
 
+    // Search commits on its own after a pause; submitting just skips the wait.
     const handleSearchSubmit = (e) => {
         e.preventDefault();
-        router.get(route('om.tppd'), { status: statusFilter, search }, { preserveState: true, replace: true });
+        f.setMany({ search: f.draft.search });
     };
 
     const openCreateModal = () => {
@@ -256,7 +260,7 @@ export default function TppdClaimsManagement({ auth, claims, stats, filters = {}
                                 <TextField.Root
                                     placeholder="Search by claim #, vehicle plate, or driver..."
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(e) => f.setDraft('search', e.target.value)}
                                     size="2"
                                     style={{ width: 300 }}
                                 />

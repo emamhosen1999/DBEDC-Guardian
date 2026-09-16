@@ -9,6 +9,7 @@ import {
     PlusIcon, ReloadIcon, TableIcon,
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 
 import LeaveEmployeeTable from '@/Tables/LeaveEmployeeTable.jsx';
 import LeaveForm from '@/Forms/LeaveForm.jsx';
@@ -38,16 +39,36 @@ const LeavesEmployee = ({ title, allUsers }) => {
   const [tableLoading, setTableLoading] = useState(false);
 
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({ 
-    employee: '', 
-    selectedMonth: dayjs().format('YYYY-MM'),
-    year: new Date().getFullYear() 
+  /* Year, month and page decide which leave records the server returns, so they
+     live in the URL — a refresh or a copied link reproduces this list. Rows come
+     from react-query, so a change updates the URL without a server round trip. */
+  const f = useQueryFilters({
+    mode: 'client',
+    debounceKeys: [],
+    defaults: {
+      employee: '',
+      month: dayjs().format('YYYY-MM'),
+      year: new Date().getFullYear(),
+      page: 1,
+      per_page: 30,
+    },
   });
 
-  // React Query hooks
+  const setFilter = f.set;
+  const setPage = f.setPage;
+  const setSize = f.setPerPage;
+
+  const filters = useMemo(() => ({
+    employee: f.values.employee,
+    selectedMonth: f.values.month,
+    year: f.values.year,
+  }), [f.values.employee, f.values.month, f.values.year]);
+
+  // React Query hooks. Page and size come from the URL, so paging actually
+  // reaches the server — they were previously pinned to the first page.
   const { data: leavesResponse, isLoading, refetch } = useLeavesQuery.useLeaves({
-    page: 1,
-    perPage: 30,
+    page: f.values.page,
+    perPage: f.values.per_page,
     year: filters.year,
     user_id: auth.user.id
   });
@@ -58,19 +79,24 @@ const LeavesEmployee = ({ title, allUsers }) => {
 
   // Local state for leaves and pagination to support optimistic updates
   const [leaves, setLeaves] = useState(leavesResponse?.data || []);
-  const [pagination, setPagination] = useState({
-    page: leavesResponse?.current_page || 1,
-    perPage: leavesResponse?.per_page || 30,
+  const [serverPaging, setServerPaging] = useState({
     total: leavesResponse?.total || 0,
     lastPage: leavesResponse?.last_page || 1,
   });
 
+  // Page and size are URL state; the totals come back with the rows.
+  const pagination = useMemo(() => ({
+    page: f.values.page,
+    perPage: f.values.per_page,
+    total: serverPaging.total,
+    lastPage: serverPaging.lastPage,
+  }), [f.values.page, f.values.per_page, serverPaging]);
+  useClampPage(f, leavesResponse?.last_page);
+
   // Keep local state in sync with server responses
   useEffect(() => {
     setLeaves(leavesResponse?.data || []);
-    setPagination({
-      page: leavesResponse?.current_page || 1,
-      perPage: leavesResponse?.per_page || 30,
+    setServerPaging({
       total: leavesResponse?.total || 0,
       lastPage: leavesResponse?.last_page || 1,
     });
@@ -139,19 +165,9 @@ const LeavesEmployee = ({ title, allUsers }) => {
       }
     }
 
-    setFilters(previousFilters => ({ 
-      ...previousFilters, 
-      [filterKey]: filterValue 
-    }));
-
-    // Reset pagination when year filter changes
-    if (filterKey === 'year') {
-      setPagination(previousPagination => ({ 
-        ...previousPagination, 
-        page: 1 
-      }));
-    }
-  }, []);
+    // The hook returns to page 1 on any filter change.
+    setFilter(filterKey === 'selectedMonth' ? 'month' : filterKey, filterValue);
+  }, [setFilter]);
 
   // Modal state
   const [modalStates, setModalStates] = useState({
@@ -208,16 +224,9 @@ const LeavesEmployee = ({ title, allUsers }) => {
   }, [statsData, auth.user.id]);
 
   // Handle pagination changes
-  const handlePageChange = useCallback((newPage) => {
-    // Only change page if it's different from the current page
-    if (newPage !== pagination.page) {
-      setPagination(prev => ({ ...prev, page: newPage }));
-    }
-  }, [pagination.page]);
+  const handlePageChange = useCallback((newPage) => setPage(newPage), [setPage]);
 
-  const handleRowsPerPageChange = useCallback((newPerPage) => {
-    setPagination(prev => ({ ...prev, perPage: newPerPage, page: 1 }));
-  }, []);
+  const handleRowsPerPageChange = useCallback((newPerPage) => setSize(newPerPage), [setSize]);
 
   // Separate effect for fetching leave stats to avoid unnecessary refetches
   useEffect(() => {

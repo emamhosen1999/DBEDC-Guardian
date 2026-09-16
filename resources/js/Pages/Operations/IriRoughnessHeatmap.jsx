@@ -14,19 +14,25 @@ import {
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 
 export default function IriRoughnessHeatmap({ auth, profile, direction = 'northbound' }) {
     useOperationsRealtimeRefresh();
 
-    const [selectedDirection, setSelectedDirection] = useState(direction);
+    /* Direction changes which segments the server returns, so it lives in the
+       URL and a copied link opens the same carriageway. */
+    const f = useQueryFilters({
+        routeName: 'om.iri',
+        defaults: { direction: 'northbound' },
+        debounceKeys: [],
+    });
+    const selectedDirection = f.values.direction;
+    const handleDirectionChange = (val) => f.set('direction', val);
+
+    // Purely local: which segment is open, and a client-side condition filter.
     const [selectedSegment, setSelectedSegment] = useState(null);
     const [conditionFilter, setConditionFilter] = useState('all');
-
-    const handleDirectionChange = (val) => {
-        setSelectedDirection(val);
-        router.get(route('om.iri'), { direction: val }, { preserveState: true, replace: true });
-    };
 
     const segments = profile?.segments || [];
     const alerts = profile?.deterioration_alerts || [];

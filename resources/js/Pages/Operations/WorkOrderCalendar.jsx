@@ -12,6 +12,7 @@ import {
     MapPinIcon
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import { Panel } from '@/Components/ui/Panel';
 import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 
@@ -20,8 +21,17 @@ export default function WorkOrderCalendar({ auth, workOrders = [], currentMonth 
 
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedWo, setSelectedWo] = useState(null);
-    const [filterStatus, setFilterStatus] = useState('all');
-    const [filterPriority, setFilterPriority] = useState('all');
+    /* These two narrow the work orders already on screen rather than changing
+       what the server returns, so they are remembered rather than put in the URL.
+       The month itself is URL state and is handled by the navigation below. */
+    const [ui, setUi] = usePersistentPageState('Operations/WorkOrderCalendar', {
+        filterStatus: 'all',
+        filterPriority: 'all',
+    });
+    const filterStatus = ui.filterStatus;
+    const filterPriority = ui.filterPriority;
+    const setFilterStatus = (value) => setUi({ filterStatus: value });
+    const setFilterPriority = (value) => setUi({ filterPriority: value });
 
     // Parse current month
     const currentDate = useMemo(() => {

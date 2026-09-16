@@ -3,6 +3,7 @@ import { usePage } from "@inertiajs/react";
 import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Text, Button, TextField, Spinner, Badge, IconButton, Grid, Separator } from '@radix-ui/themes';
 import { 
     SewingPinIcon, PlusIcon, MagnifyingGlassIcon, 
@@ -26,7 +27,12 @@ const WorkLocationsTab = ({ isActive }) => {
     // Modal states
     const [modalType, setModalType] = useState(null); // 'add', 'update', 'delete', null
     const [currentRow, setCurrentRow] = useState(null);
-    const [search, setSearch] = useState('');
+    /* The search narrows the locations already on screen, but it is worth
+       surviving a refresh and sharing, so it goes in the URL. Client-side only —
+       no request is issued when it changes. */
+    const f = useQueryFilters({ mode: 'client', defaults: { search: '' } });
+    const search = f.values.search;
+    const setSearch = (value) => f.setDraft('search', value);
 
     const canCreate = auth.permissions?.includes('attendance.settings') || auth.roles?.includes('Super Administrator') || false;
 
@@ -87,7 +93,7 @@ const WorkLocationsTab = ({ isActive }) => {
                 addLabel={!isMobile ? 'Add Location' : 'Add'}
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={search}
+                        searchValue={f.draft.search}
                         onSearchChange={setSearch}
                         searchPlaceholder="Search locations by name..."
                         showFilterToggle={false}

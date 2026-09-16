@@ -1,5 +1,5 @@
 import { Panel } from '@/Components/ui/Panel';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { Box, Flex, Text, Separator, TextField, Button, Badge } from '@radix-ui/themes';
 import { DashboardIcon, CalendarIcon, LayersIcon } from '@radix-ui/react-icons';
@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import App from "@/Layouts/App.jsx";
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import AttendanceEmployeeTable from "@/Tables/AttendanceEmployeeTable.jsx";
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import AttendanceOverview from './Attendance/Components/AttendanceOverview';
@@ -136,32 +137,38 @@ const AttendanceEmployee = React.memo(({ title }) => {
   usePage();
   const isDesktop = useMediaQuery('(min-width: 1025px)');
 
-  const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
-  const [updateTimeSheet, setUpdateTimeSheet] = useState(false);
-  
-  const [filterData, setFilterData] = useState({
-    currentMonth: dayjs().format('YYYY-MM'),
+  /* Which day is being looked at decides what the panels below fetch, so it
+     lives in the URL — a refresh or a copied link opens the same day. The month
+     shown is derived from it rather than stored separately, so the two can no
+     longer drift apart. The default is left empty so an explicitly chosen date
+     always stays visible in the link. */
+  const f = useQueryFilters({
+    defaults: { date: '' },
+    mode: 'client',
+    debounceKeys: [],
   });
+
+  const selectedDate = f.values.date || dayjs().format('YYYY-MM-DD');
+  const filterData = useMemo(
+    () => ({ currentMonth: dayjs(selectedDate).format('YYYY-MM') }),
+    [selectedDate],
+  );
+
+  const [updateTimeSheet, setUpdateTimeSheet] = useState(false);
+
+  const setDate = f.set;
 
   const handleDateChange = useCallback((event) => {
     const newDate = event.target.value;
-    if (newDate) {
-      setSelectedDate(newDate);
-      setFilterData(prev => ({ ...prev, currentMonth: dayjs(newDate).format('YYYY-MM') }));
-    }
-  }, []);
+    if (newDate) setDate('date', newDate);
+  }, [setDate]);
 
   const handleFilterChange = useCallback((key, value) => {
-    setFilterData(prevState => ({
-      ...prevState,
-      [key]: value,
-    }));
-    
-    // Sync the exact selected date to the 1st of the new month to drive the overview/table updates
+    // Picking a month moves to its first day, which drives the panels below.
     if (key === 'currentMonth' && value) {
-      setSelectedDate(dayjs(value).startOf('month').format('YYYY-MM-DD'));
+      setDate('date', dayjs(value).startOf('month').format('YYYY-MM-DD'));
     }
-  }, []);
+  }, [setDate]);
 
   return (
     <>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Box, Flex, Text, Heading, Button, Badge, Table, TextField, Dialog, Select, TextArea, Card } from '@radix-ui/themes';
 import {
@@ -12,6 +12,7 @@ import {
     SunIcon
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
 import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
@@ -24,10 +25,27 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
     const [showModal, setShowModal] = useState(false);
     const [selectedLog, setSelectedLog] = useState(null);
 
-    // Filters
-    const [search, setSearch] = useState(filters?.search || '');
-    const [typeFilter, setTypeFilter] = useState(filters?.monitoring_type || 'all');
-    const [statusFilter, setStatusFilter] = useState(filters?.compliance_status || 'all');
+    /* Applied filters live in the URL, so a refresh or a copied link reproduces
+       this list. This page filters on an explicit press rather than as you type,
+       so the three controls below are an uncommitted draft until then. */
+    const f = useQueryFilters({
+        defaults: { search: '', monitoring_type: 'all', compliance_status: 'all', page: 1 },
+        debounceKeys: [],
+    });
+
+    const appliedKey = JSON.stringify([f.values.search, f.values.monitoring_type, f.values.compliance_status]);
+    const [search, setSearch] = useState(f.values.search);
+    const [typeFilter, setTypeFilter] = useState(f.values.monitoring_type);
+    const [statusFilter, setStatusFilter] = useState(f.values.compliance_status);
+
+    // Re-seed the controls when the applied set changes underneath them — Back,
+    // Forward, or landing on a link someone shared.
+    useEffect(() => {
+        const [nextSearch, nextType, nextStatus] = JSON.parse(appliedKey);
+        setSearch(nextSearch);
+        setTypeFilter(nextType);
+        setStatusFilter(nextStatus);
+    }, [appliedKey]);
 
     // Form
     const [logDate, setLogDate] = useState(new Date().toISOString().substring(0, 10));
@@ -101,13 +119,11 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
         });
     };
 
-    const handleFilter = () => {
-        router.get('/om/environmental', {
-            search: search || undefined,
-            monitoring_type: typeFilter !== 'all' ? typeFilter : undefined,
-            compliance_status: statusFilter !== 'all' ? statusFilter : undefined,
-        }, { preserveState: true });
-    };
+    const handleFilter = () => f.setMany({
+        search,
+        monitoring_type: typeFilter,
+        compliance_status: statusFilter,
+    });
 
     const statusBadgeColor = (s) => ({
         compliant: 'green',

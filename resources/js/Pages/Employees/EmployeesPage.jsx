@@ -12,6 +12,7 @@ import {
     LockClosedIcon,
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 
 import EmployeesTab from '../Organization/Tabs/EmployeesTab';
 import DepartmentsTab from '../Organization/Tabs/DepartmentsTab';
@@ -33,8 +34,9 @@ const EmployeesPage = ({
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
 
-    /* ── shared state ─────────────────────────────────────── */
-    const [activeTab, setActiveTab] = useState('employees');
+    /* ── Each tab is a distinct view of the organisation, so it belongs in the
+         URL: /employees?tab=departments survives a refresh and can be shared. ── */
+    const f = useQueryFilters({ mode: 'client', defaults: { tab: 'employees' }, debounceKeys: [] });
     const [headerActions, setHeaderActions] = useState(null);
 
     /* ── permission checks ─────────────────────────────────── */
@@ -49,9 +51,15 @@ const EmployeesPage = ({
         ...(canViewRoles ? [{ value: 'roles', label: 'Roles & Permissions', icon: <LockClosedIcon /> }] : []),
     ];
 
+    /* A URL can name a tab this user may not open — a stale link, or a permission
+       revoked since. Fall back to the first tab rather than render nothing. */
+    const activeTab = tabs.some(t => t.value === f.values.tab) ? f.values.tab : tabs[0].value;
+
     /* ── handle tab change to clear header actions ── */
     const handleTabChange = (val) => {
-        setActiveTab(val);
+        // Each tab is its own list with its own filters in the URL. Switching
+        // starts the new tab clean rather than carrying the old tab's search over.
+        f.commit({ tab: val }, { replaceAll: true });
         setHeaderActions(null);
     };
 

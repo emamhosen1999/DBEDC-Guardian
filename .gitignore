@@ -89,3 +89,8 @@ prod-roster-*.png
 # Firebase service-account / admin keys � NEVER commit
 *firebase-adminsdk*
 /storage/app/firebase-credentials.json
+
+# Playwright local runs
+test-results/
+tests/playwright/report/
+tests/playwright/.auth-state.json
