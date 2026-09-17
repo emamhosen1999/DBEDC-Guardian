@@ -30,11 +30,17 @@ class PettyCashTransaction extends Model implements HasMedia
         return $this->belongsTo(PettyCashLoan::class);
     }
 
+    /** The most bills one transaction may carry. Enforced in PettyCashFileService. */
+    public const MAX_BILLS = 10;
+
     public function registerMediaCollections(): void
     {
+        // The cap is not declared here: MediaLibrary has no maxNumberOfFiles(),
+        // and its onlyKeepLatest() would silently delete the oldest bill once an
+        // eleventh arrived — the wrong thing to do to a financial record. The
+        // service refuses the upload instead.
         $this->addMediaCollection('bills')
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'])
-            ->maxNumberOfFiles(10);
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']);
     }
 
     public function scopeByType($query, $type)

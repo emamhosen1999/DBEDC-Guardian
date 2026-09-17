@@ -4,11 +4,18 @@ namespace App\Services\PettyCash;
 
 use App\Models\PettyCashTransaction;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 
 class PettyCashFileService
 {
     public function uploadBill(PettyCashTransaction $transaction, UploadedFile $file): array
     {
+        if ($transaction->getMedia('bills')->count() >= PettyCashTransaction::MAX_BILLS) {
+            throw ValidationException::withMessages([
+                'bill' => 'This transaction already has the maximum of '.PettyCashTransaction::MAX_BILLS.' bills. Remove one before adding another.',
+            ]);
+        }
+
         $media = $transaction->addMedia($file)
             ->usingFileName($this->generateUniqueFileName($file))
             ->toMediaCollection('bills');

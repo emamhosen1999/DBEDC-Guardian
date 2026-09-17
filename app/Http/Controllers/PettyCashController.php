@@ -316,6 +316,13 @@ class PettyCashController extends Controller
                 'message' => 'Bill uploaded successfully',
                 'bill' => $bill,
             ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // A refused upload (too many bills) is the caller's to fix, not a server fault.
+            return response()->json([
+                'success' => false,
+                'error' => $e->validator->errors()->first(),
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
