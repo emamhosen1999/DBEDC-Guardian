@@ -263,6 +263,7 @@ class PettyCashController extends Controller
     {
         $request->validate([
             'loan_id' => 'required|exists:petty_cash_loans,id',
+            'range' => 'nullable|in:'.implode(',', \App\Services\PettyCash\PettyCashAnalyticsService::RANGES),
         ]);
 
         try {
@@ -276,7 +277,8 @@ class PettyCashController extends Controller
                 ], 403);
             }
 
-            $analytics = $this->pettyCashService->getAnalytics($loan);
+            $analytics = app(\App\Services\PettyCash\PettyCashAnalyticsService::class)
+                ->build($loan, (string) $request->input('range', 'all'));
 
             return response()->json([
                 'success' => true,

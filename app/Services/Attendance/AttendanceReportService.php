@@ -335,7 +335,9 @@ class AttendanceReportService
         int $currentMonth,
         int $currentYear,
         bool $isGlobalScope,
-        ?string $userId
+        ?string $userId,
+        bool $withBreakdown = false,
+        ?int $departmentId = null
     ): array {
         $resolver = app(ScheduleResolver::class);
         $policyResolver = app(PolicyResolver::class);
@@ -357,10 +359,26 @@ class AttendanceReportService
         $holidays = $this->getHolidaysForMonth($currentYear, $currentMonth);
 
         $users = $this->getEmployeeUsersWithAttendanceAndLeaves(
-            $currentYear, $currentMonth, null, $isGlobalScope ? null : $userId
+            $currentYear, $currentMonth, $isGlobalScope ? $departmentId : null, $isGlobalScope ? null : $userId
         );
 
         $totalEmployees = $users->count();
+
+        // Breakdown accumulators — filled in the same engine pass as the totals
+        // below, so the analytics can never disagree with the headline figures.
+        $daily = [];
+        $departments = [];
+        $weekday = [];
+        $lateBuckets = ['1–15 min' => 0, '16–30 min' => 0, '31–60 min' => 0, '60+ min' => 0];
+        $lateMinutesTotal = 0;
+        $scheduledPresentTotal = 0;
+        $people = [];
+        if ($withBreakdown) {
+            $users->loadMissing('department:id,name');
+            foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $label) {
+                $weekday[$label] = ['day' => $label, 'expected' => 0, 'present' => 0, 'scheduled_present' => 0, 'late' => 0, 'absent' => 0];
+            }
+        }
 
         $present = 0;
         $absent = 0;
@@ -383,8 +401,13 @@ class AttendanceReportService
 
             $userPresent = 0;
             $userWorkingDays = 0;
+            $userLate = 0;
+            $userLateMinutes = 0;
+            $userScheduledPresent = 0;
+            $userAbsent = 0;
+            $userLeave = 0;
 
-            foreach ($dayResults as $ctx) {
+            foreach ($dayResults as $dateKey => $ctx) {
                 if ($ctx['before_join'] || $ctx['after_termination']) {
                     continue;
                 }
@@ -393,6 +416,8 @@ class AttendanceReportService
                 $result = $ctx['result'];
                 $effective = $this->classifyDay($ctx);
                 $lf = $result->leave_fraction; // 0 / 0.5 / 1.0
+
+                $before = [$present, $absent, $leaveDays, $lateArrivals, $potentialManDays];
 
                 if ($lf > 0) {
                     $leaveDays += $lf;
@@ -424,6 +449,76 @@ class AttendanceReportService
                     $userWorkingDays += (1.0 - $lf);
                     $potentialManDays += (1.0 - $lf);
                 }
+
+                if ($withBreakdown) {
+                    $dPresent = $present - $before[0];
+                    $dAbsent = $absent - $before[1];
+                    $dLeave = $leaveDays - $before[2];
+                    $dLate = $lateArrivals - $before[3];
+                    $dExpected = $potentialManDays - $before[4];
+                    $dScheduledPresent = min($dPresent, $dExpected);
+                    $scheduledPresentTotal += $dScheduledPresent;
+                    $userScheduledPresent += $dScheduledPresent;
+
+                    if (! isset($daily[$dateKey])) {
+                        $daily[$dateKey] = ['date' => $dateKey, 'expected' => 0, 'present' => 0, 'scheduled_present' => 0, 'on_time' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0];
+                    }
+                    $daily[$dateKey]['scheduled_present'] += $dScheduledPresent;
+                    $daily[$dateKey]['expected'] += $dExpected;
+                    $daily[$dateKey]['present'] += $dPresent;
+                    $daily[$dateKey]['late'] += $dLate;
+                    $daily[$dateKey]['on_time'] += max(0, $dPresent - $dLate);
+                    $daily[$dateKey]['absent'] += $dAbsent;
+                    $daily[$dateKey]['leave'] += $dLeave;
+
+                    $dow = Carbon::parse($dateKey)->format('D');
+                    $weekday[$dow]['expected'] += $dExpected;
+                    $weekday[$dow]['present'] += $dPresent;
+                    $weekday[$dow]['scheduled_present'] += $dScheduledPresent;
+                    $weekday[$dow]['late'] += $dLate;
+                    $weekday[$dow]['absent'] += $dAbsent;
+
+                    if ($dLate > 0) {
+                        $minutes = (int) $result->late_minutes;
+                        $lateMinutesTotal += $minutes;
+                        $userLateMinutes += $minutes;
+                        $lateBuckets[match (true) {
+                            $minutes <= 15 => '1–15 min',
+                            $minutes <= 30 => '16–30 min',
+                            $minutes <= 60 => '31–60 min',
+                            default => '60+ min',
+                        }]++;
+                    }
+
+                    $userLate += $dLate;
+                    $userAbsent += $dAbsent;
+                    $userLeave += $dLeave;
+                }
+            }
+
+            if ($withBreakdown) {
+                $deptName = $user->department?->name ?? 'Unassigned';
+                $departments[$deptName] ??= ['department' => $deptName, 'employees' => 0, 'expected' => 0, 'present' => 0, 'scheduled_present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0];
+                $departments[$deptName]['employees']++;
+                $departments[$deptName]['scheduled_present'] += $userScheduledPresent;
+                $departments[$deptName]['expected'] += $userWorkingDays;
+                $departments[$deptName]['present'] += $userPresent;
+                $departments[$deptName]['late'] += $userLate;
+                $departments[$deptName]['absent'] += $userAbsent;
+                $departments[$deptName]['leave'] += $userLeave;
+
+                $people[] = [
+                    'employee_id' => (string) $user->employee_id,
+                    'name' => $user->name,
+                    'department' => $deptName,
+                    'expected' => $userWorkingDays,
+                    'present' => $userPresent,
+                    'late' => $userLate,
+                    'late_minutes' => $userLateMinutes,
+                    'absent' => $userAbsent,
+                    'leave' => $userLeave,
+                    'rate' => $userWorkingDays > 0 ? round($userScheduledPresent / $userWorkingDays * 100, 1) : null,
+                ];
             }
 
             if ($userWorkingDays > 0 && $userPresent >= $userWorkingDays) {
@@ -461,6 +556,86 @@ class AttendanceReportService
                 'averageDaily' => $averageWorkHours,
                 'overtime' => round($otMinutes / 60, 1),
             ],
+        ] + ($withBreakdown ? ['breakdown' => $this->shapeBreakdown(
+            $daily, $departments, $weekday, $lateBuckets, $lateMinutesTotal, $lateArrivals, $people, $isGlobalScope,
+            $scheduledPresentTotal, $potentialManDays, $present
+        )] : []);
+    }
+
+    /**
+     * Turn the breakdown accumulators into chart-ready series.
+     * Rates are present ÷ expected working man-days; leave is excluded from
+     * "expected", matching the headline attendance percentage.
+     */
+    private function shapeBreakdown(
+        array $daily, array $departments, array $weekday, array $lateBuckets,
+        int $lateMinutesTotal, int $lateArrivals, array $people, bool $isGlobalScope,
+        float|int $scheduledPresent, float|int $expected, float|int $present
+    ): array {
+        // Rates use present-on-scheduled-days only, so they are bounded by 100%.
+        $rate = fn ($scheduled, $expected) => $expected > 0 ? round($scheduled / $expected * 100, 1) : null;
+        $num = fn ($v) => $this->numify($v);
+
+        ksort($daily);
+        $dailySeries = array_values(array_map(fn ($d) => [
+            'date' => $d['date'],
+            'label' => Carbon::parse($d['date'])->format('j M'),
+            'weekday' => Carbon::parse($d['date'])->format('D'),
+            'expected' => $num($d['expected']),
+            'on_time' => $num($d['on_time']),
+            'late' => $num($d['late']),
+            'absent' => $num($d['absent']),
+            'leave' => $num($d['leave']),
+            'rate' => $rate($d['scheduled_present'], $d['expected']),
+        ], $daily));
+
+        $deptSeries = collect($departments)
+            ->map(fn ($d) => [
+                'department' => $d['department'],
+                'employees' => $d['employees'],
+                'present' => $num($d['present']),
+                'late' => $d['late'],
+                'absent' => $num($d['absent']),
+                'leave' => $num($d['leave']),
+                'rate' => $rate($d['scheduled_present'], $d['expected']),
+                'late_rate' => $d['present'] > 0 ? round($d['late'] / $d['present'] * 100, 1) : null,
+            ])
+            ->sortBy(fn ($d) => $d['rate'] ?? 101)
+            ->values()
+            ->all();
+
+        $weekdaySeries = array_values(array_map(fn ($w) => [
+            'day' => $w['day'],
+            'expected' => $num($w['expected']),
+            'late' => $w['late'],
+            'absent' => $num($w['absent']),
+            'rate' => $rate($w['scheduled_present'], $w['expected']),
+        ], $weekday));
+
+        $peopleCol = collect($people)->filter(fn ($p) => $p['expected'] > 0);
+
+        return [
+            'rate' => [
+                'scheduled' => $rate($scheduledPresent, $expected),
+                'expected_days' => $num($expected),
+                'present_on_schedule' => $num($scheduledPresent),
+                // Days worked that were not scheduled (weekends, days off).
+                'off_schedule_days' => $num(max(0, $present - $scheduledPresent)),
+            ],
+            'daily' => $dailySeries,
+            'departments' => $isGlobalScope ? $deptSeries : [],
+            'weekday' => $weekdaySeries,
+            'punctuality' => [
+                'buckets' => collect($lateBuckets)->map(fn ($count, $label) => ['bucket' => $label, 'count' => $count])->values()->all(),
+                'average_late_minutes' => $lateArrivals > 0 ? round($lateMinutesTotal / $lateArrivals, 1) : 0,
+                'total_late_minutes' => $lateMinutesTotal,
+            ],
+            // Named lists are only meaningful — and only appropriate — for a team view.
+            'watchlist' => $isGlobalScope ? [
+                'most_late' => $peopleCol->filter(fn ($p) => $p['late'] > 0)->sortByDesc('late')->take(5)->values()->all(),
+                'most_absent' => $peopleCol->filter(fn ($p) => $p['absent'] > 0)->sortByDesc('absent')->take(5)->values()->all(),
+                'lowest_rate' => $peopleCol->sortBy('rate')->take(5)->values()->all(),
+            ] : null,
         ];
     }
 

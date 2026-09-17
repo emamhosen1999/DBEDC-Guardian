@@ -5,7 +5,7 @@ import App from '@/Layouts/App';
 import { Box, Flex, Text, Tabs, Skeleton } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
-    DesktopIcon, SymbolIcon, UpdateIcon
+    DesktopIcon, SymbolIcon, UpdateIcon, BarChartIcon
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
@@ -14,6 +14,7 @@ import dayjs from 'dayjs';
 import DailyTimesheetTab  from './DailyTimesheetTab';
 const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
 const RosterTab          = lazy(() => import('./RosterTab'));
+const AnalyticsTab       = lazy(() => import('./AnalyticsTab'));
 const ShiftsSettings     = lazy(() => import('./ShiftsSettings'));
 const SettingsTab        = lazy(() => import('./SettingsTab'));
 const ApprovalsInbox     = lazy(() => import('./Components/ApprovalsInbox'));
@@ -76,6 +77,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
     const tabs = [
         { value: 'timesheet', label: 'Daily Timesheet', icon: <ClockIcon />    },
         { value: 'monthly',   label: 'Monthly Calendar', icon: <CalendarIcon /> },
+        { value: 'analytics', label: 'Analytics', icon: <BarChartIcon /> },
         ...(canManage
             ? [{ value: 'approvals', label: 'Approvals', icon: <CheckCircledIcon /> }]
             : []
@@ -235,6 +237,23 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                                             selectedMonth={selectedMonth}
                                             onMonthChange={handleMonthChange}
                                             departments={departments}
+                                        />
+                                    </Suspense>
+                                </ErrorBoundary>
+                            </Box>
+
+                            {/* ── Analytics Tab ─────────────────────────── */}
+                            <Box mt="4" style={{ display: activeTab === 'analytics' ? 'block' : 'none' }}>
+                                <ErrorBoundary>
+                                    <Suspense fallback={<Skeleton height="400px" />}>
+                                        {/* Only fetches while visible; the tab stays mounted like the others. */}
+                                        <AnalyticsTab
+                                            month={selectedMonth}
+                                            onMonthChange={handleMonthChange}
+                                            departments={departments}
+                                            canViewTeam={isSuperAdmin || auth.permissions?.includes('attendance.view') || false}
+                                            isActive={activeTab === 'analytics'}
+                                            isMobile={isMobile}
                                         />
                                     </Suspense>
                                 </ErrorBoundary>

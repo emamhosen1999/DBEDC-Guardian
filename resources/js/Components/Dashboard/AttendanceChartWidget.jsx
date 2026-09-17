@@ -7,6 +7,8 @@ import {
     ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import axios from 'axios';
+import { Link } from '@inertiajs/react';
+import { VizRoot, VizTooltip, fmt } from '@/Components/Charts/VizKit';
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -14,10 +16,10 @@ function buildPersonalChartData(data) {
     if (!data) return [];
     const att = data.attendance;
     return [
-        { name: 'Present', value: att.present,      fill: 'var(--green-9)'  },
-        { name: 'Absent',  value: att.absent,        fill: 'var(--red-9)'    },
-        { name: 'Late',    value: att.lateArrivals,  fill: 'var(--amber-9)'  },
-        { name: 'Leave',   value: att.leaves,        fill: 'var(--blue-9)'   },
+        { name: 'Present', value: att.present,      fill: 'var(--viz-ontime)'  },
+        { name: 'Absent',  value: att.absent,        fill: 'var(--viz-absent)'    },
+        { name: 'Late',    value: att.lateArrivals,  fill: 'var(--viz-late)'  },
+        { name: 'Leave',   value: att.leaves,        fill: 'var(--viz-leave)'   },
     ].filter(item => item.value > 0); // Only show positive values in Donut
 }
 
@@ -75,10 +77,10 @@ function PersonalChart({ data, loading, height = 180 }) {
             {/* Right: Legend list */}
             <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
                 {[
-                    { name: 'Present', value: data.attendance?.present, fill: 'var(--green-9)' },
-                    { name: 'Absent', value: data.attendance?.absent, fill: 'var(--red-9)' },
-                    { name: 'Late', value: data.attendance?.lateArrivals, fill: 'var(--amber-9)' },
-                    { name: 'Leave', value: data.attendance?.leaves, fill: 'var(--blue-9)' }
+                    { name: 'Present', value: data.attendance?.present, fill: 'var(--viz-ontime)' },
+                    { name: 'Absent', value: data.attendance?.absent, fill: 'var(--viz-absent)' },
+                    { name: 'Late', value: data.attendance?.lateArrivals, fill: 'var(--viz-late)' },
+                    { name: 'Leave', value: data.attendance?.leaves, fill: 'var(--viz-leave)' }
                 ].map((item, idx) => (
                     <Flex key={idx} align="center" justify="between" style={{ borderBottom: '1px dashed var(--gray-a3)', paddingBottom: 2 }}>
                         <Flex align="center" gap="2">
@@ -102,28 +104,30 @@ function TeamChart({ data, loading, height = 180 }) {
     }
 
     const chartData = [
-        { name: 'Present', value: data.attendance?.present ?? 0, fill: 'var(--green-9)' },
-        { name: 'Absent',  value: data.attendance?.absent  ?? 0, fill: 'var(--red-9)' },
-        { name: 'Late',    value: data.attendance?.lateArrivals ?? 0, fill: 'var(--amber-9)' },
-        { name: 'Leave',   value: data.attendance?.leaves   ?? 0, fill: 'var(--blue-9)' },
+        { name: 'Present', value: data.attendance?.present ?? 0, fill: 'var(--viz-ontime)' },
+        { name: 'Absent',  value: data.attendance?.absent  ?? 0, fill: 'var(--viz-absent)' },
+        { name: 'Late',    value: data.attendance?.lateArrivals ?? 0, fill: 'var(--viz-late)' },
+        { name: 'Leave',   value: data.attendance?.leaves   ?? 0, fill: 'var(--viz-leave)' },
     ];
 
     return (
         <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={chartData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-a4)" vertical={false} />
+            <BarChart data={chartData} margin={{ top: 18, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid stroke="var(--viz-grid)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--gray-10)' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--gray-10)' }} axisLine={false} tickLine={false} />
                 <Tooltip
-                    contentStyle={{
-                        background: 'var(--color-panel-solid)',
-                        border: '1px solid var(--gray-a6)',
-                        borderRadius: 'var(--radius-2)',
-                        fontSize: 12,
-                    }}
                     cursor={{ fill: 'var(--gray-a3)' }}
+                    content={<VizTooltip valueFormatter={(v) => `${fmt.num(v, 1)} days`} />}
                 />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                <Bar
+                    dataKey="value"
+                    name="Man-days"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                    isAnimationActive={false}
+                    label={{ position: 'top', fontSize: 11, fill: 'var(--viz-ink)', formatter: (v) => fmt.num(v, 1) }}
+                >
                     {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
@@ -176,7 +180,7 @@ export default function AttendanceChartWidget({ permissions = [] }) {
     if (!canPersonal && !canTeam) return null;
 
     return (
-        <Box>
+        <VizRoot>
             <Flex gap={{ initial: '3', md: '4' }} style={{ flexWrap: 'wrap' }}>
                 {canPersonal && (
                     <Panel tinted style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
@@ -194,9 +198,14 @@ export default function AttendanceChartWidget({ permissions = [] }) {
                     <Panel tinted style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
                         <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>Team Attendance</Heading>
-                            <Badge variant="soft" color="gray" size="1">
-                                {team?.meta?.totalEmployees != null ? `${team.meta.totalEmployees} employees` : monthLabel}
-                            </Badge>
+                            <Flex align="center" gap="2">
+                                {team?.attendance?.percentage != null && (
+                                    <Badge variant="soft" color="gray" size="1">{fmt.pct(team.attendance.percentage)} attendance</Badge>
+                                )}
+                                <Link href={`${route('attendance.unified')}?tab=analytics`} style={{ fontSize: 12 }}>
+                                    Analytics →
+                                </Link>
+                            </Flex>
                         </Flex>
                         <Box style={{ flex: 1, minHeight: 0 }}>
                             <TeamChart data={team} loading={loading} height={170} />
@@ -204,6 +213,6 @@ export default function AttendanceChartWidget({ permissions = [] }) {
                     </Panel>
                 )}
             </Flex>
-        </Box>
+        </VizRoot>
     );
 }

@@ -1,1 +1,0 @@
-import{S as e,C as t}from"./objectionConfig-DGHS427t.js";import"./react-icons.esm-BXoXVZ9Y.js";import"./vendor-inertia-EFmYJ5Li.js";import"./vendor-utils-DZdOoBG3.js";Object.fromEntries(Object.entries(e).map(([r,o])=>[r,{color:o.color,icon:o.solidIcon||o.icon,label:o.label}]));Object.fromEntries(Object.entries(t).map(([r,o])=>[r,{label:o.label,color:o.color}]));

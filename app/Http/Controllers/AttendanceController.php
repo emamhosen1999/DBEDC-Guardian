@@ -836,6 +836,66 @@ class AttendanceController extends Controller
         }
     }
 
+    /**
+     * Monthly attendance analytics: the headline stats plus daily, department,
+     * weekday, punctuality and watch-list breakdowns, and last month's rate for
+     * comparison. Team scope needs attendance.view; everyone else sees only
+     * their own month (no department or named lists).
+     */
+    public function getMonthlyAttendanceAnalytics(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'department_id' => 'nullable|integer|exists:departments,id',
+            'scope' => 'nullable|in:team,self',
+        ]);
+
+        try {
+            $user = Auth::user();
+            $month = Carbon::createFromFormat('Y-m', $validated['month'] ?? now()->format('Y-m'))->startOfMonth();
+
+            $canTeam = $user->can('attendance.view');
+            $isGlobalScope = $canTeam && ($validated['scope'] ?? 'team') === 'team';
+
+            // Department managers without HR-wide access see only their department.
+            $departmentId = $validated['department_id'] ?? null;
+            $isHrWide = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            if ($isGlobalScope && ! $isHrWide && $user->department_id !== null) {
+                $departmentId = (int) $user->department_id;
+            }
+
+            $stats = $this->attendanceReportService->calculateMonthlyStats(
+                (int) $month->month, (int) $month->year, $isGlobalScope,
+                $isGlobalScope ? null : (string) $user->employee_id, true, $departmentId
+            );
+
+            $previous = $month->copy()->subMonthNoOverflow();
+            $previousStats = $this->attendanceReportService->calculateMonthlyStats(
+                (int) $previous->month, (int) $previous->year, $isGlobalScope,
+                $isGlobalScope ? null : (string) $user->employee_id, true, $departmentId
+            );
+
+            $stats['comparison'] = [
+                'month' => $previous->format('F Y'),
+                // Same on-schedule definition as this month's rate.
+                'rate' => $previousStats['breakdown']['rate']['scheduled'],
+                'percentage' => $previousStats['attendance']['percentage'],
+                'lateArrivals' => $previousStats['attendance']['lateArrivals'],
+                'absent' => $previousStats['attendance']['absent'],
+            ];
+            $stats['meta']['scope'] = $isGlobalScope ? 'team' : 'self';
+            $stats['meta']['canViewTeam'] = $canTeam;
+            $stats['meta']['departmentId'] = $departmentId;
+            $stats['meta']['departmentLocked'] = $isGlobalScope && ! $isHrWide && $user->department_id !== null;
+
+            return response()->json(['data' => $stats]);
+        } catch (\Exception $e) {
+            Log::error('Failed to build attendance analytics: '.$e->getMessage());
+
+            return response()->json(['error' => 'Failed to build attendance analytics.'], 500);
+        }
+    }
+
     public function getDailyOverviewStats(Request $request): JsonResponse
     {
         try {
