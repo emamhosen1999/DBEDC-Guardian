@@ -5,6 +5,7 @@ import { Panel } from '@/Components/ui/Panel';
  * Pure Radix UI.
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Badge, Box, Button, Callout, Checkbox, Code, Dialog, Flex, Grid, IconButton, Progress, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
     ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, ChevronDownIcon, ChevronLeftIcon,
@@ -1256,26 +1257,33 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
 function LogsTab({ isMobile }) {
     const [logs, setLogs]       = useState([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch]   = useState('');
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
+    /* Page, size and search live in the URL under a `lg_` prefix so they
+       survive leaving the panel and coming back. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'lg_page',
+        debounceKeys: ['lg_q'],
+        defaults: { lg_q: '', lg_page: 1, lg_per: 20 },
+    });
+    const search = f.values.lg_q;
+    const [total, setTotal] = useState(0);
+    const pagination = { currentPage: f.values.lg_page, perPage: f.values.lg_per, total };
 
-    const load = useCallback(async (page = pagination.currentPage, pp = pagination.perPage) => {
+    const load = useCallback(async () => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.logs'), {
-                params: { page, per_page: pp }
+                params: { page: pagination.currentPage, per_page: pagination.perPage }
             });
             setLogs(data.logs ?? []);
-            setPagination(prev => ({
-                ...prev,
-                currentPage: data.current_page || 1,
-                total: data.total || 0,
-            }));
+            setTotal(data.total || 0);
         } catch { showToast.error('Failed to load logs.'); }
         finally { setLoading(false); }
     }, [pagination.currentPage, pagination.perPage]);
 
-    useEffect(() => { load(1); }, [load]);
+    // Follows the URL. (This used to call load() on every change, so the
+    // pager never actually left page 1.)
+    useEffect(() => { load(); }, [load]);
 
     const filtered = useMemo(() =>
         logs.filter(l => !search ||
@@ -1283,13 +1291,8 @@ function LogsTab({ isMobile }) {
             l.type?.toLowerCase().includes(search.toLowerCase())),
         [logs, search]);
 
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
+    const handlePageChange = f.setPage;
+    const handleRowsPerPageChange = (newPerPage) => f.set('lg_per', newPerPage);
 
     const levelColor = l => ({ error: 'red', warning: 'amber', info: 'blue' }[l] ?? 'gray');
 
@@ -1297,15 +1300,16 @@ function LogsTab({ isMobile }) {
         <Box>
             <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
                 <TextField.Root placeholder="Search logs…" size="2" style={{ maxWidth: 360, flex: 1 }}
-                    onChange={e => setSearch(e.target.value)}>
+                    value={f.draft.lg_q}
+                    onChange={e => f.setDraft('lg_q', e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                     {search && (
                         <TextField.Slot side="right">
-                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
+                            <IconButton size="1" variant="ghost" color="gray" onClick={() => f.setDraft('lg_q', '')}><Cross2Icon /></IconButton>
                         </TextField.Slot>
                     )}
                 </TextField.Root>
-                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
+                <Button size="2" variant="soft" color="indigo" onClick={() => load()} disabled={loading}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
             </Flex>
@@ -1370,26 +1374,33 @@ function LogsTab({ isMobile }) {
 function OperLogTab({ isMobile }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
+    /* Page, size and search live in the URL under a `ol_` prefix so they
+       survive leaving the panel and coming back. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'ol_page',
+        debounceKeys: ['ol_q'],
+        defaults: { ol_q: '', ol_page: 1, ol_per: 20 },
+    });
+    const search = f.values.ol_q;
+    const [total, setTotal] = useState(0);
+    const pagination = { currentPage: f.values.ol_page, perPage: f.values.ol_per, total };
 
-    const load = useCallback(async (page = pagination.currentPage, pp = pagination.perPage) => {
+    const load = useCallback(async () => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.operlogs'), {
-                params: { page, per_page: pp }
+                params: { page: pagination.currentPage, per_page: pagination.perPage }
             });
             setLogs(data.logs ?? []);
-            setPagination(prev => ({
-                ...prev,
-                currentPage: data.current_page || 1,
-                total: data.total || 0,
-            }));
+            setTotal(data.total || 0);
         } catch { showToast.error('Failed to load OPERLOG entries.'); }
         finally { setLoading(false); }
     }, [pagination.currentPage, pagination.perPage]);
 
-    useEffect(() => { load(1); }, [load]);
+    // Follows the URL. (This used to call load() on every change, so the
+    // pager never actually left page 1.)
+    useEffect(() => { load(); }, [load]);
 
     const filtered = useMemo(() =>
         logs.filter(l => !search ||
@@ -1397,27 +1408,23 @@ function OperLogTab({ isMobile }) {
             l.user_pin?.toLowerCase().includes(search.toLowerCase())),
         [logs, search]);
 
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
+    const handlePageChange = f.setPage;
+    const handleRowsPerPageChange = (newPerPage) => f.set('ol_per', newPerPage);
 
     return (
         <Box>
             <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
                 <TextField.Root placeholder="Search OPERLOG…" size="2" style={{ maxWidth: 360, flex: 1 }}
-                    onChange={e => setSearch(e.target.value)}>
+                    value={f.draft.ol_q}
+                    onChange={e => f.setDraft('ol_q', e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                     {search && (
                         <TextField.Slot side="right">
-                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
+                            <IconButton size="1" variant="ghost" color="gray" onClick={() => f.setDraft('ol_q', '')}><Cross2Icon /></IconButton>
                         </TextField.Slot>
                     )}
                 </TextField.Root>
-                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
+                <Button size="2" variant="soft" color="indigo" onClick={() => load()} disabled={loading}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
             </Flex>
@@ -1666,7 +1673,10 @@ function WebhookTab() {
 function HealthTab({ isMobile }) {
     const [healthData, setHealthData] = useState({ devices: [], summary: {} });
     const [loading, setLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState('all');
+    /* The status filter lives in the URL under an `hl_` prefix. */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { hl_status: 'all' } });
+    const filterStatus = f.values.hl_status;
+    const setFilterStatus = (v) => f.set('hl_status', v);
 
     const loadHealth = useCallback(async () => {
         setLoading(true);
@@ -1841,11 +1851,20 @@ function AttLogTab({ isMobile, devices = [], employees = [] }) {
     const [logs,     setLogs]     = useState([]);
     const [stats,    setStats]    = useState({ total: 0, processed: 0, unknown_user: 0, downloaded: 0, failed: 0 });
     const [loading,  setLoading]  = useState(false);
-    const [search,   setSearch]   = useState('');
-    const [status,   setStatus]   = useState('all');
-    const [deviceId, setDeviceId] = useState('all');
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
-    const debRef  = React.useRef(null);
+    /* Search, status, device and page live in the URL under a `bl_` prefix so
+       they survive leaving the panel and coming back. The fetch effect below
+       follows the URL; nothing else needs to trigger it. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'bl_page',
+        debounceKeys: ['bl_q'],
+        defaults: { bl_q: '', bl_status: 'all', bl_dev: 'all', bl_page: 1, bl_per: 20 },
+    });
+    const search   = f.values.bl_q;
+    const status   = f.values.bl_status;
+    const deviceId = f.values.bl_dev;
+    const [total, setTotal] = useState(0);
+    const pagination = { currentPage: f.values.bl_page, perPage: f.values.bl_per, total };
 
     /* ── unknown-user remediation ──
      * These rows are punches whose PIN matched nobody. The importer minted a
@@ -1908,21 +1927,21 @@ function AttLogTab({ isMobile, devices = [], employees = [] }) {
         }
     };
 
-    const fetchLogs = React.useCallback(async (q = search, s = status, p = pagination.currentPage, pp = pagination.perPage, dev = deviceId) => {
+    const fetchLogs = React.useCallback(async () => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.attlogs'), {
                 params: {
-                    search: q || undefined,
-                    status: s !== 'all' ? s : undefined,
-                    device_id: dev !== 'all' ? dev : undefined,
-                    page: p,
-                    per_page: pp,
+                    search: search || undefined,
+                    status: status !== 'all' ? status : undefined,
+                    device_id: deviceId !== 'all' ? deviceId : undefined,
+                    page: pagination.currentPage,
+                    per_page: pagination.perPage,
                 },
             });
             const items = data.logs?.data ?? data.logs ?? [];
             setLogs(items);
-            setPagination(prev => ({ ...prev, total: data.logs?.total ?? items.length }));
+            setTotal(data.logs?.total ?? items.length);
             if (data.stats) setStats(data.stats);
         } catch {
             showToast.error('Failed to load att logs.');
@@ -1933,32 +1952,14 @@ function AttLogTab({ isMobile, devices = [], employees = [] }) {
 
     React.useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-    const triggerSearch = (val) => {
-        setSearch(val);
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-        clearTimeout(debRef.current);
-        debRef.current = setTimeout(() => fetchLogs(val, status, 1, pagination.perPage, deviceId), 300);
-    };
-
-    const triggerStatus = (val) => {
-        setStatus(val);
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-        fetchLogs(search, val, 1, pagination.perPage, deviceId);
-    };
-
-    const triggerDevice = (val) => {
-        setDeviceId(val);
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-        fetchLogs(search, status, 1, pagination.perPage, val);
-    };
-
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
+    // Each writes the URL once; the hook returns to page 1 on a filter change
+    // and the effect above refetches. (Previously the handlers fetched directly
+    // *and* the effect fired, so every change issued two requests.)
+    const triggerSearch = (val) => f.setDraft('bl_q', val);
+    const triggerStatus = (val) => f.set('bl_status', val);
+    const triggerDevice = (val) => f.set('bl_dev', val);
+    const handlePageChange = f.setPage;
+    const handleRowsPerPageChange = (newPerPage) => f.set('bl_per', newPerPage);
 
     return (
         <Box>
@@ -1980,7 +1981,7 @@ function AttLogTab({ isMobile, devices = [], employees = [] }) {
                     </Badge>
                 </Tooltip>
                 <Badge size="2" variant="soft" color="red"    radius="full"><Text weight="bold">{stats.failed}</Text> <Text style={{ opacity: 0.7 }}>Failed/Rejected</Text></Badge>
-                <Button size="1" variant="soft" color="gray" ml="auto" onClick={() => fetchLogs(search, status, pagination.currentPage)}>
+                <Button size="1" variant="soft" color="gray" ml="auto" onClick={() => fetchLogs()}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
             </Flex>
@@ -2007,6 +2008,7 @@ function AttLogTab({ isMobile, devices = [], employees = [] }) {
             {/* Filters */}
             <Flex gap="3" mb="3" wrap="wrap" align="center">
                 <TextField.Root placeholder="Search PIN or name…" size="2" style={{ maxWidth: 280 }}
+                    value={f.draft.bl_q}
                     onChange={e => triggerSearch(e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
@@ -2242,8 +2244,17 @@ function AttLogTab({ isMobile, devices = [], employees = [] }) {
 function DownloadsTab({ isMobile, devices = [] }) {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [selectedDevice, setSelectedDevice] = useState('all');
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
+    /* Device filter and page live in the URL under a `dl_` prefix so they
+       survive leaving the panel and coming back. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'dl_page',
+        debounceKeys: [],
+        defaults: { dl_dev: 'all', dl_page: 1, dl_per: 20 },
+    });
+    const selectedDevice = f.values.dl_dev;
+    const [total, setTotal] = useState(0);
+    const pagination = { currentPage: f.values.dl_page, perPage: f.values.dl_per, total };
     const [downloadingSessionLogs, setDownloadingSessionLogs] = useState(null);
     const [importingSession, setImportingSession] = useState(null);
 
@@ -2330,7 +2341,10 @@ function DownloadsTab({ isMobile, devices = [] }) {
         }
     };
 
-    const fetchHistory = useCallback(async (deviceFilter = selectedDevice, page = pagination.currentPage, pp = pagination.perPage) => {
+    const fetchHistory = useCallback(async () => {
+        const deviceFilter = selectedDevice;
+        const page = pagination.currentPage;
+        const pp = pagination.perPage;
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.download-history'), {
@@ -2342,11 +2356,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
             });
             const items = data.sessions?.data ?? data.sessions ?? [];
             setSessions(items);
-            setPagination(prev => ({
-                ...prev,
-                currentPage: data.sessions?.current_page || page,
-                total: data.sessions?.total ?? items.length
-            }));
+            setTotal(data.sessions?.total ?? items.length);
         } catch (e) {
             showToast.error('Failed to load download history.');
         } finally {
@@ -2372,7 +2382,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
                 ?? `Imported ${data.imported ?? 0} punch(es). ${data.duplicates ?? 0} duplicate(s), `
                    + `${data.skipped_unknown ?? 0} skipped (unknown user), ${data.failed ?? 0} failed.`
             );
-            fetchHistory(selectedDevice, pagination.currentPage, pagination.perPage);
+            fetchHistory();
         } catch (err) {
             showToast.error(err.response?.data?.message ?? 'Failed to import session logs into attendance.');
         } finally {
@@ -2380,30 +2390,23 @@ function DownloadsTab({ isMobile, devices = [] }) {
         }
     };
 
+    // Follows the URL.
     useEffect(() => {
         fetchHistory();
-    }, [selectedDevice, pagination.currentPage, pagination.perPage]);
+    }, [fetchHistory]);
 
     // Auto-refresh every 10 seconds
     useEffect(() => {
         const interval = setInterval(() => {
-            fetchHistory(selectedDevice, pagination.currentPage, pagination.perPage);
+            fetchHistory();
         }, 10000);
         return () => clearInterval(interval);
-    }, [fetchHistory, selectedDevice, pagination.currentPage, pagination.perPage]);
+    }, [fetchHistory]);
 
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
+    const handlePageChange = f.setPage;
+    const handleRowsPerPageChange = (newPerPage) => f.set('dl_per', newPerPage);
 
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
-
-    const handleDeviceFilterChange = (val) => {
-        setSelectedDevice(val);
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-    };
+    const handleDeviceFilterChange = (val) => f.set('dl_dev', val);
 
     // Calculate summary statistics
     const stats = useMemo(() => {
@@ -2914,8 +2917,15 @@ function TemplatesSection({ devices = [] }) {
     const [rows, setRows]         = useState([]);
     const [loading, setLoading]   = useState(false);
     const [loaded, setLoaded]     = useState(false);
-    const [search, setSearch]     = useState('');
-    const [typeFilter, setType]   = useState('all');
+    /* Search and type filter live in the URL under a `tp_` prefix. */
+    const f = useQueryFilters({
+        mode: 'client',
+        debounceKeys: ['tp_q'],
+        defaults: { tp_q: '', tp_type: 'all' },
+    });
+    const search = f.values.tp_q;
+    const typeFilter = f.values.tp_type;
+    const setType = (v) => f.set('tp_type', v);
 
     const [restoreOpen, setRestoreOpen] = useState(false);
     const [targetId, setTargetId]       = useState('');
@@ -3212,8 +3222,8 @@ function TemplatesSection({ devices = [] }) {
                             placeholder="Search employee, PIN or device…"
                             size="2"
                             style={{ maxWidth: 300 }}
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
+                            value={f.draft.tp_q}
+                            onChange={e => f.setDraft('tp_q', e.target.value)}
                         >
                             <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                         </TextField.Root>
@@ -4339,8 +4349,21 @@ const defaultReconRange = () => {
  * coloured, never differenced, and never counted as a discrepancy.
  */
 function ReconciliationTab({ devices = [], isMobile }) {
-    const [deviceId, setDeviceId] = useState('');
-    const [range, setRange]       = useState(defaultReconRange);
+    /* Device and date range live in the URL under an `rc_` prefix so they
+       survive leaving the panel and coming back; the default window is the
+       last RECON_DEFAULT_DAYS days. */
+    const f = useQueryFilters({
+        mode: 'client',
+        debounceKeys: [],
+        defaults: { rc_dev: '', rc_from: '', rc_to: '' },
+    });
+    const deviceId = f.values.rc_dev;
+    const setDeviceId = (v) => f.set('rc_dev', v);
+    const range = useMemo(() => {
+        const fallback = defaultReconRange();
+        return { start: f.values.rc_from || fallback.start, end: f.values.rc_to || fallback.end };
+    }, [f.values.rc_from, f.values.rc_to]);
+    const setRange = (next) => f.setMany({ rc_from: next?.start ?? '', rc_to: next?.end ?? '' });
     const [report, setReport]     = useState(null);
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState(null);
@@ -4755,7 +4778,11 @@ export default function BiometricPanel({
     isMobile, tick, onCountChange, onSetHeaderActions, isActive,
 }) {
     const [devices, setDevices] = useState(initialDevices);
-    const [subTab, setSubTab]   = useState('devices');
+    /* The section being viewed lives in the URL under a `b_` prefix (this
+       panel is mounted inside pages whose other tabs also stay mounted). */
+    const fb = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { b_sub: 'devices' } });
+    const subTab = fb.values.b_sub;
+    const setSubTab = (v) => fb.set('b_sub', v);
     const [fetchedEmployees, setFetchedEmployees] = useState([]);
 
     /**

@@ -1,5 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Button, Text, TextField, Select, SegmentedControl, Callout, IconButton } from '@radix-ui/themes';
 import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon, ExclamationTriangleIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -37,19 +38,47 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const userDeptId = auth?.user?.department_id;
     const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
 
-    const [selectedDepartmentId, setSelectedDepartmentId] = useState(isNonGlobalManager ? String(userDeptId) : 'all');
-    const [employeeQuery, setEmployeeQuery] = useState('');
+    /* ── The roster's own filters live in the URL next to the page's tab/month,
+         under an `r_` prefix because every Attendance tab stays mounted. A
+         refresh, a copied link, or coming back from another page shows the
+         same department, search, view and page. Client-side only: the roster
+         query key changes and react-query refetches. ── */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'r_page',
+        debounceKeys: ['r_q'],
+        defaults: {
+            r_dept: isNonGlobalManager ? String(userDeptId) : 'all',
+            r_q: '',
+            r_view: 'grid',
+            r_emp: '',
+            r_page: 1,
+            r_per: 20,
+        },
+    });
+    const selectedDepartmentId = f.values.r_dept;
+    const setSelectedDepartmentId = (v) => f.set('r_dept', v);
+    const employeeQuery = f.values.r_q;
+    const viewMode = f.values.r_view === 'employee' ? 'employee' : 'grid';
+    const setViewMode = (v) => f.set('r_view', v);
+    const selectedEmployeeId = f.values.r_emp || null;
+    const setSelectedEmployeeId = (v) => f.set('r_emp', v ?? '');
+    const currentPage = f.values.r_page;
+    const perPage = f.values.r_per;
+    const setCurrentPage = f.setPage;
+    const setPerPage = (v) => f.set('r_per', v);
+
     const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'employee'
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
 
-    // Pagination states
-    const [currentPage, setCurrentPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
-
+    // A month change comes from the page above, not through this hook, so it
+    // does not reset the page by itself. Skip the mount run: a restored page
+    // number must survive arriving on the tab.
+    const monthSeenRef = useRef(month);
     useEffect(() => {
-        setCurrentPage(1);
-    }, [month, selectedDepartmentId, employeeQuery, perPage, viewMode]);
+        if (monthSeenRef.current === month) return;
+        monthSeenRef.current = month;
+        if (f.values.r_page !== 1) f.setPage(1);
+    }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const from = useMemo(() => dayjs(month + '-01').startOf('month').format('YYYY-MM-DD'), [month]);
     const to = useMemo(() => dayjs(month + '-01').endOf('month').format('YYYY-MM-DD'), [month]);
@@ -294,8 +323,8 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         <TextField.Root
                             size="2"
                             placeholder="Search employee…"
-                            value={employeeQuery}
-                            onChange={e => setEmployeeQuery(e.target.value)}
+                            value={f.draft.r_q}
+                            onChange={e => f.setDraft('r_q', e.target.value)}
                             style={{ width: 200 }}
                         >
                             <TextField.Slot>

@@ -8,6 +8,7 @@ import { Panel } from '@/Components/ui/Panel';
  * - Loading spinners injected into export buttons for immediate feedback.
  */
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
 import { Badge, Box, Button, Flex, Select, Spinner, Table, Tabs, Text, TextField, ScrollArea, Skeleton } from '@radix-ui/themes';
@@ -57,26 +58,34 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
         stats = {}, year: initialYear = new Date().getFullYear(),
     } = summaryData || {};
 
-    const [subTab,      setSubTab]      = useState('employee');
-    const [downloading, setDownloading] = useState('');
-    const [currentYear, setCurrentYear] = useState(initialYear);
-    const [deptId,      setDeptId]      = useState('');
-    const [searchVal,   setSearchVal]   = useState('');
-    const isFirstRender = useRef(true);
+    /* Year and department decide what the server returns: they live in the
+       URL under the param names the controller already reads, and a change
+       is a partial reload of `summaryData`. (Previously an effect watched the
+       two values and reloaded, which is the state -> effect -> request loop
+       this convention avoids.) */
+    const fs = useQueryFilters({
+        mode: 'server',
+        only: ['summaryData'],
+        debounceKeys: [],
+        defaults: { summary_year: Number(initialYear), summary_dept: '' },
+    });
+    const currentYear = fs.values.summary_year;
+    const setCurrentYear = (v) => fs.set('summary_year', v);
+    const deptId = fs.values.summary_dept;
+    const setDeptId = (v) => fs.set('summary_dept', v);
 
-    /* ── Reload summaryData when year or department changes ── */
-    useEffect(() => {
-        if (isFirstRender.current) { isFirstRender.current = false; return; }
-        router.reload({
-            data: {
-                summary_year: currentYear,
-                summary_dept: deptId || undefined,
-            },
-            only: ['summaryData'],
-            preserveState: true,
-            preserveScroll: true,
-        });
-    }, [currentYear, deptId]);
+    /* The sub-tab and the table search only affect what is shown of the
+       loaded data, so they are client-side URL state under an `sm_` prefix. */
+    const fc = useQueryFilters({
+        mode: 'client',
+        debounceKeys: ['sm_q'],
+        defaults: { sm_sub: 'employee', sm_q: '' },
+    });
+    const subTab = fc.values.sm_sub;
+    const setSubTab = (v) => fc.set('sm_sub', v);
+    const searchVal = fc.values.sm_q;
+
+    const [downloading, setDownloading] = useState('');
 
     /* ── Normalise columns: backend sends flat strings, we need {key, label, status} ── */
     const FIXED_COLS = new Set(['employee_name', 'department']);
@@ -184,8 +193,8 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                 <Box style={{ flex: 1 }}>
                     <TextField.Root size="2"
                         placeholder="Search employee or department…"
-                        value={searchVal}
-                        onChange={e => setSearchVal(e.target.value)}>
+                        value={fc.draft.sm_q}
+                        onChange={e => fc.setDraft('sm_q', e.target.value)}>
                         <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                     </TextField.Root>
                 </Box>

@@ -13,10 +13,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 let currentUrl = '/users';
+let currentUser = { id: 42 };
 const visits = [];
 
 vi.mock('@inertiajs/react', () => ({
-    usePage: () => ({ url: currentUrl, props: {} }),
+    usePage: () => ({ url: currentUrl, props: { auth: { user: currentUser } } }),
     router: {
         get: (url, data, options) => visits.push({ kind: 'get', url, ...options }),
         replace: (params) => visits.push({ kind: 'replace', ...params }),
@@ -24,7 +25,7 @@ vi.mock('@inertiajs/react', () => ({
     },
 }));
 
-const { useQueryFilters, useClampPage } = await import('../useQueryFilters');
+const { useQueryFilters, useClampPage, __clearLastQueries } = await import('../useQueryFilters');
 
 /** Mount the hook and return a live handle to its latest return value. */
 function mount(options) {
@@ -57,7 +58,9 @@ const DEFAULTS = { search: '', status: 'all', sort: 'name', direction: 'asc', pa
 
 beforeEach(() => {
     currentUrl = '/users';
+    currentUser = { id: 42 };
     visits.length = 0;
+    __clearLastQueries();
     vi.useRealTimers();
 });
 
@@ -314,6 +317,67 @@ describe('useClampPage — a page that no longer exists', () => {
         mountClamped(0);
 
         expect(visits[0].url).toBe('/users');
+    });
+});
+
+describe('useQueryFilters — reopening a page from the sidebar', () => {
+    it('re-applies the last query when the page is opened bare', () => {
+        currentUrl = '/attendance?tab=roster&r_dept=5';
+        const first = mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] });
+        first.unmount();
+
+        currentUrl = '/attendance';
+        mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] });
+
+        expect(visits).toHaveLength(1);
+        expect(visits[0].kind).toBe('get');
+        expect(visits[0].replace).toBe(true);
+        expect(visits[0].url).toBe('/attendance?tab=roster&r_dept=5');
+    });
+
+    it('does not restore after an explicit reset left the page bare', () => {
+        currentUrl = '/attendance?tab=roster';
+        const harness = mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] });
+        navigateTo('/attendance', harness); // what reset() produces
+        harness.unmount();
+
+        currentUrl = '/attendance';
+        mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] });
+
+        expect(visits).toHaveLength(0);
+    });
+
+    it("never hands one user another user's view", () => {
+        currentUrl = '/attendance?tab=roster';
+        mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] }).unmount();
+
+        currentUser = { id: 99 };
+        currentUrl = '/attendance';
+        mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] });
+
+        expect(visits).toHaveLength(0);
+    });
+
+    it('keeps pages separate — leaving /employees filtered does not touch /attendance', () => {
+        currentUrl = '/employees?search=rahim';
+        mount({ defaults: { search: '' }, mode: 'client' }).unmount();
+
+        currentUrl = '/attendance';
+        mount({ defaults: { tab: 'timesheet' }, mode: 'client', debounceKeys: [] });
+
+        expect(visits).toHaveLength(0);
+    });
+
+    it('with two hooks on the page only one restore visit is issued', () => {
+        currentUrl = '/employees?tab=departments&search=x';
+        mount({ defaults: { tab: 'employees' }, mode: 'client', debounceKeys: [] }).unmount();
+
+        currentUrl = '/employees';
+        mount({ defaults: { tab: 'employees' }, mode: 'client', debounceKeys: [] });
+        mount({ defaults: { search: '', page: 1 }, mode: 'client' });
+
+        expect(visits).toHaveLength(1);
+        expect(visits[0].url).toBe('/employees?tab=departments&search=x');
     });
 });
 

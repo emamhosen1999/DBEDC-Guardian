@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
     Box, Flex, Text, Table, Badge, Avatar, Button,
@@ -406,17 +407,38 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
     const userDeptId = auth.user?.department_id;
     const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth.roles?.includes('Department Manager');
 
-    const [selectedDepartmentId, setSelectedDepartmentId] = useState(isNonGlobalManager ? String(userDeptId) : 'all');
+    /* Department and page live in the URL under an `m_` prefix (every
+       Attendance tab stays mounted). The employee search is shared with the
+       timesheet through the attendance store and is left there. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'm_page',
+        debounceKeys: [],
+        defaults: {
+            m_dept: isNonGlobalManager ? String(userDeptId) : 'all',
+            m_page: 1,
+            m_per: 20,
+        },
+    });
+    const selectedDepartmentId = f.values.m_dept;
+    const setSelectedDepartmentId = (v) => f.set('m_dept', v);
+    const currentPage = f.values.m_page;
+    const perPage = f.values.m_per;
+    const setCurrentPage = f.setPage;
+    const setPerPage = (v) => f.set('m_per', v);
+
     const [downloading, setDownloading] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    // Pagination state
-    const [currentPage, setCurrentPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
-
+    // Month and search changes come from outside this hook; return to page 1
+    // when they move, but not on mount so a restored page survives.
+    const externalKeyRef = useRef(`${selectedMonth}|${employeeQuery}`);
     useEffect(() => {
-        setCurrentPage(1);
-    }, [selectedMonth, selectedDepartmentId, employeeQuery, perPage]);
+        const key = `${selectedMonth}|${employeeQuery}`;
+        if (externalKeyRef.current === key) return;
+        externalKeyRef.current = key;
+        if (f.values.m_page !== 1) f.setPage(1);
+    }, [selectedMonth, employeeQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // React Query mutation
     const exportMonthlyCalendar = useAttendanceQuery.useExportMonthlyCalendar();

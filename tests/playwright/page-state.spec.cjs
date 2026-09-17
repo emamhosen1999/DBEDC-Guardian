@@ -114,7 +114,7 @@ test('S9 reset clears the query back to a bare path', async ({ page }) => {
 
 test('P28 a page number beyond the last page snaps to the last page', async ({ page }) => {
   await page.goto('/employees?page=999');
-  await expect.poll(() => Number(params(page).page ?? 1), { timeout: 10_000 }).toBeLessThan(999);
+  await expect.poll(() => Number(params(page).page ?? 1), { timeout: 60_000 }).toBeLessThan(999);
 });
 
 test('S3 a server-rendered list restores its page after visiting a detail and coming Back', async ({ page }) => {
@@ -130,6 +130,47 @@ test('S3 a server-rendered list restores its page after visiting a detail and co
   } else {
     test.info().annotations.push({ type: 'note', description: 'Only one page of device sessions in this dataset; pagination step skipped.' });
   }
+});
+
+/** Open a sidebar entry the way a user does — an Inertia visit, not a reload. */
+async function openFromSidebar(page, groupName, itemName, expectedUrl) {
+  const item = page.getByRole('link', { name: itemName, exact: true }).first();
+  if (!(await item.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: groupName }).first().dispatchEvent('click');
+  }
+  // The group may still be animating open; dispatching the click reaches the
+  // Inertia <Link> handler regardless of layout, exactly like a user's click.
+  await item.dispatchEvent('click');
+  // php artisan serve is single-threaded and also serves every JS chunk, so a
+  // page switch under Playwright can take well over a minute locally.
+  await expect(page).toHaveURL(expectedUrl, { timeout: 180_000 });
+}
+
+test('S1b filters survive leaving through the sidebar: roster dept -> Employees/Departments -> back to Attendance', async ({ page }) => {
+  test.setTimeout(600_000);
+  await page.goto('/attendance?tab=roster');
+
+  // Pick the first real department in the roster filter.
+  const deptSelect = page.getByRole('combobox').filter({ hasText: /all departments/i }).first();
+  await expect(deptSelect).toBeVisible();
+  await deptSelect.click();
+  const firstDept = page.getByRole('option').filter({ hasNotText: /all departments/i }).first();
+  const deptName = (await firstDept.textContent())?.trim();
+  await firstDept.click();
+  await expect(page).toHaveURL(/r_dept=\d+/);
+  const rosterUrl = new URL(page.url());
+
+  // Elsewhere: Employees console, Departments tab.
+  await openFromSidebar(page, /workforce/i, 'Employees', /\/employees/);
+  await page.getByRole('tab', { name: /departments/i }).click();
+  await expect(page).toHaveURL(/\/employees\?tab=departments/);
+
+  // Back via the sidebar — a bare /attendance visit — must come back filtered.
+  await openFromSidebar(page, /time\/attendance/i, 'Attendances', /\/attendance\?.*tab=roster/);
+  await expect(page).toHaveURL(/\/attendance\?.*tab=roster/);
+  expect(new URL(page.url()).searchParams.get('r_dept')).toBe(rosterUrl.searchParams.get('r_dept'));
+  await expect(page.getByRole('tab', { name: /^roster/i })).toHaveAttribute('data-state', 'active');
+  if (deptName) await expect(page.getByRole('combobox').filter({ hasText: deptName }).first()).toBeVisible();
 });
 
 test('S10 after logout the remembered pages are not reachable via Back', async ({ page }) => {

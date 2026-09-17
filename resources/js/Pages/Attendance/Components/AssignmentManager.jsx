@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Table, Button, IconButton, Text, Badge } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,8 +15,13 @@ export default function AssignmentManager({ employees = [], departments = [], de
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(null);
-    const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
+    /* Page and size live in the URL under an `asg_` prefix (this manager is
+       mounted inside the Attendance settings, where every tab stays mounted). */
+    const f = useQueryFilters({ mode: 'client', pageKey: 'asg_page', debounceKeys: [], defaults: { asg_page: 1, asg_per: 20 } });
+    const page = f.values.asg_page;
+    const perPage = f.values.asg_per;
+    const setPage = f.setPage;
+    const setPerPage = (v) => f.set('asg_per', v);
 
     const { data, isLoading } = useQuery({
         queryKey: ['shift-assignments'],
@@ -127,7 +133,7 @@ export default function AssignmentManager({ employees = [], departments = [], de
                             <TablePagination
                                 pagination={{ currentPage: page, perPage, total: assignments.length }}
                                 onPageChange={setPage}
-                                onRowsPerPageChange={(v) => { setPerPage(v); setPage(1); }}
+                                onRowsPerPageChange={setPerPage}
                             />
                         </Box>
                     )}

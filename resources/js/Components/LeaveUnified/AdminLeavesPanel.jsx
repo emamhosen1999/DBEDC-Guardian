@@ -8,6 +8,8 @@ import { Panel } from '@/Components/ui/Panel';
  * - Responsive Filters: Grid layouts that gracefully collapse to single columns on mobile.
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import axios from 'axios';
@@ -54,15 +56,39 @@ export default function AdminLeavesPanel({
     });
 
     /* ── Pagination / Filters ── */
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 30 });
-    const [filters, setFilters] = useState({
-        employee:      '',
-        selectedMonth: dayjs().format('YYYY-MM'),
-        status:        [],
-        leaveType:     [],
-        department:    [],
+    /* Every filter and the page live in the URL under an `al_` prefix, so the
+       leave list comes back as it was left and a link can be shared. The fetch
+       effect follows the URL. Whether the filter panel is open is remembered. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'al_page',
+        debounceKeys: ['al_q'],
+        defaults: {
+            al_q: '',
+            al_month: dayjs().format('YYYY-MM'),
+            al_status: [],
+            al_type: [],
+            al_dept: [],
+            al_page: 1,
+            al_per: 30,
+        },
     });
-    const [showFilters, setShowFilters] = useState(false);
+    const filters = useMemo(() => ({
+        employee: f.values.al_q,
+        selectedMonth: f.values.al_month,
+        status: f.values.al_status,
+        leaveType: f.values.al_type,
+        department: f.values.al_dept,
+    }), [f.values.al_q, f.values.al_month, f.values.al_status, f.values.al_type, f.values.al_dept]);
+    const pagination = useMemo(
+        () => ({ currentPage: f.values.al_page, perPage: f.values.al_per }),
+        [f.values.al_page, f.values.al_per],
+    );
+    const FILTER_KEYS = { employee: 'al_q', selectedMonth: 'al_month', status: 'al_status', leaveType: 'al_type', department: 'al_dept' };
+
+    const [ui, setUi] = usePersistentPageState('Leaves/AdminPanel', { showFilters: false });
+    const showFilters = ui.showFilters;
+    const setShowFilters = (u) => setUi((prev) => ({ showFilters: typeof u === 'function' ? u(prev.showFilters) : u }));
 
     /* ── Modal States ── */
     const [modalStates, setModalStates] = useState({
@@ -87,21 +113,18 @@ export default function AdminLeavesPanel({
         openModal(modalType);
     }, [openModal]);
 
+    // The employee search goes through the debounced draft; everything else
+    // commits at once. The hook returns to page 1 on any filter change.
+    const { set: setFilter, setDraft, setMany: setFilterValues } = f;
     const handleFilterChange = useCallback((key, val) => {
-        setFilters(p => ({ ...p, [key]: val }));
-        setPagination(p => ({ ...p, currentPage: 1 }));
-    }, []);
+        if (key === 'employee') setDraft('al_q', val);
+        else setFilter(FILTER_KEYS[key], val);
+    }, [setFilter, setDraft]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const toggleStatusFilter = useCallback((statusVal) => {
-        setFilters(p => {
-            const current = p.status[0];
-            return {
-                ...p,
-                status: current === statusVal ? [] : [statusVal]
-            };
-        });
-        setPagination(p => ({ ...p, currentPage: 1 }));
-    }, []);
+        const current = f.values.al_status[0];
+        setFilter('al_status', current === statusVal ? [] : [statusVal]);
+    }, [setFilter, f.values.al_status]);
 
     /* ── Fetching Logic ── */
     const fetchLeaves = useCallback(async (isSilent = false) => {
@@ -234,7 +257,7 @@ export default function AdminLeavesPanel({
         filters.status.length || filters.leaveType.length || filters.department.length);
 
     const statCards = [
-        { key: 'total', title: 'Total', value: leaveStats.total, color: 'blue', icon: TableIcon, isLoading: loading, active: filters.status.length === 0, onClick: () => setFilters(p => ({ ...p, status: [] })) },
+        { key: 'total', title: 'Total', value: leaveStats.total, color: 'blue', icon: TableIcon, isLoading: loading, active: filters.status.length === 0, onClick: () => setFilter('al_status', []) },
         { key: 'pending', title: 'Pending', value: leaveStats.pending, color: 'amber', icon: ClockIcon, isLoading: loading, active: filters.status.includes('pending'), onClick: () => toggleStatusFilter('pending') },
         { key: 'approved', title: 'Approved', value: leaveStats.approved, color: 'green', icon: CheckCircledIcon, isLoading: loading, active: filters.status.includes('approved'), onClick: () => toggleStatusFilter('approved') },
         { key: 'rejected', title: 'Rejected', value: leaveStats.rejected, color: 'red', icon: CrossCircledIcon, isLoading: loading, active: filters.status.includes('rejected'), onClick: () => toggleStatusFilter('rejected') },
@@ -267,7 +290,7 @@ export default function AdminLeavesPanel({
             <PageToolbar
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={filters.employee}
+                        searchValue={f.draft.al_q}
                         onSearchChange={val => handleFilterChange('employee', val)}
                         searchPlaceholder="Search by employee name..."
                         showFilterToggle
@@ -275,10 +298,7 @@ export default function AdminLeavesPanel({
                         onToggleFilters={() => setShowFilters(v => !v)}
                         activeFiltersCount={activeFilterChips.length}
                         activeFilterChips={activeFilterChips}
-                        onClearFilters={hasActiveFilters ? () => setFilters({
-                            employee: '', selectedMonth: dayjs().format('YYYY-MM'),
-                            status: [], leaveType: [], department: [],
-                        }) : null}
+                        onClearFilters={hasActiveFilters ? f.reset : null}
                         mb="0"
                         extraActions={
                             <TextField.Root
@@ -363,8 +383,8 @@ export default function AdminLeavesPanel({
                     lastPage={lastPage}
                     currentPage={pagination.currentPage}
                     perPage={pagination.perPage}
-                    setCurrentPage={page => setPagination(p => ({ ...p, currentPage: page }))}
-                    onRowsPerPageChange={n => setPagination({ currentPage: 1, perPage: n })}
+                    setCurrentPage={f.setPage}
+                    onRowsPerPageChange={n => setFilter('al_per', n)}
                     handleClickOpen={handleClickOpen}
                     setCurrentLeave={setCurrentLeave}
                     openModal={openModal}

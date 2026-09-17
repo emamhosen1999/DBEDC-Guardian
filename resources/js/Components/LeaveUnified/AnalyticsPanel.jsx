@@ -8,6 +8,7 @@ import { Panel } from '@/Components/ui/Panel';
  * - Unified Card Layout: Stats and charts now share exact shadow/border radius values with the rest of the app.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import axios from 'axios';
 import { Badge, Box, Flex, Grid, IconButton, Select, Separator, Text, Skeleton, ScrollArea, Table } from '@radix-ui/themes';
 import {
@@ -168,7 +169,10 @@ const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions }) {
     const [loading,    setLoading]    = useState(true);
     const [analytics,  setAnalytics]  = useState(null);
-    const [year,       setYear]       = useState(new Date().getFullYear());
+    /* The analytics year lives in the URL under an `an_` prefix. */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { an_year: new Date().getFullYear() } });
+    const year = f.values.an_year;
+    const setYear = (v) => f.set('an_year', v);
     const [deptId,     setDeptId]     = useState('');
     const [departments, setDepartments] = useState([]);
 

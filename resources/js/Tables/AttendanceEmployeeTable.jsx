@@ -1,5 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Table, ScrollArea, Flex, Text, Box, Spinner } from '@radix-ui/themes';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
@@ -23,8 +24,13 @@ const AttendanceEmployeeTable = ({
   const [attendances, setAttendances] = useState([]);
   const [error, setError] = useState('');
   const [totalRows, setTotalRows] = useState(0);
-  const [perPage, setPerPage] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
+  /* Page and size live in the URL under an `ae_` prefix; the fetch effect
+     follows them. */
+  const f = useQueryFilters({ mode: 'client', pageKey: 'ae_page', debounceKeys: [], defaults: { ae_page: 1, ae_per: 10 } });
+  const perPage = f.values.ae_per;
+  const currentPage = f.values.ae_page;
+  const setCurrentPage = f.setPage;
+  const setPerPage = (n) => f.set('ae_per', n);
   const [employee, setEmployee] = useState(externalEmployee || '');
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -77,9 +83,6 @@ const AttendanceEmployeeTable = ({
         if (response.status === 200) {
           setAttendances(response.data.attendances || []);
           setTotalRows(response.data.total || 0);
-          if (response.data.current_page) {
-            setCurrentPage(response.data.current_page);
-          }
           setError('');
         } else {
           setError(`Unexpected response: ${response.status}`);
@@ -102,9 +105,15 @@ const AttendanceEmployeeTable = ({
     getAttendances();
   }, [getAttendances, updateTimeSheet]);
 
+  // The day/month come from the page above; return to page 1 when they move,
+  // but not on mount so a restored page survives.
+  const externalKeyRef = useRef(`${selectedDate}|${filterData.currentMonth}`);
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedDate, filterData.currentMonth]);
+    const key = `${selectedDate}|${filterData.currentMonth}`;
+    if (externalKeyRef.current === key) return;
+    externalKeyRef.current = key;
+    if (f.values.ae_page !== 1) f.setPage(1);
+  }, [selectedDate, filterData.currentMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -351,7 +360,7 @@ const AttendanceEmployeeTable = ({
           <TablePagination
             pagination={{ currentPage, perPage, total: totalRows }}
             onPageChange={(p) => { setCurrentPage(p); }}
-            onRowsPerPageChange={(n) => { setPerPage(n); setCurrentPage(1); }}
+            onRowsPerPageChange={setPerPage}
             loading={!isLoaded}
           />
         </>

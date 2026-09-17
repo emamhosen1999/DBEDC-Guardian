@@ -1,5 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Table as RadixTable, Badge, Separator, ScrollArea, Progress, Button, Flex, Box, Text } from '@radix-ui/themes';
 import {
@@ -20,9 +21,11 @@ import TablePagination from '@/Components/TablePagination.jsx';
 const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => {
     const isMobile = useMediaQuery('(max-width: 1024px)');
 
-    // Pagination state
-    const [currentPage, setCurrentPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
+    /* Page and size live in the URL under a `sum_` prefix so the summary
+       comes back on the same page. */
+    const f = useQueryFilters({ mode: 'client', pageKey: 'sum_page', debounceKeys: [], defaults: { sum_page: 1, sum_per: 20 } });
+    const currentPage = f.values.sum_page;
+    const perPage = f.values.sum_per;
 
     // Calculate pagination
     const total = filteredData?.length || 0;
@@ -30,14 +33,8 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
     const startIndex = (currentPage - 1) * perPage;
     const paginatedData = filteredData?.slice(startIndex, startIndex + perPage) || [];
 
-    const handlePageChange = (page) => {
-        setCurrentPage(page);
-    };
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPerPage(newPerPage);
-        setCurrentPage(1);
-    };
+    const handlePageChange = f.setPage;
+    const handleRowsPerPageChange = (newPerPage) => f.set('sum_per', newPerPage);
 
     const columns = [
         { name: 'Date',             uid: 'date',                   icon: CalendarIcon },

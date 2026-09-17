@@ -17,8 +17,12 @@ window.axios.defaults.headers.common['Expires'] = '0';
 axios.interceptors.request.use(
     (config) => {
         try {
-            // Add cache-busting timestamp to GET requests
-            if (config.method === 'get' || config.method === 'GET') {
+            // Add cache-busting timestamp to GET requests — but not to Inertia
+            // page visits: those already carry no-cache headers, and Laravel
+            // echoes the request URL back as the page URL, so the timestamp
+            // would end up in the address bar and in every copied link.
+            const isInertiaVisit = Boolean(config.headers?.['X-Inertia'] ?? config.headers?.['x-inertia']);
+            if ((config.method === 'get' || config.method === 'GET') && !isInertiaVisit) {
                 config.params = config.params || {};
                 config.params._t = Date.now();
             }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Panel } from '@/Components/ui/Panel';
 import { Box, Flex, Text, Heading, Spinner, Button } from '@radix-ui/themes';
 import { GlobeIcon, ReloadIcon } from '@radix-ui/react-icons';
@@ -22,7 +23,11 @@ export const UserLocationsCard = React.memo(({ selectedDate, updateMap }) => {
 
     // Filter & HUD State
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'completed'
+    /* The status filter lives in the URL under a `loc_` prefix (this card sits
+       inside the Attendance timesheet, where every tab stays mounted). */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { loc_status: 'all' } });
+    const statusFilter = f.values.loc_status; // 'all', 'active', 'completed'
+    const setStatusFilter = (v) => f.set('loc_status', v);
     const [currentTileId, setCurrentTileId] = useState(() => {
         return localStorage.getItem('guardian_map_tile_id') || 'voyager';
     });

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Table, Button, Badge, Text, IconButton, Tabs } from '@radix-ui/themes';
 import { Pencil1Icon, TrashIcon, PlusIcon, LayersIcon, SymbolIcon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,17 +15,29 @@ export default function ShiftsSettings() {
     const { auth, employees = [], departments = [], designations = [] } = usePage().props;
     const isGlobalUser = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager') || auth?.permissions?.includes('attendance.settings');
     const qc = useQueryClient();
-    const [activeSubTab, setActiveSubTab] = useState('shifts');
+    /* Sub-tab and both lists' pages live in the URL under an `s_` prefix
+       (every Attendance tab stays mounted). */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 's_page',
+        debounceKeys: [],
+        defaults: { s_sub: 'shifts', s_page: 1, s_per: 20, s_ppage: 1, s_pper: 20 },
+    });
+    const activeSubTab = f.values.s_sub === 'patterns' ? 'patterns' : 'shifts';
+    const setActiveSubTab = (v) => f.commit({ s_sub: v }, { resetPage: false });
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
     const [patternOpen, setPatternOpen] = useState(false);
     const [editingPattern, setEditingPattern] = useState(null);
 
-    // Pagination states
-    const [shiftsPage, setShiftsPage] = useState(1);
-    const [shiftsPerPage, setShiftsPerPage] = useState(20);
-    const [patternsPage, setPatternsPage] = useState(1);
-    const [patternsPerPage, setPatternsPerPage] = useState(20);
+    const shiftsPage = f.values.s_page;
+    const shiftsPerPage = f.values.s_per;
+    const setShiftsPage = f.setPage;
+    const setShiftsPerPage = (v) => f.set('s_per', v);
+    const patternsPage = f.values.s_ppage;
+    const patternsPerPage = f.values.s_pper;
+    const setPatternsPage = (p) => f.commit({ s_ppage: p }, { resetPage: false, replace: false });
+    const setPatternsPerPage = (v) => f.commit({ s_pper: v, s_ppage: 1 }, { resetPage: false });
 
     const { data, isLoading } = useQuery({
         queryKey: ['shifts'],
@@ -181,7 +194,7 @@ export default function ShiftsSettings() {
                                     <TablePagination
                                         pagination={{ currentPage: shiftsPage, perPage: shiftsPerPage, total: shifts.length }}
                                         onPageChange={setShiftsPage}
-                                        onRowsPerPageChange={(v) => { setShiftsPerPage(v); setShiftsPage(1); }}
+                                        onRowsPerPageChange={setShiftsPerPage}
                                     />
                                 </Box>
                             )}
@@ -269,7 +282,7 @@ export default function ShiftsSettings() {
                                     <TablePagination
                                         pagination={{ currentPage: patternsPage, perPage: patternsPerPage, total: patterns.length }}
                                         onPageChange={setPatternsPage}
-                                        onRowsPerPageChange={(v) => { setPatternsPerPage(v); setPatternsPage(1); }}
+                                        onRowsPerPageChange={setPatternsPerPage}
                                     />
                                 </Box>
                             )}

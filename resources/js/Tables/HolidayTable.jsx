@@ -1,5 +1,7 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import { Table, Badge, Button, Flex, Text, Box, TextField, ScrollArea, DropdownMenu, IconButton, Spinner } from '@radix-ui/themes';
 import {
     CalendarIcon,
@@ -50,13 +52,43 @@ const HolidayTable = ({
 }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
 
-    const [filterValue, setFilterValue] = useState('');
-    const [typeFilter, setTypeFilter] = useState([]);
-    const [statusFilter, setStatusFilter] = useState([]);
-    const [yearFilter, setYearFilter] = useState([new Date().getFullYear().toString()]);
-    const [page, setPage] = useState(1);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
-    const [showFilters, setShowFilters] = useState(false);
+    /* Search, the three multi-select filters and paging live in the URL under
+       an `h_` prefix, so the holiday list comes back as it was left and a link
+       can be shared. Filters narrow the rows already on screen, so changing
+       one is client-side only. Whether the filter panel is open is remembered. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'h_page',
+        debounceKeys: ['h_q'],
+        defaults: {
+            h_q: '',
+            h_type: [],
+            h_status: [],
+            h_year: [new Date().getFullYear().toString()],
+            h_page: 1,
+            h_per: 10,
+        },
+    });
+    const filterValue = f.values.h_q;
+    const typeFilter = f.values.h_type;
+    const statusFilter = f.values.h_status;
+    const yearFilter = f.values.h_year;
+    const page = f.values.h_page;
+    const rowsPerPage = f.values.h_per;
+
+    // Setters accept a value or an updater, like useState's, so the chip and
+    // toggle helpers below work unchanged.
+    const resolve = (key, u) => (typeof u === 'function' ? u(f.values[key]) : u);
+    const setFilterValue = (u) => f.setDraft('h_q', resolve('h_q', u));
+    const setTypeFilter = (u) => f.set('h_type', resolve('h_type', u));
+    const setStatusFilter = (u) => f.set('h_status', resolve('h_status', u));
+    const setYearFilter = (u) => f.set('h_year', resolve('h_year', u));
+    const setPage = f.setPage;
+    const setRowsPerPage = (n) => f.set('h_per', n);
+
+    const [ui, setUi] = usePersistentPageState('Holidays/Table', { showFilters: false });
+    const showFilters = ui.showFilters;
+    const setShowFilters = (u) => setUi((prev) => ({ showFilters: typeof u === 'function' ? u(prev.showFilters) : u }));
 
     const getHolidayStatus = useCallback((holiday) => {
         const today = new Date();
@@ -276,23 +308,17 @@ const HolidayTable = ({
         return chips;
     }, [filterValue, typeFilter, statusFilter, yearFilter]);
 
-    const clearAllFilters = () => {
-        setFilterValue('');
-        setTypeFilter([]);
-        setStatusFilter([]);
-        setYearFilter([new Date().getFullYear().toString()]);
-        setPage(1);
-    };
+    const clearAllFilters = () => f.reset();
 
     const topContent = (
         <Box mb="3">
             <PageToolbar
                 perPage={rowsPerPage}
-                onPerPageChange={(n) => { setRowsPerPage(n); setPage(1); }}
+                onPerPageChange={setRowsPerPage}
                 perPageOptions={[5, 10, 15, 25]}
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={filterValue}
+                        searchValue={f.draft.h_q}
                         onSearchChange={setFilterValue}
                         searchPlaceholder="Search holiday title, description..."
                         showFilterToggle

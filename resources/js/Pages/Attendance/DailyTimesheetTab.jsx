@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import {
     Box, Flex, Text, Table, Badge, Avatar, Button,
     TextField, Skeleton, Tooltip, Select, Tabs, Spinner,
@@ -503,9 +504,19 @@ const DailyTimesheetTab = ({
     const [lastChecked,  setLastChecked]  = useState(null);
     const prevUpdateRef = useRef(null);
 
-    // Pagination state
-    const [currentPage,  setCurrentPage]  = useState(1);
-    const [perPage,      setPerPage]      = useState(20);
+    /* Filters and page live in the URL under a `t_` prefix (every Attendance
+       tab stays mounted). The from/to range and preset stay local: they are
+       derived from the page's `date` and re-anchored by the effect below. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 't_page',
+        debounceKeys: [],
+        defaults: { t_dept: '', t_desig: '', t_status: '', t_page: 1, t_per: 20 },
+    });
+    const currentPage = f.values.t_page;
+    const perPage = f.values.t_per;
+    const setCurrentPage = f.setPage;
+    const setPerPage = (v) => f.set('t_per', v);
 
     // Range + filter state (Log mode)
     const [toDate, setToDate] = useState(selectedDate);
@@ -514,9 +525,13 @@ const DailyTimesheetTab = ({
     const userDeptId = auth?.user?.department_id;
     const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
 
-    const [deptFilter, setDeptFilter] = useState(isNonGlobalManager ? String(userDeptId) : '');
-    const [desigFilter, setDesigFilter] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
+    // A department manager's timesheet is scoped to their department.
+    const deptFilter = f.values.t_dept || (isNonGlobalManager ? String(userDeptId) : '');
+    const setDeptFilter = (v) => f.set('t_dept', v);
+    const desigFilter = f.values.t_desig;
+    const setDesigFilter = (v) => f.set('t_desig', v);
+    const statusFilter = f.values.t_status;
+    const setStatusFilter = (v) => f.set('t_status', v);
 
     // Keep "to" anchored to "from" while in single-day (today/preset) usage.
     useEffect(() => {
@@ -643,9 +658,13 @@ const DailyTimesheetTab = ({
         } catch { /* silent */ }
     }, [selectedDate, refetchTimesheet, refetchPartition]);
 
+    const externalKeyRef = useRef(`${selectedDate}|${toDate}|${employeeQuery}`);
     useEffect(() => {
-        setCurrentPage(1);
-    }, [selectedDate, toDate, employeeQuery, perPage, deptFilter, desigFilter, statusFilter]);
+        const key = `${selectedDate}|${toDate}|${employeeQuery}`;
+        if (externalKeyRef.current === key) return;
+        externalKeyRef.current = key;
+        if (f.values.t_page !== 1) f.setPage(1);
+    }, [selectedDate, toDate, employeeQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         // React Query handles automatic refetching based on dependencies
@@ -910,7 +929,7 @@ const DailyTimesheetTab = ({
                     {/* Department + Designation: shown for admin in BOTH single-day (tabs)
                         and range (log) mode. Department drives the partition endpoint. */}
                     {isAdminView && !isNonGlobalManager && (
-                        <Select.Root value={deptFilter || 'all'} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                        <Select.Root value={deptFilter || 'all'} onValueChange={v => setDeptFilter(v === 'all' ? '' : v)}>
                             <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
                             <Select.Content>
                                 <Select.Item value="all">All departments</Select.Item>
@@ -922,7 +941,7 @@ const DailyTimesheetTab = ({
                     )}
 
                     {isAdminView && (
-                        <Select.Root value={desigFilter || 'all'} onValueChange={v => { setDesigFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                        <Select.Root value={desigFilter || 'all'} onValueChange={v => setDesigFilter(v === 'all' ? '' : v)}>
                             <Select.Trigger size="2" placeholder="Designation" style={{ width: 150 }} />
                             <Select.Content>
                                 <Select.Item value="all">All designations</Select.Item>
@@ -935,7 +954,7 @@ const DailyTimesheetTab = ({
 
                     {/* Status filter is only meaningful for the ranged log table. */}
                     {isAdminView && rangeMode && (
-                        <Select.Root value={statusFilter || 'all'} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                        <Select.Root value={statusFilter || 'all'} onValueChange={v => setStatusFilter(v === 'all' ? '' : v)}>
                             <Select.Trigger size="2" placeholder="Status" style={{ width: 130 }} />
                             <Select.Content>
                                 <Select.Item value="all">All statuses</Select.Item>

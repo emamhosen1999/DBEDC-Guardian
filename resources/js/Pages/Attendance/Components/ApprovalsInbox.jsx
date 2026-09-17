@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Table, Button, Badge, Text, Checkbox, SegmentedControl, Tabs } from '@radix-ui/themes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
@@ -19,13 +20,25 @@ export default function ApprovalsInbox() {
     const qc = useQueryClient();
 
     /* Shared status filter across the inbox (Pending / Approved / Rejected / All). */
-    const [statusFilter, setStatusFilter] = useState('pending');
-    const [subTab, setSubTab] = useState('regularizations');
+    /* Status, sub-tab and both pages live in the URL under an `a_` prefix
+       (every Attendance tab stays mounted). Changing the status returns both
+       lists to their first page. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'a_page',
+        debounceKeys: [],
+        defaults: { a_status: 'pending', a_sub: 'regularizations', a_reg: 1, a_ot: 1 },
+    });
+    const statusFilter = f.values.a_status;
+    const setStatusFilter = (v) => f.setMany({ a_status: v, a_reg: 1, a_ot: 1 });
+    const subTab = f.values.a_sub;
+    const setSubTab = (v) => f.set('a_sub', v);
     const emptyLabel = statusFilter === 'all' ? '' : `${statusFilter} `;
 
-    // Pagination states
-    const [regPage, setRegPage] = useState(1);
-    const [otPage, setOtPage] = useState(1);
+    const regPage = f.values.a_reg;
+    const otPage = f.values.a_ot;
+    const setRegPage = (p) => f.commit({ a_reg: p }, { resetPage: false, replace: false });
+    const setOtPage = (p) => f.commit({ a_ot: p }, { resetPage: false, replace: false });
     const itemsPerPage = 10;
 
     /* ── Regularizations ───────────────────────────────────── */
@@ -86,12 +99,6 @@ export default function ApprovalsInbox() {
     // Slice for local pagination
     const paginatedRegs = regs.slice((regPage - 1) * itemsPerPage, regPage * itemsPerPage);
     const paginatedOts = ots.slice((otPage - 1) * itemsPerPage, otPage * itemsPerPage);
-
-    // Reset pages on filter change
-    React.useEffect(() => {
-        setRegPage(1);
-        setOtPage(1);
-    }, [statusFilter]);
 
     /* ── render ───────────────────────────────────────────── */
     return (

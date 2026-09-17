@@ -5,6 +5,7 @@ import { Panel } from '@/Components/ui/Panel';
  * transaction history. Reads the Phase-3 ledger via /leave-balances + /leave-ledger.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Badge, Box, Flex, ScrollArea, Select, Separator, Spinner, Table, Text, TextField } from '@radix-ui/themes';
 import { MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
@@ -20,8 +21,15 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
     const years = Array.from({ length: 6 }, (_, i) => thisYear - 4 + i);
 
     const [userId, setUserId] = useState('');
-    const [year, setYear] = useState(String(thisYear));
-    const [search, setSearch] = useState('');
+    /* Year and search live in the URL under a `bal_` prefix. */
+    const f = useQueryFilters({
+        mode: 'client',
+        debounceKeys: ['bal_q'],
+        defaults: { bal_year: String(thisYear), bal_q: '' },
+    });
+    const year = f.values.bal_year;
+    const setYear = (v) => f.set('bal_year', v);
+    const search = f.values.bal_q;
     const [txns, setTxns] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -54,7 +62,7 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
             <Flex gap="3" wrap="wrap" align="end">
                 <Box style={{ flex: 1, minWidth: 220 }}>
                     <Text size="2" weight="medium" as="div" mb="1">Employee</Text>
-                    <TextField.Root size="2" placeholder="Search name or ID..." value={search} onChange={e => setSearch(e.target.value)} mb="2">
+                    <TextField.Root size="2" placeholder="Search name or ID..." value={f.draft.bal_q} onChange={e => f.setDraft('bal_q', e.target.value)} mb="2">
                         <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                     </TextField.Root>
                     <Select.Root value={userId} onValueChange={setUserId}>

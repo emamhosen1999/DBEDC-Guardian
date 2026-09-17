@@ -5,6 +5,8 @@ import { Panel } from '@/Components/ui/Panel';
  * Currency: BDT (৳). Categories from server.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
+import { usePersistentPageState } from '@/Hooks/usePersistentPageState';
 import { Box, Flex, Text, Button, Select, TextField, Table, Badge, Link, IconButton, Tooltip } from '@radix-ui/themes';
 import { DownloadIcon, FileTextIcon, TrashIcon, PlusIcon, Pencil1Icon, UploadIcon, Cross1Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
@@ -32,16 +34,39 @@ const CATEGORY_COLORS = {
 const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-
-    // Server-side filters
-    const [filterType, setFilterType] = useState('all');
-    const [filterCategory, setFilterCategory] = useState('all');
-    const [searchText, setSearchText] = useState('');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [sortBy, setSortBy] = useState('transaction_date');
-    const [sortOrder, setSortOrder] = useState('desc');
+    /* Every server-side filter, the sort and the page live in the URL under
+       a `tx_` prefix, so the ledger comes back as it was left and a link can
+       be shared. The fetch effect below follows the URL. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'tx_page',
+        debounceKeys: ['tx_q'],
+        debounceMs: 400,
+        defaults: {
+            tx_page: 1,
+            tx_type: 'all',
+            tx_cat: 'all',
+            tx_q: '',
+            tx_from: '',
+            tx_to: '',
+            tx_sort: 'transaction_date',
+            tx_dir: 'desc',
+        },
+    });
+    const page = f.values.tx_page;
+    const filterType = f.values.tx_type;
+    const filterCategory = f.values.tx_cat;
+    const searchText = f.values.tx_q;
+    const dateFrom = f.values.tx_from;
+    const dateTo = f.values.tx_to;
+    const sortBy = f.values.tx_sort;
+    const sortOrder = f.values.tx_dir;
+    const setPage = f.setPage;
+    const setFilterType = (v) => f.set('tx_type', v);
+    const setFilterCategory = (v) => f.set('tx_cat', v);
+    const setSearchText = (v) => f.setDraft('tx_q', v);
+    const setDateFrom = (v) => f.set('tx_from', v);
+    const setDateTo = (v) => f.set('tx_to', v);
 
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [showReimbursementForm, setShowReimbursementForm] = useState(false);
@@ -49,10 +74,11 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
     const [showEditForm, setShowEditForm] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [uploadingTransactionId, setUploadingTransactionId] = useState(null);
-    const [showFilters, setShowFilters] = useState(false);
+    const [ui, setUi] = usePersistentPageState('PettyCash/Transactions', { showFilters: false });
+    const showFilters = ui.showFilters;
+    const setShowFilters = (u) => setUi((prev) => ({ showFilters: typeof u === 'function' ? u(prev.showFilters) : u }));
 
     const fileInputRef = useRef(null);
-    const searchTimeout = useRef(null);
 
     const fetchTransactions = useCallback(async () => {
         if (!loanId) {
@@ -87,41 +113,19 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
         fetchTransactions();
     }, [fetchTransactions]);
 
-    // Debounced search
-    const handleSearchChange = (e) => {
-        const val = e.target.value;
-        setSearchText(val);
-        clearTimeout(searchTimeout.current);
-        searchTimeout.current = setTimeout(() => {
-            setPage(1);
-        }, 400);
-    };
+    // The hook debounces the search box and returns to page 1 on any change.
+    const handleSearchChange = (e) => setSearchText(e.target.value);
 
-    const handleFilterChange = (setter) => (value) => {
-        setter(value);
-        setPage(1);
-    };
+    const handleFilterChange = (setter) => (value) => setter(value);
 
     const handleSort = (column) => {
-        if (sortBy === column) {
-            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortBy(column);
-            setSortOrder('desc');
-        }
-        setPage(1);
+        f.setMany({
+            tx_sort: column,
+            tx_dir: sortBy === column ? (sortOrder === 'asc' ? 'desc' : 'asc') : 'desc',
+        });
     };
 
-    const clearFilters = () => {
-        setFilterType('all');
-        setFilterCategory('all');
-        setSearchText('');
-        setDateFrom('');
-        setDateTo('');
-        setSortBy('transaction_date');
-        setSortOrder('desc');
-        setPage(1);
-    };
+    const clearFilters = () => f.reset();
 
     const hasActiveFilters = filterType !== 'all' || filterCategory !== 'all' || searchText || dateFrom || dateTo;
 
@@ -233,11 +237,11 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
     }
 
     const activeFilterChips = [];
-    if (searchText) activeFilterChips.push({ label: 'Search', value: searchText, onRemove: () => { setSearchText(''); setPage(1); } });
-    if (filterType !== 'all') activeFilterChips.push({ label: 'Type', value: filterType, onRemove: () => { setFilterType('all'); setPage(1); } });
-    if (filterCategory !== 'all') activeFilterChips.push({ label: 'Category', value: formatCategory(filterCategory), onRemove: () => { setFilterCategory('all'); setPage(1); } });
-    if (dateFrom) activeFilterChips.push({ label: 'From', value: dateFrom, onRemove: () => { setDateFrom(''); setPage(1); } });
-    if (dateTo) activeFilterChips.push({ label: 'To', value: dateTo, onRemove: () => { setDateTo(''); setPage(1); } });
+    if (searchText) activeFilterChips.push({ label: 'Search', value: searchText, onRemove: () => setSearchText('') });
+    if (filterType !== 'all') activeFilterChips.push({ label: 'Type', value: filterType, onRemove: () => setFilterType('all') });
+    if (filterCategory !== 'all') activeFilterChips.push({ label: 'Category', value: formatCategory(filterCategory), onRemove: () => setFilterCategory('all') });
+    if (dateFrom) activeFilterChips.push({ label: 'From', value: dateFrom, onRemove: () => setDateFrom('') });
+    if (dateTo) activeFilterChips.push({ label: 'To', value: dateTo, onRemove: () => setDateTo('') });
 
     return (
         <Box>
@@ -249,12 +253,8 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                 mb="4"
                 leftSlot={
                     <SearchFilterBar
-                        searchValue={searchText}
-                        onSearchChange={val => {
-                            setSearchText(val);
-                            clearTimeout(searchTimeout.current);
-                            searchTimeout.current = setTimeout(() => { setPage(1); }, 400);
-                        }}
+                        searchValue={f.draft.tx_q}
+                        onSearchChange={setSearchText}
                         searchPlaceholder="Search descriptions..."
                         showFilterToggle
                         showFilters={showFilters}
@@ -300,7 +300,7 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                                 <input
                                     type="date"
                                     value={dateFrom}
-                                    onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                                    onChange={e => setDateFrom(e.target.value)}
                                     style={{
                                         padding: '6px 10px', border: '1px solid var(--gray-a6)',
                                         borderRadius: 'var(--radius-2)', fontSize: '14px', width: '100%',
@@ -313,7 +313,7 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                                 <input
                                     type="date"
                                     value={dateTo}
-                                    onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                                    onChange={e => setDateTo(e.target.value)}
                                     style={{
                                         padding: '6px 10px', border: '1px solid var(--gray-a6)',
                                         borderRadius: 'var(--radius-2)', fontSize: '14px', width: '100%',

@@ -38,22 +38,31 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
 
     /* Each tab is a distinct view with its own data, so it belongs in the URL:
        /attendance?tab=roster survives a refresh and can be shared. */
-    const f = useQueryFilters({ mode: 'client', defaults: { tab: 'timesheet' }, debounceKeys: [] });
-    const setTab = f.set;
+    /* The day and month being looked at decide what every tab fetches, so they
+       live in the URL as well. Defaults are empty so that an explicitly chosen
+       day stays visible in a copied link; empty resolves to today. Each tab's
+       own filters use a short prefix (r_ roster, t_ timesheet, m_ monthly,
+       a_ approvals, s_ shifts) because every tab stays mounted. */
+    const f = useQueryFilters({
+        mode: 'client',
+        defaults: { tab: 'timesheet', date: '', month: '' },
+        debounceKeys: [],
+    });
+    const { set: setTab, setMany: setDates } = f;
     const setActiveTab = useCallback((val) => setTab('tab', val), [setTab]);
-    const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
-    const [selectedMonth,setSelectedMonth]= useState(dayjs().format('YYYY-MM'));
 
-    /* date change — keep daily and monthly in sync */
+    const selectedDate = f.values.date || dayjs().format('YYYY-MM-DD');
+    const selectedMonth = f.values.month || dayjs(selectedDate).format('YYYY-MM');
+
+    /* date change — keep daily and monthly in sync, in one URL write */
     const handleDateChange = useCallback(e => {
         const val = e.target.value;
-        setSelectedDate(val);
-        setSelectedMonth(dayjs(val).format('YYYY-MM'));
-    }, []);
+        setDates({ date: val, month: dayjs(val).format('YYYY-MM') });
+    }, [setDates]);
 
     const handleMonthChange = useCallback(val => {
-        setSelectedMonth(val);
-    }, []);
+        setDates({ month: val });
+    }, [setDates]);
 
     /* permissions — Super Administrator bypasses all gates unconditionally (matches the
        backend Gate::before bypass), even for abilities that don't exist as permission records. */

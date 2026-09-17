@@ -4,6 +4,7 @@ import { Panel } from '@/Components/ui/Panel';
  * Timeline-style audit trail for petty cash actions.
  */
 import React, { useState, useEffect } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Text, Badge, Button, Separator } from '@radix-ui/themes';
 import { ActivityLogIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
@@ -29,7 +30,10 @@ const ACTION_LABELS = {
 const AuditLogPanel = ({ loanId, isMobile }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
+    /* The page lives in the URL under an `au_` prefix. */
+    const f = useQueryFilters({ mode: 'client', pageKey: 'au_page', debounceKeys: [], defaults: { au_page: 1 } });
+    const page = f.values.au_page;
+    const setPage = f.setPage;
     const [totalPages, setTotalPages] = useState(1);
     const [expandedLog, setExpandedLog] = useState(null);
 
@@ -154,13 +158,13 @@ const AuditLogPanel = ({ loanId, isMobile }) => {
             {/* Pagination */}
             {totalPages > 1 && (
                 <Flex justify="center" gap="2" mt="4">
-                    <Button variant="soft" size="1" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                    <Button variant="soft" size="1" disabled={page === 1} onClick={() => setPage(page - 1)}>
                         Previous
                     </Button>
                     <Text size="2" color="gray" style={{ display: 'flex', alignItems: 'center' }}>
                         Page {page} of {totalPages}
                     </Text>
-                    <Button variant="soft" size="1" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+                    <Button variant="soft" size="1" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
                         Next
                     </Button>
                 </Flex>

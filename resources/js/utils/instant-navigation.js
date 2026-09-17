@@ -8,6 +8,16 @@ import { router } from '@inertiajs/react';
 const pageCache = new Map();
 const pendingRequests = new Set();
 
+/** The asset version of the page currently mounted (from Inertia's root data-page). */
+function currentInertiaVersion() {
+  try {
+    const raw = document.getElementById('app')?.dataset?.page;
+    return raw ? JSON.parse(raw).version || '' : '';
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Prefetch an Inertia page URL on hover or focus
  */
@@ -28,7 +38,9 @@ export function prefetchUrl(url) {
     fetch(pathKey, {
       headers: {
         'X-Inertia': 'true',
-        'X-Inertia-Version': window.Laravel?.inertiaVersion || '',
+        // The version must match the page's or the server answers 409 and the
+        // prefetch is wasted. Inertia exposes it on the root element's page data.
+        'X-Inertia-Version': window.Laravel?.inertiaVersion || currentInertiaVersion() || '',
         'Accept': 'text/html, application/xhtml+xml',
         'X-Requested-With': 'XMLHttpRequest'
       }

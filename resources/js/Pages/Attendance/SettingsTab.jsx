@@ -1,5 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Text, Button, TextField, Select, Separator, Badge, IconButton, Spinner, ScrollArea, Checkbox, Switch, Table, Tooltip, Tabs } from '@radix-ui/themes';
 import {
     GearIcon, ClockIcon, CalendarIcon, PersonIcon,
@@ -745,7 +746,11 @@ const SettingsTab = () => {
         designations = [],
     } = usePage().props;
 
-    const [activeSubTab, setActiveSubTab] = useState('general');
+    /* The settings sub-tab lives in the URL under an `st_` prefix (every
+       Attendance tab stays mounted). */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { st_sub: 'general' } });
+    const activeSubTab = f.values.st_sub;
+    const setActiveSubTab = (v) => f.set('st_sub', v);
     const [settings,   setSettings]   = useState(initSettings || {});
     const [types,      setTypes]      = useState(initTypes    || []);
     const [search,     setSearch]     = useState('');

@@ -9,6 +9,7 @@ import { Panel } from '@/Components/ui/Panel';
  * Pure Radix UI.
  */
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Badge, Box, Button, Dialog, DropdownMenu, Flex, Grid, IconButton, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField } from '@radix-ui/themes';
 import {
     CheckboxIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
@@ -25,7 +26,10 @@ import TablePagination from '@/Components/TablePagination.jsx';
 /* ── sub-tab: Roles ── */
 function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canManageSuperAdmin, isMobile, onRolesChange }) {
     const [roles, setRoles]         = useState(initialRoles);
-    const [search, setSearch]       = useState('');
+    /* The search lives in the URL under a `rl_` prefix so it survives
+       leaving the panel and coming back. Client-side only. */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: ['rl_q'], defaults: { rl_q: '' } });
+    const search = f.values.rl_q;
     const [loading, setLoading]     = useState(false);
     const [editRole, setEditRole]   = useState(null); // null = add
     const [delRole, setDelRole]     = useState(null);
@@ -84,7 +88,8 @@ function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canMan
         <Box>
             <Flex justify="between" align="center" mb="3" gap="3" wrap="wrap">
                 <TextField.Root placeholder="Search roles…" size="2" style={{ minWidth: 200, flex: 1 }}
-                    onChange={e => setSearch(e.target.value)}>
+                    value={f.draft.rl_q}
+                    onChange={e => f.setDraft('rl_q', e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
                 <Button size="2" onClick={openAdd}><PlusIcon /> Add Role</Button>
@@ -207,7 +212,10 @@ function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canMan
 /* ── sub-tab: Permissions ── */
 function PermissionsTab({ permissions: initialPerms, isMobile }) {
     const [perms, setPerms]     = useState(initialPerms);
-    const [search, setSearch]   = useState('');
+    /* The search lives in the URL under a `pm_` prefix so it survives
+       leaving the panel and coming back. Client-side only. */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: ['pm_q'], defaults: { pm_q: '' } });
+    const search = f.values.pm_q;
     const [editPerm, setEditPerm] = useState(null);
     const [delPerm, setDelPerm]   = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -270,7 +278,8 @@ function PermissionsTab({ permissions: initialPerms, isMobile }) {
         <Box>
             <Flex justify="between" align="center" mb="3" gap="3" wrap="wrap">
                 <TextField.Root placeholder="Search permissions…" size="2" style={{ minWidth: 200, flex: 1 }}
-                    onChange={e => setSearch(e.target.value)}>
+                    value={f.draft.pm_q}
+                    onChange={e => f.setDraft('pm_q', e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
                 <Button size="2" onClick={openAdd}><PlusIcon /> Add Permission</Button>
@@ -529,19 +538,27 @@ function AssignmentTab({ roles, permissions, permissionsGrouped, getRolePermissi
 function UserRoleTab({ roles, isMobile }) {
     const [users,    setUsers]    = useState([]);
     const [loading,  setLoading]  = useState(false);
-    const [search,   setSearch]   = useState('');
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
-    const debRef  = useRef(null);
+    /* Search and page live in the URL under a `ur_` prefix so they survive
+       leaving the panel and coming back. The fetch effect follows the URL. */
+    const f = useQueryFilters({
+        mode: 'client',
+        pageKey: 'ur_page',
+        debounceKeys: ['ur_q'],
+        defaults: { ur_q: '', ur_page: 1, ur_per: 20 },
+    });
+    const search = f.values.ur_q;
+    const [total, setTotal] = useState(0);
+    const pagination = { currentPage: f.values.ur_page, perPage: f.values.ur_per, total };
 
-    const fetchUsers = useCallback(async (q = search, p = pagination.currentPage, pp = pagination.perPage) => {
+    const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('users.paginate'), {
-                params: { page: p, perPage: pp, search: q || undefined },
+                params: { page: pagination.currentPage, perPage: pagination.perPage, search: search || undefined },
             });
             const list = data.users?.data ?? data.users ?? [];
             setUsers(list);
-            setPagination(prev => ({ ...prev, total: data.users?.total ?? list.length }));
+            setTotal(data.users?.total ?? list.length);
         } catch {
             showToast.error('Failed to load users.');
         } finally {
@@ -549,22 +566,13 @@ function UserRoleTab({ roles, isMobile }) {
         }
     }, [search, pagination.currentPage, pagination.perPage]);
 
-    useEffect(() => { fetchUsers(); }, []);
+    // Follows the URL. (Previously only mount and search fetched, so the pager
+    // changed the page number without ever loading that page.)
+    useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-    const triggerSearch = (val) => {
-        setSearch(val);
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-        clearTimeout(debRef.current);
-        debRef.current = setTimeout(() => fetchUsers(val, 1, pagination.perPage), 280);
-    };
-
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
+    const triggerSearch = (val) => f.setDraft('ur_q', val);
+    const handlePageChange = f.setPage;
+    const handleRowsPerPageChange = (newPerPage) => f.set('ur_per', newPerPage);
 
     const [editUser, setEditUser] = useState(null);
     const [selectedRoles, setSelectedRoles] = useState(new Set());
@@ -604,6 +612,7 @@ function UserRoleTab({ roles, isMobile }) {
         <Box>
             <Flex align="center" gap="3" mb="3" wrap="wrap">
                 <TextField.Root placeholder="Search users…" size="2" style={{ maxWidth: 360 }}
+                    value={f.draft.ur_q}
                     onChange={e => triggerSearch(e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
@@ -730,7 +739,10 @@ export default function RolesPanel({
     permissionsGrouped = {}, canManageSuperAdmin = false,
     isMobile, tick, onCountChange, onSetHeaderActions, isActive,
 }) {
-    const [subTab, setSubTab] = useState('roles');
+    /* The section being viewed lives in the URL under an `rp_` prefix. */
+    const fp = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { rp_sub: 'roles' } });
+    const subTab = fp.values.rp_sub;
+    const setSubTab = (v) => fp.set('rp_sub', v);
 
     const getRolePermissions = useCallback((roleId) => {
         // from role_has_permissions array

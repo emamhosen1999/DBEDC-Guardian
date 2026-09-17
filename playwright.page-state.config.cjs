@@ -9,7 +9,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:8000';
 module.exports = defineConfig({
   testDir: './tests/playwright',
   testMatch: '**/page-state.spec.cjs',
-  timeout: 90_000,
+  timeout: 300_000,
   // The local php artisan serve instance takes ~10 s per full page load.
   expect: { timeout: 30_000 },
   fullyParallel: false,

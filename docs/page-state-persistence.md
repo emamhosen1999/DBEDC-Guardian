@@ -89,6 +89,35 @@ const { data } = useEmployeesList(f.values);
 - Navigation only happens from a user action or the debounce timer. Nothing
   watches props and re-navigates, so there are no effect loops.
 
+### Reopening a page from the sidebar
+
+Application navigation lands on the bare route — `/attendance`, not
+`/attendance?tab=roster&r_dept=5`. The hook remembers the last query each page
+was left with (per signed-in user, in memory for the SPA session) and, when a
+page is opened bare, re-applies it with a `replace`. So the sidebar, Back, a
+refresh and a copied link all land on the same view. An explicit reset leaves
+the page bare and is remembered as such, so reset stays reset.
+
+### Panels that stay mounted together
+
+Some pages keep every tab mounted (`display: none`), so several hooks read the
+same URL at once. Each panel then owns a short prefix so their keys cannot
+collide, and the page-level hook owns the unprefixed `tab`/`date`/`month`:
+
+```
+Attendance:  r_ roster · t_ timesheet · m_ monthly · a_ approvals
+             s_ shifts · st_ settings · loc_ locations card · asg_ assignments
+Biometric:   b_ section · bl_ att-logs · lg_ logs · ol_ operlog · dl_ downloads
+             tp_ templates · hl_ health · rc_ reconciliation
+Roles:       rp_ section · rl_ roles · pm_ permissions · ur_ users
+Leaves:      al_ admin list · bal_ balances · an_ analytics · ls_ settings · sm_ summary
+Petty cash:  tx_ transactions · au_ audit log
+Holidays:    h_          Daily works: dw_ mobile tab · sum_ summary · ju_ jurisdictions
+```
+
+Pass `pageKey` when a panel has its own pager (`pageKey: 'r_page'`), so the
+"return to page 1 on filter change" rule applies to the right key.
+
 ## Remembered state — `usePersistentPageState()`
 
 ```js

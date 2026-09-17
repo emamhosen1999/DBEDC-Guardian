@@ -18,6 +18,7 @@ import { showToast } from '@/utils/toastUtils';
 import { router, usePage } from "@inertiajs/react";
 import { debounce } from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import DateTimePicker from '@/Components/DateTimePicker';
 
 import {
@@ -174,8 +175,11 @@ const DailyWorksTable = ({
     const [isUpdating, setIsUpdating] = useState(false);
     const [updatingWorkId, setUpdatingWorkId] = useState(null);
     
-    // Mobile tab state - persist across pagination
-    const [selectedTab, setSelectedTab] = useState("structure");
+    // Mobile work-type tab: lives in the URL under a `dw_` prefix so it
+    // survives pagination, leaving the page and coming back.
+    const ft = useQueryFilters({ mode: 'client', debounceKeys: [], defaults: { dw_type: 'structure' } });
+    const selectedTab = ft.values.dw_type;
+    const setSelectedTab = (v) => ft.set('dw_type', v);
     
     // Define work types for mobile tabs - shared between loading skeleton and actual component
     const workTypes = [

@@ -3,6 +3,27 @@ import { router, usePage } from '@inertiajs/react';
 import { hasActiveFilters, resolveFromUrl, withQuery } from '@/utils/queryParams';
 
 /**
+ * The last query string each page was left with, per signed-in user.
+ *
+ * Application navigation (the sidebar, a "back to list" button) lands on the
+ * bare route — `/attendance`, not `/attendance?tab=roster&r_dept=5` — which
+ * would silently discard the state the URL was carrying. When a page is opened
+ * bare and it was previously left with a query, the hook re-applies that query
+ * with a `replace`, so the URL stays the single source of truth and a copied
+ * link still means what it says.
+ *
+ * In memory only: it lives for the SPA session, is keyed by user so one
+ * account never inherits another's view, and a page reset (bare URL) records
+ * an empty entry so an explicit reset stays reset.
+ */
+const lastQueryByPage = new Map();
+
+/** Test seam. */
+export function __clearLastQueries() {
+    lastQueryByPage.clear();
+}
+
+/**
  * Server-driven page state (search, filters, sort, pagination) backed by the URL.
  *
  * ── Why the URL ───────────────────────────────────────────────────────────────
@@ -65,7 +86,8 @@ export function useQueryFilters({
     only,
     preserveScroll = true,
 } = {}) {
-    const { url } = usePage();
+    const { url, props: pageProps } = usePage();
+    const userId = pageProps?.auth?.user?.id ?? pageProps?.auth?.user?.employee_id ?? 'anon';
 
     // Defaults are treated as a constant shape. Holding them in a ref keeps every
     // callback below stable even when a page passes an inline object literal.
@@ -125,6 +147,35 @@ export function useQueryFilters({
     // a change, so no redundant requests are issued.
     const currentUrlRef = useRef('');
     currentUrlRef.current = withQuery(basePath, values, defaultsRef.current);
+
+    /* ── sticky restore: reopening a page bare brings back its last query ── */
+
+    const stickyKey = `${userId}:${basePath}`;
+    const restoredRef = useRef(false);
+
+    useEffect(() => {
+        const query = String(url).includes('?') ? String(url).slice(String(url).indexOf('?') + 1) : '';
+
+        if (query === '' && !restoredRef.current) {
+            const remembered = lastQueryByPage.get(stickyKey);
+
+            if (remembered) {
+                // Only the first hook on the page to notice performs the visit;
+                // the URL then changes and every hook re-reads it.
+                restoredRef.current = true;
+                lastQueryByPage.delete(stickyKey);
+
+                // Always a server visit, even for client-mode hooks: a page can
+                // mix both kinds, and the restored query may carry params the
+                // controller reads. One request, replacing the bare entry.
+                router.get(`${basePath}?${remembered}`, {}, { preserveState: true, preserveScroll: true, replace: true });
+                return;
+            }
+        }
+
+        restoredRef.current = true;
+        lastQueryByPage.set(stickyKey, query);
+    }, [url, stickyKey, basePath]);
 
     /**
      * Write a set of changes into the URL.

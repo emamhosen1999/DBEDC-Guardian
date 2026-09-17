@@ -1,5 +1,6 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Text, Table, Badge, Button, IconButton, Tooltip, Dialog, TextField, Select, Grid, Spinner, AlertDialog, TextField as RTextField } from '@radix-ui/themes';
 import {
     PlusIcon, Pencil1Icon, TrashIcon, SewingPinIcon, MagnifyingGlassIcon
@@ -16,7 +17,9 @@ const emptyForm = { id: null, location: '', start_chainage: '', end_chainage: ''
 
 const JurisdictionsManager = ({ jurisdictions: initial = [], users = [], canManage = false }) => {
     const [rows, setRows] = useState(initial);
-    const [search, setSearch] = useState('');
+    /* The search lives in the URL under a `ju_` prefix. Client-side only. */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: ['ju_q'], defaults: { ju_q: '' } });
+    const search = f.values.ju_q;
     const [modalOpen, setModalOpen] = useState(false);
     const [modalType, setModalType] = useState('add'); // 'add' | 'edit'
     const [form, setForm] = useState(emptyForm);
@@ -110,7 +113,7 @@ const JurisdictionsManager = ({ jurisdictions: initial = [], users = [], canMana
                     <Text size="2" color="gray">Project chainage segments used for daily work reports & RFIs.</Text>
                 </Box>
                 <Flex gap="3" align="center">
-                    <TextField.Root placeholder="Search jurisdictions…" value={search} onChange={e => setSearch(e.target.value)} style={{ minWidth: 220 }}>
+                    <TextField.Root placeholder="Search jurisdictions…" value={f.draft.ju_q} onChange={e => f.setDraft('ju_q', e.target.value)} style={{ minWidth: 220 }}>
                         <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                     </TextField.Root>
                     {canManage && (

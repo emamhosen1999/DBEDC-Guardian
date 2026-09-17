@@ -8,6 +8,7 @@ import { Panel } from '@/Components/ui/Panel';
  * - Responsive Grid Layouts: Forms and switches elegantly stack into single columns on small screens.
  */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { Box, Flex, Text, Button, TextField, Switch, Select, Table, Badge, Tooltip, IconButton, Separator, ScrollArea, Spinner, Grid } from '@radix-ui/themes';
 import {
     PlusIcon, Pencil1Icon, TrashIcon, Cross2Icon,
@@ -157,7 +158,9 @@ export default function LeaveSettingsPanel({
     const [loading,       setLoading]       = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [deleteModal,   setDeleteModal]   = useState({ open: false, candidate: null });
-    const [search,        setSearch]        = useState('');
+    /* The leave-type search lives in the URL under an `ls_` prefix. */
+    const f = useQueryFilters({ mode: 'client', debounceKeys: ['ls_q'], defaults: { ls_q: '' } });
+    const search = f.values.ls_q;
     const [isLoading,     setIsLoading]     = useState(false);
 
     useEffect(() => { setLeaveTypes(initialTypes); }, [initialTypes]);
@@ -442,11 +445,11 @@ export default function LeaveSettingsPanel({
                         <Badge color="blue" variant="soft" size="2" radius="full">{leaveTypes.length}</Badge>
                     </Flex>
                     <Box style={{ flex: isMobile ? 1 : '0 0 250px' }}>
-                        <TextField.Root size="2" placeholder="Search leave types…" value={search} onChange={e => setSearch(e.target.value)}>
+                        <TextField.Root size="2" placeholder="Search leave types…" value={f.draft.ls_q} onChange={e => f.setDraft('ls_q', e.target.value)}>
                             <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                             {search && (
                                 <TextField.Slot side="right">
-                                    <IconButton size="1" variant="ghost" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
+                                    <IconButton size="1" variant="ghost" onClick={() => f.setDraft('ls_q', '')}><Cross2Icon /></IconButton>
                                 </TextField.Slot>
                             )}
                         </TextField.Root>
