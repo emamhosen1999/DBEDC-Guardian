@@ -45,7 +45,7 @@ class StoreClientErrorsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'events' => ['required', 'array', 'min:1', 'max:'.self::MAX_BATCH],
+            'events' => ['nullable', 'array', 'max:'.self::MAX_BATCH],
             'events.*' => ['array'],
         ];
     }

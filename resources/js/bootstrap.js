@@ -49,9 +49,16 @@ axios.interceptors.response.use(
             handleDeviceMismatch(responsePayload.error || responsePayload.message || 'Your session is no longer valid for this device.');
         }
 
+        // Ignore Inertia asset version mismatch reloads (409 Conflict with X-Inertia-Location header)
+        const isInertiaConflict = statusCode === 409 && Boolean(
+            error.response?.headers?.['x-inertia-location'] ||
+            error.response?.headers?.['X-Inertia-Location']
+        );
+
         // Report validation errors (422), stale write conflicts (409), bad requests (400), and 5xx to diagnostics
         const reqUrl = String(error.config?.url || '');
         if (
+            !isInertiaConflict &&
             !reqUrl.includes('client-errors') &&
             !reqUrl.includes('log-error') &&
             (statusCode === 422 || statusCode === 409 || statusCode === 400 || statusCode >= 500)

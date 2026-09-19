@@ -84,6 +84,7 @@ class TrackSecurityActivity
                 // Different IP detected for same user
                 $this->logSecurityEvent('ip_address_change', [
                     'user_id' => $userId,
+                    'ip_address' => $currentIp,
                     'current_ip' => $currentIp,
                     'user_agent' => $currentUserAgent,
                     'session_id' => $request->session()->getId(),
@@ -124,8 +125,8 @@ class TrackSecurityActivity
                 'user_id' => $data['user_id'] ?? null,
                 'event_type' => $eventType,
                 'severity' => $this->getSeverityForEvent($eventType),
-                'ip_address' => $data['ip_address'] ?? null,
-                'user_agent' => $data['user_agent'] ?? null,
+                'ip_address' => $data['ip_address'] ?? $data['current_ip'] ?? request()->ip() ?? '127.0.0.1',
+                'user_agent' => $data['user_agent'] ?? request()->userAgent() ?? 'Unknown',
                 'metadata' => json_encode($data),
                 'risk_score' => $this->getRiskScoreForEvent($eventType),
                 'investigated' => false,

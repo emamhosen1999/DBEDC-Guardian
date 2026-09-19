@@ -40,7 +40,7 @@ class PettyCashTransaction extends Model implements HasMedia
         // eleventh arrived — the wrong thing to do to a financial record. The
         // service refuses the upload instead.
         $this->addMediaCollection('bills')
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']);
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf']);
     }
 
     public function scopeByType($query, $type)

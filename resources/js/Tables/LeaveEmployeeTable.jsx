@@ -63,6 +63,7 @@ const LeaveEmployeeTable = React.forwardRef(({
     canDeleteLeaves = false,
     fetchLeavesStats,
     onLeaveUpdated,
+    loading = false,
 }, ref) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');

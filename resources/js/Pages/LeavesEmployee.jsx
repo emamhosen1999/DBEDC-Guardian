@@ -721,6 +721,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
                   updatePaginationMetadata={updatePaginationMetadata}
                   onBulkDelete={handleBulkDelete}
                   canDeleteLeaves={true}
+                  loading={tableLoading}
                 />
               </ErrorBoundary>
             ) : (

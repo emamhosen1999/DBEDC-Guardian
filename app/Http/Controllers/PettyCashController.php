@@ -297,14 +297,15 @@ class PettyCashController extends Controller
     {
         $request->validate([
             'transaction_id' => 'required|exists:petty_cash_transactions,id',
-            'bill' => 'required|file|mimes:jpeg,jpg,png,pdf|max:5120',
+            'bill' => 'required|file|mimes:jpeg,jpg,png,pdf,webp|max:10240',
         ]);
 
         try {
             $transaction = PettyCashTransaction::findOrFail($request->transaction_id);
+            $loan = $transaction->pettyCashLoan;
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($transaction->pettyCashLoan, $user)) {
+            if (! $loan || ! $this->canAccessLoan($loan, $user)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this transaction',
@@ -342,9 +343,10 @@ class PettyCashController extends Controller
 
         try {
             $transaction = PettyCashTransaction::findOrFail($request->transaction_id);
+            $loan = $transaction->pettyCashLoan;
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($transaction->pettyCashLoan, $user)) {
+            if (! $loan || ! $this->canAccessLoan($loan, $user)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this transaction',
@@ -720,3 +722,5 @@ class PettyCashController extends Controller
         return response()->json(['status' => 'processing'], 202);
     }
 }
+
+

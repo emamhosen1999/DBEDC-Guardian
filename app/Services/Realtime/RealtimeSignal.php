@@ -79,7 +79,7 @@ class RealtimeSignal
                 'action' => $action,
             ]);
         } catch (\Throwable $e) {
-            report($e); // log and swallow — realtime must not break the write path
+            \Illuminate\Support\Facades\Log::warning('Realtime signal dispatch failed: ' . $e->getMessage());
         }
     }
 }

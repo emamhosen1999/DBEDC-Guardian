@@ -554,7 +554,7 @@ class AttendanceRequestController extends Controller
      * [from, to] that the REQUESTER could take, i.e. only on dates the requester
      * is FREE (no effective shift → no double-booking). The requester is excluded
      * and the rank/department pool is the SAME as swapEligible. Ordered by date.
-     * Range defaults to the next 14 days and is capped at 31 days.
+     * Range defaults to the next 14 days and is capped at 62 days.
      */
     public function pickup(Request $request): JsonResponse
     {
@@ -568,11 +568,9 @@ class AttendanceRequestController extends Controller
         $from = isset($data['from']) ? Carbon::parse($data['from'])->startOfDay() : Carbon::today();
         $to = isset($data['to']) ? Carbon::parse($data['to'])->startOfDay() : $from->copy()->addDays(13);
 
-        // Cap the range so we never scan an unbounded roster window.
-        if ($from->diffInDays($to) > 31) {
-            throw ValidationException::withMessages([
-                'to' => 'The date range cannot exceed 31 days.',
-            ]);
+        // Cap the range so we never scan an unbounded roster window (allow up to 62 days / 2 months).
+        if ($from->diffInDays($to) > 62) {
+            $to = $from->copy()->addDays(62);
         }
 
         $fromStr = $from->toDateString();
