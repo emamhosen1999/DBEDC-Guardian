@@ -21,7 +21,7 @@ class LeaveValidationService
             // daysCount is accepted for backward-compat but NO LONGER authoritative
             // (LeaveDayCalculator computes no_of_days server-side). Bound it loosely.
             'daysCount' => 'nullable|numeric|min:0.5|max:365',
-            'leaveReason' => 'required|string|max:500|min:5',
+            'leaveReason' => 'nullable|string|max:500',
             'status' => 'nullable|in:pending,approved,rejected,cancelled',
             'isHalfDay' => 'nullable|boolean',
             'halfDaySession' => 'nullable|required_if:isHalfDay,true,1|in:first_half,second_half',
@@ -37,7 +37,6 @@ class LeaveValidationService
             'toDate.before' => 'Leave cannot be applied more than one year in advance.',
             'daysCount.max' => 'Leave duration cannot exceed 365 days.',
             'daysCount.min' => 'Leave duration must be at least 1 day.',
-            'leaveReason.min' => 'Leave reason must be at least 5 characters long.',
             'leaveReason.max' => 'Leave reason cannot exceed 500 characters.',
             'leaveType.required' => 'Please select a leave type.',
             'leaveType.exists' => 'The selected leave type is invalid.',
@@ -72,8 +71,14 @@ class LeaveValidationService
             }
 
             // Backdating window + notice period apply to NEW requests only
-            // (editing an existing/historic record is exempt).
-            if (! $request->filled('id') && $request->filled('fromDate')) {
+            // (editing an existing/historic record or manager creation is exempt).
+            $isManager = auth()->check() && (
+                auth()->user()->can('leaves.manage') ||
+                auth()->user()->can('leaves.approve') ||
+                auth()->user()->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager'])
+            );
+
+            if (! $isManager && ! $request->filled('id') && $request->filled('fromDate')) {
                 try {
                     $fromDate = \Carbon\Carbon::parse($request->input('fromDate'))->startOfDay();
                 } catch (\Throwable $e) {

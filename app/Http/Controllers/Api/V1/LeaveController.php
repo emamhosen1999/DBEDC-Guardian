@@ -545,7 +545,7 @@ class LeaveController extends Controller
     private function isApprovalChainMember(Leave $leave, string $userId): bool
     {
         foreach (($leave->approval_chain ?? []) as $level) {
-            if ((int) ($level['approver_id'] ?? 0) === $userId) {
+            if ((string) ($level['approver_id'] ?? '') === (string) $userId) {
                 return true;
             }
         }

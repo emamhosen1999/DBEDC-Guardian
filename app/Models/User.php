@@ -63,6 +63,14 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
+     * Alias 'id' mutator to primary key 'employee_id'.
+     */
+    public function setIdAttribute($value): void
+    {
+        $this->attributes['employee_id'] = $value !== null ? (string) $value : null;
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>

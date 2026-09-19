@@ -23,7 +23,8 @@ const LeaveForm = ({
     selectedMonth,
     addLeaveOptimized,
     updateLeaveOptimized,
-    refetchStats
+    refetchStats,
+    fetchLeavesStats,
 }) => {
     const { auth } = usePage().props;
     const isSuperAdmin = auth.isSuperAdmin || false;
@@ -116,34 +117,13 @@ const LeaveForm = ({
             config = { headers: { 'Content-Type': 'multipart/form-data' } };
         }
 
+        let response;
         try {
-            const response = await axios.post(
+            response = await axios.post(
                 route(currentLeave ? 'leave-update' : 'leave-add'),
                 body,
                 config
             );
-            if (response.status === 200 || response.status === 201) {
-                if (typeof setLeavesData === 'function' && response.data.leavesData) {
-                    setLeavesData(response.data.leavesData);
-                }
-
-                if (currentLeave && typeof updateLeaveOptimized === 'function') {
-                    updateLeaveOptimized(response.data.leave);
-                } else if (typeof addLeaveOptimized === 'function' && response.data.leave) {
-                    addLeaveOptimized(response.data.leave);
-                }
-
-                const refetch = refetchStats || fetchLeavesStats;
-                if (typeof refetch === 'function') {
-                    refetch();
-                }
-                
-                showToast.success(response.data?.message || 'Leave submitted successfully');
-                (response.data?.warnings || []).forEach(w => showToast.info(w));
-                closeModal();
-                reset();
-                setFiles([]);
-            }
         } catch (error) {
             if (error.response?.status === 422) {
                 const validationErrors = error.response.data.errors || {};
@@ -156,9 +136,37 @@ const LeaveForm = ({
             } else {
                 showToast.error(error.response?.data?.message || error.response?.data?.error || 'Failed to submit application');
             }
-        } finally {
             setIsSubmitting(false);
+            return;
         }
+
+        if (response?.status === 200 || response?.status === 201) {
+            showToast.success(response.data?.message || 'Leave submitted successfully');
+            (response.data?.warnings || []).forEach(w => showToast.info(w));
+            closeModal();
+            reset();
+            setFiles([]);
+
+            try {
+                if (typeof setLeavesData === 'function' && response.data?.leavesData) {
+                    setLeavesData(response.data.leavesData);
+                }
+
+                if (currentLeave && typeof updateLeaveOptimized === 'function') {
+                    updateLeaveOptimized(response.data.leave);
+                } else if (typeof addLeaveOptimized === 'function' && response.data?.leave) {
+                    addLeaveOptimized(response.data.leave);
+                }
+
+                const refetch = refetchStats || fetchLeavesStats;
+                if (typeof refetch === 'function') {
+                    refetch();
+                }
+            } catch (uiErr) {
+                console.warn('Post-leave submission UI sync warning:', uiErr);
+            }
+        }
+        setIsSubmitting(false);
     };
 
     return (
@@ -219,8 +227,19 @@ const LeaveForm = ({
                                 )}
 
                                 <Box style={{ gridColumn: '1 / -1' }}>
-                                    <Text size="2" weight="medium" mb="1" display="block">Reason</Text>
-                                    <TextArea value={data.leaveReason} onChange={e => setData('leaveReason', e.target.value)} rows={3} />
+                                    <Text size="2" weight="medium" mb="1" display="block">
+                                        Reason <Text as="span" color="gray" size="1">(Optional)</Text>
+                                    </Text>
+                                    <TextArea
+                                        value={data.leaveReason}
+                                        onChange={e => {
+                                            setData('leaveReason', e.target.value);
+                                            if (errors.leaveReason) clearErrors('leaveReason');
+                                        }}
+                                        rows={3}
+                                        placeholder="Reason for leave (optional)..."
+                                    />
+                                    {errors.leaveReason && <Text size="1" color="red" mt="1" display="block">{errors.leaveReason}</Text>}
                                 </Box>
 
                                 <Box style={{ gridColumn: '1 / -1' }}>

@@ -191,9 +191,12 @@ class LeaveApprovalService
         DB::beginTransaction();
         try {
             $before = $leave->toArray();
+            $canOverride = $this->canOverride($approver);
             $isCurrentApprover = $this->canApprove($leave, $approver);
-            $override = ($opts['force'] ?? false)
-                && $this->canOverride($approver)
+            $rawChain = $leave->approval_chain;
+            $chainEmpty = empty($rawChain) || ! is_array($rawChain);
+            $override = (($opts['force'] ?? false) || ($canOverride && ($chainEmpty || ! $isCurrentApprover)))
+                && $canOverride
                 && $this->isNonTerminal($leave);
 
             if (! $isCurrentApprover && ! $override) {
@@ -205,13 +208,13 @@ class LeaveApprovalService
                 ];
             }
 
-            // ---- ADMIN OVERRIDE: finalize regardless of chain position --------
-            if ($override) {
+            // ---- ADMIN OVERRIDE or EMPTY CHAIN: finalize immediately --------
+            if ($override || $chainEmpty) {
                 // Capture who was still waiting BEFORE recordAdminOverride marks
                 // them 'superseded', so we can close their loop post-commit.
-                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (string) $approver->id);
+                $supersededApproverIds = $chainEmpty ? [] : $this->pendingApproverIds($rawChain, (string) $approver->id);
 
-                $chain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'approved', $comments);
+                $chain = $this->recordAdminOverride(is_array($rawChain) ? $rawChain : [], $approver, 'approved', $comments);
 
                 $leave->update([
                     'approval_chain' => $chain,
@@ -238,11 +241,12 @@ class LeaveApprovalService
             }
 
             // ---- NORMAL per-level approval ------------------------------------
-            $approvalChain = $leave->approval_chain;
-            $currentLevel = $leave->current_approval_level;
+            $approvalChain = is_array($leave->approval_chain) ? $leave->approval_chain : [];
+            $currentLevel = (int) $leave->current_approval_level;
+            $uid = (string) ($approver->employee_id ?? $approver->getKey());
 
             foreach ($approvalChain as &$level) {
-                if ($level['level'] === $currentLevel && $level['approver_id'] === $approver->id) {
+                if ((int) ($level['level'] ?? 0) === $currentLevel && (string) ($level['approver_id'] ?? '') === $uid) {
                     $level['status'] = 'approved';
                     $level['approved_at'] = now()->toDateTimeString();
                     $level['comments'] = $comments;
@@ -281,6 +285,7 @@ class LeaveApprovalService
                 'approval_chain' => $approvalChain,
                 'status' => 'approved',
                 'approved_at' => now(),
+                'approved_by' => $approver->id,
             ]);
 
             $this->notifyEmployeeApproved($leave->fresh());
@@ -306,17 +311,14 @@ class LeaveApprovalService
 
             return [
                 'success' => false,
-                'message' => 'Failed to approve leave request.',
+                'message' => 'Failed to approve leave request: '.$e->getMessage(),
             ];
         }
     }
 
     /**
-     * Reject a leave request — THE single rejection decision path.
+     * Reject a leave request.
      *
-     * Normal path: the actor must be the current-level approver. Admin override
-     * ($opts['force'] with leaves.manage / Super Admin) may reject a non-terminal
-     * leave regardless of chain position, recorded as an 'admin_override' entry.
      * A rejection is terminal at any level, so the leave leaves every approver's
      * pending queue. Side effects fire exactly once; realtime is post-commit.
      *
@@ -327,9 +329,12 @@ class LeaveApprovalService
         DB::beginTransaction();
         try {
             $before = $leave->toArray();
+            $canOverride = $this->canOverride($approver);
             $isCurrentApprover = $this->canApprove($leave, $approver);
-            $override = ($opts['force'] ?? false)
-                && $this->canOverride($approver)
+            $rawChain = $leave->approval_chain;
+            $chainEmpty = empty($rawChain) || ! is_array($rawChain);
+            $override = (($opts['force'] ?? false) || ($canOverride && ($chainEmpty || ! $isCurrentApprover)))
+                && $canOverride
                 && $this->isNonTerminal($leave);
 
             if (! $isCurrentApprover && ! $override) {
@@ -343,18 +348,18 @@ class LeaveApprovalService
 
             $supersededApproverIds = [];
 
-            if ($override && ! $isCurrentApprover) {
-                // Admin rejects a leave they are not the chain approver for.
-                // Capture still-pending approvers before they are superseded.
-                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (string) $approver->id);
-                $approvalChain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'rejected', $reason);
+            if ($override || $chainEmpty || ! $isCurrentApprover) {
+                // Admin rejects a leave they are not the chain approver for, or empty chain.
+                $supersededApproverIds = $chainEmpty ? [] : $this->pendingApproverIds($rawChain, (string) $approver->id);
+                $approvalChain = $this->recordAdminOverride(is_array($rawChain) ? $rawChain : [], $approver, 'rejected', $reason);
                 $auditAction = 'admin_override';
             } else {
-                $approvalChain = $leave->approval_chain;
-                $currentLevel = $leave->current_approval_level;
+                $approvalChain = is_array($rawChain) ? $rawChain : [];
+                $currentLevel = (int) $leave->current_approval_level;
+                $uid = (string) ($approver->employee_id ?? $approver->getKey());
 
                 foreach ($approvalChain as &$level) {
-                    if ($level['level'] === $currentLevel && $level['approver_id'] === $approver->id) {
+                    if ((int) ($level['level'] ?? 0) === $currentLevel && (string) ($level['approver_id'] ?? '') === $uid) {
                         $level['status'] = 'rejected';
                         $level['approved_at'] = now()->toDateTimeString();
                         $level['comments'] = $reason;
@@ -401,7 +406,7 @@ class LeaveApprovalService
 
             return [
                 'success' => false,
-                'message' => 'Failed to reject leave request.',
+                'message' => 'Failed to reject leave request: '.$e->getMessage(),
             ];
         }
     }
@@ -536,11 +541,13 @@ class LeaveApprovalService
 
     /**
      * May this actor finalize a leave regardless of chain position?
-     * (leaves.manage permission or the Super Admin role.)
+     * (leaves.manage/leaves.approve permission or administrative roles.)
      */
     public function canOverride(User $actor): bool
     {
-        return $actor->can('leaves.manage') || $actor->hasRole('Super Admin');
+        return $actor->can('leaves.manage')
+            || $actor->can('leaves.approve')
+            || $actor->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager']);
     }
 
     /**
@@ -580,7 +587,7 @@ class LeaveApprovalService
      * to send a "no action needed" notice to.
      *
      * @param  array<int, array<string, mixed>>  $chain
-     * @return array<int, int>
+     * @return array<int, string>
      */
     protected function pendingApproverIds(array $chain, string $actorId): array
     {
@@ -591,9 +598,9 @@ class LeaveApprovalService
                 continue;
             }
 
-            $approverId = (int) ($level['approver_id'] ?? 0);
+            $approverId = (string) ($level['approver_id'] ?? '');
 
-            if ($approverId > 0 && $approverId !== $actorId) {
+            if ($approverId !== '' && $approverId !== (string) $actorId) {
                 $ids[$approverId] = true;
             }
         }
@@ -724,21 +731,27 @@ class LeaveApprovalService
      */
     public function canApprove(Leave $leave, User $user): bool
     {
-        if ($leave->status !== 'pending') {
+        if (strtolower((string) $leave->status) !== 'pending') {
             return false;
         }
 
         $approvalChain = $leave->approval_chain;
-        $currentLevel = $leave->current_approval_level;
+        if (! is_array($approvalChain) || empty($approvalChain)) {
+            return $this->canOverride($user);
+        }
+
+        $currentLevel = (int) $leave->current_approval_level;
         $uid = (string) ($user->employee_id ?? $user->getKey());
 
         foreach ($approvalChain as $level) {
-            if ($level['level'] === $currentLevel && (string) ($level['approver_id'] ?? '') === $uid && $level['status'] === 'pending') {
+            if ((int) ($level['level'] ?? 0) === $currentLevel
+                && (string) ($level['approver_id'] ?? '') === $uid
+                && strtolower((string) ($level['status'] ?? '')) === 'pending') {
                 return true;
             }
         }
 
-        return false;
+        return $this->canOverride($user);
     }
 
     /**
@@ -746,16 +759,16 @@ class LeaveApprovalService
      */
     public function getCurrentApprover(Leave $leave): ?User
     {
-        if ($leave->status !== 'pending' || ! $leave->approval_chain) {
+        if (strtolower((string) $leave->status) !== 'pending' || ! is_array($leave->approval_chain) || empty($leave->approval_chain)) {
             return null;
         }
 
-        $currentLevel = $leave->current_approval_level;
+        $currentLevel = (int) $leave->current_approval_level;
         $approvalChain = $leave->approval_chain;
 
         foreach ($approvalChain as $level) {
-            if ($level['level'] === $currentLevel && $level['status'] === 'pending') {
-                return User::find($level['approver_id']);
+            if ((int) ($level['level'] ?? 0) === $currentLevel && strtolower((string) ($level['status'] ?? '')) === 'pending') {
+                return User::where('employee_id', $level['approver_id'])->first() ?: User::find($level['approver_id']);
             }
         }
 

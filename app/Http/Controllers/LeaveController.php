@@ -150,8 +150,12 @@ class LeaveController extends Controller
             $toDate = Carbon::parse($request->input('toDate'));
 
             // Build safe data array — never trust $request->all()
+            $isLeaveManager = Auth::user()->can('leaves.approve')
+                || Auth::user()->can('leaves.manage')
+                || Auth::user()->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager']);
+
             $requestedUserId = $request->input('user_id');
-            if ($requestedUserId && $requestedUserId != Auth::id() && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+            if ($requestedUserId && $requestedUserId != Auth::id() && ! $isLeaveManager) {
                 $data['user_id'] = Auth::id();
             } else {
                 $data['user_id'] = $requestedUserId ?? Auth::id();
@@ -160,7 +164,8 @@ class LeaveController extends Controller
             $data['fromDate'] = $request->input('fromDate');
             $data['toDate'] = $request->input('toDate');
             $data['daysCount'] = $request->input('daysCount');
-            $data['leaveReason'] = $request->input('leaveReason');
+            $leaveReason = trim((string) $request->input('leaveReason'));
+            $data['leaveReason'] = $leaveReason !== '' ? $leaveReason : 'Leave application';
             $data['month'] = $request->input('month');
             $data['isHalfDay'] = $request->boolean('isHalfDay');
             $data['halfDaySession'] = $request->input('halfDaySession');
@@ -248,17 +253,22 @@ class LeaveController extends Controller
             $existing = Leave::findOrFail($leaveId);
 
             // Only owner or a user with approve/manage permission may update arbitrary leaves
-            if ($existing->user_id !== Auth::id() && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+            $isLeaveManager = Auth::user()->can('leaves.approve')
+                || Auth::user()->can('leaves.manage')
+                || Auth::user()->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager']);
+
+            if ($existing->user_id !== Auth::id() && ! $isLeaveManager) {
                 return response()->json(['error' => 'Unauthorized to update this leave'], 403);
             }
 
+            $leaveReason = trim((string) $request->input('leaveReason', $existing->reason));
             $safeData = [
                 'user_id' => $request->input('user_id', $existing->user_id),
                 'leaveType' => $request->input('leaveType'),
                 'fromDate' => $request->input('fromDate'),
                 'toDate' => $request->input('toDate'),
                 'daysCount' => $request->input('daysCount'),
-                'leaveReason' => $request->input('leaveReason'),
+                'leaveReason' => $leaveReason !== '' ? $leaveReason : ($existing->reason ?: 'Leave application'),
                 'month' => $request->input('month'),
                 'isHalfDay' => $request->boolean('isHalfDay'),
                 'halfDaySession' => $request->input('halfDaySession'),
@@ -322,7 +332,11 @@ class LeaveController extends Controller
     public function updateStatus(Request $request)
     {
         // Only approvers may change status
-        if (! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+        $canChangeStatus = Auth::user()->can('leaves.approve')
+            || Auth::user()->can('leaves.manage')
+            || Auth::user()->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager']);
+
+        if (! $canChangeStatus) {
             return response()->json(['error' => 'Unauthorized to change leave status'], 403);
         }
 
