@@ -15,25 +15,29 @@ class StoreOffboardingRequest extends FormRequest
     {
         return [
             'employee_id' => 'required|exists:users,employee_id',
-            'initiation_date' => 'required|date',
-            'last_working_date' => 'required|date|after_or_equal:initiation_date',
-            'exit_interview_date' => 'nullable|date|after_or_equal:initiation_date',
+            'initiation_date' => 'nullable|date',
+            'last_working_date' => 'required|date',
+            'exit_interview_date' => 'nullable|date',
             'resignation_received_at' => 'nullable|date',
             'notice_days_required' => 'nullable|integer|min:0',
             'notice_shortfall_days' => 'nullable|integer|min:0',
-            'reason' => 'required|string|in:resignation,termination,retirement,end-of-contract,absconded,resignation_without_notice,other',
+            'reason' => 'required|string|in:resignation,termination,retirement,end-of-contract,end_contract,absconded,resignation_without_notice,other',
             'status' => 'sometimes|in:pending,in_progress,completed,cancelled',
             'notes' => 'nullable|string',
             'tasks' => 'array',
             'tasks.*.task' => 'required|string',
             'tasks.*.description' => 'nullable|string',
-            'tasks.*.due_date' => 'nullable|date|after_or_equal:initiation_date',
+            'tasks.*.due_date' => 'nullable|date',
             'tasks.*.assigned_to' => 'nullable|exists:users,employee_id',
         ];
     }
 
     public function prepareForValidation(): void
     {
+        if (! $this->has('initiation_date') || empty($this->initiation_date)) {
+            $this->merge(['initiation_date' => now()->toDateString()]);
+        }
+
         if (! $this->has('tasks')) {
             $this->merge(['tasks' => []]);
         }

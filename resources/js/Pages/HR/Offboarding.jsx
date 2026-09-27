@@ -96,6 +96,7 @@ const OffboardingPage = ({
     const [formData, setFormData] = useState({
         employee_id: '',
         reason: 'resignation',
+        initiation_date: new Date().toISOString().split('T')[0],
         last_working_date: new Date().toISOString().split('T')[0],
         resignation_received_at: '',
         notice_days_required: 30,
@@ -150,11 +151,18 @@ const OffboardingPage = ({
 
         setIsSubmitting(true);
         try {
-            await axios.post('/hr/offboarding', formData);
+            const payload = {
+                ...formData,
+                initiation_date: formData.initiation_date || new Date().toISOString().split('T')[0],
+            };
+            await axios.post('/hr/offboarding', payload);
             setIsCreateOpen(false);
             router.reload({ only: ['offboardings', 'stats'] });
         } catch (err) {
-            setFormError(err.response?.data?.message || 'Failed to initiate offboarding.');
+            const errorMsg = err.response?.data?.errors
+                ? Object.values(err.response.data.errors).flat().join(' ')
+                : (err.response?.data?.message || 'Failed to initiate offboarding.');
+            setFormError(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
