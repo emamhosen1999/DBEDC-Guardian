@@ -26,6 +26,13 @@ return new class extends Migration
             }
         });
 
+        // Ensure offboarding_tasks has soft deletes
+        if (Schema::hasTable('offboarding_tasks') && !Schema::hasColumn('offboarding_tasks', 'deleted_at')) {
+            Schema::table('offboarding_tasks', function (Blueprint $table) {
+                $table->softDeletes();
+            });
+        }
+
         // Absence tracking / no-show escalation
         if (!Schema::hasTable('absence_cases')) {
             Schema::create('absence_cases', function (Blueprint $table) {
