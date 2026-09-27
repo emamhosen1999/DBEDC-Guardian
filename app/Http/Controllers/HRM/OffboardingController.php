@@ -25,7 +25,7 @@ class OffboardingController extends Controller
     {
         $user = $request->user();
 
-        $query = Offboarding::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,name', 'creator:employee_id,name', 'tasks'])
+        $query = Offboarding::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title', 'creator:employee_id,name', 'tasks'])
             ->when($request->input('status'), fn ($q, $status) => $q->where('status', $status))
             ->when($request->input('reason'), fn ($q, $reason) => $q->where('reason', $reason))
             ->when($request->input('search'), function ($q, $search) {
@@ -57,7 +57,7 @@ class OffboardingController extends Controller
         ];
 
         // Active absence cases for the tab
-        $absenceCases = \App\Models\HRM\AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,name'])
+        $absenceCases = \App\Models\HRM\AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title'])
             ->orderByDesc('streak_days')
             ->limit(50)
             ->get();
@@ -79,7 +79,7 @@ class OffboardingController extends Controller
         $offboarding = Offboarding::with([
             'employee:employee_id,name,department_id,designation_id,work_location_id',
             'employee.department:id,name',
-            'employee.designation:id,name',
+            'employee.designation:id,title',
             'tasks.assignee:employee_id,name',
             'creator:employee_id,name',
             'updater:employee_id,name',
@@ -282,7 +282,7 @@ class OffboardingController extends Controller
      */
     public function absenceCases(Request $request): JsonResponse
     {
-        $cases = \App\Models\HRM\AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,name'])
+        $cases = \App\Models\HRM\AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title'])
             ->when($request->input('stage'), fn ($q, $stage) => $q->where('stage', $stage))
             ->orderByDesc('streak_days')
             ->paginate($request->input('per_page', 25));

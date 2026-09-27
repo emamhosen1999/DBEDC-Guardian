@@ -17,7 +17,7 @@ class AbsenceNoticeService
         $employeeName = $employee?->name ?? $case->user_id;
         $employeeId = $case->user_id;
         $dept = $employee?->department?->name ?? 'Operations';
-        $designation = $employee?->designation?->name ?? 'Employee';
+        $designation = $employee?->designation?->title ?? $employee?->designation?->name ?? 'Employee';
         $firstAbsent = $case->first_absent_date ? $case->first_absent_date->format('F d, Y') : 'N/A';
         $today = now()->format('F d, Y');
         $streak = $case->streak_days;
@@ -72,7 +72,7 @@ TEXT;
         $employeeName = $employee?->name ?? $case->user_id;
         $employeeId = $case->user_id;
         $dept = $employee?->department?->name ?? 'Operations';
-        $designation = $employee?->designation?->name ?? 'Employee';
+        $designation = $employee?->designation?->title ?? $employee?->designation?->name ?? 'Employee';
         $firstAbsent = $case->first_absent_date ? $case->first_absent_date->format('F d, Y') : 'N/A';
         $today = now()->format('F d, Y');
         $streak = $case->streak_days;
