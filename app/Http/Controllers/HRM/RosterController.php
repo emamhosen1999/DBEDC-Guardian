@@ -290,7 +290,7 @@ class RosterController extends Controller
             'shift_ids' => 'nullable|array|max:3',
             'shift_ids.*' => 'integer|exists:shifts,id|distinct',
             'work_location_id' => 'nullable|integer|exists:work_locations,id',
-            'note' => 'required|string|max:255',
+            'note' => 'nullable|string|max:255',
             'expected_updated_at' => 'nullable|date',
         ]);
 
@@ -345,10 +345,12 @@ class RosterController extends Controller
             ], 422);
         }
 
+        $note = ! empty($data['note']) ? $data['note'] : 'Manual roster adjustment';
+
         // Replace ALL existing rows for this user+date with the new set: one
         // row per requested shift id, or a single NULL-shift OFF row when the
         // set is empty. An OFF row is always the only row for that cell.
-        $cells = DB::transaction(function () use ($data, $shiftIds, $user, $existing, $primaryShiftId) {
+        $cells = DB::transaction(function () use ($data, $shiftIds, $user, $existing, $primaryShiftId, $note) {
             RosterDay::where('user_id', $data['user_id'])
                 ->whereDate('date', $data['date'])
                 ->delete();
@@ -362,7 +364,7 @@ class RosterController extends Controller
                 'work_location_id' => $data['work_location_id'] ?? null,
                 'source' => 'manual',
                 'locked' => true,
-                'note' => $data['note'] ?? null,
+                'note' => $note,
             ]))->values();
 
             // Record audit trail in roster_day_changes
@@ -373,7 +375,7 @@ class RosterController extends Controller
                     'field' => 'shift_id',
                     'old_value' => (string) ($existing?->shift_id),
                     'new_value' => (string) $primaryShiftId,
-                    'reason' => $data['note'],
+                    'reason' => $note,
                 ]);
             }
 
