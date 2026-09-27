@@ -81,12 +81,9 @@ class ProcessOffboardingLwd implements ShouldQueue
                 })
                 ->update(['effective_to' => $lwdStr]);
 
-            // 2. Delete future unlocked roster days after LWD
+            // 2. Delete all future roster days after LWD
             $deleted = RosterDay::where('user_id', $employeeId)
                 ->where('date', '>', $lwdStr)
-                ->where(function ($q) {
-                    $q->where('locked', false)->orWhereNull('locked');
-                })
                 ->delete();
 
             Log::info("ProcessOffboardingLwd: cleared {$deleted} future roster days for {$employeeId}");

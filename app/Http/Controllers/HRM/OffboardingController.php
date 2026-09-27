@@ -164,6 +164,13 @@ class OffboardingController extends Controller
         DB::transaction(function () use ($offboarding, $data, $tasks) {
             $offboarding->update($data);
 
+            // If offboarding is marked completed, soft-delete the employee to move to inactive/former employee
+            if (isset($data['status']) && $data['status'] === Offboarding::STATUS_COMPLETED) {
+                $offboarding->employee?->delete();
+            } elseif (isset($data['status']) && $data['status'] !== Offboarding::STATUS_COMPLETED && $offboarding->getOriginal('status') === Offboarding::STATUS_COMPLETED) {
+                $offboarding->employee()?->withTrashed()->restore();
+            }
+
             // Sync tasks: update existing, create new, delete removed
             $incomingIds = collect($tasks)->pluck('id')->filter()->all();
             $offboarding->tasks()->whereNotIn('id', $incomingIds)->delete();
