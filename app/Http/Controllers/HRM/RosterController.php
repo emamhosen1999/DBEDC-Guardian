@@ -290,7 +290,7 @@ class RosterController extends Controller
             'shift_ids' => 'nullable|array|max:3',
             'shift_ids.*' => 'integer|exists:shifts,id|distinct',
             'work_location_id' => 'nullable|integer|exists:work_locations,id',
-            'note' => 'nullable|string|max:255',
+            'note' => 'required|string|max:255',
             'expected_updated_at' => 'nullable|date',
         ]);
 
@@ -309,6 +309,13 @@ class RosterController extends Controller
             ->whereDate('date', $data['date'])
             ->orderBy('id')
             ->first();
+
+        // Enforce locked: Locked cells cannot be manually modified unless authorized administrator
+        if ($existing && $existing->locked && ! $user->hasRole(['Super Administrator', 'Administrator'])) {
+            return response()->json([
+                'error' => 'This roster day is locked and cannot be edited.',
+            ], 403);
+        }
 
         if (
             $existing
@@ -341,14 +348,14 @@ class RosterController extends Controller
         // Replace ALL existing rows for this user+date with the new set: one
         // row per requested shift id, or a single NULL-shift OFF row when the
         // set is empty. An OFF row is always the only row for that cell.
-        $cells = DB::transaction(function () use ($data, $shiftIds) {
+        $cells = DB::transaction(function () use ($data, $shiftIds, $user, $existing, $primaryShiftId) {
             RosterDay::where('user_id', $data['user_id'])
                 ->whereDate('date', $data['date'])
                 ->delete();
 
             $rowsToInsert = $shiftIds === [] ? [null] : $shiftIds;
 
-            return collect($rowsToInsert)->map(fn (?int $shiftId) => RosterDay::create([
+            $created = collect($rowsToInsert)->map(fn (?int $shiftId) => RosterDay::create([
                 'user_id' => $data['user_id'],
                 'date' => $data['date'],
                 'shift_id' => $shiftId,
@@ -357,6 +364,20 @@ class RosterController extends Controller
                 'locked' => true,
                 'note' => $data['note'] ?? null,
             ]))->values();
+
+            // Record audit trail in roster_day_changes
+            if (\Illuminate\Support\Facades\Schema::hasTable('roster_day_changes') && $created->isNotEmpty()) {
+                \App\Models\HRM\RosterDayChange::create([
+                    'roster_day_id' => $created->first()->id,
+                    'actor_id' => (string) ($user->employee_id ?? $user->id),
+                    'field' => 'shift_id',
+                    'old_value' => (string) ($existing?->shift_id),
+                    'new_value' => (string) $primaryShiftId,
+                    'reason' => $data['note'],
+                ]);
+            }
+
+            return $created;
         });
 
         // Realtime cross-client signal (from realtime-foundation) + per-employee notification.
@@ -374,11 +395,27 @@ class RosterController extends Controller
             }
         }
 
+        // Coverage warning check
+        $coverageWarning = null;
+        try {
+            $coverageService = app(\App\Services\Attendance\CoverageService::class);
+            $coverageWarning = $coverageService->evaluateWarning(
+                $data['user_id'],
+                $data['date'],
+                $existing?->shift_id,
+                $primaryShiftId,
+                $data['work_location_id'] ?? $existing?->work_location_id
+            );
+        } catch (\Throwable $t) {
+            // Non-blocking
+        }
+
         return response()->json([
             'message' => 'Roster updated.',
             'cell' => $cells->first()->load('shift'),
             'cells' => $cells->map(fn (RosterDay $c) => $c->load('shift'))->values(),
             'compliance_violations' => $complianceViolations,
+            'coverage_warning' => $coverageWarning,
         ]);
     }
 

@@ -12,8 +12,8 @@ import { RadixThemeShell } from './Components/RadixThemeShell';
 import { initializeDeviceAuth } from './utils/deviceAuth';
 import queryClient from './api/reactQueryClient';
 import { showToast } from './utils/toastUtils';
-import { initInstantNavigation } from './Utils/instant-navigation';
-import { subscribeDesktopNavigation } from './Utils/desktop-bridge';
+import { initInstantNavigation } from './utils/instant-navigation';
+import { subscribeDesktopNavigation } from './utils/desktop-bridge';
 
 // Initialize secure device authentication
 initializeDeviceAuth();

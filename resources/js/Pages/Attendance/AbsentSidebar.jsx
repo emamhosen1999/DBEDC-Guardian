@@ -253,6 +253,19 @@ const AbsentSidebar = ({
                                                             </Flex>
                                                         )}
 
+                                                        {user.streak_days >= 2 && (
+                                                            <Flex align="center" gap="1" mt="1">
+                                                                <Badge color="red" variant="surface" size="1">
+                                                                    {user.streak_days}d streak
+                                                                </Badge>
+                                                                {user.absence_stage && (
+                                                                    <Badge color="amber" variant="soft" size="1">
+                                                                        {user.absence_stage.replace('_', ' ')}
+                                                                    </Badge>
+                                                                )}
+                                                            </Flex>
+                                                        )}
+
                                                         {canManage && onMarkAsPresent && (
                                                             <Button
                                                                 size="2"

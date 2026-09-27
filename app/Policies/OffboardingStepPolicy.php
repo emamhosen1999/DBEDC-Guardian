@@ -2,9 +2,13 @@
 
 namespace App\Policies;
 
-use App\Models\OffboardingStep;
+use App\Models\HRM\OffboardingTask;
 use App\Models\User;
 
+/**
+ * Policy for OffboardingTask (formerly OffboardingStep — renamed to match the
+ * actual model). Guards CRUD on individual tasks within an offboarding process.
+ */
 class OffboardingStepPolicy
 {
     public function viewAny(User $user): bool
@@ -12,7 +16,7 @@ class OffboardingStepPolicy
         return $user->can('hr.offboarding.view');
     }
 
-    public function view(User $user, OffboardingStep $step): bool
+    public function view(User $user, OffboardingTask $task): bool
     {
         return $user->can('hr.offboarding.view');
     }
@@ -22,12 +26,12 @@ class OffboardingStepPolicy
         return $user->can('hr.offboarding.create');
     }
 
-    public function update(User $user, OffboardingStep $step): bool
+    public function update(User $user, OffboardingTask $task): bool
     {
         return $user->can('hr.offboarding.update');
     }
 
-    public function delete(User $user, OffboardingStep $step): bool
+    public function delete(User $user, OffboardingTask $task): bool
     {
         return $user->can('hr.offboarding.delete');
     }

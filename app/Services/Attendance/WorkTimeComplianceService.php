@@ -75,6 +75,7 @@ class WorkTimeComplianceService
         $this->checkConsecutiveNights($entries, $violations);
         $this->checkConsecutiveWorkingDays($entries, $violations);
         $this->checkMaxWeeklyHours($entries, $violations);
+        $this->checkConsecutiveOffDays($entries, $violations);
 
         usort($violations, fn ($a, $b) => [$a['date'], $a['rule']] <=> [$b['date'], $b['rule']]);
 
@@ -335,6 +336,39 @@ class WorkTimeComplianceService
                     ],
                 ];
             }
+        }
+    }
+
+    /**
+     * Rule 6: consecutive calendar days with NO rostered shift (off/rest days)
+     * must not exceed max_consecutive_off_days.
+     */
+    private function checkConsecutiveOffDays(array $entries, array &$violations): void
+    {
+        $maxOffDays = (int) config('attendance.compliance.max_consecutive_off_days', 3);
+        if ($maxOffDays <= 0) {
+            return;
+        }
+
+        $streak = 0;
+        $prevDate = null;
+
+        foreach ($this->groupByDate($entries) as $date => $shifts) {
+            $isOff = count(array_filter($shifts)) === 0;
+            $contiguous = $prevDate !== null && Carbon::parse($prevDate)->addDay()->toDateString() === $date;
+            $streak = $isOff ? ($contiguous ? $streak + 1 : 1) : 0;
+
+            if ($isOff && $streak > $maxOffDays) {
+                $violations[] = [
+                    'date' => $date,
+                    'rule' => 'max_consecutive_off_days',
+                    'message' => sprintf('%d consecutive off days scheduled (maximum %d).', $streak, $maxOffDays),
+                    'severity' => 'warning',
+                    'details' => ['streak' => $streak, 'max_consecutive_off_days' => $maxOffDays],
+                ];
+            }
+
+            $prevDate = $date;
         }
     }
 }

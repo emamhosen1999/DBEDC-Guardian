@@ -34,11 +34,18 @@ class Offboarding extends Model
 
     public const REASON_OTHER = 'other';
 
+    public const REASON_ABSCONDED = 'absconded';
+
+    public const REASON_RESIGNATION_WITHOUT_NOTICE = 'resignation_without_notice';
+
     protected $fillable = [
         'employee_id',
         'initiation_date',
         'last_working_date',
         'exit_interview_date',
+        'resignation_received_at',
+        'notice_days_required',
+        'notice_shortfall_days',
         'reason',
         'status',
         'notes',
@@ -49,6 +56,9 @@ class Offboarding extends Model
         'initiation_date' => 'date',
         'last_working_date' => 'date',
         'exit_interview_date' => 'date',
+        'resignation_received_at' => 'datetime',
+        'notice_days_required' => 'integer',
+        'notice_shortfall_days' => 'integer',
     ];
 
     protected static function boot()

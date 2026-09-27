@@ -292,15 +292,19 @@ class LeaveApprovalService
             app(LeaveLedgerService::class)->consume($leave->fresh());
             app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
 
-            DB::commit();
-            Log::info("Leave #{$leave->id} fully approved", ['final_approver' => $approver->id]);
-
-            $this->signalLeaveChange($approver->id, 'approve');
+            $coverageWarning = null;
+            try {
+                $coverageService = app(\App\Services\Attendance\CoverageService::class);
+                $coverageWarning = $coverageService->checkCoverageForLeave($leave);
+            } catch (\Throwable $t) {
+                // Non-blocking
+            }
 
             return [
                 'success' => true,
                 'message' => 'Leave request approved successfully.',
                 'status' => 'approved',
+                'coverage_warning' => $coverageWarning,
             ];
         } catch (\Exception $e) {
             DB::rollBack();

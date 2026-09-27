@@ -37,6 +37,13 @@ class CoverageService
 
         $assigned = $this->assignedWeights($start, $end, $locationIds); // [date][loc][shift]['total'|desigId] => float
 
+        $todayStr = now()->toDateString();
+        $actualPunches = [];
+        if ($start->toDateString() <= $todayStr) {
+            $actualEnd = $end->toDateString() <= $todayStr ? $end->toDateString() : $todayStr;
+            $actualPunches = $this->actualPunchWeights($start, Carbon::parse($actualEnd), $locationIds);
+        }
+
         $out = [];
         for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
             $dateStr = $d->toDateString();
@@ -49,6 +56,9 @@ class CoverageService
                 // TOTAL (designation_id null)
                 $totalReq = $this->resolve($requirements, $loc, $shift, null, $dateStr, $weekday);
                 $totalAssigned = (float) ($assigned[$dateStr][$loc][$shift]['total'] ?? 0.0);
+                $totalActual = isset($actualPunches[$dateStr][$loc][$shift]['total'])
+                    ? (float) $actualPunches[$dateStr][$loc][$shift]['total']
+                    : null;
 
                 $roles = [];
                 foreach ($requirements->where('work_location_id', $loc)->where('shift_id', $shift)->whereNotNull('designation_id')->pluck('designation_id')->unique() as $desigId) {
@@ -57,9 +67,14 @@ class CoverageService
                         continue;
                     }
                     $roleAssigned = (float) ($assigned[$dateStr][$loc][$shift][$desigId] ?? 0.0);
+                    $roleActual = isset($actualPunches[$dateStr][$loc][$shift][$desigId])
+                        ? (float) $actualPunches[$dateStr][$loc][$shift][$desigId]
+                        : null;
+
                     $roles[$desigId] = [
                         'required' => $roleReq,
                         'assigned' => $roleAssigned,
+                        'actual' => $roleActual,
                         'status' => $this->status($roleAssigned, $roleReq),
                     ];
                 }
@@ -73,6 +88,7 @@ class CoverageService
                     'total' => [
                         'required' => $totalReq,
                         'assigned' => $totalAssigned,
+                        'actual' => $totalActual,
                         'status' => $totalReq === null ? null : $this->status($totalAssigned, $totalReq),
                     ],
                     'roles' => $roles,
@@ -81,6 +97,125 @@ class CoverageService
         }
 
         return $out;
+    }
+
+    /**
+     * Evaluate coverage warning when a user is leaving/changing a shift.
+     */
+    public function evaluateWarning(int|string $userId, string $date, ?int $oldShiftId, ?int $newShiftId, ?int $locationId = null): ?string
+    {
+        if (! $oldShiftId || $oldShiftId === $newShiftId) {
+            return null;
+        }
+
+        $locId = $locationId;
+        if (! $locId) {
+            $user = \App\Models\User::where('employee_id', $userId)->orWhere('id', $userId)->first();
+            $locId = $user?->work_location_id;
+        }
+        if (! $locId) {
+            return null;
+        }
+
+        $coverage = $this->forRange($date, $date, [(int) $locId]);
+        $cell = $coverage[$date][$locId][$oldShiftId]['total'] ?? null;
+        if ($cell && isset($cell['required']) && $cell['required'] > 0) {
+            $newAssigned = $cell['assigned'] - 1.0;
+            if ($newAssigned < $cell['required']) {
+                $shiftName = \App\Models\HRM\Shift::find($oldShiftId)?->name ?? "Shift #{$oldShiftId}";
+
+                return "Coverage warning: Removing this shift leaves {$shiftName} on {$date} understaffed ({$newAssigned} of {$cell['required']} required).";
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if approving a leave causes understaffing on any leave date.
+     */
+    public function checkCoverageForLeave(\App\Models\HRM\Leave $leave): ?string
+    {
+        $employee = $leave->employee;
+        if (! $employee || ! $employee->work_location_id) {
+            return null;
+        }
+
+        $from = Carbon::parse($leave->from_date);
+        $to = Carbon::parse($leave->to_date);
+
+        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+            $dateStr = $d->toDateString();
+            $rosterDay = RosterDay::where('user_id', $employee->employee_id)->whereDate('date', $dateStr)->first();
+            if ($rosterDay && $rosterDay->shift_id) {
+                $warning = $this->evaluateWarning($employee->employee_id, $dateStr, $rosterDay->shift_id, null, $employee->work_location_id);
+                if ($warning) {
+                    return $warning;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check understaffing alert slots for a given date.
+     */
+    public function checkUnderstaffingAlert(string $date): array
+    {
+        $coverage = $this->forRange($date, $date);
+        $understaffed = [];
+
+        foreach ($coverage[$date] ?? [] as $locId => $shifts) {
+            foreach ($shifts as $shiftId => $info) {
+                if (($info['total']['status'] ?? null) === 'understaffed') {
+                    $understaffed[] = [
+                        'date' => $date,
+                        'location_id' => $locId,
+                        'shift_id' => $shiftId,
+                        'required' => $info['total']['required'],
+                        'assigned' => $info['total']['assigned'],
+                    ];
+                }
+            }
+        }
+
+        return $understaffed;
+    }
+
+    private function actualPunchWeights(CarbonInterface $start, CarbonInterface $end, ?array $locationIds): array
+    {
+        $rows = DB::table('attendances')
+            ->join('users', 'users.employee_id', '=', 'attendances.user_id')
+            ->whereBetween('attendances.date', [$start->toDateString(), $end->toDateString()])
+            ->whereNotNull('attendances.punchin')
+            ->where('attendances.policy_status', '!=', 'rejected')
+            ->whereNotNull('attendances.shift_id')
+            ->select([
+                'attendances.date',
+                'attendances.shift_id',
+                'attendances.user_id',
+                DB::raw('COALESCE(attendances.work_location_id, users.work_location_id) as loc_id'),
+                'users.designation_id',
+            ])
+            ->get();
+
+        $rows = $rows->filter(fn ($r) => $r->loc_id !== null
+            && ($locationIds === null || in_array((int) $r->loc_id, $locationIds, true)));
+
+        $weights = [];
+        foreach ($rows as $r) {
+            $date = Carbon::parse($r->date)->toDateString();
+            $loc = (int) $r->loc_id;
+            $shift = (int) $r->shift_id;
+            $weights[$date][$loc][$shift]['total'] = ($weights[$date][$loc][$shift]['total'] ?? 0.0) + 1.0;
+            if ($r->designation_id !== null) {
+                $d = (int) $r->designation_id;
+                $weights[$date][$loc][$shift][$d] = ($weights[$date][$loc][$shift][$d] ?? 0.0) + 1.0;
+            }
+        }
+
+        return $weights;
     }
 
     /**

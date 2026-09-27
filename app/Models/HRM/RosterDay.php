@@ -11,7 +11,7 @@ class RosterDay extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'date', 'shift_id', 'work_location_id', 'source', 'assignment_id', 'note', 'locked'];
+    protected $fillable = ['user_id', 'date', 'shift_id', 'work_location_id', 'source', 'assignment_id', 'swap_request_id', 'note', 'locked'];
 
     protected $casts = ['date' => 'date:Y-m-d', 'locked' => 'boolean'];
 
@@ -28,5 +28,15 @@ class RosterDay extends Model
     public function workLocation(): BelongsTo
     {
         return $this->belongsTo(\App\Models\WorkLocation::class);
+    }
+
+    public function swapRequest(): BelongsTo
+    {
+        return $this->belongsTo(ShiftSwapRequest::class, 'swap_request_id');
+    }
+
+    public function changes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(RosterDayChange::class, 'roster_day_id');
     }
 }

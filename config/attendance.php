@@ -120,5 +120,43 @@ return [
         // Maximum total scheduled hours allowed within a single Monday-Sunday
         // calendar week. Set to 0 to disable.
         'max_weekly_hours' => (float) env('ATTENDANCE_COMPLIANCE_MAX_WEEKLY_HOURS', 60),
+
+        // Maximum number of CONSECUTIVE calendar days a person may be
+        // scheduled as OFF / rest days without authorization. Set to 0 to disable.
+        'max_consecutive_off_days' => (int) env('ATTENDANCE_COMPLIANCE_MAX_CONSECUTIVE_OFF_DAYS', 3),
+
+        // Minimum rest days required within any 7-day rolling window.
+        'min_weekly_rest_days' => (int) env('ATTENDANCE_COMPLIANCE_MIN_WEEKLY_REST_DAYS', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | No-show / absence escalation
+    |--------------------------------------------------------------------------
+    | Configurable thresholds for the daily absence streak job
+    | (attendance:absence-streak). Days are CONSECUTIVE UNAUTHORIZED WORKING
+    | days — weekly offs, holidays, and approved leave are never counted.
+    |
+    | Timeline defaults follow Bangladesh Labour Act s.27(3A):
+    |   >10 days absent → explanation notice, then +7 days, then deemed
+    |   resignation. HR/legal should confirm the numbers for this deployment.
+    */
+
+    'absence_escalation' => [
+        // Day 1: notify the employee's direct manager (existing ShiftAbsenceNotification).
+        'manager_notify_after_days' => (int) env('ABSENCE_ESCALATION_MANAGER_DAYS', 1),
+
+        // Days 2–3: escalate to HR Manager + Department Head.
+        'hr_notify_after_days' => (int) env('ABSENCE_ESCALATION_HR_DAYS', 2),
+
+        // Day 10+: open a show-cause / explanation-notice case.
+        'show_cause_after_days' => (int) env('ABSENCE_ESCALATION_SHOW_CAUSE_DAYS', 10),
+
+        // show_cause + 7 days with no response → deemed resignation / absconding.
+        'deemed_resignation_grace_days' => (int) env('ABSENCE_ESCALATION_DEEMED_GRACE_DAYS', 7),
+
+        // Auto-create an Offboarding record with reason=absconded when the
+        // deemed-resignation threshold is crossed. Set false to require manual.
+        'auto_create_offboarding' => (bool) env('ABSENCE_ESCALATION_AUTO_OFFBOARD', false),
     ],
 ];

@@ -30,6 +30,7 @@ use App\Http\Controllers\HRM\RegularizationController;
 use App\Http\Controllers\HRM\RosterController;
 use App\Http\Controllers\HRM\ShiftController;
 use App\Http\Controllers\HRM\ShiftSwapController;
+use App\Http\Controllers\HRM\OffboardingController;
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveBalanceController;
 use App\Http\Controllers\LeaveController;
@@ -763,6 +764,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/attendance/policies', [PolicyController::class, 'store'])->name('attendance.policies.store');
         Route::put('/attendance/policies/{id}', [PolicyController::class, 'update'])->name('attendance.policies.update');
         Route::post('/attendance/policies/{id}/activate', [PolicyController::class, 'activate'])->name('attendance.policies.activate');
+    });
+
+    // ── HR Offboarding ──────────────────────────────────────────────────────
+    Route::middleware(['permission:hr.offboarding.view'])->group(function () {
+        Route::get('/hr/offboarding', [OffboardingController::class, 'index'])->name('hr.offboarding.index');
+        Route::get('/hr/offboarding/eligible-employees', [OffboardingController::class, 'eligibleEmployees'])->name('hr.offboarding.eligible');
+        Route::get('/hr/offboarding/{id}', [OffboardingController::class, 'show'])->name('hr.offboarding.show');
+        Route::get('/hr/absence-cases', [OffboardingController::class, 'absenceCases'])->name('hr.absence-cases.index');
+        Route::get('/hr/absence-cases/{id}/notice/{type}', [OffboardingController::class, 'generateNotice'])->name('hr.absence-cases.notice');
+    });
+
+    Route::middleware(['permission:hr.offboarding.create'])->group(function () {
+        Route::post('/hr/offboarding', [OffboardingController::class, 'store'])->name('hr.offboarding.store');
+    });
+
+    Route::middleware(['permission:hr.offboarding.update'])->group(function () {
+        Route::put('/hr/offboarding/{id}', [OffboardingController::class, 'update'])->name('hr.offboarding.update');
+        Route::patch('/hr/offboarding/{id}/tasks/{taskId}', [OffboardingController::class, 'updateTask'])->name('hr.offboarding.tasks.update');
+        Route::post('/hr/absence-cases/{id}/resolve', [OffboardingController::class, 'resolveAbsenceCase'])->name('hr.absence-cases.resolve');
+    });
+
+    Route::middleware(['permission:hr.offboarding.delete'])->group(function () {
+        Route::delete('/hr/offboarding/{id}', [OffboardingController::class, 'destroy'])->name('hr.offboarding.destroy');
     });
 
     // Task management routes

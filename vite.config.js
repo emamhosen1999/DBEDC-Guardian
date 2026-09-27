@@ -50,11 +50,11 @@ export default defineConfig({
     server: { 
         host,
         hmr: { host },
-        https: {
-            // Adjust these paths based on whether you use Laravel Herd, Valet, or mkcert
-            // This example assumes Laravel Herd/Valet default certificate paths
-            key: fs.readFileSync(`C:/laragon/etc/ssl/laragon.key`),
-            cert: fs.readFileSync(`C:/laragon/etc/ssl/laragon.crt`),
-        },
+        ...(fs.existsSync('C:/laragon/etc/ssl/laragon.key') && fs.existsSync('C:/laragon/etc/ssl/laragon.crt') ? {
+            https: {
+                key: fs.readFileSync('C:/laragon/etc/ssl/laragon.key'),
+                cert: fs.readFileSync('C:/laragon/etc/ssl/laragon.crt'),
+            },
+        } : {}),
     },
 });

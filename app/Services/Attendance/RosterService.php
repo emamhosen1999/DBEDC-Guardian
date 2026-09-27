@@ -2,6 +2,7 @@
 
 namespace App\Services\Attendance;
 
+use App\Models\HRM\Offboarding;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftAssignment;
@@ -21,7 +22,15 @@ class RosterService
 
         DB::transaction(function () use ($userIds, $from, $to, &$written) {
             foreach ($userIds as $userId) {
+                // Skip dates past the employee's last working date
+                $lwdCutoff = $this->resolveLastWorkingDate($userId);
+
                 for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+                    // Do not generate roster beyond last working date
+                    if ($lwdCutoff && $d->greaterThan($lwdCutoff)) {
+                        break;
+                    }
+
                     $existing = RosterDay::where('user_id', $userId)->whereDate('date', $d->toDateString())->first();
 
                     // Never overwrite locked / manual / swap rows.
@@ -113,14 +122,16 @@ class RosterService
         }
 
         DB::transaction(function () use ($swap) {
+            $swapId = $swap->id;
+
             if ($swap->type === 'pickup') {
                 // Pickup (mirror of cover): the requester TAKES the counterparty's
                 // shift on counterparty_date. Counterparty relinquishes it (goes
                 // off); requester gains it. Nothing on the requester's own day changes.
                 $cpDate = $swap->counterparty_date->toDateString();
                 $counterpartyShiftId = $this->effectiveShiftId($swap->counterparty_id, $cpDate);
-                $this->writeSwapDay($swap->counterparty_id, $cpDate, null);
-                $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId);
+                $this->writeSwapDay($swap->counterparty_id, $cpDate, null, $swapId);
+                $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId, $swapId);
 
                 return;
             }
@@ -130,8 +141,8 @@ class RosterService
 
             if ($swap->type === 'cover') {
                 // Counterparty takes over the requester's shift; requester gets the day off.
-                $this->writeSwapDay($swap->requester_id, $reqDate, null);
-                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
+                $this->writeSwapDay($swap->requester_id, $reqDate, null, $swapId);
+                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId, $swapId);
 
                 return;
             }
@@ -140,7 +151,7 @@ class RosterService
 
             if (! $swap->counterparty_id) {
                 // Genuine open/give-away: no counterparty to roster; requester-off is the full effect.
-                $this->writeSwapDay($swap->requester_id, $reqDate, null);
+                $this->writeSwapDay($swap->requester_id, $reqDate, null, $swapId);
 
                 return;
             }
@@ -155,14 +166,14 @@ class RosterService
 
             if ($reqDate === $cpDate) {
                 // Same-day trade (e.g. MCE <-> MCN on same date): swap directly.
-                $this->writeSwapDay($swap->requester_id, $reqDate, $counterpartyShiftId);
-                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
+                $this->writeSwapDay($swap->requester_id, $reqDate, $counterpartyShiftId, $swapId);
+                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId, $swapId);
             } else {
                 // Different-day trade: clear old shifts first, then assign new ones.
-                $this->writeSwapDay($swap->requester_id, $reqDate, null);
-                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
-                $this->writeSwapDay($swap->counterparty_id, $cpDate, null);
-                $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId);
+                $this->writeSwapDay($swap->requester_id, $reqDate, null, $swapId);
+                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId, $swapId);
+                $this->writeSwapDay($swap->counterparty_id, $cpDate, null, $swapId);
+                $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId, $swapId);
             }
         });
     }
@@ -183,12 +194,27 @@ class RosterService
         return $this->resolveShift($userId, Carbon::parse($date))?->id;
     }
 
-    private function writeSwapDay(int|string $userId, string $date, ?int $shiftId): void
+    private function writeSwapDay(int|string $userId, string $date, ?int $shiftId, ?int $swapId = null): void
     {
-        RosterDay::updateOrCreate(
+        $existing = RosterDay::where('user_id', $userId)->whereDate('date', $date)->first();
+        $oldShift = $existing?->shift_id;
+
+        $day = RosterDay::updateOrCreate(
             ['user_id' => $userId, 'date' => $date],
-            ['shift_id' => $shiftId, 'source' => 'swap', 'locked' => true],
+            ['shift_id' => $shiftId, 'source' => 'swap', 'locked' => true, 'swap_request_id' => $swapId],
         );
+
+        // Audit trail if changed
+        if ($oldShift !== $shiftId && \Illuminate\Support\Facades\Schema::hasTable('roster_day_changes')) {
+            \App\Models\HRM\RosterDayChange::create([
+                'roster_day_id' => $day->id,
+                'actor_id' => (string) (auth()->user()?->employee_id ?? auth()->id() ?? 'system'),
+                'field' => 'shift_id',
+                'old_value' => (string) $oldShift,
+                'new_value' => (string) $shiftId,
+                'reason' => $swapId ? "Applied shift swap #{$swapId}" : 'Applied shift swap',
+            ]);
+        }
     }
 
     public function resolveAssignment(int|string $userId, CarbonInterface $date): ?ShiftAssignment
@@ -226,5 +252,24 @@ class RosterService
         }
 
         return null;
+    }
+
+    /**
+     * Look up the employee's last working date from their active offboarding.
+     * Returns null if no active offboarding exists.
+     */
+    private function resolveLastWorkingDate(int|string $userId): ?\Carbon\CarbonInterface
+    {
+        $user = User::where('employee_id', $userId)->first();
+        if (! $user) {
+            return null;
+        }
+
+        $offboarding = $user->offboarding;
+        if (! $offboarding || ! $offboarding->last_working_date) {
+            return null;
+        }
+
+        return Carbon::parse($offboarding->last_working_date)->endOfDay();
     }
 }

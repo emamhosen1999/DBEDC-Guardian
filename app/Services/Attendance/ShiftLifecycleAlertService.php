@@ -68,6 +68,12 @@ class ShiftLifecycleAlertService
                 continue;
             }
 
+            // Skip employees past their last working date (offboarded)
+            $offboarding = $user->offboarding;
+            if ($offboarding && $offboarding->last_working_date && $date->greaterThan($offboarding->last_working_date)) {
+                continue;
+            }
+
             // resolveShift honours materialized-row precedence (manual > swap >
             // pattern) and returns null for an off/swap-to-off top row.
             $shift = $this->roster->resolveShift($user->employee_id ?? $user->getKey(), $date);

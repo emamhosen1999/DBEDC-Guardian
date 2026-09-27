@@ -134,6 +134,16 @@ Schedule::command('attendance:shift-alerts')
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/shift-alerts.log'));
 
+// Daily absence streak computation: evaluates consecutive unauthorized absences
+// and escalates per config('attendance.absence_escalation'). Runs after all
+// shifts have ended so the full day's attendance is available.
+Schedule::command('attendance:absence-streak')
+    ->dailyAt('23:30')
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/absence-streak.log'));
+
 // Client Diagnostics retention: drop resolved crash groups after 30 days and
 // anything untouched for 90 days. Off-peak so the chunked deletes never
 // compete with the morning punch traffic.

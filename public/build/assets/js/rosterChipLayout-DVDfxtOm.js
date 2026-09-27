@@ -1,0 +1,1 @@
+function u(r){return r===!0?"worked":r===!1?"missed":null}function p(r=[]){const a=(e,n)=>e.start<n.end&&n.start<e.end,s=r.map((e,n)=>({...e,overlapping:r.some((l,o)=>o!==n&&a(e,l))}));let t=0;return s.map(e=>{if(!e.overlapping)return{...e,lane:null};const n=t%2;return t+=1,{...e,lane:n}})}export{p,u as r};

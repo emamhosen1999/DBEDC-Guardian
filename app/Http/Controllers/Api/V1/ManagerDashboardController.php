@@ -134,6 +134,33 @@ class ManagerDashboardController extends Controller
         $leaveWindows = $this->buildTeamLeaveWindows($teamMemberIds, $today);
         $upcomingHolidays = $this->buildUpcomingHolidays($today);
 
+        // Multi-day consecutive absence streaks for team members (2+ days)
+        $absenceStreaks = [];
+        if ($teamMemberIds !== [] && Schema::hasTable('absence_cases')) {
+            $absenceStreaks = \App\Models\HRM\AbsenceCase::whereIn('user_id', $teamMemberIds)
+                ->whereIn('stage', [
+                    \App\Models\HRM\AbsenceCase::STAGE_MONITORING,
+                    \App\Models\HRM\AbsenceCase::STAGE_NOTICE_SENT,
+                    \App\Models\HRM\AbsenceCase::STAGE_SHOW_CAUSE,
+                ])
+                ->where('streak_days', '>=', 2)
+                ->with(['employee:employee_id,name,department_id', 'employee.department:id,name'])
+                ->orderByDesc('streak_days')
+                ->limit(10)
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'user_id' => $c->user_id,
+                    'name' => $c->employee?->name ?? $c->user_id,
+                    'department' => $c->employee?->department?->name,
+                    'streak_days' => $c->streak_days,
+                    'first_absent_date' => $c->first_absent_date?->toDateString(),
+                    'stage' => $c->stage,
+                ])
+                ->values()
+                ->all();
+        }
+
         return $this->successResponse([
             'team' => [
                 'total_members' => count($teamMemberIds),
@@ -142,7 +169,9 @@ class ManagerDashboardController extends Controller
                 'absent_today' => $absentToday,
                 'off_today' => $offToday,
                 'upcoming_today' => $upcomingToday,
+                'absence_streaks' => $absenceStreaks,
             ],
+            'absence_streaks' => $absenceStreaks,
             'approvals' => [
                 'pending_leave_approvals' => $pendingLeaveApprovals,
                 'pending_swap_approvals' => $pendingSwapApprovals,

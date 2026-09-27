@@ -230,6 +230,21 @@ export const getDynamicPages = (auth = null) => {
     .map(convertModule)
     .sort((a, b) => (a.priority || 999) - (b.priority || 999));
 
+  // If user has hr.offboarding.view, ensure it is in the HRM subMenu
+  const permissions = auth?.permissions || [];
+  const canOffboard = permissions.includes('hr.offboarding.view') || auth?.roles?.includes('Super Administrator');
+  if (canOffboard) {
+    const hrm = navigation.find(m => m.code === 'hrm' || m.module === 'hrm');
+    if (hrm && hrm.subMenu && !hrm.subMenu.some(item => item.route === 'hr.offboarding.index')) {
+      hrm.subMenu.push({
+        name: 'Offboarding',
+        icon: resolveIcon('ArrowRightOnRectangleIcon', 'hrm'),
+        route: 'hr.offboarding.index',
+        code: 'hr.offboarding',
+      });
+    }
+  }
+
   return navigation;
 };
 

@@ -747,7 +747,20 @@ class AttendanceController extends Controller
                     ->values();
             }
 
-            $serializedAbsentUsers = $absentUsers->map(function (User $user) {
+            $absenceStreaks = [];
+            if (Schema::hasTable('absence_cases') && $absentUsers->isNotEmpty()) {
+                $employeeIds = $absentUsers->pluck('employee_id')->filter()->all();
+                if (! empty($employeeIds)) {
+                    $absenceStreaks = \App\Models\HRM\AbsenceCase::whereIn('user_id', $employeeIds)
+                        ->whereNotIn('stage', [\App\Models\HRM\AbsenceCase::STAGE_RETURNED, \App\Models\HRM\AbsenceCase::STAGE_ABSCONDED])
+                        ->get()
+                        ->keyBy('user_id');
+                }
+            }
+
+            $serializedAbsentUsers = $absentUsers->map(function (User $user) use ($absenceStreaks) {
+                $case = $absenceStreaks[$user->employee_id] ?? null;
+
                 return [
                     'id' => (string) $user->id,
                     'name' => $user->name,
@@ -761,6 +774,9 @@ class AttendanceController extends Controller
                     'shift_color' => $user->shift_color ?? null,
                     'shift_start' => $user->shift_start ?? null,
                     'shift_end' => $user->shift_end ?? null,
+                    'streak_days' => $case ? $case->streak_days : 1,
+                    'absence_stage' => $case ? $case->stage : null,
+                    'absence_case_id' => $case ? $case->id : null,
                 ];
             })->values();
 

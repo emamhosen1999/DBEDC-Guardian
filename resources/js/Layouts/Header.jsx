@@ -24,7 +24,7 @@ import {
   useMarkAllRead,
 } from '@/api/queries/useNotificationsQuery';
 import { useRealtimeNotifications } from '@/Hooks/useRealtimeNotifications';
-import { isDesktop } from '@/Utils/desktop-bridge';
+import { isDesktop } from '@/utils/desktop-bridge';
 
 const getGreeting = () => {
   const h = new Date().getHours();

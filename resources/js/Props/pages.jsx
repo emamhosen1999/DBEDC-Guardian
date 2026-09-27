@@ -143,6 +143,14 @@ export const getPages = (roles, permissions, auth = null) => {
           ]
         }] : []),
         
+        // Offboarding / Separation
+        ...(can('hr.offboarding.view') ? [{
+          name: 'Offboarding',
+          icon: <ArrowRightOnRectangleIcon />,
+          category: 'hr',
+          route: 'hr.offboarding.index',
+        }] : []),
+
         /* HR Documents — enable when Inertia pages + HrDocumentController exist */
       ]
     }] : []),

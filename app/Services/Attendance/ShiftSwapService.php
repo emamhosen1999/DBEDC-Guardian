@@ -299,12 +299,21 @@ class ShiftSwapService
             $this->signal->touch('roster', $month, $actor->id, 'swap_approved');
         }
 
+        $coverageWarning = null;
+        try {
+            $coverageService = app(\App\Services\Attendance\CoverageService::class);
+            $coverageWarning = $coverageService->checkCoverageForSwap($swap);
+        } catch (\Throwable $t) {
+            // Non-blocking
+        }
+
         return [
             'ok' => true,
             'code' => 'approved',
             'message' => 'Swap approved and applied.',
             'swap' => $swap->fresh(),
             'compliance_violations' => $complianceViolations,
+            'coverage_warning' => $coverageWarning,
         ];
     }
 
