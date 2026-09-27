@@ -73,7 +73,8 @@ class ProcessOffboardingLwd implements ShouldQueue
 
         DB::transaction(function () use ($employee, $employeeId, $lwd, $lwdStr, $offboarding) {
             // 1. End shift assignments — set effective_to to LWD
-            ShiftAssignment::where('user_id', $employeeId)
+            ShiftAssignment::where('scope_type', 'user')
+                ->where('scope_id', $employeeId)
                 ->where(function ($q) use ($lwd) {
                     $q->whereNull('effective_to')
                         ->orWhere('effective_to', '>', $lwd);
@@ -127,9 +128,8 @@ class ProcessOffboardingLwd implements ShouldQueue
                 BiometricDeviceCommand::create([
                     'biometric_device_id' => $device->id,
                     'command_type' => 'DELETE_USER',
-                    'payload' => json_encode(['pin' => $employee->employee_id]),
-                    'status' => 'pending',
-                    'created_by' => $this->offboarding->created_by,
+                    'payload' => ['pin' => (string) $employee->employee_id],
+                    'status' => BiometricDeviceCommand::STATUS_PENDING,
                 ]);
             }
 
@@ -157,11 +157,13 @@ class ProcessOffboardingLwd implements ShouldQueue
 
             // Collect recipients: HR managers, employee's manager, IT admins
             $recipients = User::where(function ($q) use ($employee) {
-                $q->whereHas('roles', fn ($rq) => $rq->whereIn('name', ['HR Manager', 'Super Administrator']))
-                    ->orWhere('id', $employee->report_to);
+                $q->whereHas('roles', fn ($rq) => $rq->whereIn('name', ['HR Manager', 'Super Administrator']));
+                if ($employee->report_to) {
+                    $q->orWhere('employee_id', $employee->report_to);
+                }
             })
                 ->whereNull('deleted_at')
-                ->where('id', '!=', $employee->id)
+                ->where('employee_id', '!=', $employee->employee_id)
                 ->get();
 
             if ($recipients->isEmpty()) {

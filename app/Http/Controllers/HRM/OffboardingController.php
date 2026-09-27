@@ -99,12 +99,12 @@ class OffboardingController extends Controller
         $tasks = $data['tasks'] ?? [];
         unset($data['tasks']);
 
-        // Resolve the user ID from employee_id
+        // Resolve employee
         $employee = User::where('employee_id', $data['employee_id'])->firstOrFail();
-        $data['employee_id'] = $employee->id;
+        $data['employee_id'] = $employee->employee_id;
 
         // Check for duplicate active offboarding
-        $existing = Offboarding::where('employee_id', $employee->id)
+        $existing = Offboarding::where('employee_id', $employee->employee_id)
             ->whereNotIn('status', [Offboarding::STATUS_COMPLETED, Offboarding::STATUS_CANCELLED])
             ->first();
 
