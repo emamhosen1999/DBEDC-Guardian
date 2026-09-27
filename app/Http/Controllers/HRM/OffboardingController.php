@@ -276,6 +276,7 @@ class OffboardingController extends Controller
 
         if ($pendingCount === 0 && $offboarding->status === Offboarding::STATUS_IN_PROGRESS) {
             $offboarding->update(['status' => Offboarding::STATUS_COMPLETED]);
+            $offboarding->employee?->delete();
         }
 
         return response()->json([
