@@ -71,6 +71,9 @@ class LogRequestMiddleware
             'assets',
             'favicon',
             'robots.txt',
+            'om/camera/snapshot',
+            'om/camera/webrtc',
+            'om/camera/hls',
         ];
 
         $url = $request->path();
@@ -101,6 +104,7 @@ class LogRequestMiddleware
             'sanctum',
             'profile',
             'auth/',
+            'om/camera',
         ];
 
         foreach ($omitPatterns as $pattern) {
@@ -116,6 +120,11 @@ class LogRequestMiddleware
     {
         if ($responseBody === null || $responseBody === '') {
             return null;
+        }
+
+        // Ensure valid UTF-8 string before saving to database
+        if (!mb_check_encoding($responseBody, 'UTF-8')) {
+            return '[Binary Data]';
         }
 
         if (strlen($responseBody) > 10000) {

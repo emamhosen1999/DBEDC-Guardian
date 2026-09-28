@@ -10,8 +10,6 @@ import {
     PlayIcon,
     PauseIcon,
     ArrowDownTrayIcon,
-    TvIcon,
-    PhotoIcon,
     InformationCircleIcon,
     MagnifyingGlassPlusIcon,
     MagnifyingGlassMinusIcon,
@@ -23,8 +21,8 @@ import { Panel } from '@/Components/ui/Panel';
 /**
  * TMC Monitoring Center — Staff & Operator Surveillance
  *
- * Dedicated live observation feed for Traffic Monitoring Center (TMC)
- * control room staff, duty operators, and console desks.
+ * Real-time observation feed dedicated exclusively to supervising
+ * Traffic Monitoring Center (TMC) staff, duty operators, and console desks.
  */
 
 const STATUS_POLL_INTERVAL = 30000;
@@ -33,32 +31,25 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
     const [status, setStatus] = useState(initialStatus || null);
     const [isChecking, setIsChecking] = useState(false);
 
-    // Profile & Mode
-    const [activeStream, setActiveStream] = useState('main'); // 'main' (4MP) | 'sub' (SD)
-    const [streamMode, setStreamMode] = useState('snapshot'); // 'snapshot' | 'webrtc'
+    // Profile & Controls
+    const [activeStream, setActiveStream] = useState('main'); // 'main' (4MP UHD) | 'sub' (SD)
     const [isPlaying, setIsPlaying] = useState(true);
     const [refreshInterval, setRefreshInterval] = useState(1500); // 1.5s default
 
-    // Digital Zoom & Pan State
+    // Digital Zoom & Pan
     const [zoomLevel, setZoomLevel] = useState(1);
     const [panX, setPanX] = useState(0);
     const [panY, setPanY] = useState(0);
 
-    // Double-buffered frame state (prevents flicker / dropouts)
+    // Double-buffered frame state (zero dropouts)
     const [currentFrameUrl, setCurrentFrameUrl] = useState('');
     const [frameCount, setFrameCount] = useState(0);
     const [lastFrameTime, setLastFrameTime] = useState('');
     const [isBuffering, setIsBuffering] = useState(true);
 
-    // WebRTC refs
-    const videoRef = useRef(null);
-    const pcRef = useRef(null);
-    const [webrtcConnected, setWebrtcConnected] = useState(false);
-
     const snapshotProfile = activeStream === 'main' ? 'main' : 'sub';
-    const streamPath = activeStream === 'main' ? 'cam-main' : 'cam-sub';
 
-    // ── Telemetry Health Probe ──
+    // ── Health Status Probe ──
     const checkStatus = useCallback(async () => {
         setIsChecking(true);
         try {
@@ -70,7 +61,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                 setStatus(await response.json());
             }
         } catch (err) {
-            console.warn('[CameraMonitoring] Telemetry check failed:', err);
+            console.warn('[CameraMonitoring] Status check failed:', err);
         } finally {
             setIsChecking(false);
         }
@@ -83,7 +74,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
 
     // ── Double-Buffered Snapshot Fetcher ──
     const fetchNextFrame = useCallback(() => {
-        if (!isPlaying || streamMode !== 'snapshot') return;
+        if (!isPlaying) return;
 
         const nextUrl = `/om/camera/snapshot/${snapshotProfile}?t=${Date.now()}`;
         const bufferImg = new Image();
@@ -96,86 +87,20 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
         };
 
         bufferImg.onerror = () => {
-            // Retain previous valid frame during transient blips
-            console.warn('[CameraMonitoring] Frame skipped; retaining current frame.');
+            // Keep showing previous good frame without blanking the screen
+            console.warn('[CameraMonitoring] Snapshot frame skipped; retaining last good frame.');
         };
 
         bufferImg.src = nextUrl;
-    }, [isPlaying, streamMode, snapshotProfile]);
+    }, [isPlaying, snapshotProfile]);
 
     useEffect(() => {
-        if (streamMode === 'snapshot' && isPlaying) {
+        if (isPlaying) {
             fetchNextFrame();
             const timer = setInterval(fetchNextFrame, refreshInterval);
             return () => clearInterval(timer);
         }
-    }, [streamMode, isPlaying, refreshInterval, fetchNextFrame]);
-
-    // ── WebRTC WHEP Engine ──
-    const stopWebRTC = useCallback(() => {
-        if (pcRef.current) {
-            try {
-                fetch(`/om/camera/webrtc/whep/${streamPath}`, { method: 'DELETE' }).catch(() => {});
-                pcRef.current.close();
-            } catch (_) {}
-            pcRef.current = null;
-        }
-        if (videoRef.current) {
-            videoRef.current.srcObject = null;
-        }
-        setWebrtcConnected(false);
-    }, [streamPath]);
-
-    const startWebRTC = useCallback(async () => {
-        stopWebRTC();
-        try {
-            const pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-                bundlePolicy: 'max-bundle',
-            });
-            pcRef.current = pc;
-
-            pc.addTransceiver('video', { direction: 'recvonly' });
-
-            pc.ontrack = (event) => {
-                if (videoRef.current && event.streams[0]) {
-                    videoRef.current.srcObject = event.streams[0];
-                    setWebrtcConnected(true);
-                    setIsBuffering(false);
-                }
-            };
-
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            await new Promise(r => setTimeout(r, 600));
-
-            const res = await fetch(`/om/camera/webrtc/whep/${streamPath}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/sdp' },
-                body: pc.localDescription?.sdp || offer.sdp,
-            });
-
-            if (res.ok) {
-                const answer = await res.text();
-                await pc.setRemoteDescription({ type: 'answer', sdp: answer });
-            } else {
-                setStreamMode('snapshot');
-            }
-        } catch (err) {
-            console.warn('[CameraMonitoring] WebRTC fallback to snapshot:', err);
-            setStreamMode('snapshot');
-        }
-    }, [streamPath, stopWebRTC]);
-
-    useEffect(() => {
-        if (streamMode === 'webrtc' && isPlaying) {
-            startWebRTC();
-        } else {
-            stopWebRTC();
-        }
-        return () => stopWebRTC();
-    }, [streamMode, isPlaying, startWebRTC, stopWebRTC]);
+    }, [isPlaying, refreshInterval, fetchNextFrame]);
 
     // ── Actions ──
     const handleDownloadFrame = () => {
@@ -245,11 +170,11 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
             <Flex justify="center" p={{ initial: '2', sm: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 1600 }}>
                     <Panel>
-                        {/* ── Page Header ── */}
+                        {/* ── Page Header (Consistent with Operations pages) ── */}
                         <Box mb="3">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="3">
                                 <Flex align="center" gap="3">
-                                    <Box p="2.5" style={{
+                                    <Box p="3" style={{
                                         background: 'var(--cyan-a3)',
                                         borderRadius: 12,
                                         border: '1px solid var(--cyan-a5)',
@@ -276,25 +201,25 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                             </Badge>
                                         </Flex>
                                         <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
-                                            TMC Control Room Floor · Staff & Duty Operator Surveillance (4MP Ultra-HD)
+                                            TMC Control Room Floor · Duty Operators & Staff Surveillance Feed
                                         </Text>
                                     </Box>
                                 </Flex>
 
                                 <Flex gap="2" align="center">
                                     <Button variant="soft" color="gray" onClick={checkStatus} disabled={isChecking} style={{ borderRadius: 10 }}>
-                                        <ArrowPathIcon width={15} height={15} style={isChecking ? { animation: 'spin 1s linear infinite' } : {}} />
+                                        <ArrowPathIcon width={16} height={16} style={isChecking ? { animation: 'spin 1s linear infinite' } : {}} />
                                         {isChecking ? 'Checking…' : 'Refresh'}
                                     </Button>
                                     <Button onClick={handleOpenNVR} style={{ borderRadius: 10, fontWeight: 700 }}>
-                                        <ArrowTopRightOnSquareIcon width={15} height={15} />
+                                        <ArrowTopRightOnSquareIcon width={16} height={16} />
                                         Launch NVR Console
                                     </Button>
                                 </Flex>
                             </Flex>
                         </Box>
 
-                        {/* ── Scope Notice ── */}
+                        {/* ── Scope Notice Banner ── */}
                         <Box mb="3" p="2.5" style={{
                             background: 'var(--cyan-a2)',
                             borderRadius: 10,
@@ -305,31 +230,29 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                         }}>
                             <InformationCircleIcon style={{ width: 20, height: 20, color: 'var(--cyan-9)', flexShrink: 0 }} />
                             <Text size="2" style={{ color: 'var(--cyan-11)', lineHeight: 1.4 }}>
-                                <strong>Monitoring Scope:</strong> This live camera is dedicated exclusively to supervising TMC monitoring center staff, duty operators at consoles 01–06, and shift handover operations inside the central monitoring room.
+                                <strong>Monitoring Scope:</strong> This live observation feed is designated exclusively for supervising TMC monitoring center staff, duty operators at consoles 01–06, and shift operations inside the central monitoring room.
                             </Text>
                         </Box>
 
-                        {/* ── Live Surveillance Viewport Stage ── */}
-                        <Box style={{
-                            borderRadius: 16,
-                            overflow: 'hidden',
-                            background: '#040711',
-                            border: '1px solid var(--aero-surface-border, rgba(255,255,255,0.1))',
-                            boxShadow: '0 20px 48px -12px rgba(0, 0, 0, 0.6)',
+                        <Separator size="4" mb="3" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        {/* ── Controls Toolbar (Theme-Integrated Radix Bar) ── */}
+                        <Panel tinted style={{
+                            borderRadius: 12,
+                            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))',
+                            padding: '10px 14px',
+                            marginBottom: 12,
+                            background: 'var(--aero-surface, var(--color-background))',
                         }}>
-                            {/* Top Control Bar */}
-                            <Flex justify="between" align="center" px="3" py="2" wrap="wrap" gap="2" style={{
-                                background: 'rgba(15, 23, 42, 0.9)',
-                                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                            }}>
-                                {/* Resolution & Stream Engine Selectors */}
-                                <Flex align="center" gap="2">
+                            <Flex justify="between" align="center" wrap="wrap" gap="3">
+                                {/* Resolution & Stream Controls */}
+                                <Flex align="center" gap="2" wrap="wrap">
                                     <Button
                                         size="1"
                                         variant={activeStream === 'main' ? 'solid' : 'soft'}
                                         color="cyan"
                                         onClick={() => setActiveStream('main')}
-                                        style={{ borderRadius: 6, fontWeight: 700 }}
+                                        style={{ borderRadius: 8, fontWeight: 700, padding: '4px 12px' }}
                                     >
                                         4MP UHD (2560×1440)
                                     </Button>
@@ -338,37 +261,39 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                         variant={activeStream === 'sub' ? 'solid' : 'soft'}
                                         color="gray"
                                         onClick={() => setActiveStream('sub')}
-                                        style={{ borderRadius: 6 }}
+                                        style={{ borderRadius: 8, padding: '4px 10px' }}
                                     >
                                         SD Stream
                                     </Button>
 
-                                    <Separator orientation="vertical" style={{ height: 16, background: 'rgba(255,255,255,0.15)' }} />
+                                    <Separator orientation="vertical" style={{ height: 18, margin: '0 4px' }} />
 
                                     <Button
                                         size="1"
-                                        variant={streamMode === 'webrtc' ? 'solid' : 'soft'}
-                                        color="violet"
-                                        onClick={() => setStreamMode('webrtc')}
-                                        style={{ borderRadius: 6 }}
+                                        variant="soft"
+                                        color={isPlaying ? 'amber' : 'cyan'}
+                                        onClick={() => setIsPlaying(p => !p)}
+                                        style={{ borderRadius: 8, padding: '4px 10px' }}
                                     >
-                                        <TvIcon width={13} height={13} /> WebRTC Live
+                                        {isPlaying
+                                            ? <><PauseIcon width={14} height={14} /> Pause Feed</>
+                                            : <><PlayIcon width={14} height={14} /> Resume Feed</>
+                                        }
                                     </Button>
-                                    <Button
-                                        size="1"
-                                        variant={streamMode === 'snapshot' ? 'solid' : 'soft'}
-                                        color="cyan"
-                                        onClick={() => setStreamMode('snapshot')}
-                                        style={{ borderRadius: 6 }}
-                                    >
-                                        <PhotoIcon width={13} height={13} /> HD Stream
+
+                                    <Button size="1" variant="ghost" color="gray" onClick={fetchNextFrame} title="Refresh Frame Now">
+                                        <ArrowPathIcon width={14} height={14} />
+                                    </Button>
+
+                                    <Button size="1" variant="surface" color="gray" onClick={handleDownloadFrame} style={{ borderRadius: 8 }}>
+                                        <ArrowDownTrayIcon width={14} height={14} /> Save Frame
                                     </Button>
                                 </Flex>
 
-                                {/* Presets & Digital Zoom */}
-                                <Flex align="center" gap="1.5">
-                                    <Text size="1" style={{ color: 'rgba(255,255,255,0.6)', marginRight: 4 }}>Focus Area:</Text>
-                                    <Button size="1" variant="soft" color="gray" onClick={() => handlePreset('full')} style={{ borderRadius: 6, fontSize: 11 }}>
+                                {/* Focus Area Presets & Zoom */}
+                                <Flex align="center" gap="2" wrap="wrap">
+                                    <Text size="1" color="gray" weight="medium">Focus Area:</Text>
+                                    <Button size="1" variant={zoomLevel === 1 ? 'solid' : 'soft'} color="gray" onClick={() => handlePreset('full')} style={{ borderRadius: 6, fontSize: 11 }}>
                                         Full Room
                                     </Button>
                                     <Button size="1" variant="soft" color="gray" onClick={() => handlePreset('consoles_left')} style={{ borderRadius: 6, fontSize: 11 }}>
@@ -380,161 +305,15 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                     <Button size="1" variant="soft" color="gray" onClick={() => handlePreset('supervisor')} style={{ borderRadius: 6, fontSize: 11 }}>
                                         Supervisor Desk
                                     </Button>
-                                </Flex>
-                            </Flex>
 
-                            {/* Video Screen Viewport */}
-                            <Box
-                                id="cctv-stage-viewport"
-                                style={{
-                                    position: 'relative',
-                                    width: '100%',
-                                    aspectRatio: '16/9',
-                                    overflow: 'hidden',
-                                    background: '#040711',
-                                }}
-                            >
-                                <div style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    transform: `scale(${zoomLevel}) translate(${panX}%, ${panY}%)`,
-                                    transformOrigin: 'center center',
-                                    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}>
-                                    {/* WebRTC Video Element */}
-                                    {streamMode === 'webrtc' && (
-                                        <video
-                                            ref={videoRef}
-                                            autoPlay
-                                            playsInline
-                                            muted
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'contain',
-                                                display: webrtcConnected ? 'block' : 'none',
-                                            }}
-                                        />
-                                    )}
+                                    <Separator orientation="vertical" style={{ height: 18, margin: '0 4px' }} />
 
-                                    {/* Double-Buffered Snapshot Image */}
-                                    {streamMode === 'snapshot' && currentFrameUrl && (
-                                        <img
-                                            src={currentFrameUrl}
-                                            alt="TMC Monitoring Center Staff Surveillance"
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'contain',
-                                                display: 'block',
-                                            }}
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Buffering state */}
-                                {isBuffering && !currentFrameUrl && (
-                                    <Flex align="center" justify="center" style={{ position: 'absolute', inset: 0, zIndex: 2, background: '#040711' }}>
-                                        <Flex direction="column" align="center" gap="2">
-                                            <ArrowPathIcon style={{ width: 36, height: 36, color: 'var(--cyan-9)', animation: 'spin 1s linear infinite' }} />
-                                            <Text size="2" style={{ color: '#fff', fontWeight: 600 }}>Connecting to TMC Staff Camera…</Text>
-                                            <Text size="1" color="gray">Acquiring 4MP frame buffer</Text>
-                                        </Flex>
-                                    </Flex>
-                                )}
-
-                                {/* Live OSD Overlay */}
-                                <Flex justify="between" align="center" style={{
-                                    position: 'absolute', top: 12, left: 14, right: 14, zIndex: 3,
-                                    pointerEvents: 'none',
-                                }}>
-                                    <Flex align="center" gap="2" style={{
-                                        background: 'rgba(0,0,0,0.7)',
-                                        backdropFilter: 'blur(8px)',
-                                        borderRadius: 8,
-                                        padding: '4px 10px',
-                                        border: '1px solid rgba(255,255,255,0.12)',
-                                    }}>
-                                        <Box style={{
-                                            width: 8, height: 8, borderRadius: '50%',
-                                            background: '#ef4444',
-                                            animation: 'pulse 1.5s ease-in-out infinite',
-                                        }} />
-                                        <Text size="1" weight="bold" style={{ color: '#fff', fontFamily: 'monospace', letterSpacing: 1 }}>
-                                            LIVE · {activeStream === 'main' ? '4MP UHD' : 'SD'}
-                                        </Text>
-                                        <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace' }}>
-                                            TMC FLOOR · OPERATOR DESKS
-                                        </Text>
-                                    </Flex>
-
-                                    <Flex align="center" gap="2" style={{
-                                        background: 'rgba(0,0,0,0.7)',
-                                        backdropFilter: 'blur(8px)',
-                                        borderRadius: 8,
-                                        padding: '4px 10px',
-                                        border: '1px solid rgba(255,255,255,0.12)',
-                                    }}>
-                                        <Text size="1" style={{ color: '#fff', fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
-                                            {lastFrameTime || new Date().toLocaleTimeString()}
-                                        </Text>
-                                    </Flex>
-                                </Flex>
-
-                                {/* Bottom Right OSD */}
-                                <Box style={{
-                                    position: 'absolute', bottom: 10, right: 14, zIndex: 3,
-                                    background: 'rgba(0,0,0,0.65)',
-                                    borderRadius: 6,
-                                    padding: '2px 8px',
-                                }}>
-                                    <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace', fontSize: 10 }}>
-                                        {zoomLevel > 1 ? `Digital Zoom ${zoomLevel}x · ` : ''}
-                                        {streamMode === 'webrtc' ? 'WHEP · Sub-second' : `Frame #${frameCount} · Debounced`}
-                                    </Text>
-                                </Box>
-                            </Box>
-
-                            {/* Bottom Controls Bar */}
-                            <Flex justify="between" align="center" px="3" py="2" wrap="wrap" gap="2" style={{
-                                background: 'rgba(15, 23, 42, 0.95)',
-                                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                            }}>
-                                <Flex align="center" gap="2">
-                                    <Button
-                                        size="1"
-                                        variant="soft"
-                                        color={isPlaying ? 'amber' : 'cyan'}
-                                        onClick={() => setIsPlaying(p => !p)}
-                                        style={{ borderRadius: 6 }}
-                                    >
-                                        {isPlaying
-                                            ? <><PauseIcon width={14} height={14} /> Pause</>
-                                            : <><PlayIcon width={14} height={14} /> Play</>
-                                        }
-                                    </Button>
-
-                                    {streamMode === 'snapshot' && (
-                                        <Button size="1" variant="ghost" color="gray" onClick={fetchNextFrame} title="Refresh Frame Now">
-                                            <ArrowPathIcon width={14} height={14} />
-                                        </Button>
-                                    )}
-
-                                    <Button size="1" variant="surface" color="gray" onClick={handleDownloadFrame} style={{ borderRadius: 6 }}>
-                                        <ArrowDownTrayIcon width={14} height={14} /> Snapshot
-                                    </Button>
-                                </Flex>
-
-                                {/* Zoom Controls & Fullscreen */}
-                                <Flex align="center" gap="2">
-                                    <Flex align="center" gap="1" style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 4px' }}>
+                                    {/* Zoom In / Out */}
+                                    <Flex align="center" gap="1" style={{ background: 'var(--gray-a3)', borderRadius: 6, padding: '2px 4px' }}>
                                         <Button size="1" variant="ghost" color="gray" onClick={handleZoomOut} disabled={zoomLevel <= 1} title="Zoom Out">
                                             <MagnifyingGlassMinusIcon width={14} height={14} />
                                         </Button>
-                                        <Text size="1" style={{ color: '#fff', minWidth: 32, textAlign: 'center', fontFamily: 'monospace' }}>
+                                        <Text size="1" style={{ minWidth: 28, textAlign: 'center', fontFamily: 'monospace', fontWeight: 700 }}>
                                             {zoomLevel}x
                                         </Text>
                                         <Button size="1" variant="ghost" color="gray" onClick={handleZoomIn} disabled={zoomLevel >= 3} title="Zoom In">
@@ -547,33 +326,120 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                         )}
                                     </Flex>
 
-                                    {streamMode === 'snapshot' && (
-                                        <Flex align="center" gap="1">
-                                            <Text size="1" color="gray">Rate:</Text>
-                                            {[
-                                                [1000, '1s'],
-                                                [1500, '1.5s'],
-                                                [3000, '3s'],
-                                            ].map(([ms, label]) => (
-                                                <Button
-                                                    key={ms}
-                                                    size="1"
-                                                    variant={refreshInterval === ms ? 'solid' : 'ghost'}
-                                                    color="cyan"
-                                                    onClick={() => setRefreshInterval(ms)}
-                                                    style={{ borderRadius: 4, padding: '1px 6px', height: 22, fontSize: 10 }}
-                                                >
-                                                    {label}
-                                                </Button>
-                                            ))}
-                                        </Flex>
-                                    )}
-
-                                    <Button size="1" variant="ghost" color="gray" onClick={handleFullscreen} title="Fullscreen">
+                                    <Button size="1" variant="ghost" color="gray" onClick={handleFullscreen} title="Fullscreen View">
                                         <ArrowsPointingOutIcon width={16} height={16} />
                                     </Button>
                                 </Flex>
                             </Flex>
+                        </Panel>
+
+                        {/* ── Main Surveillance Screen (Properly Constrained Viewport) ── */}
+                        <Box
+                            id="cctv-stage-viewport"
+                            style={{
+                                position: 'relative',
+                                width: '100%',
+                                maxHeight: 'min(62vh, 640px)',
+                                aspectRatio: '16/9',
+                                overflow: 'hidden',
+                                background: '#050811',
+                                borderRadius: 16,
+                                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.12))',
+                                boxShadow: '0 12px 36px -8px rgba(0, 0, 0, 0.4)',
+                                margin: '0 auto',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            {/* Zoomed / Panned Frame Container */}
+                            <div style={{
+                                width: '100%',
+                                height: '100%',
+                                transform: `scale(${zoomLevel}) translate(${panX}%, ${panY}%)`,
+                                transformOrigin: 'center center',
+                                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}>
+                                {currentFrameUrl ? (
+                                    <img
+                                        src={currentFrameUrl}
+                                        alt="TMC Monitoring Center Staff Surveillance"
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'contain',
+                                            display: 'block',
+                                            userSelect: 'none',
+                                        }}
+                                    />
+                                ) : null}
+                            </div>
+
+                            {/* Buffering State */}
+                            {isBuffering && !currentFrameUrl && (
+                                <Flex align="center" justify="center" style={{ position: 'absolute', inset: 0, zIndex: 2, background: '#050811' }}>
+                                    <Flex direction="column" align="center" gap="2">
+                                        <ArrowPathIcon style={{ width: 36, height: 36, color: 'var(--cyan-9)', animation: 'spin 1s linear infinite' }} />
+                                        <Text size="2" style={{ color: '#fff', fontWeight: 600 }}>Connecting to TMC Staff Camera…</Text>
+                                        <Text size="1" color="gray">Acquiring 4MP frame buffer</Text>
+                                    </Flex>
+                                </Flex>
+                            )}
+
+                            {/* Top-Left OSD Badge */}
+                            <Flex align="center" gap="2" style={{
+                                position: 'absolute', top: 12, left: 14, zIndex: 3,
+                                background: 'rgba(0,0,0,0.75)',
+                                backdropFilter: 'blur(8px)',
+                                borderRadius: 8,
+                                padding: '4px 10px',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                pointerEvents: 'none',
+                            }}>
+                                <Box style={{
+                                    width: 8, height: 8, borderRadius: '50%',
+                                    background: '#ef4444',
+                                    animation: 'pulse 1.5s ease-in-out infinite',
+                                }} />
+                                <Text size="1" weight="bold" style={{ color: '#fff', fontFamily: 'monospace', letterSpacing: 0.5 }}>
+                                    LIVE · {activeStream === 'main' ? '4MP UHD' : 'SD'}
+                                </Text>
+                                <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace' }}>
+                                    TMC FLOOR · OPERATOR DESKS
+                                </Text>
+                            </Flex>
+
+                            {/* Top-Right Timestamp */}
+                            <Flex align="center" gap="2" style={{
+                                position: 'absolute', top: 12, right: 14, zIndex: 3,
+                                background: 'rgba(0,0,0,0.75)',
+                                backdropFilter: 'blur(8px)',
+                                borderRadius: 8,
+                                padding: '4px 10px',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                pointerEvents: 'none',
+                            }}>
+                                <Text size="1" style={{ color: '#fff', fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+                                    {lastFrameTime || new Date().toLocaleTimeString()}
+                                </Text>
+                            </Flex>
+
+                            {/* Bottom-Right Frame Counter */}
+                            <Box style={{
+                                position: 'absolute', bottom: 10, right: 14, zIndex: 3,
+                                background: 'rgba(0,0,0,0.7)',
+                                borderRadius: 6,
+                                padding: '2px 8px',
+                                pointerEvents: 'none',
+                            }}>
+                                <Text size="1" style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', fontSize: 10 }}>
+                                    {zoomLevel > 1 ? `Zoom ${zoomLevel}x · ` : ''}
+                                    {`Frame #${frameCount} · Debounced`}
+                                </Text>
+                            </Box>
                         </Box>
                     </Panel>
                 </Box>
