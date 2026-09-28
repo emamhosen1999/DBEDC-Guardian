@@ -2638,7 +2638,7 @@
     ]
   },
   "resources/js/Pages/Operations/CameraMonitoring.jsx": {
-    "file": "assets/js/CameraMonitoring-Bp3yfC5b.js",
+    "file": "assets/js/CameraMonitoring-C3Yzgak9.js",
     "name": "CameraMonitoring",
     "src": "resources/js/Pages/Operations/CameraMonitoring.jsx",
     "isEntry": true,
@@ -2647,10 +2647,8 @@
       "_vendor-radix-98kDB0wg.js",
       "_vendor-inertia-CFPSZfaX.js",
       "_App-BPcirLZu.js",
-      "_ArrowPathIcon-BtERmH30.js",
       "_PlayIcon-BcjRg9uS.js",
-      "_CheckCircleIcon-DWOqrsSt.js",
-      "_InformationCircleIcon-VUJt46pA.js",
+      "_PlusIcon-BZ72Ahso.js",
       "_vendor-utils-DBAGIKGI.js",
       "_preload-helper-BfFHrpNk.js",
       "_useMediaQuery-CBnVnuTv.js",
@@ -4519,7 +4517,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-BWvUIdtu.js",
+    "file": "assets/js/app-CS7I4KlJ.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
