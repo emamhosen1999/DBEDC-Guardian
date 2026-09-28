@@ -272,13 +272,6 @@
       "_vendor-inertia-CFPSZfaX.js"
     ]
   },
-  "_PhotoIcon-CHolQ0Mw.js": {
-    "file": "assets/js/PhotoIcon-CHolQ0Mw.js",
-    "name": "PhotoIcon",
-    "imports": [
-      "_vendor-inertia-CFPSZfaX.js"
-    ]
-  },
   "_PieChart-D9ODOwQO.js": {
     "file": "assets/js/PieChart-D9ODOwQO.js",
     "name": "PieChart",
@@ -2645,7 +2638,7 @@
     ]
   },
   "resources/js/Pages/Operations/CameraMonitoring.jsx": {
-    "file": "assets/js/CameraMonitoring-Cs61pxb7.js",
+    "file": "assets/js/CameraMonitoring-Bp3yfC5b.js",
     "name": "CameraMonitoring",
     "src": "resources/js/Pages/Operations/CameraMonitoring.jsx",
     "isEntry": true,
@@ -2654,12 +2647,10 @@
       "_vendor-radix-98kDB0wg.js",
       "_vendor-inertia-CFPSZfaX.js",
       "_App-BPcirLZu.js",
-      "_Panel-B0iG0n2U.js",
       "_ArrowPathIcon-BtERmH30.js",
-      "_InformationCircleIcon-VUJt46pA.js",
-      "_PhotoIcon-CHolQ0Mw.js",
       "_PlayIcon-BcjRg9uS.js",
-      "_ArrowDownTrayIcon-BnL8xTcH.js",
+      "_CheckCircleIcon-DWOqrsSt.js",
+      "_InformationCircleIcon-VUJt46pA.js",
       "_vendor-utils-DBAGIKGI.js",
       "_preload-helper-BfFHrpNk.js",
       "_useMediaQuery-CBnVnuTv.js",
@@ -2670,6 +2661,7 @@
       "_react-icons.esm-doQauRx5.js",
       "_toastUtils-B1FI9EKc.js",
       "_ErrorBoundary-DCfSPNQV.js",
+      "_Panel-B0iG0n2U.js",
       "_ClockIcon-88ueS8Yg.js",
       "_ExclamationTriangleIcon-BSXEVLz3.js",
       "_AdjustmentsHorizontalIcon-Cpfnl0qC.js",
@@ -4116,7 +4108,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-B8VJF3Vh.js",
+    "file": "assets/js/Index-sOo6j-6q.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isEntry": true,
@@ -4142,7 +4134,6 @@
       "resources/js/Pages/Project/Objections/hooks/useObjectionsActions.js",
       "_useRealtimeSignals-DBkQM0R2.js",
       "_ShieldExclamationIcon-B-ti7EwW.js",
-      "_PhotoIcon-CHolQ0Mw.js",
       "_MapPinIcon-UHZH_YHF.js",
       "_MagnifyingGlassIcon-Qo90N0r1.js",
       "_ArrowDownTrayIcon-BnL8xTcH.js",
@@ -4528,7 +4519,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-DdGEvBeG.js",
+    "file": "assets/js/app-BWvUIdtu.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
