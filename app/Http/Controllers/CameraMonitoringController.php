@@ -38,12 +38,12 @@ class CameraMonitoringController extends Controller
      */
     private function getMediaMtxWhep(): string
     {
-        return config('services.camera.mediamtx_whep', env('MEDIAMTX_WHEP_URL', 'http://127.0.0.1:18889'));
+        return config('services.camera.mediamtx_whep', env('MEDIAMTX_WHEP_URL', 'https://stream.dhakabypass.com'));
     }
 
     private function getMediaMtxHls(): string
     {
-        return config('services.camera.mediamtx_hls', env('MEDIAMTX_HLS_URL', 'http://127.0.0.1:18888'));
+        return config('services.camera.mediamtx_hls', env('MEDIAMTX_HLS_URL', 'https://stream.dhakabypass.com'));
     }
 
     private function getMediaMtxApi(): string

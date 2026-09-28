@@ -162,15 +162,43 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            await new Promise(r => setTimeout(r, 600));
-
-            const res = await fetch(`/om/camera/webrtc/whep/${streamPath}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/sdp' },
-                body: pc.localDescription?.sdp || offer.sdp,
+            // Wait brief moment for initial ICE candidates
+            await new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') {
+                    resolve();
+                } else {
+                    const check = () => {
+                        if (pc.iceGatheringState === 'complete') {
+                            pc.removeEventListener('icegatheringstatechange', check);
+                            resolve();
+                        }
+                    };
+                    pc.addEventListener('icegatheringstatechange', check);
+                    setTimeout(resolve, 600);
+                }
             });
 
-            if (res.ok) {
+            // Try direct endpoint first (lowest latency), fall back to ERP proxy
+            let res;
+            try {
+                res = await fetch(`https://stream.dhakabypass.com/${streamPath}/whep`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/sdp' },
+                    body: pc.localDescription?.sdp || offer.sdp,
+                });
+            } catch (directErr) {
+                console.warn('[WebRTC] Direct WHEP failed, falling back to ERP proxy:', directErr);
+            }
+
+            if (!res || !res.ok) {
+                res = await fetch(`/om/camera/webrtc/whep/${streamPath}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/sdp' },
+                    body: pc.localDescription?.sdp || offer.sdp,
+                });
+            }
+
+            if (res && res.ok) {
                 const answer = await res.text();
                 await pc.setRemoteDescription({ type: 'answer', sdp: answer });
             }
