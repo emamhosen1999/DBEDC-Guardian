@@ -217,12 +217,12 @@ class CameraMonitoringController extends Controller
         $cacheKey = "cctv_frame_live_{$profile}";
         $lastGoodKey = "cctv_frame_last_good_{$profile}";
 
-        // 1. Return debounced micro-cached frame if polled rapidly (750ms window)
+        // 1. Return debounced micro-cached frame if polled rapidly (250ms window)
         $cachedFrame = Cache::get($cacheKey);
         if ($cachedFrame) {
             return response($cachedFrame, 200)
                 ->header('Content-Type', 'image/jpeg')
-                ->header('Cache-Control', 'public, max-age=1')
+                ->header('Cache-Control', 'public, max-age=0, must-revalidate')
                 ->header('X-Feed-Status', 'live-debounced')
                 ->header('X-Content-Type-Options', 'nosniff');
         }
@@ -234,27 +234,31 @@ class CameraMonitoringController extends Controller
         $imageData = null;
         $httpCode = 0;
 
-        // Try fetching with retry
+        // Fetch with high-performance cURL settings
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             try {
                 $ch = curl_init($snapshotUrl);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT        => 6,
-                    CURLOPT_CONNECTTIMEOUT => 4,
+                    CURLOPT_TIMEOUT        => 4,
+                    CURLOPT_CONNECTTIMEOUT => 2,
                     CURLOPT_HTTPAUTH       => CURLAUTH_DIGEST | CURLAUTH_BASIC,
                     CURLOPT_USERPWD        => "{$username}:{$password}",
                     CURLOPT_SSL_VERIFYPEER => false,
                     CURLOPT_FOLLOWLOCATION => true,
                     CURLOPT_MAXREDIRS      => 2,
-                    CURLOPT_HTTPHEADER     => ['Connection: keep-alive'],
+                    CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2_0,
+                    CURLOPT_TCP_KEEPALIVE  => 1,
+                    CURLOPT_BUFFERSIZE     => 131072,
+                    CURLOPT_HTTPHEADER     => ['Connection: keep-alive', 'Accept: image/jpeg'],
                 ]);
 
                 $imageData = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
 
                 if ($httpCode === 200 && !empty($imageData) && str_starts_with($imageData, "\xFF\xD8")) {
-                    Cache::put($cacheKey, $imageData, now()->addMilliseconds(750));
+                    Cache::put($cacheKey, $imageData, now()->addMilliseconds(250));
                     Cache::put($lastGoodKey, $imageData, now()->addMinutes(2));
                     break;
                 }
@@ -263,7 +267,7 @@ class CameraMonitoringController extends Controller
             }
 
             if ($attempt < 2) {
-                usleep(100000); // 100ms
+                usleep(50000); // 50ms
             }
         }
 

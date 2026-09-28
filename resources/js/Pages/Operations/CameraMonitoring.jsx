@@ -39,7 +39,9 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
     // 'main-webrtc' (Primary 4MP) | 'sub-webrtc' (Secondary SD) | 'snapshot' (Optional 3rd)
     const [streamTier, setStreamTier] = useState('main-webrtc');
     const [isPlaying, setIsPlaying] = useState(true);
-    const [refreshInterval, setRefreshInterval] = useState(1500);
+    const [refreshInterval, setRefreshInterval] = useState(350); // 350ms default for ultra-smooth low latency
+    const isFetchingRef = useRef(false);
+    const timerRef = useRef(null);
 
     // Digital Zoom & Pan
     const [zoomLevel, setZoomLevel] = useState(1);
@@ -84,34 +86,44 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
         return () => clearInterval(interval);
     }, [checkStatus]);
 
-    // ── Rock-Solid Frame Fetcher (Used for Snapshot Mode & WebRTC fallback) ──
+    // ── Ultra-Low Latency Adaptive Pipelined Frame Fetcher ──
     const fetchNextFrame = useCallback(() => {
-        if (!isPlaying) return;
+        if (!isPlaying || isFetchingRef.current) return;
 
+        isFetchingRef.current = true;
         const nextUrl = `/om/camera/snapshot/${activeProfile}?t=${Date.now()}`;
         const bufferImg = new Image();
 
         bufferImg.onload = () => {
+            isFetchingRef.current = false;
             setCurrentFrameUrl(nextUrl);
             setIsBuffering(false);
             setFrameCount(c => c + 1);
             setLastFrameTime(new Date().toLocaleTimeString());
+
+            if (isPlaying) {
+                timerRef.current = setTimeout(fetchNextFrame, refreshInterval);
+            }
         };
 
         bufferImg.onerror = () => {
-            console.warn('[CameraMonitoring] Snapshot frame skipped; retaining last good frame.');
+            isFetchingRef.current = false;
+            if (isPlaying) {
+                timerRef.current = setTimeout(fetchNextFrame, Math.max(refreshInterval, 400));
+            }
         };
 
         bufferImg.src = nextUrl;
-    }, [isPlaying, activeProfile]);
+    }, [isPlaying, activeProfile, refreshInterval]);
 
     useEffect(() => {
         if (isPlaying) {
             fetchNextFrame();
-            const timer = setInterval(fetchNextFrame, refreshInterval);
-            return () => clearInterval(timer);
         }
-    }, [isPlaying, refreshInterval, fetchNextFrame]);
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [isPlaying, activeProfile, refreshInterval, fetchNextFrame]);
 
     // ── WebRTC WHEP Engine ──
     const stopWebRTC = useCallback(() => {
@@ -372,6 +384,26 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                     <Button size="1" variant="surface" color="gray" onClick={handleDownloadFrame} style={{ borderRadius: 8 }}>
                                         <ArrowDownTrayIcon width={14} height={14} /> Save Frame
                                     </Button>
+
+                                    <Flex align="center" gap="1" style={{ marginLeft: 4 }}>
+                                        <Text size="1" color="gray">Rate:</Text>
+                                        {[
+                                            [300, '300ms'],
+                                            [600, '600ms'],
+                                            [1500, '1.5s'],
+                                        ].map(([ms, label]) => (
+                                            <Button
+                                                key={ms}
+                                                size="1"
+                                                variant={refreshInterval === ms ? 'solid' : 'ghost'}
+                                                color="cyan"
+                                                onClick={() => setRefreshInterval(ms)}
+                                                style={{ borderRadius: 4, padding: '2px 6px', height: 22, fontSize: 10 }}
+                                            >
+                                                {label}
+                                            </Button>
+                                        ))}
+                                    </Flex>
                                 </Flex>
 
                                 {/* Focus Presets & Zoom */}
