@@ -367,16 +367,21 @@ const OffboardingPage = ({
                                                         <Table.Cell>
                                                             <Flex align="center" gap="2">
                                                                 <Avatar
-                                                                    fallback={(item.employee?.name || '?').charAt(0).toUpperCase()}
+                                                                    fallback={(item.employee?.name || item.employee_id || '?').charAt(0).toUpperCase()}
                                                                     size="2"
                                                                     radius="full"
                                                                 />
                                                                 <Box>
-                                                                    <Text size="2" weight="bold" style={{ display: 'block' }}>
-                                                                        {item.employee?.name || 'Unknown'}
-                                                                    </Text>
+                                                                    <Flex align="center" gap="2">
+                                                                        <Text size="2" weight="bold" style={{ display: 'block' }}>
+                                                                            {item.employee?.name || `Employee #${item.employee_id}`}
+                                                                        </Text>
+                                                                        {item.status === 'completed' && (
+                                                                            <Badge color="gray" variant="surface" size="1">Ex-Employee</Badge>
+                                                                        )}
+                                                                    </Flex>
                                                                     <Text size="1" color="gray">
-                                                                        {item.employee?.employee_id} · {item.employee?.department?.name || 'General'}
+                                                                        {item.employee?.employee_id || item.employee_id} · {item.employee?.designation?.title ? `${item.employee.designation.title} · ` : ''}{item.employee?.department?.name || 'General'}
                                                                     </Text>
                                                                 </Box>
                                                             </Flex>
@@ -474,16 +479,16 @@ const OffboardingPage = ({
                                                     <Table.Cell>
                                                         <Flex align="center" gap="2">
                                                             <Avatar
-                                                                fallback={(c.employee?.name || '?').charAt(0).toUpperCase()}
+                                                                fallback={(c.employee?.name || c.user_id || '?').charAt(0).toUpperCase()}
                                                                 size="2"
                                                                 radius="full"
                                                             />
                                                             <Box>
                                                                 <Text size="2" weight="bold" style={{ display: 'block' }}>
-                                                                    {c.employee?.name || c.user_id}
+                                                                    {c.employee?.name || `Employee #${c.user_id}`}
                                                                 </Text>
                                                                 <Text size="1" color="gray">
-                                                                    {c.user_id} · {c.employee?.department?.name || 'General'}
+                                                                    {c.user_id} · {c.employee?.designation?.title ? `${c.employee.designation.title} · ` : ''}{c.employee?.department?.name || 'General'}
                                                                 </Text>
                                                             </Box>
                                                         </Flex>
@@ -693,7 +698,7 @@ const OffboardingPage = ({
                     {selectedOffboarding && (
                         <>
                             <Dialog.Title>
-                                Clearance Checklist — {selectedOffboarding.employee?.name}
+                                Clearance Checklist — {selectedOffboarding.employee?.name || `Employee #${selectedOffboarding.employee_id}`}
                             </Dialog.Title>
                             <Dialog.Description size="2" mb="4">
                                 Track departmental clearance and asset handover. Click a task to mark completed.

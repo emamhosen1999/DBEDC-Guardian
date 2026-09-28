@@ -416,12 +416,12 @@ class User extends Authenticatable implements HasMedia
 
     public function designation(): BelongsTo
     {
-        return $this->belongsTo(Designation::class, 'designation_id');
+        return $this->belongsTo(Designation::class, 'designation_id')->withTrashed();
     }
 
     public function department(): BelongsTo
     {
-        return $this->belongsTo(Department::class, 'department_id');
+        return $this->belongsTo(Department::class, 'department_id')->withTrashed();
     }
 
     /**

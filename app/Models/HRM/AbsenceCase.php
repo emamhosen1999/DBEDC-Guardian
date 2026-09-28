@@ -49,7 +49,7 @@ class AbsenceCase extends Model
 
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id', 'employee_id');
+        return $this->belongsTo(User::class, 'user_id', 'employee_id')->withTrashed();
     }
 
     public function offboarding(): BelongsTo
