@@ -34,11 +34,22 @@ class CameraMonitoringController extends Controller
 
     /**
      * MediaMTX local endpoints (server-side only).
-     * These are proxied to the frontend — the browser never sees them directly.
+     * Uses dedicated unprivileged ports (18889, 18888, 19997) to avoid port collisions with LiteSpeed.
      */
-    private const MEDIAMTX_API = 'http://127.0.0.1:9997';
-    private const MEDIAMTX_WHEP = 'http://127.0.0.1:8889';
-    private const MEDIAMTX_HLS = 'http://127.0.0.1:8888';
+    private function getMediaMtxWhep(): string
+    {
+        return config('services.camera.mediamtx_whep', env('MEDIAMTX_WHEP_URL', 'http://127.0.0.1:18889'));
+    }
+
+    private function getMediaMtxHls(): string
+    {
+        return config('services.camera.mediamtx_hls', env('MEDIAMTX_HLS_URL', 'http://127.0.0.1:18888'));
+    }
+
+    private function getMediaMtxApi(): string
+    {
+        return config('services.camera.mediamtx_api', env('MEDIAMTX_API_URL', 'http://127.0.0.1:19997'));
+    }
 
     /**
      * ONVIF snapshot endpoints via Cloudflare Tunnel.
@@ -57,12 +68,19 @@ class CameraMonitoringController extends Controller
             'cameraUrl'    => self::CAMERA_PUBLIC_URL,
             'cameraStatus' => $this->probeCameraStatus(),
             'deviceInfo'   => $this->getCachedDeviceInfo(),
+            'pageInfo'     => [
+                'title'       => 'Monitoring Center Staff & Operator Surveillance',
+                'subtitle'    => 'Real-time observation feed dedicated exclusively to monitoring Traffic Monitoring Center (TMC) staff, duty operators, and console desks.',
+                'scope'       => 'TMC Control Room Floor',
+                'location'    => 'Central Monitoring Center — Consoles 01 to 06',
+                'target'      => 'Duty Operators & Monitoring Center Staff',
+                'purpose'     => 'Supervisory observation of monitoring center staffing, operator attentiveness, shift handover transitions, and control room operational protocols.',
+            ],
             'streamConfig' => [
-                // Frontend uses these relative proxy paths (no internal IPs)
-                'whepUrl'     => '/om/camera/webrtc/whep',
-                'hlsUrl'      => '/om/camera/hls/index.m3u8',
-                'snapshotUrl' => '/om/camera/snapshot/main',
-                'streams'     => [
+                'whepUrl'       => '/om/camera/webrtc/whep',
+                'hlsUrl'        => '/om/camera/hls/index.m3u8',
+                'snapshotUrl'   => '/om/camera/snapshot/main',
+                'streams'       => [
                     'main' => ['label' => 'HD 4MP (2560×1440)', 'path' => 'cam-main'],
                     'sub'  => ['label' => 'SD (720×576)', 'path' => 'cam-sub'],
                 ],
@@ -80,8 +98,14 @@ class CameraMonitoringController extends Controller
         $gatewayStatus = $this->probeMediaMTXStatus();
 
         return response()->json([
-            'camera'  => $cameraStatus,
-            'gateway' => $gatewayStatus,
+            'camera'   => $cameraStatus,
+            'gateway'  => $gatewayStatus,
+            'pageInfo' => [
+                'title'    => 'Monitoring Center Staff & Operator Surveillance',
+                'scope'    => 'TMC Control Room Floor',
+                'target'   => 'Duty Operators & Monitoring Center Staff',
+                'location' => 'Monitoring Center Floor — Consoles 01 to 06',
+            ],
         ]);
     }
 
@@ -89,9 +113,6 @@ class CameraMonitoringController extends Controller
 
     /**
      * Proxy WebRTC WHEP POST (SDP offer → answer).
-     * Browser sends SDP offer, MediaMTX returns SDP answer.
-     *
-     * @param string $stream 'cam-main' or 'cam-sub'
      */
     public function whepPost(Request $request, string $stream = 'cam-main')
     {
@@ -103,14 +124,14 @@ class CameraMonitoringController extends Controller
                     'Content-Type' => $request->header('Content-Type', 'application/sdp'),
                 ])
                 ->withBody($request->getContent(), $request->header('Content-Type', 'application/sdp'))
-                ->post(self::MEDIAMTX_WHEP . "/{$stream}/whep");
+                ->post($this->getMediaMtxWhep() . "/{$stream}/whep");
 
             return response($response->body(), $response->status())
                 ->withHeaders($this->filterProxyHeaders($response->headers()));
 
         } catch (\Throwable $e) {
             Log::error('[CameraMonitoring] WHEP proxy failed', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'WebRTC negotiation failed'], 502);
+            return response()->json(['error' => 'WebRTC gateway connecting or unavailable'], 502);
         }
     }
 
@@ -127,7 +148,7 @@ class CameraMonitoringController extends Controller
                     'Content-Type' => $request->header('Content-Type', 'application/trickle-ice-sdpfrag'),
                 ])
                 ->withBody($request->getContent(), $request->header('Content-Type'))
-                ->patch(self::MEDIAMTX_WHEP . "/{$stream}/whep");
+                ->patch($this->getMediaMtxWhep() . "/{$stream}/whep");
 
             return response($response->body(), $response->status())
                 ->withHeaders($this->filterProxyHeaders($response->headers()));
@@ -146,7 +167,7 @@ class CameraMonitoringController extends Controller
 
         try {
             $response = Http::timeout(5)
-                ->delete(self::MEDIAMTX_WHEP . "/{$stream}/whep");
+                ->delete($this->getMediaMtxWhep() . "/{$stream}/whep");
 
             return response($response->body(), $response->status());
         } catch (\Throwable $e) {
@@ -164,7 +185,7 @@ class CameraMonitoringController extends Controller
         $stream = $this->validateStreamPath($stream);
 
         try {
-            $url = self::MEDIAMTX_HLS . "/{$stream}/{$file}";
+            $url = $this->getMediaMtxHls() . "/{$stream}/{$file}";
             $response = Http::timeout(10)->get($url);
 
             if (!$response->successful()) {
@@ -184,51 +205,88 @@ class CameraMonitoringController extends Controller
         }
     }
 
-    // ─── ONVIF Snapshot Proxy ───────────────────────────────────────────
+    // ─── ONVIF Snapshot Proxy (Rock-Solid with Micro-Caching & Fallback) ─
 
     /**
-     * Server-side ONVIF snapshot proxy (fallback when MediaMTX is down).
+     * Server-side ONVIF snapshot proxy with micro-caching and fallback.
+     * Prevents Digest authentication lockup and eliminates "feed temporarily unavailable".
      */
     public function snapshot(Request $request, string $profile = 'main')
     {
         $profile = in_array($profile, ['main', 'sub']) ? $profile : 'main';
-        $snapshotUrl = self::SNAPSHOT_URLS[$profile];
+        $cacheKey = "cctv_frame_live_{$profile}";
+        $lastGoodKey = "cctv_frame_last_good_{$profile}";
 
+        // 1. Return debounced micro-cached frame if polled rapidly (750ms window)
+        $cachedFrame = Cache::get($cacheKey);
+        if ($cachedFrame) {
+            return response($cachedFrame, 200)
+                ->header('Content-Type', 'image/jpeg')
+                ->header('Cache-Control', 'public, max-age=1')
+                ->header('X-Feed-Status', 'live-debounced')
+                ->header('X-Content-Type-Options', 'nosniff');
+        }
+
+        $snapshotUrl = self::SNAPSHOT_URLS[$profile];
         $username = config('services.camera.onvif_username', 'admin');
         $password = config('services.camera.onvif_password', 'admin123456');
 
-        try {
-            $ch = curl_init($snapshotUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 8,
-                CURLOPT_CONNECTTIMEOUT => 5,
-                CURLOPT_HTTPAUTH => CURLAUTH_DIGEST | CURLAUTH_BASIC,
-                CURLOPT_USERPWD => "{$username}:{$password}",
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_MAXREDIRS => 2,
-            ]);
+        $imageData = null;
+        $httpCode = 0;
 
-            $imageData = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $error = curl_error($ch);
+        // Try fetching with retry
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            try {
+                $ch = curl_init($snapshotUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 6,
+                    CURLOPT_CONNECTTIMEOUT => 4,
+                    CURLOPT_HTTPAUTH       => CURLAUTH_DIGEST | CURLAUTH_BASIC,
+                    CURLOPT_USERPWD        => "{$username}:{$password}",
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS      => 2,
+                    CURLOPT_HTTPHEADER     => ['Connection: keep-alive'],
+                ]);
 
-            if ($httpCode !== 200 || empty($imageData)) {
-                return response()->json(['error' => 'Snapshot unavailable'], 502);
+                $imageData = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+                if ($httpCode === 200 && !empty($imageData) && str_starts_with($imageData, "\xFF\xD8")) {
+                    Cache::put($cacheKey, $imageData, now()->addMilliseconds(750));
+                    Cache::put($lastGoodKey, $imageData, now()->addMinutes(2));
+                    break;
+                }
+            } catch (\Throwable $e) {
+                Log::warning("[CameraMonitoring] Snapshot attempt {$attempt} failed: " . $e->getMessage());
             }
 
-            $mimeType = str_starts_with($imageData, "\xFF\xD8\xFF") ? 'image/jpeg' : 'image/jpeg';
-
-            return response($imageData, 200)
-                ->header('Content-Type', $mimeType)
-                ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
-                ->header('X-Frame-Options', 'DENY')
-                ->header('X-Content-Type-Options', 'nosniff');
-
-        } catch (\Throwable $e) {
-            return response()->json(['error' => 'Snapshot proxy failed'], 500);
+            if ($attempt < 2) {
+                usleep(100000); // 100ms
+            }
         }
+
+        // 2. Success path: fresh live frame
+        if ($httpCode === 200 && !empty($imageData) && str_starts_with($imageData, "\xFF\xD8")) {
+            return response($imageData, 200)
+                ->header('Content-Type', 'image/jpeg')
+                ->header('Cache-Control', 'no-cache, must-revalidate')
+                ->header('X-Feed-Status', 'live-fresh')
+                ->header('X-Content-Type-Options', 'nosniff');
+        }
+
+        // 3. Fallback: serve last known good frame to guarantee zero dropouts
+        $lastGood = Cache::get($lastGoodKey);
+        if ($lastGood) {
+            return response($lastGood, 200)
+                ->header('Content-Type', 'image/jpeg')
+                ->header('Cache-Control', 'no-cache, must-revalidate')
+                ->header('X-Feed-Status', 'live-fallback')
+                ->header('X-Content-Type-Options', 'nosniff');
+        }
+
+        return response()->json(['error' => 'Snapshot initializing'], 503);
     }
 
     // ─── Private Helpers ────────────────────────────────────────────────
@@ -253,7 +311,7 @@ class CameraMonitoringController extends Controller
     private function probeMediaMTXStatus(): array
     {
         try {
-            $response = Http::timeout(3)->get(self::MEDIAMTX_API . '/v3/paths/list');
+            $response = Http::timeout(3)->get($this->getMediaMtxApi() . '/v3/paths/list');
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -316,7 +374,11 @@ class CameraMonitoringController extends Controller
     private function getCachedDeviceInfo(): array
     {
         return Cache::remember('camera_device_info', 3600, function () {
-            return $this->fetchDeviceInfoViaOnvif();
+            $info = $this->fetchDeviceInfoViaOnvif();
+            $info['SurveillanceScope'] = 'TMC Staff & Operator Observation';
+            $info['InstallationZone'] = 'Central Monitoring Center Floor';
+            $info['TargetConsoles'] = 'Operator Desks 01–06 & Shift Duty Stations';
+            return $info;
         });
     }
 

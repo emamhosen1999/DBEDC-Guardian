@@ -257,10 +257,10 @@ export const getPages = (roles, permissions, auth = null) => {
               description: 'Digital shift logbook and operator handover records',
             }] : []),
             ...(can('monitoring.camera.view') ? [{
-              name: 'CCTV Camera',
+              name: 'Staff & Operator CCTV',
               icon: <VideoCameraIcon />,
               route: 'om.camera',
-              description: 'Live CCTV surveillance via Cloudflare Tunnel (HOLOWITS 4MP)',
+              description: 'TMC monitoring center staff, duty operators & console surveillance',
             }] : []),
           ],
         }] : []),
