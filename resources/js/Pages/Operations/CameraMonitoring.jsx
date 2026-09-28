@@ -14,6 +14,8 @@ import {
     MagnifyingGlassPlusIcon,
     MagnifyingGlassMinusIcon,
     ArrowUturnLeftIcon,
+    TvIcon,
+    PhotoIcon,
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
@@ -21,8 +23,10 @@ import { Panel } from '@/Components/ui/Panel';
 /**
  * TMC Monitoring Center — Staff & Operator Surveillance
  *
- * Real-time observation feed dedicated exclusively to supervising
- * Traffic Monitoring Center (TMC) staff, duty operators, and console desks.
+ * Stream Hierarchy:
+ * 1. Primary Default: Main 4MP WebRTC Live Stream (2560×1440 @ 25fps)
+ * 2. Secondary: Sub SD WebRTC Stream (720×576 @ 25fps)
+ * 3. Tertiary / Optional: Snapshot Mode (Periodic frame polling)
  */
 
 const STATUS_POLL_INTERVAL = 30000;
@@ -31,25 +35,33 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
     const [status, setStatus] = useState(initialStatus || null);
     const [isChecking, setIsChecking] = useState(false);
 
-    // Profile & Controls
-    const [activeStream, setActiveStream] = useState('main'); // 'main' (4MP UHD) | 'sub' (SD)
+    // ── 3-Tier Stream Selection ──
+    // 'main-webrtc' (Primary 4MP) | 'sub-webrtc' (Secondary SD) | 'snapshot' (Optional 3rd)
+    const [streamTier, setStreamTier] = useState('main-webrtc');
     const [isPlaying, setIsPlaying] = useState(true);
-    const [refreshInterval, setRefreshInterval] = useState(1500); // 1.5s default
+    const [refreshInterval, setRefreshInterval] = useState(1500);
 
     // Digital Zoom & Pan
     const [zoomLevel, setZoomLevel] = useState(1);
     const [panX, setPanX] = useState(0);
     const [panY, setPanY] = useState(0);
 
-    // Double-buffered frame state (zero dropouts)
+    // Double-buffered frame state
     const [currentFrameUrl, setCurrentFrameUrl] = useState('');
     const [frameCount, setFrameCount] = useState(0);
     const [lastFrameTime, setLastFrameTime] = useState('');
     const [isBuffering, setIsBuffering] = useState(true);
 
-    const snapshotProfile = activeStream === 'main' ? 'main' : 'sub';
+    // WebRTC refs
+    const videoRef = useRef(null);
+    const pcRef = useRef(null);
+    const [webrtcConnected, setWebrtcConnected] = useState(false);
 
-    // ── Health Status Probe ──
+    const activeProfile = streamTier === 'sub-webrtc' ? 'sub' : 'main';
+    const streamPath = streamTier === 'sub-webrtc' ? 'cam-sub' : 'cam-main';
+    const isWebRtcMode = streamTier === 'main-webrtc' || streamTier === 'sub-webrtc';
+
+    // ── Telemetry Health Probe ──
     const checkStatus = useCallback(async () => {
         setIsChecking(true);
         try {
@@ -72,11 +84,11 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
         return () => clearInterval(interval);
     }, [checkStatus]);
 
-    // ── Double-Buffered Snapshot Fetcher ──
+    // ── Rock-Solid Frame Fetcher (Used for Snapshot Mode & WebRTC fallback) ──
     const fetchNextFrame = useCallback(() => {
         if (!isPlaying) return;
 
-        const nextUrl = `/om/camera/snapshot/${snapshotProfile}?t=${Date.now()}`;
+        const nextUrl = `/om/camera/snapshot/${activeProfile}?t=${Date.now()}`;
         const bufferImg = new Image();
 
         bufferImg.onload = () => {
@@ -87,12 +99,11 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
         };
 
         bufferImg.onerror = () => {
-            // Keep showing previous good frame without blanking the screen
             console.warn('[CameraMonitoring] Snapshot frame skipped; retaining last good frame.');
         };
 
         bufferImg.src = nextUrl;
-    }, [isPlaying, snapshotProfile]);
+    }, [isPlaying, activeProfile]);
 
     useEffect(() => {
         if (isPlaying) {
@@ -102,10 +113,73 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
         }
     }, [isPlaying, refreshInterval, fetchNextFrame]);
 
+    // ── WebRTC WHEP Engine ──
+    const stopWebRTC = useCallback(() => {
+        if (pcRef.current) {
+            try {
+                fetch(`/om/camera/webrtc/whep/${streamPath}`, { method: 'DELETE' }).catch(() => {});
+                pcRef.current.close();
+            } catch (_) {}
+            pcRef.current = null;
+        }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+        setWebrtcConnected(false);
+    }, [streamPath]);
+
+    const startWebRTC = useCallback(async () => {
+        stopWebRTC();
+        try {
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+                bundlePolicy: 'max-bundle',
+            });
+            pcRef.current = pc;
+
+            pc.addTransceiver('video', { direction: 'recvonly' });
+
+            pc.ontrack = (event) => {
+                if (videoRef.current && event.streams[0]) {
+                    videoRef.current.srcObject = event.streams[0];
+                    setWebrtcConnected(true);
+                    setIsBuffering(false);
+                }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            await new Promise(r => setTimeout(r, 600));
+
+            const res = await fetch(`/om/camera/webrtc/whep/${streamPath}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/sdp' },
+                body: pc.localDescription?.sdp || offer.sdp,
+            });
+
+            if (res.ok) {
+                const answer = await res.text();
+                await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+            }
+        } catch (err) {
+            console.warn('[CameraMonitoring] WebRTC initializing:', err);
+        }
+    }, [streamPath, stopWebRTC]);
+
+    useEffect(() => {
+        if (isWebRtcMode && isPlaying) {
+            startWebRTC();
+        } else {
+            stopWebRTC();
+        }
+        return () => stopWebRTC();
+    }, [isWebRtcMode, isPlaying, startWebRTC, stopWebRTC]);
+
     // ── Actions ──
     const handleDownloadFrame = () => {
         const a = document.createElement('a');
-        a.href = `/om/camera/snapshot/${snapshotProfile}?download=1&t=${Date.now()}`;
+        a.href = `/om/camera/snapshot/${activeProfile}?download=1&t=${Date.now()}`;
         a.download = `tmc-staff-cctv-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.jpg`;
         document.body.appendChild(a);
         a.click();
@@ -170,7 +244,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
             <Flex justify="center" p={{ initial: '2', sm: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 1600 }}>
                     <Panel>
-                        {/* ── Page Header (Consistent with Operations pages) ── */}
+                        {/* ── Page Header ── */}
                         <Box mb="3">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="3">
                                 <Flex align="center" gap="3">
@@ -201,7 +275,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                             </Badge>
                                         </Flex>
                                         <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
-                                            TMC Control Room Floor · Duty Operators & Staff Surveillance Feed
+                                            TMC Control Room Floor · Staff & Duty Operator Surveillance (4MP Ultra-HD)
                                         </Text>
                                     </Box>
                                 </Flex>
@@ -230,13 +304,13 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                         }}>
                             <InformationCircleIcon style={{ width: 20, height: 20, color: 'var(--cyan-9)', flexShrink: 0 }} />
                             <Text size="2" style={{ color: 'var(--cyan-11)', lineHeight: 1.4 }}>
-                                <strong>Monitoring Scope:</strong> This live observation feed is designated exclusively for supervising TMC monitoring center staff, duty operators at consoles 01–06, and shift operations inside the central monitoring room.
+                                <strong>Monitoring Scope:</strong> This live camera feed is dedicated exclusively to supervising TMC monitoring center staff, duty operators at consoles 01–06, and shift operations inside the central monitoring room.
                             </Text>
                         </Box>
 
                         <Separator size="4" mb="3" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                        {/* ── Controls Toolbar (Theme-Integrated Radix Bar) ── */}
+                        {/* ── Controls Toolbar (3-Tier Stream Selection) ── */}
                         <Panel tinted style={{
                             borderRadius: 12,
                             border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))',
@@ -245,25 +319,39 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                             background: 'var(--aero-surface, var(--color-background))',
                         }}>
                             <Flex justify="between" align="center" wrap="wrap" gap="3">
-                                {/* Resolution & Stream Controls */}
+                                {/* 3-Tier Stream Mode Buttons */}
                                 <Flex align="center" gap="2" wrap="wrap">
+                                    {/* Primary 4MP UHD */}
                                     <Button
                                         size="1"
-                                        variant={activeStream === 'main' ? 'solid' : 'soft'}
+                                        variant={streamTier === 'main-webrtc' ? 'solid' : 'soft'}
                                         color="cyan"
-                                        onClick={() => setActiveStream('main')}
-                                        style={{ borderRadius: 8, fontWeight: 700, padding: '4px 12px' }}
+                                        onClick={() => setStreamTier('main-webrtc')}
+                                        style={{ borderRadius: 8, fontWeight: 700, padding: '5px 12px' }}
                                     >
-                                        4MP UHD (2560×1440)
+                                        <TvIcon width={14} height={14} /> 4MP UHD Live (Primary)
                                     </Button>
+
+                                    {/* Secondary SD Stream */}
                                     <Button
                                         size="1"
-                                        variant={activeStream === 'sub' ? 'solid' : 'soft'}
+                                        variant={streamTier === 'sub-webrtc' ? 'solid' : 'soft'}
                                         color="gray"
-                                        onClick={() => setActiveStream('sub')}
-                                        style={{ borderRadius: 8, padding: '4px 10px' }}
+                                        onClick={() => setStreamTier('sub-webrtc')}
+                                        style={{ borderRadius: 8, padding: '5px 10px' }}
                                     >
-                                        SD Stream
+                                        <TvIcon width={14} height={14} /> SD Stream (Secondary)
+                                    </Button>
+
+                                    {/* Optional 3rd Snapshot Mode */}
+                                    <Button
+                                        size="1"
+                                        variant={streamTier === 'snapshot' ? 'solid' : 'soft'}
+                                        color="gray"
+                                        onClick={() => setStreamTier('snapshot')}
+                                        style={{ borderRadius: 8, padding: '5px 10px' }}
+                                    >
+                                        <PhotoIcon width={14} height={14} /> Snapshot (Optional)
                                     </Button>
 
                                     <Separator orientation="vertical" style={{ height: 18, margin: '0 4px' }} />
@@ -273,16 +361,12 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                         variant="soft"
                                         color={isPlaying ? 'amber' : 'cyan'}
                                         onClick={() => setIsPlaying(p => !p)}
-                                        style={{ borderRadius: 8, padding: '4px 10px' }}
+                                        style={{ borderRadius: 8, padding: '5px 10px' }}
                                     >
                                         {isPlaying
-                                            ? <><PauseIcon width={14} height={14} /> Pause Feed</>
-                                            : <><PlayIcon width={14} height={14} /> Resume Feed</>
+                                            ? <><PauseIcon width={14} height={14} /> Pause</>
+                                            : <><PlayIcon width={14} height={14} /> Play</>
                                         }
-                                    </Button>
-
-                                    <Button size="1" variant="ghost" color="gray" onClick={fetchNextFrame} title="Refresh Frame Now">
-                                        <ArrowPathIcon width={14} height={14} />
                                     </Button>
 
                                     <Button size="1" variant="surface" color="gray" onClick={handleDownloadFrame} style={{ borderRadius: 8 }}>
@@ -290,7 +374,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                     </Button>
                                 </Flex>
 
-                                {/* Focus Area Presets & Zoom */}
+                                {/* Focus Presets & Zoom */}
                                 <Flex align="center" gap="2" wrap="wrap">
                                     <Text size="1" color="gray" weight="medium">Focus Area:</Text>
                                     <Button size="1" variant={zoomLevel === 1 ? 'solid' : 'soft'} color="gray" onClick={() => handlePreset('full')} style={{ borderRadius: 6, fontSize: 11 }}>
@@ -333,7 +417,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                             </Flex>
                         </Panel>
 
-                        {/* ── Main Surveillance Screen (Properly Constrained Viewport) ── */}
+                        {/* ── Main Surveillance Screen ── */}
                         <Box
                             id="cctv-stage-viewport"
                             style={{
@@ -352,7 +436,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                 justifyContent: 'center',
                             }}
                         >
-                            {/* Zoomed / Panned Frame Container */}
+                            {/* Zoomed / Panned Screen Content */}
                             <div style={{
                                 width: '100%',
                                 height: '100%',
@@ -363,7 +447,24 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                 alignItems: 'center',
                                 justifyContent: 'center',
                             }}>
-                                {currentFrameUrl ? (
+                                {/* WebRTC Video Stream Element */}
+                                {isWebRtcMode && (
+                                    <video
+                                        ref={videoRef}
+                                        autoPlay
+                                        playsInline
+                                        muted
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'contain',
+                                            display: webrtcConnected ? 'block' : 'none',
+                                        }}
+                                    />
+                                )}
+
+                                {/* Double-Buffered Frame Image (Rendered in Snapshot mode & as WebRTC fallback) */}
+                                {(!webrtcConnected || !isWebRtcMode) && currentFrameUrl ? (
                                     <img
                                         src={currentFrameUrl}
                                         alt="TMC Monitoring Center Staff Surveillance"
@@ -379,7 +480,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                             </div>
 
                             {/* Buffering State */}
-                            {isBuffering && !currentFrameUrl && (
+                            {isBuffering && !currentFrameUrl && !webrtcConnected && (
                                 <Flex align="center" justify="center" style={{ position: 'absolute', inset: 0, zIndex: 2, background: '#050811' }}>
                                     <Flex direction="column" align="center" gap="2">
                                         <ArrowPathIcon style={{ width: 36, height: 36, color: 'var(--cyan-9)', animation: 'spin 1s linear infinite' }} />
@@ -405,7 +506,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                     animation: 'pulse 1.5s ease-in-out infinite',
                                 }} />
                                 <Text size="1" weight="bold" style={{ color: '#fff', fontFamily: 'monospace', letterSpacing: 0.5 }}>
-                                    LIVE · {activeStream === 'main' ? '4MP UHD' : 'SD'}
+                                    LIVE · {activeProfile === 'main' ? '4MP UHD' : 'SD'}
                                 </Text>
                                 <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace' }}>
                                     TMC FLOOR · OPERATOR DESKS
@@ -427,7 +528,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                                 </Text>
                             </Flex>
 
-                            {/* Bottom-Right Frame Counter */}
+                            {/* Bottom-Right Stream Info */}
                             <Box style={{
                                 position: 'absolute', bottom: 10, right: 14, zIndex: 3,
                                 background: 'rgba(0,0,0,0.7)',
@@ -437,7 +538,7 @@ export default function CameraMonitoring({ auth, cameraUrl, cameraStatus: initia
                             }}>
                                 <Text size="1" style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', fontSize: 10 }}>
                                     {zoomLevel > 1 ? `Zoom ${zoomLevel}x · ` : ''}
-                                    {`Frame #${frameCount} · Debounced`}
+                                    {webrtcConnected ? 'WebRTC WHEP Live' : `4MP Stream · Frame #${frameCount}`}
                                 </Text>
                             </Box>
                         </Box>
