@@ -37,7 +37,8 @@ import {
   PresentationChartLineIcon,
   CalculatorIcon,
   DocumentChartBarIcon,
-  AdjustmentsHorizontalIcon
+  AdjustmentsHorizontalIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
@@ -232,7 +233,7 @@ export const getPages = (roles, permissions, auth = null) => {
         }] : []),
 
         // 2. Traffic & Control Center (TMC)
-        ...(canAny(['om.traffic.view', 'om.equipment.view', 'om.shift.manage']) ? [{
+        ...(canAny(['om.traffic.view', 'om.equipment.view', 'om.shift.manage', 'monitoring.camera.view']) ? [{
           name: 'Traffic & Control (TMC)',
           icon: <ComputerDesktopIcon />,
           category: 'tmc',
@@ -254,6 +255,12 @@ export const getPages = (roles, permissions, auth = null) => {
               icon: <ClipboardDocumentCheckIcon />,
               route: 'om.shift-logs',
               description: 'Digital shift logbook and operator handover records',
+            }] : []),
+            ...(can('monitoring.camera.view') ? [{
+              name: 'CCTV Camera',
+              icon: <VideoCameraIcon />,
+              route: 'om.camera',
+              description: 'Live CCTV surveillance via Cloudflare Tunnel (HOLOWITS 4MP)',
             }] : []),
           ],
         }] : []),

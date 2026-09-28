@@ -1,0 +1,47 @@
+############################################################
+# MediaMTX — RTSP→WebRTC/HLS Gateway
+# DBEDC Guardian CCTV Camera Integration
+############################################################
+#
+# Ingests RTSP from HOLOWITS P4-4R(2.8)A via internal network
+# and serves browser-native WebRTC + HLS.
+#
+# Ports:
+#   8889 → WebRTC WHEP (primary, sub-second latency)
+#   8888 → HLS (fallback, broader compatibility)
+#   9997 → API (health checks)
+#   8554 → RTSP relay (internal only)
+#
+# Usage:
+#   docker compose -f docker/mediamtx/docker-compose.yml up -d
+#
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    container_name: dbedc-mediamtx
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      - MTX_LOGLEVEL=info
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:9997/v3/paths/list"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

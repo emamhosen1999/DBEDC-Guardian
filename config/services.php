@@ -60,4 +60,17 @@ return [
         'web_api_key' => env('FIREBASE_WEB_API_KEY', env('VITE_FIREBASE_API_KEY')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | CCTV Camera (ONVIF via Cloudflare Tunnel)
+    |--------------------------------------------------------------------------
+    | HOLOWITS P4-4R(2.8)A — ONVIF credentials for server-side snapshot
+    | proxy. These are NEVER exposed to frontend clients.
+    */
+    'camera' => [
+        'onvif_username' => env('CAMERA_ONVIF_USERNAME', 'admin'),
+        'onvif_password' => env('CAMERA_ONVIF_PASSWORD', 'admin123456'),
+        'public_url' => env('CAMERA_PUBLIC_URL', 'https://camera.dhakabypass.com'),
+    ],
+
 ];

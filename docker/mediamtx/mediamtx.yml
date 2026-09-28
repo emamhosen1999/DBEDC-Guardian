@@ -1,0 +1,80 @@
+###############################################
+# MediaMTX Configuration — DBEDC Guardian
+# RTSP→WebRTC/HLS Gateway for HOLOWITS Camera
+###############################################
+#
+# Camera: HOLOWITS P4-4R(2.8)A, Firmware SDC 11.1.1
+# RTSP Main: rtsp://11.151.14.67:554/LiveMedia/ch1/Media1  (2560x1440 H.264 25fps 4Mbps)
+# RTSP Sub:  rtsp://11.151.14.67:554/LiveMedia/ch1/Media2  (720x576 H.264 25fps 1Mbps)
+#
+
+###############
+# General
+###############
+logLevel: info
+logDestinations: [stdout]
+
+# API for health checks
+api: yes
+apiAddress: :9997
+
+###############
+# RTSP Server (internal relay, not exposed externally)
+###############
+rtsp: yes
+rtspAddress: :8554
+protocols: [tcp]
+rtspRangeType: clock
+
+###############
+# WebRTC (WHEP) — Primary browser output, sub-second latency
+###############
+webrtc: yes
+webrtcAddress: :8889
+webrtcEncryption: no
+webrtcAllowOrigin: '*'
+webrtcICEServers2: []
+webrtcICEHostNAT1To1IPs: []
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8189
+
+###############
+# HLS — Fallback for older browsers / mobile Safari
+###############
+hls: yes
+hlsAddress: :8888
+hlsEncryption: no
+hlsAllowOrigin: '*'
+hlsAlwaysRemux: yes
+hlsVariant: lowLatency
+hlsSegmentCount: 3
+hlsSegmentDuration: 500ms
+hlsPartDuration: 100ms
+
+###############
+# RTMP / SRT (disabled)
+###############
+rtmp: no
+srt: no
+
+###############
+# Camera Paths
+###############
+paths:
+  # Main stream — 4MP full resolution (2560x1440 H.264 25fps 4Mbps)
+  cam-main:
+    source: rtsp://admin:admin123456@11.151.14.67:554/LiveMedia/ch1/Media1
+    sourceProtocol: tcp
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 10s
+    sourceOnDemandCloseAfter: 60s
+    record: no
+
+  # Sub stream — lightweight (720x576 H.264 25fps 1Mbps)
+  cam-sub:
+    source: rtsp://admin:admin123456@11.151.14.67:554/LiveMedia/ch1/Media2
+    sourceProtocol: tcp
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 10s
+    sourceOnDemandCloseAfter: 30s
+    record: no

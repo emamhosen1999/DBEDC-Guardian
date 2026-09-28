@@ -39,6 +39,7 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ObjectionController;
+use App\Http\Controllers\CameraMonitoringController;
 use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\OmRenovationController;
 use App\Http\Controllers\OmLookupController;
@@ -1019,6 +1020,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:om.traffic.view')->name('om.traffic');
     Route::get('/om/daily-report', [OperationsMaintenanceController::class, 'dailyMaintenanceReport'])
         ->middleware('permission:om.dashboard.view')->name('om.daily-report');
+
+    // CCTV Camera Monitoring (via Cloudflare Tunnel & MediaMTX Gateway)
+    Route::get('/om/camera', [CameraMonitoringController::class, 'index'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera');
+    Route::get('/om/camera/status', [CameraMonitoringController::class, 'status'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera.status');
+    Route::get('/om/camera/snapshot/{profile?}', [CameraMonitoringController::class, 'snapshot'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera.snapshot')
+        ->where('profile', 'main|sub');
+    Route::post('/om/camera/webrtc/whep/{stream?}', [CameraMonitoringController::class, 'whepPost'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera.whep.post')
+        ->where('stream', 'cam-main|cam-sub');
+    Route::patch('/om/camera/webrtc/whep/{stream?}', [CameraMonitoringController::class, 'whepPatch'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera.whep.patch')
+        ->where('stream', 'cam-main|cam-sub');
+    Route::delete('/om/camera/webrtc/whep/{stream?}', [CameraMonitoringController::class, 'whepDelete'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera.whep.delete')
+        ->where('stream', 'cam-main|cam-sub');
+    Route::get('/om/camera/hls/{stream}/{file}', [CameraMonitoringController::class, 'hlsProxy'])
+        ->middleware('permission:monitoring.camera.view')->name('om.camera.hls')
+        ->where('stream', 'cam-main|cam-sub');
 
     // Dynamic O&M Lookups & Categories Management (Admin)
     Route::get('/om/lookups', [OmLookupController::class, 'index'])

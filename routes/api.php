@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
 use App\Http\Controllers\Api\V1\RosterController;
 use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
 use App\Http\Controllers\Api\VersionController;
+use App\Http\Controllers\CameraMonitoringController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\OmLookupController;
@@ -432,6 +433,25 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
         ->middleware('permission:om.dashboard.view')->name('api.v1.om.pavement.deterioration');
     Route::get('/om/its-rcm', [OmRenovationController::class, 'rcmReliability'])
         ->middleware('permission:om.equipment.view')->name('api.v1.om.its.rcm');
+
+    // CCTV Camera Monitoring & Streaming (Mobile)
+    Route::get('/om/camera/status', [CameraMonitoringController::class, 'status'])
+        ->middleware('permission:monitoring.camera.view')->name('api.v1.om.camera.status');
+    Route::get('/om/camera/snapshot/{profile?}', [CameraMonitoringController::class, 'snapshot'])
+        ->middleware('permission:monitoring.camera.view')->name('api.v1.om.camera.snapshot')
+        ->where('profile', 'main|sub');
+    Route::post('/om/camera/webrtc/whep/{stream?}', [CameraMonitoringController::class, 'whepPost'])
+        ->middleware('permission:monitoring.camera.view')->name('api.v1.om.camera.whep.post')
+        ->where('stream', 'cam-main|cam-sub');
+    Route::patch('/om/camera/webrtc/whep/{stream?}', [CameraMonitoringController::class, 'whepPatch'])
+        ->middleware('permission:monitoring.camera.view')->name('api.v1.om.camera.whep.patch')
+        ->where('stream', 'cam-main|cam-sub');
+    Route::delete('/om/camera/webrtc/whep/{stream?}', [CameraMonitoringController::class, 'whepDelete'])
+        ->middleware('permission:monitoring.camera.view')->name('api.v1.om.camera.whep.delete')
+        ->where('stream', 'cam-main|cam-sub');
+    Route::get('/om/camera/hls/{stream}/{file}', [CameraMonitoringController::class, 'hlsProxy'])
+        ->middleware('permission:monitoring.camera.view')->name('api.v1.om.camera.hls')
+        ->where('stream', 'cam-main|cam-sub');
 
     // Self-service account security (scoped to the authenticated user).
     Route::post('/account/change-password', [AccountSecurityController::class, 'changePassword'])->name('api.v1.account.change-password');

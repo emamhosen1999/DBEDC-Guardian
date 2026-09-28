@@ -67,6 +67,10 @@ return Application::configure(basePath: dirname(__DIR__))
             DisableCacheHeaders::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'om/camera/webrtc/whep*',
+        ]);
+
         $middleware->append(LogRequestMiddleware::class);
 
         // Register custom middleware aliases
