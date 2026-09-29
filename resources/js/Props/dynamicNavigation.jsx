@@ -230,12 +230,22 @@ export const getDynamicPages = (auth = null) => {
     .map(convertModule)
     .sort((a, b) => (a.priority || 999) - (b.priority || 999));
 
-  // If user has hr.offboarding.view, ensure it is in the HRM subMenu
+  // If user has hr.onboarding.view or hr.offboarding.view, ensure they are in the HRM subMenu
   const permissions = auth?.permissions || [];
+  const canOnboard = permissions.includes('hr.onboarding.view') || auth?.roles?.includes('Super Administrator');
   const canOffboard = permissions.includes('hr.offboarding.view') || auth?.roles?.includes('Super Administrator');
-  if (canOffboard) {
-    const hrm = navigation.find(m => m.code === 'hrm' || m.module === 'hrm');
-    if (hrm && hrm.subMenu && !hrm.subMenu.some(item => item.route === 'hr.offboarding.index')) {
+
+  const hrm = navigation.find(m => m.code === 'hrm' || m.module === 'hrm');
+  if (hrm && hrm.subMenu) {
+    if (canOnboard && !hrm.subMenu.some(item => item.route === 'hr.onboarding.index')) {
+      hrm.subMenu.push({
+        name: 'Onboarding',
+        icon: resolveIcon('UserPlusIcon', 'hrm'),
+        route: 'hr.onboarding.index',
+        code: 'hr.onboarding',
+      });
+    }
+    if (canOffboard && !hrm.subMenu.some(item => item.route === 'hr.offboarding.index')) {
       hrm.subMenu.push({
         name: 'Offboarding',
         icon: resolveIcon('ArrowRightOnRectangleIcon', 'hrm'),

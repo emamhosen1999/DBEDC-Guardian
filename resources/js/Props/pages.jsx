@@ -23,6 +23,7 @@ import {
   PhoneIcon,
   ScaleIcon,
   UserGroupIcon,
+  UserPlusIcon,
   UsersIcon,
   CurrencyDollarIcon,
   WrenchScrewdriverIcon,
@@ -144,6 +145,14 @@ export const getPages = (roles, permissions, auth = null) => {
           ]
         }] : []),
         
+        // Onboarding / Induction
+        ...(can('hr.onboarding.view') ? [{
+          name: 'Onboarding',
+          icon: <UserPlusIcon />,
+          category: 'hr',
+          route: 'hr.onboarding.index',
+        }] : []),
+
         // Offboarding / Separation
         ...(can('hr.offboarding.view') ? [{
           name: 'Offboarding',

@@ -4,6 +4,7 @@ namespace App\Services\Admin;
 
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricDevice;
+use App\Models\HRM\BiometricDeviceCommand;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
@@ -102,6 +103,9 @@ class UserManagementService
                 $user->addMedia($profileImage)->toMediaCollection('profile_images');
             }
 
+            // Automatically dispatch biometric user creation to physical hardware
+            $this->queueBiometricSync($user, 'ADD_USER');
+
             return $user->fresh(['department', 'designation', 'roles', 'currentDevice']);
         });
     }
@@ -165,6 +169,9 @@ class UserManagementService
                 $user->addMedia($profileImage)->toMediaCollection('profile_images');
             }
 
+            // Sync user changes to biometric hardware
+            $this->queueBiometricSync($user, 'UPDATE_USER');
+
             return $user->fresh(['department', 'designation', 'roles', 'currentDevice']);
         });
     }
@@ -174,6 +181,8 @@ class UserManagementService
      */
     public function deleteUser(User $user): void
     {
+        $this->queueBiometricSync($user, 'DELETE_USER');
+
         $user->delete();
     }
 
@@ -184,7 +193,47 @@ class UserManagementService
     {
         $user->restore();
 
+        $this->queueBiometricSync($user, 'ADD_USER');
+
         return $user->fresh(['department', 'designation', 'roles', 'currentDevice']);
+    }
+
+    /**
+     * Dispatch biometric device command to relevant terminals for this user.
+     */
+    public function queueBiometricSync(User $user, string $commandType = 'ADD_USER'): void
+    {
+        try {
+            $deviceIds = $user->resolvedBiometricDeviceIds();
+            $devices = empty($deviceIds)
+                ? BiometricDevice::where('is_active', true)->get()
+                : BiometricDevice::whereIn('id', $deviceIds)->where('is_active', true)->get();
+
+            foreach ($devices as $device) {
+                $payload = [
+                    'pin' => (string) $user->employee_id,
+                ];
+
+                if ($commandType !== 'DELETE_USER') {
+                    $payload['name'] = (string) $user->name;
+                    $payload['privilege'] = 0;
+                }
+
+                BiometricDeviceCommand::create([
+                    'biometric_device_id' => $device->id,
+                    'command_type' => $commandType,
+                    'payload' => $payload,
+                    'status' => BiometricDeviceCommand::STATUS_PENDING,
+                ]);
+            }
+
+            Log::info("UserManagementService: queued {$commandType} on {$devices->count()} devices for {$user->employee_id}");
+        } catch (\Throwable $e) {
+            Log::warning("UserManagementService: failed to queue {$commandType} biometric sync", [
+                'employee_id' => $user->employee_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     // ──────────────────────────────────────────────

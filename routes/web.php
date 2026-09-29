@@ -31,6 +31,7 @@ use App\Http\Controllers\HRM\RosterController;
 use App\Http\Controllers\HRM\ShiftController;
 use App\Http\Controllers\HRM\ShiftSwapController;
 use App\Http\Controllers\HRM\OffboardingController;
+use App\Http\Controllers\HRM\OnboardingController;
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveBalanceController;
 use App\Http\Controllers\LeaveController;
@@ -765,6 +766,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/attendance/policies', [PolicyController::class, 'store'])->name('attendance.policies.store');
         Route::put('/attendance/policies/{id}', [PolicyController::class, 'update'])->name('attendance.policies.update');
         Route::post('/attendance/policies/{id}/activate', [PolicyController::class, 'activate'])->name('attendance.policies.activate');
+    });
+
+    // ── HR Onboarding ───────────────────────────────────────────────────────
+    Route::middleware(['permission:hr.onboarding.view'])->group(function () {
+        Route::get('/hr/onboarding', [OnboardingController::class, 'index'])->name('hr.onboarding.index');
+        Route::get('/hr/onboarding/eligible-employees', [OnboardingController::class, 'eligibleEmployees'])->name('hr.onboarding.eligible');
+        Route::get('/hr/onboarding/{id}', [OnboardingController::class, 'show'])->name('hr.onboarding.show');
+    });
+
+    Route::middleware(['permission:hr.onboarding.create'])->group(function () {
+        Route::post('/hr/onboarding', [OnboardingController::class, 'store'])->name('hr.onboarding.store');
+    });
+
+    Route::middleware(['permission:hr.onboarding.update'])->group(function () {
+        Route::put('/hr/onboarding/{id}', [OnboardingController::class, 'update'])->name('hr.onboarding.update');
+        Route::patch('/hr/onboarding/{id}/tasks/{taskId}', [OnboardingController::class, 'updateTask'])->name('hr.onboarding.tasks.update');
+        Route::post('/hr/onboarding/{id}/sync-biometric', [OnboardingController::class, 'syncBiometric'])->name('hr.onboarding.syncBiometric');
+    });
+
+    Route::middleware(['permission:hr.onboarding.delete'])->group(function () {
+        Route::delete('/hr/onboarding/{id}', [OnboardingController::class, 'destroy'])->name('hr.onboarding.destroy');
     });
 
     // ── HR Offboarding ──────────────────────────────────────────────────────
