@@ -1070,4 +1070,22 @@ class UserController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Confirm an employee upon successful probation completion (BLA s.4(4)).
+     */
+    public function confirmEmployee(Request $request, $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+        $user->update([
+            'employment_status' => 'confirmed',
+            'confirmation_date' => now()->toDateString(),
+            'probation_notes' => $request->input('notes', 'Probation successfully completed and confirmed as permanent staff.'),
+        ]);
+
+        return response()->json([
+            'message' => "Employee {$user->name} has been confirmed as permanent staff.",
+            'user' => $user->fresh(['department', 'designation']),
+        ]);
+    }
 }

@@ -32,6 +32,9 @@ use App\Http\Controllers\HRM\ShiftController;
 use App\Http\Controllers\HRM\ShiftSwapController;
 use App\Http\Controllers\HRM\OffboardingController;
 use App\Http\Controllers\HRM\OnboardingController;
+use App\Http\Controllers\HRM\AssetController;
+use App\Http\Controllers\HRM\SettlementController;
+use App\Http\Controllers\HRM\PayrollController;
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveBalanceController;
 use App\Http\Controllers\LeaveController;
@@ -811,6 +814,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:hr.offboarding.delete'])->group(function () {
         Route::delete('/hr/offboarding/{id}', [OffboardingController::class, 'destroy'])->name('hr.offboarding.destroy');
     });
+
+    // ── HR Assets (Equipment & Property Handover) ───────────────────────────
+    Route::middleware(['permission:employees.view'])->group(function () {
+        Route::get('/hr/assets', [AssetController::class, 'index'])->name('hr.assets.index');
+        Route::get('/hr/assets/by-employee/{employeeId}', [AssetController::class, 'byEmployee'])->name('hr.assets.byEmployee');
+        Route::post('/hr/assets', [AssetController::class, 'store'])->name('hr.assets.store');
+        Route::put('/hr/assets/{id}', [AssetController::class, 'update'])->name('hr.assets.update');
+        Route::post('/hr/assets/{id}/assign', [AssetController::class, 'assign'])->name('hr.assets.assign');
+        Route::post('/hr/assets/{id}/return', [AssetController::class, 'returnAsset'])->name('hr.assets.return');
+        Route::delete('/hr/assets/{id}', [AssetController::class, 'destroy'])->name('hr.assets.destroy');
+    });
+
+    // ── HR Full & Final Settlement (F&F) ────────────────────────────────────
+    Route::middleware(['permission:hr.offboarding.view'])->group(function () {
+        Route::get('/hr/offboarding/{id}/settlement/calculate', [SettlementController::class, 'calculate'])->name('hr.settlement.calculate');
+        Route::get('/hr/offboarding/{id}/certificate/{type}', [SettlementController::class, 'printCertificate'])->name('hr.settlement.certificate');
+    });
+
+    Route::middleware(['permission:hr.offboarding.update'])->group(function () {
+        Route::post('/hr/offboarding/settlement', [SettlementController::class, 'store'])->name('hr.settlement.store');
+        Route::post('/hr/offboarding/settlement/{id}/approve', [SettlementController::class, 'approve'])->name('hr.settlement.approve');
+        Route::post('/hr/offboarding/settlement/{id}/disburse', [SettlementController::class, 'disburse'])->name('hr.settlement.disburse');
+    });
+
+    // ── HR Payroll & Compensation ───────────────────────────────────────────
+    Route::middleware(['permission:employees.view'])->group(function () {
+        Route::get('/hr/payroll', [PayrollController::class, 'index'])->name('hr.payroll.index');
+        Route::post('/hr/payroll/generate', [PayrollController::class, 'generate'])->name('hr.payroll.generate');
+        Route::get('/hr/payroll/payslip/{id}', [PayrollController::class, 'payslip'])->name('hr.payroll.payslip');
+    });
+
+    // ── HR Employee Confirmation ────────────────────────────────────────────
+    Route::middleware(['permission:employees.edit'])->post('/employees/{id}/confirm', [UserController::class, 'confirmEmployee'])->name('employees.confirm');
 
     // Task management routes
     Route::middleware(['permission:tasks.view'])->group(function () {

@@ -84,6 +84,10 @@ class User extends Authenticatable implements HasMedia
         'name',
         'profile_image',
         'date_of_joining',
+        'employment_status',
+        'probation_end_date',
+        'confirmation_date',
+        'probation_notes',
         'birthday',
         'gender',
         'address',
@@ -176,6 +180,8 @@ class User extends Authenticatable implements HasMedia
         'single_device_login_enabled' => 'boolean',
         'device_reset_at' => 'datetime',
         'sync_epoch' => 'integer',
+        'probation_end_date' => 'date',
+        'confirmation_date' => 'date',
     ];
 
     /**
@@ -412,6 +418,22 @@ class User extends Authenticatable implements HasMedia
         return $this->hasOne(Offboarding::class, 'employee_id')
             ->where('status', '!=', Offboarding::STATUS_CANCELLED)
             ->orderByDesc('last_working_date');
+    }
+
+    public function assets(): HasMany
+    {
+        return $this->hasMany(\App\Models\HRM\Asset::class, 'assignee_id', 'employee_id');
+    }
+
+    public function activeAssets(): HasMany
+    {
+        return $this->hasMany(\App\Models\HRM\Asset::class, 'assignee_id', 'employee_id')
+            ->where('status', \App\Models\HRM\Asset::STATUS_ASSIGNED);
+    }
+
+    public function finalSettlement(): HasOne
+    {
+        return $this->hasOne(\App\Models\HRM\FinalSettlement::class, 'employee_id', 'employee_id');
     }
 
     public function designation(): BelongsTo

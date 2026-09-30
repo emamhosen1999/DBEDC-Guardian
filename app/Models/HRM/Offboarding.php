@@ -100,6 +100,11 @@ class Offboarding extends Model
         return $this->hasMany(OffboardingTask::class);
     }
 
+    public function finalSettlement(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(FinalSettlement::class);
+    }
+
     // Accessors / Helpers
     public function getProgressAttribute(): float
     {

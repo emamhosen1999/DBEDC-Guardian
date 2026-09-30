@@ -40,6 +40,7 @@ import {
   DocumentChartBarIcon,
   AdjustmentsHorizontalIcon,
   VideoCameraIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
@@ -159,6 +160,22 @@ export const getPages = (roles, permissions, auth = null) => {
           icon: <ArrowRightOnRectangleIcon />,
           category: 'hr',
           route: 'hr.offboarding.index',
+        }] : []),
+
+        // Asset Management
+        ...(can('employees.view') ? [{
+          name: 'Asset Management',
+          icon: <ArchiveBoxIcon />,
+          category: 'hr',
+          route: 'hr.assets.index',
+        }] : []),
+
+        // Payroll & Compensation
+        ...(can('employees.view') ? [{
+          name: 'Payroll',
+          icon: <BanknotesIcon />,
+          category: 'hr',
+          route: 'hr.payroll.index',
         }] : []),
 
         /* HR Documents — enable when Inertia pages + HrDocumentController exist */

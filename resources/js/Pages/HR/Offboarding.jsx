@@ -34,6 +34,8 @@ import {
     ClockIcon,
     CheckIcon,
     ReloadIcon,
+    DownloadIcon,
+    Share2Icon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -122,6 +124,24 @@ const OffboardingPage = ({
     const [resolveAction, setResolveAction] = useState('regularize');
     const [resolveNotes, setResolveNotes] = useState('');
     const [isResolving, setIsResolving] = useState(false);
+
+    // F&F Settlement modal state
+    const [isSettlementOpen, setIsSettlementOpen] = useState(false);
+    const [settlementData, setSettlementData] = useState(null);
+    const [isLoadingSettlement, setIsLoadingSettlement] = useState(false);
+    const [isSavingSettlement, setIsSavingSettlement] = useState(false);
+    const [settlementError, setSettlementError] = useState('');
+
+    // Assets in clearance
+    const [employeeAssets, setEmployeeAssets] = useState([]);
+    const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+    const [returningAssetId, setReturningAssetId] = useState(null);
+
+    // Certificate modal state
+    const [isCertificateOpen, setIsCertificateOpen] = useState(false);
+    const [certificateData, setCertificateData] = useState(null);
+    const [isLoadingCertificate, setIsLoadingCertificate] = useState(false);
+    const [certificateType, setCertificateType] = useState('experience');
 
     const openCreateModal = async () => {
         setIsCreateOpen(true);
@@ -216,6 +236,109 @@ const OffboardingPage = ({
             console.error('Failed to resolve case', e);
         } finally {
             setIsResolving(false);
+        }
+    };
+
+    // ── F&F Settlement Handlers ──────────────────────────────────────────
+    const openSettlementModal = async (item) => {
+        setIsSettlementOpen(true);
+        setIsLoadingSettlement(true);
+        setSettlementError('');
+        setSettlementData(null);
+        try {
+            const res = await axios.get(`/hr/offboarding/${item.id}/settlement/calculate`);
+            setSettlementData(res.data);
+        } catch (e) {
+            setSettlementError(e.response?.data?.message || 'Failed to calculate settlement.');
+        } finally {
+            setIsLoadingSettlement(false);
+        }
+    };
+
+    const handleSaveSettlement = async () => {
+        if (!settlementData) return;
+        setIsSavingSettlement(true);
+        setSettlementError('');
+        try {
+            await axios.post('/hr/offboarding/settlement', settlementData);
+            setSettlementError('');
+            // Refresh calculation to show saved status
+            const res = await axios.get(`/hr/offboarding/${settlementData.offboarding_id}/settlement/calculate`);
+            setSettlementData(res.data);
+        } catch (e) {
+            setSettlementError(e.response?.data?.message || 'Failed to save settlement.');
+        } finally {
+            setIsSavingSettlement(false);
+        }
+    };
+
+    const handleApproveSettlement = async () => {
+        if (!settlementData?.existing_settlement?.id) return;
+        try {
+            await axios.post(`/hr/offboarding/settlement/${settlementData.existing_settlement.id}/approve`);
+            const res = await axios.get(`/hr/offboarding/${settlementData.offboarding_id}/settlement/calculate`);
+            setSettlementData(res.data);
+        } catch (e) {
+            setSettlementError(e.response?.data?.message || 'Failed to approve.');
+        }
+    };
+
+    const handleDisburseSettlement = async (method) => {
+        if (!settlementData?.existing_settlement?.id) return;
+        try {
+            await axios.post(`/hr/offboarding/settlement/${settlementData.existing_settlement.id}/disburse`, {
+                payment_method: method,
+            });
+            const res = await axios.get(`/hr/offboarding/${settlementData.offboarding_id}/settlement/calculate`);
+            setSettlementData(res.data);
+        } catch (e) {
+            setSettlementError(e.response?.data?.message || 'Failed to disburse.');
+        }
+    };
+
+    // ── Asset Handlers ───────────────────────────────────────────────────
+    const fetchEmployeeAssets = async (employeeId) => {
+        setIsLoadingAssets(true);
+        try {
+            const res = await axios.get(`/hr/assets/by-employee/${employeeId}`);
+            setEmployeeAssets(res.data || []);
+        } catch (e) {
+            console.error('Failed to fetch assets', e);
+            setEmployeeAssets([]);
+        } finally {
+            setIsLoadingAssets(false);
+        }
+    };
+
+    const handleReturnAsset = async (assetId, condition = 'good') => {
+        setReturningAssetId(assetId);
+        try {
+            await axios.post(`/hr/assets/${assetId}/return`, { condition_on_return: condition });
+            // Refresh the list
+            if (selectedOffboarding?.employee_id) {
+                const res = await axios.get(`/hr/assets/by-employee/${selectedOffboarding.employee_id}`);
+                setEmployeeAssets(res.data || []);
+            }
+        } catch (e) {
+            console.error('Failed to return asset', e);
+        } finally {
+            setReturningAssetId(null);
+        }
+    };
+
+    // ── Certificate Handlers ─────────────────────────────────────────────
+    const openCertificateModal = async (item, type = 'experience') => {
+        setCertificateType(type);
+        setIsCertificateOpen(true);
+        setIsLoadingCertificate(true);
+        setCertificateData(null);
+        try {
+            const res = await axios.get(`/hr/offboarding/${item.id}/certificate/${type}`);
+            setCertificateData(res.data);
+        } catch (e) {
+            console.error('Failed to fetch certificate', e);
+        } finally {
+            setIsLoadingCertificate(false);
         }
     };
 
@@ -426,17 +549,42 @@ const OffboardingPage = ({
                                                         </Table.Cell>
 
                                                         <Table.Cell align="right">
-                                                            <Button
-                                                                size="1"
-                                                                variant="soft"
-                                                                onClick={() => {
-                                                                    setSelectedOffboarding(item);
-                                                                    setIsDetailOpen(true);
-                                                                }}
-                                                                style={{ cursor: 'pointer' }}
-                                                            >
-                                                                Clearance Checklist
-                                                            </Button>
+                                                            <Flex gap="2" wrap="wrap" justify="end">
+                                                                <Button
+                                                                    size="1"
+                                                                    variant="soft"
+                                                                    onClick={() => {
+                                                                        setSelectedOffboarding(item);
+                                                                        setIsDetailOpen(true);
+                                                                        fetchEmployeeAssets(item.employee_id);
+                                                                    }}
+                                                                    style={{ cursor: 'pointer' }}
+                                                                >
+                                                                    <CheckCircledIcon /> Clearance
+                                                                </Button>
+                                                                {canUpdate && (
+                                                                    <Button
+                                                                        size="1"
+                                                                        variant="surface"
+                                                                        color="green"
+                                                                        onClick={() => openSettlementModal(item)}
+                                                                        style={{ cursor: 'pointer' }}
+                                                                    >
+                                                                        <DownloadIcon /> F&F Settlement
+                                                                    </Button>
+                                                                )}
+                                                                {item.status === 'completed' && (
+                                                                    <Button
+                                                                        size="1"
+                                                                        variant="surface"
+                                                                        color="purple"
+                                                                        onClick={() => openCertificateModal(item, 'experience')}
+                                                                        style={{ cursor: 'pointer' }}
+                                                                    >
+                                                                        <FileTextIcon /> Certificate
+                                                                    </Button>
+                                                                )}
+                                                            </Flex>
                                                         </Table.Cell>
                                                     </Table.Row>
                                                 );
@@ -774,6 +922,64 @@ const OffboardingPage = ({
                                 })}
                             </Flex>
 
+                            {/* ── Assigned Assets Section ── */}
+                            <Separator my="4" />
+                            <Heading size="3" mb="2">Assigned Company Assets</Heading>
+                            {isLoadingAssets ? (
+                                <Text size="2" color="gray">Loading assigned assets...</Text>
+                            ) : employeeAssets.length === 0 ? (
+                                <Box p="3" style={{ background: 'var(--green-2)', borderRadius: 8, border: '1px solid var(--green-6)' }}>
+                                    <Text size="2" color="green">✓ No company assets currently assigned to this employee.</Text>
+                                </Box>
+                            ) : (
+                                <Flex direction="column" gap="2">
+                                    {employeeAssets.map((asset) => (
+                                        <Flex
+                                            key={asset.id}
+                                            align="center"
+                                            justify="between"
+                                            p="3"
+                                            style={{
+                                                background: 'var(--amber-2)',
+                                                border: '1px solid var(--amber-6)',
+                                                borderRadius: 8,
+                                            }}
+                                        >
+                                            <Box>
+                                                <Text size="2" weight="bold">{asset.name}</Text>
+                                                <Text size="1" color="gray" style={{ display: 'block' }}>
+                                                    {asset.asset_code} · {asset.category?.replace('_', ' ')} {asset.serial_number ? `· S/N: ${asset.serial_number}` : ''}
+                                                </Text>
+                                            </Box>
+                                            {canUpdate && (
+                                                <Flex gap="2">
+                                                    <Button
+                                                        size="1"
+                                                        variant="solid"
+                                                        color="green"
+                                                        disabled={returningAssetId === asset.id}
+                                                        onClick={() => handleReturnAsset(asset.id, 'good')}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        {returningAssetId === asset.id ? 'Returning...' : '✓ Return (Good)'}
+                                                    </Button>
+                                                    <Button
+                                                        size="1"
+                                                        variant="surface"
+                                                        color="red"
+                                                        disabled={returningAssetId === asset.id}
+                                                        onClick={() => handleReturnAsset(asset.id, 'damaged')}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        Return (Damaged)
+                                                    </Button>
+                                                </Flex>
+                                            )}
+                                        </Flex>
+                                    ))}
+                                </Flex>
+                            )}
+
                             <Flex justify="end" mt="5">
                                 <Button variant="soft" color="gray" onClick={() => setIsDetailOpen(false)}>
                                     Close
@@ -895,6 +1101,283 @@ const OffboardingPage = ({
                             {isResolving ? 'Resolving...' : 'Confirm Resolution'}
                         </Button>
                     </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* ══════════ F&F SETTLEMENT MODAL ══════════ */}
+            <Dialog.Root open={isSettlementOpen} onOpenChange={setIsSettlementOpen}>
+                <Dialog.Content style={{ maxWidth: 720 }}>
+                    <Dialog.Title>Full & Final Settlement Voucher</Dialog.Title>
+                    <Dialog.Description size="2" mb="4">
+                        Itemized calculation per Bangladesh Labour Act 2006 — earned salary, leave encashment (s.117), gratuity (s.27), notice recovery, and loan deductions.
+                    </Dialog.Description>
+
+                    {settlementError && (
+                        <Box mb="3" p="2" style={{ background: 'var(--red-3)', border: '1px solid var(--red-6)', borderRadius: 6 }}>
+                            <Text size="2" color="red">{settlementError}</Text>
+                        </Box>
+                    )}
+
+                    {isLoadingSettlement ? (
+                        <Flex justify="center" p="6"><Text color="gray">Calculating settlement...</Text></Flex>
+                    ) : settlementData ? (
+                        <>
+                            {/* Employee Info */}
+                            <Box mb="4" p="3" style={{ background: 'var(--gray-2)', borderRadius: 8 }}>
+                                <Flex justify="between" wrap="wrap" gap="2">
+                                    <Box>
+                                        <Text size="1" color="gray">Employee</Text>
+                                        <Text size="2" weight="bold" style={{ display: 'block' }}>
+                                            {settlementData.employee?.name} ({settlementData.employee?.employee_id})
+                                        </Text>
+                                    </Box>
+                                    <Box>
+                                        <Text size="1" color="gray">Designation / Dept</Text>
+                                        <Text size="2" weight="bold" style={{ display: 'block' }}>
+                                            {settlementData.employee?.designation} · {settlementData.employee?.department}
+                                        </Text>
+                                    </Box>
+                                    <Box>
+                                        <Text size="1" color="gray">LWD</Text>
+                                        <Text size="2" weight="bold" style={{ display: 'block' }}>{settlementData.last_working_date}</Text>
+                                    </Box>
+                                    <Box>
+                                        <Text size="1" color="gray">Monthly Gross</Text>
+                                        <Text size="2" weight="bold" style={{ display: 'block' }}>৳{Number(settlementData.monthly_gross_salary).toLocaleString()}</Text>
+                                    </Box>
+                                </Flex>
+                            </Box>
+
+                            {/* Earnings */}
+                            <Heading size="3" mb="2" color="green">Earnings</Heading>
+                            <Table.Root variant="surface" mb="3">
+                                <Table.Body>
+                                    <Table.Row>
+                                        <Table.Cell>Pro-rated Salary ({settlementData.payable_working_days} days × ৳{Number(settlementData.daily_rate).toLocaleString()})</Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold">৳{Number(settlementData.earned_salary).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                    <Table.Row>
+                                        <Table.Cell>Leave Encashment ({settlementData.unavailed_leave_days} days)</Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold">৳{Number(settlementData.leave_encashment_amount).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                    <Table.Row>
+                                        <Table.Cell>Service Gratuity (BLA s.27)</Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold">৳{Number(settlementData.gratuity_amount).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                    <Table.Row style={{ background: 'var(--green-2)' }}>
+                                        <Table.Cell><Text weight="bold">Total Earnings</Text></Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold" color="green">৳{Number(settlementData.total_earnings).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                </Table.Body>
+                            </Table.Root>
+
+                            {/* Deductions */}
+                            <Heading size="3" mb="2" color="red">Deductions</Heading>
+                            <Table.Root variant="surface" mb="3">
+                                <Table.Body>
+                                    <Table.Row>
+                                        <Table.Cell>Notice Shortfall Recovery ({settlementData.notice_shortfall_days} days)</Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold">৳{Number(settlementData.notice_shortfall_deduction).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                    <Table.Row>
+                                        <Table.Cell>Petty Cash Loan Recovery</Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold">৳{Number(settlementData.loan_recovery_amount).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                    <Table.Row>
+                                        <Table.Cell>Asset Damage Deduction</Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold">৳{Number(settlementData.asset_damage_deduction).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                    <Table.Row style={{ background: 'var(--red-2)' }}>
+                                        <Table.Cell><Text weight="bold">Total Deductions</Text></Table.Cell>
+                                        <Table.Cell align="right"><Text weight="bold" color="red">৳{Number(settlementData.total_deductions).toLocaleString()}</Text></Table.Cell>
+                                    </Table.Row>
+                                </Table.Body>
+                            </Table.Root>
+
+                            {/* Net Payable */}
+                            <Box p="3" mb="3" style={{ background: 'var(--indigo-3)', borderRadius: 8, border: '1px solid var(--indigo-6)' }}>
+                                <Flex justify="between" align="center">
+                                    <Heading size="4">Net Payable Amount</Heading>
+                                    <Heading size="5" color="indigo">৳{Number(settlementData.net_payable).toLocaleString()}</Heading>
+                                </Flex>
+                            </Box>
+
+                            {/* Status Badge */}
+                            {settlementData.existing_settlement && (
+                                <Box mb="3">
+                                    <Badge
+                                        size="2"
+                                        variant="solid"
+                                        color={settlementData.existing_settlement.status === 'paid' ? 'green' : settlementData.existing_settlement.status === 'approved' ? 'indigo' : 'amber'}
+                                    >
+                                        Settlement Status: {settlementData.existing_settlement.status?.toUpperCase()}
+                                    </Badge>
+                                </Box>
+                            )}
+
+                            {/* Action Buttons */}
+                            <Flex justify="end" gap="3" mt="4">
+                                <Button variant="soft" color="gray" onClick={() => setIsSettlementOpen(false)}>Close</Button>
+
+                                {(!settlementData.existing_settlement || settlementData.existing_settlement.status === 'draft') && canUpdate && (
+                                    <Button
+                                        variant="solid"
+                                        color="indigo"
+                                        disabled={isSavingSettlement}
+                                        onClick={handleSaveSettlement}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        {isSavingSettlement ? 'Saving...' : (settlementData.existing_settlement ? 'Update Draft' : 'Save Voucher')}
+                                    </Button>
+                                )}
+
+                                {settlementData.existing_settlement?.status === 'draft' && canUpdate && (
+                                    <Button variant="solid" color="green" onClick={handleApproveSettlement} style={{ cursor: 'pointer' }}>
+                                        Approve
+                                    </Button>
+                                )}
+
+                                {settlementData.existing_settlement?.status === 'approved' && canUpdate && (
+                                    <Button variant="solid" color="cyan" onClick={() => handleDisburseSettlement('bank_transfer')} style={{ cursor: 'pointer' }}>
+                                        Disburse (Bank Transfer)
+                                    </Button>
+                                )}
+                            </Flex>
+                        </>
+                    ) : (
+                        <Text color="red">Could not load settlement data.</Text>
+                    )}
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* ══════════ CERTIFICATE MODAL ══════════ */}
+            <Dialog.Root open={isCertificateOpen} onOpenChange={setIsCertificateOpen}>
+                <Dialog.Content style={{ maxWidth: 680 }}>
+                    <Dialog.Title>
+                        {certificateData?.title || 'Employee Certificate'}
+                    </Dialog.Title>
+                    <Dialog.Description size="2" mb="3">
+                        Official certificate per Bangladesh Labour Act s.31. Ready to print or download.
+                    </Dialog.Description>
+
+                    {isLoadingCertificate ? (
+                        <Flex justify="center" p="6"><Text color="gray">Generating certificate...</Text></Flex>
+                    ) : certificateData ? (
+                        <Box>
+                            {/* Certificate Type Toggle */}
+                            <Flex gap="2" mb="4">
+                                <Button
+                                    size="1"
+                                    variant={certificateType === 'experience' ? 'solid' : 'soft'}
+                                    color="purple"
+                                    onClick={() => {
+                                        if (certificateType !== 'experience' && certificateData) {
+                                            openCertificateModal({ id: settlementData?.offboarding_id || selectedOffboarding?.id }, 'experience');
+                                        }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    Experience Certificate
+                                </Button>
+                                <Button
+                                    size="1"
+                                    variant={certificateType === 'release' ? 'solid' : 'soft'}
+                                    color="cyan"
+                                    onClick={() => {
+                                        if (certificateType !== 'release' && certificateData) {
+                                            openCertificateModal({ id: settlementData?.offboarding_id || selectedOffboarding?.id }, 'release');
+                                        }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    Release Certificate
+                                </Button>
+                            </Flex>
+
+                            {/* Certificate Header */}
+                            <Box p="4" mb="3" style={{ background: 'var(--gray-1)', border: '2px solid var(--gray-6)', borderRadius: 8 }}>
+                                <Flex justify="center" mb="3">
+                                    <Heading size="4" align="center" style={{ textTransform: 'uppercase', letterSpacing: '2px' }}>
+                                        {certificateData.company_name}
+                                    </Heading>
+                                </Flex>
+                                <Separator mb="3" />
+                                <Flex justify="center" mb="3">
+                                    <Heading size="3" color="indigo">{certificateData.title}</Heading>
+                                </Flex>
+                                <Flex justify="between" mb="3">
+                                    <Text size="1">Ref: {certificateData.reference_no}</Text>
+                                    <Text size="1">Date: {certificateData.issue_date}</Text>
+                                </Flex>
+                                <Separator mb="3" />
+
+                                <Box mb="3">
+                                    <Text size="2" style={{ lineHeight: 1.8 }}>
+                                        {certificateData.body}
+                                    </Text>
+                                </Box>
+
+                                <Box mt="5">
+                                    <Flex justify="between">
+                                        <Box>
+                                            <Text size="1" color="gray">Employee ID: {certificateData.employee?.employee_id}</Text>
+                                        </Box>
+                                        <Box style={{ textAlign: 'right' }}>
+                                            <Text size="2" weight="bold" style={{ display: 'block' }}>______________________</Text>
+                                            <Text size="1" color="gray">Authorized Signatory</Text>
+                                            <Text size="1" color="gray" style={{ display: 'block' }}>HR & Administration</Text>
+                                        </Box>
+                                    </Flex>
+                                </Box>
+                            </Box>
+
+                            <Flex justify="end" gap="3" mt="4">
+                                <Button
+                                    variant="surface"
+                                    color="gray"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(certificateData.body);
+                                        alert('Certificate text copied to clipboard.');
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    Copy Text
+                                </Button>
+                                <Button
+                                    variant="solid"
+                                    onClick={() => {
+                                        const printWin = window.open('', '', 'width=800,height=700');
+                                        printWin.document.write(`
+                                            <html><head><title>${certificateData.title}</title>
+                                            <style>
+                                                body { font-family: 'Georgia', serif; padding: 60px; line-height: 2; }
+                                                h1 { text-align: center; font-size: 18px; letter-spacing: 3px; margin-bottom: 5px; }
+                                                h2 { text-align: center; font-size: 16px; margin-bottom: 20px; color: #333; text-decoration: underline; }
+                                                .ref { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 20px; }
+                                                .body { font-size: 14px; text-align: justify; }
+                                                .sig { margin-top: 80px; text-align: right; font-size: 12px; }
+                                                hr { border: 1px solid #333; margin: 15px 0; }
+                                            </style></head><body>
+                                            <h1>${certificateData.company_name}</h1><hr/>
+                                            <h2>${certificateData.title}</h2>
+                                            <div class="ref"><span>Ref: ${certificateData.reference_no}</span><span>Date: ${certificateData.issue_date}</span></div>
+                                            <div class="body">${certificateData.body}</div>
+                                            <div class="sig"><p>______________________</p><p>Authorized Signatory</p><p>HR & Administration</p></div>
+                                            </body></html>
+                                        `);
+                                        printWin.document.close();
+                                        printWin.print();
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    Print Certificate
+                                </Button>
+                                <Button variant="soft" color="gray" onClick={() => setIsCertificateOpen(false)}>Close</Button>
+                            </Flex>
+                        </Box>
+                    ) : (
+                        <Text color="red">Could not generate certificate.</Text>
+                    )}
                 </Dialog.Content>
             </Dialog.Root>
         </>
