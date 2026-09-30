@@ -4,10 +4,12 @@ namespace App\Http\Middleware;
 
 use App\Models\CompanySetting;
 use App\Models\User;
-use App\Services\Module\ModulePermissionService;
+use App\Services\Aeon\AeonService;
+use App\Services\FeatureFlagService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Inertia\Middleware;
+use Spatie\Permission\Models\Permission;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -80,7 +82,7 @@ class HandleInertiaRequests extends Middleware
                 // the full permission list so every client-side gate matches their real authority.
                 'permissions' => $user
                     ? ($user->hasRole('Super Administrator')
-                        ? \Spatie\Permission\Models\Permission::query()->pluck('name')->unique()->values()->toArray()
+                        ? Permission::query()->pluck('name')->unique()->values()->toArray()
                         : $user->getAllPermissions()->pluck('name')->toArray())
                     : [],
                 'isSuperAdmin' => $user ? $user->hasRole('Super Administrator') : false,
@@ -90,6 +92,12 @@ class HandleInertiaRequests extends Middleware
                 // closure it was evaluated eagerly on every request, causing a LazyLoadingViolation in dev
                 // (SubModule->module) and an N+1 over the module tree in prod. Kept as [] for consumers.
                 'accessibleModules' => [],
+            ],
+
+            // Server-side feature flags the UI needs to hide unfinished modules.
+            'features' => [
+                'hr_payroll' => app(FeatureFlagService::class)->isEnabled('hr_payroll', $user, false),
+                'hr_final_settlement' => app(FeatureFlagService::class)->isEnabled('hr_final_settlement', $user, false),
             ],
 
             // Company Settings
@@ -121,12 +129,11 @@ class HandleInertiaRequests extends Middleware
             // Aeon AI Assistant Status & Usage
             'aeon' => [
                 'available' => (bool) config('aeon.enabled', true),
-                'usage' => $user ? app(\App\Services\Aeon\AeonService::class)->getUsageStatus($user->id) : null,
+                'usage' => $user ? app(AeonService::class)->getUsageStatus($user->id) : null,
             ],
 
             'url' => $request->getPathInfo(),
             'csrfToken' => session('csrfToken'),
-
 
             // Localization - shared on every request
             'locale' => App::getLocale(),

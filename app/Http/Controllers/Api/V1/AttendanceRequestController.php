@@ -628,8 +628,11 @@ class AttendanceRequestController extends Controller
 
         $user = $request->user();
         $counterparty = User::findOrFail($data['counterparty_id']);
+        // Same non-null home department (employee peer rule) or a counterparty the actor's
+        // DepartmentScope covers (a manager viewing their own team); fails closed.
         abort_unless(
-            $counterparty->department_id !== null && $counterparty->department_id === $user->department_id,
+            ($counterparty->department_id !== null && $counterparty->department_id === $user->department_id)
+                || $this->departmentScope()->canActOn($user, $counterparty),
             403,
             'The counterparty must be in your department.'
         );
@@ -773,7 +776,11 @@ class AttendanceRequestController extends Controller
             ]);
         }
 
-        $status = $res['code'] === 'compliance_blocked' ? 422 : 409;
+        $status = match ($res['code']) {
+            'compliance_blocked' => 422,
+            'forbidden' => 403,
+            default => 409,
+        };
         $payload = ['success' => false, 'message' => $res['message']];
         if ($res['code'] === 'compliance_blocked') {
             $payload['compliance_violations'] = $res['compliance_violations'];
@@ -805,6 +812,6 @@ class AttendanceRequestController extends Controller
             ]);
         }
 
-        return response()->json(['success' => false, 'message' => $res['message']], 409);
+        return response()->json(['success' => false, 'message' => $res['message']], $res['code'] === 'forbidden' ? 403 : 409);
     }
 }

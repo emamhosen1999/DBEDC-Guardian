@@ -7,6 +7,7 @@ use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class RosterConcurrencyTest extends TestCase
@@ -18,11 +19,13 @@ class RosterConcurrencyTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Permission::firstOrCreate(['name' => 'attendance.settings']);
+        Role::firstOrCreate(['name' => 'Administrator']);
     }
 
     public function test_stale_expected_updated_at_is_rejected_with_409(): void
     {
         $user = User::factory()->create();
+        $user->assignRole('Administrator'); // locked roster cells are editable by administrators only
         $user->givePermissionTo('attendance.settings');
         $cell = RosterDay::create([
             'user_id' => $user->id, 'date' => '2026-06-20',
@@ -43,6 +46,7 @@ class RosterConcurrencyTest extends TestCase
     public function test_fresh_expected_updated_at_succeeds(): void
     {
         $user = User::factory()->create();
+        $user->assignRole('Administrator'); // locked roster cells are editable by administrators only
         $user->givePermissionTo('attendance.settings');
         $cell = RosterDay::create([
             'user_id' => $user->id, 'date' => '2026-06-20',
@@ -63,6 +67,7 @@ class RosterConcurrencyTest extends TestCase
     public function test_new_cell_with_expected_updated_at_is_not_rejected(): void
     {
         $user = User::factory()->create();
+        $user->assignRole('Administrator'); // locked roster cells are editable by administrators only
         $user->givePermissionTo('attendance.settings');
         // No cell pre-created — the date is fresh.
 

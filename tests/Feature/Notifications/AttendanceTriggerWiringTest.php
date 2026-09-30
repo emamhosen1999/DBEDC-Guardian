@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
 use App\Notifications\Attendance\ShiftSwapDecidedNotification;
 use App\Notifications\Attendance\ShiftSwapRequestedNotification;
+use App\Services\Access\DepartmentScope;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\ShiftSwapService;
@@ -20,6 +21,7 @@ use Database\Seeders\NotificationTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AttendanceTriggerWiringTest extends TestCase
@@ -40,6 +42,7 @@ class AttendanceTriggerWiringTest extends TestCase
         $requester = User::factory()->create();
         $counterparty = User::factory()->create();
         $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('HR Manager', 'web')); // swap decisions are scoped: decide as a company-wide role
 
         // Create a swap already past the counterparty-consent stage
         $swap = ShiftSwapRequest::create([
@@ -67,8 +70,9 @@ class AttendanceTriggerWiringTest extends TestCase
             $rosterMock,
             $this->createMock(WorkTimeComplianceService::class),
             $this->createMock(RealtimeSignal::class),
+            app(DepartmentScope::class),
         );
-        $controller = new ShiftSwapController($rosterMock, $swapService);
+        $controller = new ShiftSwapController($rosterMock, $swapService, app(DepartmentScope::class));
 
         $request = Request::create('/attendance/swaps/'.$swap->id.'/approve', 'POST');
         $request->setUserResolver(fn () => $admin);
@@ -88,6 +92,7 @@ class AttendanceTriggerWiringTest extends TestCase
         $requester = User::factory()->create();
         $counterparty = User::factory()->create();
         $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('HR Manager', 'web')); // swap decisions are scoped: decide as a company-wide role
 
         $swap = ShiftSwapRequest::create([
             'type' => 'cover',
@@ -105,8 +110,9 @@ class AttendanceTriggerWiringTest extends TestCase
             $rosterMock,
             $this->createMock(WorkTimeComplianceService::class),
             $this->createMock(RealtimeSignal::class),
+            app(DepartmentScope::class),
         );
-        $controller = new ShiftSwapController($rosterMock, $swapService);
+        $controller = new ShiftSwapController($rosterMock, $swapService, app(DepartmentScope::class));
 
         $request = Request::create('/attendance/swaps/'.$swap->id.'/reject', 'POST');
         $request->setUserResolver(fn () => $admin);
@@ -160,6 +166,7 @@ class AttendanceTriggerWiringTest extends TestCase
             $this->createMock(RealtimeSignal::class),
             $this->createMock(RosterOverlayService::class),
             $this->createMock(WorkTimeComplianceService::class),
+            app(DepartmentScope::class),
         );
         $request = Request::create('/attendance/roster/cell', 'PUT');
         $request->merge([

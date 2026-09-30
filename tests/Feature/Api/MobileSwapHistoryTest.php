@@ -105,7 +105,12 @@ class MobileSwapHistoryTest extends TestCase
 
     public function test_team_decided_returns_only_decided_team_swaps(): void
     {
-        $manager = $this->manager();
+        // A NON-global manager: a Super Administrator's team is the whole company
+        // (web and mobile share App\Services\Access\DepartmentScope), so "outside
+        // the team" is only meaningful for a line manager. Manager-ness comes from
+        // having a direct report; the outsider sits in another department.
+        $manager = User::factory()->create(['department_id' => $this->dept->id]);
+        $manager->assignRole('Employee');
         $report = $this->employee($manager->id);   // in manager's team
         $mate = $this->employee();
         $outsider = $this->employee();             // NOT in manager's team

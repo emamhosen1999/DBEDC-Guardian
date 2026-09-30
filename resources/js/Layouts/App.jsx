@@ -35,7 +35,7 @@ const PageContent = React.memo(({ children, url }) => (
 PageContent.displayName = 'PageContent';
 
 const App = React.memo(({ children }) => {
-  const { auth, app, url } = usePage().props;
+  const { auth, app, url, features } = usePage().props;
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [sideBarOpen, setSideBarOpen] = useState(() => {
@@ -54,8 +54,8 @@ const App = React.memo(({ children }) => {
   const pages = useMemo(() => {
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
-    return getPages(roles, permissions, auth);
-  }, [auth?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    return getPages(roles, permissions, auth, features);
+  }, [auth?.user?.id, features?.hr_payroll]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSideBar = useCallback(() => {
     setSideBarOpen(prev => {

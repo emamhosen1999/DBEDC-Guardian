@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\HRM\Department;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -35,7 +36,9 @@ class AdminResetPasswordTest extends TestCase
     public function test_admin_with_users_update_can_reset_a_user_password(): void
     {
         $actor = $this->managerWithUsersUpdate();
-        $target = User::factory()->create(['password' => Hash::make('old-password-1')]);
+        // A non-global actor reaches only employees in a department they administer.
+        $department = Department::factory()->create(['manager_id' => $actor->employee_id]);
+        $target = User::factory()->create(['password' => Hash::make('old-password-1'), 'department_id' => $department->id]);
 
         $response = $this->actingAs($actor)->postJson(route('users.changePassword', ['id' => $target->id]), [
             'password' => 'new-secure-pass-9',
@@ -44,6 +47,13 @@ class AdminResetPasswordTest extends TestCase
 
         $response->assertOk();
         $this->assertTrue(Hash::check('new-secure-pass-9', $target->fresh()->password));
+
+        $outsider = User::factory()->create(['password' => Hash::make('old-password-1')]);
+        $this->actingAs($actor)->postJson(route('users.changePassword', ['id' => $outsider->id]), [
+            'password' => 'new-secure-pass-9',
+            'password_confirmation' => 'new-secure-pass-9',
+        ])->assertForbidden();
+        $this->assertTrue(Hash::check('old-password-1', $outsider->fresh()->password));
     }
 
     public function test_reset_requires_min_8_and_confirmation(): void

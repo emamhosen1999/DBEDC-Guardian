@@ -3,9 +3,21 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 
+/**
+ * Department scoping is delegated to App\Services\Access\DepartmentScope: global
+ * roles reach everyone; anyone else only the departments they administer plus
+ * their reporting sub-tree (fail closed — a null department grants nothing).
+ * Writes additionally require a non-global actor to outrank the target.
+ */
 class UserPolicy
 {
+    private function scope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
+    }
+
     /**
      * Determine whether the user can view any models.
      */
@@ -19,8 +31,16 @@ class UserPolicy
      */
     public function view(User $user, User $model): bool
     {
-        // Users can view themselves, or if they have permission
-        return $user->id === $model->id || $user->hasPermissionTo('users.view') || $user->hasPermissionTo('employees.view');
+        // Users can always view themselves
+        if ($user->id === $model->id) {
+            return true;
+        }
+
+        if (! ($user->hasPermissionTo('users.view') || $user->hasPermissionTo('employees.view'))) {
+            return false;
+        }
+
+        return $this->scope()->canActOn($user, $model);
     }
 
     /**
@@ -36,28 +56,20 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        // Users can update themselves (limited fields), or with permission
+        // Users can update themselves (limited fields — enforced by the controller)
         if ($user->id === $model->id) {
             return true;
         }
 
-        // Super admins can update anyone
         if ($user->hasRole('Super Administrator')) {
             return true;
         }
 
-        // HR managers can update employees in their organization
-        if ($user->hasRole(['Administrator', 'HR Manager'])) {
-            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
+        if (! ($user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update'))) {
+            return false;
         }
 
-        // Department managers can update users in their department
-        if ($user->hasRole('Department Manager') &&
-            $user->department_id === $model->department_id) {
-            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
-        }
-
-        return false;
+        return $this->scope()->canManage($user, $model);
     }
 
     /**
@@ -70,17 +82,11 @@ class UserPolicy
             return false;
         }
 
-        // Super admins can delete anyone
         if ($user->hasRole('Super Administrator')) {
             return true;
         }
 
-        // HR managers and administrators can delete
-        if ($user->hasRole(['Administrator', 'HR Manager'])) {
-            return $user->hasPermissionTo('users.delete');
-        }
-
-        return false;
+        return $user->hasPermissionTo('users.delete') && $this->scope()->canManage($user, $model);
     }
 
     /**
@@ -88,7 +94,7 @@ class UserPolicy
      */
     public function restore(User $user, User $model): bool
     {
-        return $user->hasPermissionTo('users.delete'); // Same as delete permission
+        return $user->hasPermissionTo('users.delete') && $this->scope()->canManage($user, $model);
     }
 
     /**
@@ -130,10 +136,8 @@ class UserPolicy
             return false;
         }
 
-        // Department managers can toggle status for users in their department
-        if ($user->hasRole('Department Manager') &&
-            $user->department_id === $model->department_id) {
-            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
+        if (! $this->scope()->canManage($user, $model)) {
+            return false;
         }
 
         return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
@@ -149,13 +153,10 @@ class UserPolicy
             return true;
         }
 
-        // Department managers can manage devices for users in their department
-        if ($user->hasRole('Department Manager') &&
-            $user->department_id === $model->department_id) {
-            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
+        if (! $this->scope()->canManage($user, $model)) {
+            return false;
         }
 
-        // Admins can manage any user's devices
         return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
     }
 
@@ -165,8 +166,7 @@ class UserPolicy
     public function updateDepartment(User $user, User $model): bool
     {
         // HR managers and admins can update departments
-        return $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) &&
-               $user->hasPermissionTo('users.update');
+        return $this->scope()->isGlobal($user) && $user->hasPermissionTo('users.update');
     }
 
     /**
@@ -175,17 +175,19 @@ class UserPolicy
     public function updateDesignation(User $user, User $model): bool
     {
         // HR managers and admins can update designations
-        return $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) &&
-               $user->hasPermissionTo('users.update');
+        return $this->scope()->isGlobal($user) && $user->hasPermissionTo('users.update');
     }
 
     /**
-     * Determine whether the user can update attendance type.
+     * Determine whether the user can update attendance type: global HR, or a
+     * department admin for employees in their scope whom they outrank.
      */
     public function updateAttendanceType(User $user, User $model): bool
     {
-        // HR managers and admins can update attendance types
-        return $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) &&
-               $user->hasPermissionTo('users.update');
+        if (! $user->hasPermissionTo('users.update')) {
+            return false;
+        }
+
+        return $this->scope()->isGlobal($user) || $this->scope()->canManage($user, $model);
     }
 }

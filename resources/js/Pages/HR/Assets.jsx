@@ -55,7 +55,7 @@ const AssetsPage = ({
     filters = {},
 }) => {
     const { auth } = usePage().props;
-    const canEdit = auth?.permissions?.includes('employees.view') || auth?.roles?.includes('Super Administrator');
+    const canEdit = auth?.permissions?.includes('hr.assets.manage') || auth?.roles?.includes('Super Administrator');
 
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [catFilter, setCatFilter] = useState(filters.category || 'all');

@@ -10,6 +10,8 @@ use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\NotificationToken;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -91,6 +93,14 @@ class UserManagementService
             }
 
             $user = User::create($validated);
+
+            // Org placement is deliberately NOT mass-assignable on User; on create it
+            // has already been authorized and scope-checked by the controller.
+            $placement = array_intersect_key($validated, array_flip(['department_id', 'designation_id', 'report_to']));
+            if ($placement !== []) {
+                $user->forceFill($placement)->save();
+            }
+
             $this->applyAttendanceTypeOverride($user, $attendanceTypeIds, $biometricDeviceIds);
 
             if ($roles) {
@@ -239,6 +249,71 @@ class UserManagementService
     // ──────────────────────────────────────────────
     //  Role management
     // ──────────────────────────────────────────────
+
+    /**
+     * Role-hierarchy guard shared by every role-grant path.
+     *
+     * An actor may only grant roles that are strictly less powerful than their own
+     * most powerful role (roles.hierarchy_level: lower number = more powerful).
+     * Super Administrator may grant anything. Aborts 403 on violation.
+     *
+     * @param  array<int, string>  $roleNames
+     */
+    public function assertCanGrantRoles(User $actor, array $roleNames): void
+    {
+        if ($roleNames === [] || $actor->hasRole('Super Administrator')) {
+            return;
+        }
+
+        $actorLevel = $this->scope()->bestRoleLevel($actor);
+        $requested = Role::whereIn('name', $roleNames)->get(['name', 'hierarchy_level']);
+
+        $tooPowerful = $requested->contains(
+            fn (Role $role): bool => $actorLevel === null || (int) $role->hierarchy_level <= (int) $actorLevel
+        );
+
+        if ($tooPowerful) {
+            abort(403, 'You cannot grant a role equal to or more powerful than your own.');
+        }
+    }
+
+    /**
+     * Roles the actor may grant: strictly less powerful than their own best role
+     * (same rule assertCanGrantRoles enforces). Super Administrator: all roles.
+     *
+     * @return Builder<Role>
+     */
+    public function grantableRoles(User $actor): Builder
+    {
+        $query = Role::query();
+
+        if ($actor->hasRole('Super Administrator')) {
+            return $query;
+        }
+
+        $actorLevel = $this->scope()->bestRoleLevel($actor);
+
+        return $actorLevel === null
+            ? $query->whereRaw('1 = 0')
+            : $query->where('hierarchy_level', '>', $actorLevel);
+    }
+
+    /**
+     * Target-side companion to assertCanGrantRoles(): a non-Super-Administrator may
+     * not change roles/permissions of a user whose most powerful CURRENT role is equal
+     * to or more powerful than the actor's own (peers and superiors are untouchable).
+     * Users with no role are unprotected. Aborts 403 on violation.
+     */
+    public function assertCanModifyTarget(User $actor, User $target): void
+    {
+        if ($actor->hasRole('Super Administrator')) {
+            return;
+        }
+
+        if (! $this->scope()->outranks($actor, $target)) {
+            abort(403, 'You cannot modify the roles of a user with an equal or more powerful role than your own.');
+        }
+    }
 
     /**
      * Sync roles on a user and return the refreshed model.
@@ -463,7 +538,7 @@ class UserManagementService
     /**
      * Paginate users with filters and return data + stats.
      */
-    public function paginateUsers(array $filters): array
+    public function paginateUsers(array $filters, ?User $actor = null): array
     {
         $perPage = $filters['perPage'] ?? 20;
         $page = $filters['page'] ?? 1;
@@ -472,7 +547,7 @@ class UserManagementService
         $status = $filters['status'] ?? null;
         $department = $filters['department'] ?? null;
 
-        $query = User::withTrashed()
+        $query = $this->scopedUsers($actor, withTrashed: true)
             ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo', 'attendanceType', 'media']);
 
         if ($search) {
@@ -526,7 +601,7 @@ class UserManagementService
     /**
      * Paginate employees with filters and return data + stats + managers list.
      */
-    public function paginateEmployees(array $filters): array
+    public function paginateEmployees(array $filters, ?User $actor = null): array
     {
         $perPage = $filters['perPage'] ?? 20;
         $page = $filters['page'] ?? 1;
@@ -538,12 +613,9 @@ class UserManagementService
         $status = $filters['status'] ?? null;
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        $authUser = auth()->user();
-        if ($authUser && ! $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $authUser->department_id !== null) {
-            $department = $authUser->department_id;
-        }
-
-        $query = User::withTrashed()
+        // Scope is enforced by the query itself (fail closed); the department filter
+        // may only narrow within it.
+        $query = $this->scopedUsers($actor, withTrashed: true)
             ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'employeeAttendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number']);
 
         // Status / soft-delete filtering
@@ -627,14 +699,15 @@ class UserManagementService
         $employees->setCollection($transformedEmployees);
 
         $stats = [
-            'total' => User::withTrashed()->count(),
-            'active' => User::whereNull('deleted_at')->count(),
-            'inactive' => User::onlyTrashed()->count(),
-            'departments' => Department::count(),
-            'designations' => Designation::count(),
+            'total' => $this->scopedUsers($actor, withTrashed: true)->count(),
+            'active' => $this->scopedUsers($actor)->count(),
+            'inactive' => $this->scopedUsers($actor, withTrashed: true)->whereNotNull('deleted_at')->count(),
+            'departments' => $this->scopedDepartments($actor)->count(),
+            'designations' => $this->scopedDesignations($actor)->count(),
         ];
 
-        $allManagers = User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
+        $allManagers = $this->scopedUsers($actor)
+            ->select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
             ->with(['designation', 'department', 'media'])
             ->get()
             ->map(function ($user) {
@@ -664,14 +737,17 @@ class UserManagementService
     /**
      * Compile comprehensive user management statistics.
      */
-    public function getUserStats(): array
+    public function getUserStats(?User $actor = null): array
     {
-        $totalUsers = User::withTrashed()->count();
-        $activeUsers = User::whereNull('deleted_at')->count();
-        $inactiveUsers = User::onlyTrashed()->count();
+        $scoped = fn (bool $withTrashed = false): Builder => $this->scopedUsers($actor, $withTrashed);
+        $scopeRelation = fn ($query) => $this->applyScope($query, $actor);
+
+        $totalUsers = $scoped(true)->count();
+        $activeUsers = $scoped()->count();
+        $inactiveUsers = $scoped(true)->whereNotNull('deleted_at')->count();
 
         $roleCount = Role::count();
-        $rolesWithUsers = Role::withCount('users')->get()->map(function ($role) use ($totalUsers) {
+        $rolesWithUsers = Role::withCount(['users' => $scopeRelation])->get()->map(function ($role) use ($totalUsers) {
             return [
                 'name' => $role->name,
                 'count' => $role->users_count,
@@ -679,7 +755,8 @@ class UserManagementService
             ];
         });
 
-        $departmentStats = Department::withCount('users')->get()->map(function ($dept) use ($totalUsers) {
+        $departmentCount = $this->scopedDepartments($actor)->count();
+        $departmentStats = $this->scopedDepartments($actor)->withCount(['users' => $scopeRelation])->get()->map(function ($dept) use ($totalUsers) {
             return [
                 'name' => $dept->name,
                 'count' => $dept->users_count,
@@ -689,10 +766,10 @@ class UserManagementService
 
         $now = now();
         $recentActivity = [
-            'new_users_30_days' => User::where('created_at', '>=', $now->copy()->subDays(30))->count(),
-            'new_users_90_days' => User::where('created_at', '>=', $now->copy()->subDays(90))->count(),
-            'new_users_year' => User::where('created_at', '>=', $now->copy()->subYear())->count(),
-            'recently_active' => User::where('updated_at', '>=', $now->copy()->subDays(7))->count(),
+            'new_users_30_days' => $scoped()->where('created_at', '>=', $now->copy()->subDays(30))->count(),
+            'new_users_90_days' => $scoped()->where('created_at', '>=', $now->copy()->subDays(90))->count(),
+            'new_users_year' => $scoped()->where('created_at', '>=', $now->copy()->subYear())->count(),
+            'recently_active' => $scoped()->where('updated_at', '>=', $now->copy()->subDays(7))->count(),
         ];
 
         $statusRatio = [
@@ -700,21 +777,21 @@ class UserManagementService
             'inactive_percentage' => $totalUsers > 0 ? round(($inactiveUsers / $totalUsers) * 100, 1) : 0,
         ];
 
-        $previousMonthUsers = User::withTrashed()->where('created_at', '<', $now->copy()->startOfMonth())->count();
-        $currentMonthUsers = User::withTrashed()->where('created_at', '>=', $now->copy()->startOfMonth())->count();
+        $previousMonthUsers = $scoped(true)->where('created_at', '<', $now->copy()->startOfMonth())->count();
+        $currentMonthUsers = $scoped(true)->where('created_at', '>=', $now->copy()->startOfMonth())->count();
         $userGrowthRate = $previousMonthUsers > 0 ? round((($currentMonthUsers / $previousMonthUsers) * 100), 1) : 0;
 
         $securityMetrics = [
-            'users_with_roles' => User::whereHas('roles')->count(),
-            'users_without_roles' => User::whereDoesntHave('roles')->count(),
-            'admin_users' => User::whereHas('roles', fn ($q) => $q->where('name', 'like', '%admin%'))->count(),
-            'regular_users' => User::whereHas('roles', fn ($q) => $q->where('name', 'not like', '%admin%'))->count(),
+            'users_with_roles' => $scoped()->whereHas('roles')->count(),
+            'users_without_roles' => $scoped()->whereDoesntHave('roles')->count(),
+            'admin_users' => $scoped()->whereHas('roles', fn ($q) => $q->where('name', 'like', '%admin%'))->count(),
+            'regular_users' => $scoped()->whereHas('roles', fn ($q) => $q->where('name', 'not like', '%admin%'))->count(),
         ];
 
         $systemHealth = [
             'user_activation_rate' => $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0,
             'role_coverage' => $totalUsers > 0 ? round(($securityMetrics['users_with_roles'] / $totalUsers) * 100, 1) : 0,
-            'department_coverage' => $totalUsers > 0 ? round((User::whereNotNull('department_id')->count() / $totalUsers) * 100, 1) : 0,
+            'department_coverage' => $totalUsers > 0 ? round(($scoped()->whereNotNull('department_id')->count() / $totalUsers) * 100, 1) : 0,
         ];
 
         return [
@@ -723,7 +800,7 @@ class UserManagementService
                 'active_users' => $activeUsers,
                 'inactive_users' => $inactiveUsers,
                 'total_roles' => $roleCount,
-                'total_departments' => Department::count(),
+                'total_departments' => $departmentCount,
             ],
             'distribution' => [
                 'by_role' => $rolesWithUsers,
@@ -750,7 +827,7 @@ class UserManagementService
                 'total_users' => $totalUsers,
                 'active_ratio' => $statusRatio['active_percentage'],
                 'role_diversity' => $roleCount,
-                'department_diversity' => Department::count(),
+                'department_diversity' => $departmentCount,
                 'recent_activity' => $recentActivity['new_users_30_days'],
                 'system_health_score' => round(($systemHealth['user_activation_rate'] + $systemHealth['role_coverage'] + $systemHealth['department_coverage']) / 3, 1),
             ],
@@ -760,16 +837,19 @@ class UserManagementService
     /**
      * Compile comprehensive employee / HR statistics.
      */
-    public function getEmployeeStats(): array
+    public function getEmployeeStats(?User $actor = null): array
     {
-        $totalEmployees = User::count();
-        $activeEmployees = User::whereNull('deleted_at')->count();
-        $inactiveEmployees = User::whereNotNull('deleted_at')->count();
+        $scoped = fn (bool $withTrashed = false): Builder => $this->scopedUsers($actor, $withTrashed);
+        $scopeRelation = fn ($query) => $this->applyScope($query, $actor);
 
-        $departmentCount = Department::count();
-        $designationCount = Designation::count();
+        $totalEmployees = $scoped()->count();
+        $activeEmployees = $totalEmployees;
+        $inactiveEmployees = $scoped(true)->whereNotNull('deleted_at')->count();
 
-        $attendanceTypeStats = AttendanceType::withCount('users')
+        $departmentCount = $this->scopedDepartments($actor)->count();
+        $designationCount = $this->scopedDesignations($actor)->count();
+
+        $attendanceTypeStats = AttendanceType::withCount(['users' => $scopeRelation])
             ->where('is_active', true)
             ->get()
             ->map(function ($type) use ($totalEmployees) {
@@ -780,7 +860,7 @@ class UserManagementService
                 ];
             });
 
-        $departmentStats = Department::withCount('users')->get()->map(function ($dept) use ($totalEmployees) {
+        $departmentStats = $this->scopedDepartments($actor)->withCount(['users' => $scopeRelation])->get()->map(function ($dept) use ($totalEmployees) {
             return [
                 'name' => $dept->name,
                 'count' => $dept->users_count,
@@ -788,7 +868,7 @@ class UserManagementService
             ];
         });
 
-        $designationStats = Designation::withCount('users')->get()->map(function ($desig) use ($totalEmployees) {
+        $designationStats = $this->scopedDesignations($actor)->withCount(['users' => $scopeRelation])->get()->map(function ($desig) use ($totalEmployees) {
             return [
                 'name' => $desig->title,
                 'count' => $desig->users_count,
@@ -798,9 +878,9 @@ class UserManagementService
 
         $now = now();
         $recentHires = [
-            'last_30_days' => User::where('created_at', '>=', $now->copy()->subDays(30))->count(),
-            'last_90_days' => User::where('created_at', '>=', $now->copy()->subDays(90))->count(),
-            'last_year' => User::where('created_at', '>=', $now->copy()->subYear())->count(),
+            'last_30_days' => $scoped()->where('created_at', '>=', $now->copy()->subDays(30))->count(),
+            'last_90_days' => $scoped()->where('created_at', '>=', $now->copy()->subDays(90))->count(),
+            'last_year' => $scoped()->where('created_at', '>=', $now->copy()->subYear())->count(),
         ];
 
         $statusRatio = [
@@ -809,8 +889,8 @@ class UserManagementService
             'retention_rate' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
         ];
 
-        $previousMonthCount = User::where('created_at', '<', $now->copy()->startOfMonth())->count();
-        $currentMonthHires = User::where('created_at', '>=', $now->copy()->startOfMonth())->count();
+        $previousMonthCount = $scoped()->where('created_at', '<', $now->copy()->startOfMonth())->count();
+        $currentMonthHires = $scoped()->where('created_at', '>=', $now->copy()->startOfMonth())->count();
         $growthRate = $previousMonthCount > 0 ? round((($currentMonthHires / $previousMonthCount) * 100), 1) : 0;
 
         return [
@@ -988,5 +1068,74 @@ class UserManagementService
         return [
             'direct_permissions' => $user->getDirectPermissions()->pluck('name'),
         ];
+    }
+
+    // ──────────────────────────────────────────────
+    //  Department scope helpers
+    // ──────────────────────────────────────────────
+
+    private function scope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
+    }
+
+    /**
+     * The actor used for scoping: explicit, else the authenticated user. With no
+     * actor at all (console / queue) there is no one to scope for — callers there
+     * are trusted system code, so the query is left unrestricted.
+     */
+    private function resolveActor(?User $actor): ?User
+    {
+        $actor ??= auth()->user();
+
+        return $actor instanceof User ? $actor : null;
+    }
+
+    /**
+     * Narrow any users query (including a relation's users sub-query) to the actor.
+     */
+    private function applyScope($query, ?User $actor)
+    {
+        $actor = $this->resolveActor($actor);
+        if ($actor === null) {
+            return $query;
+        }
+
+        $builder = $query instanceof Builder ? $query : $query->getQuery();
+        $this->scope()->applyToUsers($builder, $actor, $builder->qualifyColumn('department_id'));
+
+        return $query;
+    }
+
+    private function scopedUsers(?User $actor, bool $withTrashed = false): Builder
+    {
+        return $this->applyScope($withTrashed ? User::withTrashed() : User::query(), $actor);
+    }
+
+    /**
+     * Departments the actor administers (all of them for a global actor).
+     */
+    private function scopedDepartments(?User $actor): Builder
+    {
+        $actor = $this->resolveActor($actor);
+        $query = Department::query();
+
+        if ($actor !== null && ! $this->scope()->isGlobal($actor)) {
+            $query->whereIn('id', $this->scope()->managedDepartmentIds($actor));
+        }
+
+        return $query;
+    }
+
+    private function scopedDesignations(?User $actor): Builder
+    {
+        $actor = $this->resolveActor($actor);
+        $query = Designation::query();
+
+        if ($actor !== null && ! $this->scope()->isGlobal($actor)) {
+            $query->whereIn('department_id', $this->scope()->managedDepartmentIds($actor));
+        }
+
+        return $query;
     }
 }

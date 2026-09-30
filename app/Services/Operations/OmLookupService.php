@@ -3,7 +3,6 @@
 namespace App\Services\Operations;
 
 use App\Models\OmLookup;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class OmLookupService
@@ -40,7 +39,7 @@ class OmLookupService
     {
         $this->ensureDefaultLookupsSeeded();
 
-        $query = OmLookup::with(['creator:id,name', 'updater:id,name'])
+        $query = OmLookup::with(['creator:employee_id,name', 'updater:employee_id,name'])
             ->orderBy('type')
             ->orderBy('sort_order')
             ->orderBy('id');
@@ -52,8 +51,8 @@ class OmLookupService
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('label', 'like', "%{$search}%")
-                  ->orWhere('key', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('key', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -75,6 +74,7 @@ class OmLookupService
         }
 
         $this->clearCache();
+
         return $lookup;
     }
 
@@ -86,6 +86,7 @@ class OmLookupService
         $lookup = OmLookup::findOrFail($id);
         $result = $lookup->delete();
         $this->clearCache();
+
         return $result;
     }
 

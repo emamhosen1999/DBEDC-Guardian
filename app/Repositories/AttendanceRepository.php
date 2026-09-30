@@ -6,6 +6,8 @@ use App\Models\HRM\Attendance;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AttendanceRepository extends BaseRepository
 {
@@ -50,9 +52,9 @@ class AttendanceRepository extends BaseRepository
         }
 
         // Filter by month and year, prioritizing them over date parameter
-        if (!empty($filters['currentMonth']) && !empty($filters['currentYear'])) {
+        if (! empty($filters['currentMonth']) && ! empty($filters['currentYear'])) {
             $query->whereYear('date', $filters['currentYear'])
-                  ->whereMonth('date', $filters['currentMonth']);
+                ->whereMonth('date', $filters['currentMonth']);
         } elseif (isset($filters['date'])) {
             $query->where('date', $filters['date']);
         }
@@ -126,6 +128,11 @@ class AttendanceRepository extends BaseRepository
             ->whereNotNull('punchin')
             ->whereDate('date', $date);
 
+        // Actor scope (DepartmentScope::visibleEmployeeIds): an empty list means nobody, never everybody.
+        if (isset($filters['team_member_ids'])) {
+            $query->whereIn('user_id', $filters['team_member_ids'] === [] ? ['__NONE__'] : $filters['team_member_ids']);
+        }
+
         if (isset($filters['department_id'])) {
             $query->whereHas('user', function ($q) use ($filters) {
                 $q->where('department_id', $filters['department_id']);
@@ -167,8 +174,8 @@ class AttendanceRepository extends BaseRepository
 
         $officeStartTime = '09:00:00';
         $lateGraceMinutes = 15;
-        if (\Illuminate\Support\Facades\Schema::hasTable('attendance_settings')) {
-            $settings = \Illuminate\Support\Facades\DB::table('attendance_settings')
+        if (Schema::hasTable('attendance_settings')) {
+            $settings = DB::table('attendance_settings')
                 ->select('office_start_time', 'late_mark_after')
                 ->first();
             if ($settings) {
@@ -185,8 +192,8 @@ class AttendanceRepository extends BaseRepository
             $firstPunch = $dayRecords->sortBy('punchin')->first();
             if ($firstPunch && $firstPunch->punchin) {
                 $punchInTime = Carbon::parse($firstPunch->punchin)->format('H:i:s');
-                $lateThreshold = Carbon::parse($date . ' ' . $officeStartTime)->addMinutes($lateGraceMinutes);
-                $punchInAt = Carbon::parse($date . ' ' . $punchInTime);
+                $lateThreshold = Carbon::parse($date.' '.$officeStartTime)->addMinutes($lateGraceMinutes);
+                $punchInAt = Carbon::parse($date.' '.$punchInTime);
                 if ($punchInAt->gt($lateThreshold)) {
                     $lateDays++;
                 }

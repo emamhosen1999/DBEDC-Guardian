@@ -11,9 +11,9 @@ class PunchExceptionController extends Controller
 {
     public function __construct(private readonly PunchExceptionService $service) {}
 
-    public function pending(): JsonResponse
+    public function pending(Request $request): JsonResponse
     {
-        return response()->json($this->service->pending());
+        return response()->json($this->service->pending($request->user()));
     }
 
     public function approve(Request $request, int $id): JsonResponse

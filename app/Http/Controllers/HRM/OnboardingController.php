@@ -10,6 +10,7 @@ use App\Models\HRM\BiometricDeviceCommand;
 use App\Models\HRM\Onboarding;
 use App\Models\HRM\OnboardingTask;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,13 @@ use Inertia\Response;
 
 class OnboardingController extends Controller
 {
+    private const NO_DEVICE_WARNING = 'No biometric devices are mapped to this employee or their work location. Ask HR to map devices, then re-sync.';
+
+    /** Recent joiners only, unless ?all=1. */
+    private const ELIGIBLE_JOINED_WITHIN_DAYS = 90;
+
+    public function __construct(private readonly DepartmentScope $scope) {}
+
     /**
      * List onboarding records with filtering, stats, and pagination.
      */
@@ -42,10 +50,8 @@ class OnboardingController extends Controller
                 });
             });
 
-        // Department managers see their own department only
-        if ($user->hasRole('Department Manager') && $user->department_id) {
-            $query->whereHas('employee', fn ($eq) => $eq->withTrashed()->where('department_id', $user->department_id));
-        }
+        // Department scope: managed departments, reporting sub-tree and self (global roles: everyone).
+        $this->scope->applyToEmployeeOwned($query, $user);
 
         $onboardings = $query->orderByDesc('created_at')->paginate($request->input('per_page', 15));
 
@@ -53,12 +59,13 @@ class OnboardingController extends Controller
             return response()->json($onboardings);
         }
 
-        // Stats summary for header cards
+        // Stats summary for header cards — same scope as the list, so counters never leak headcount.
+        $scoped = fn () => $this->scope->applyToEmployeeOwned(Onboarding::query(), $user);
         $stats = [
-            'total' => Onboarding::whereNotIn('status', [Onboarding::STATUS_CANCELLED])->count(),
-            'in_progress' => Onboarding::where('status', Onboarding::STATUS_IN_PROGRESS)->count(),
-            'pending' => Onboarding::where('status', Onboarding::STATUS_PENDING)->count(),
-            'completed' => Onboarding::where('status', Onboarding::STATUS_COMPLETED)->count(),
+            'total' => $scoped()->whereNotIn('status', [Onboarding::STATUS_CANCELLED])->count(),
+            'in_progress' => $scoped()->where('status', Onboarding::STATUS_IN_PROGRESS)->count(),
+            'pending' => $scoped()->where('status', Onboarding::STATUS_PENDING)->count(),
+            'completed' => $scoped()->where('status', Onboarding::STATUS_COMPLETED)->count(),
         ];
 
         return Inertia::render('HR/Onboarding', [
@@ -101,6 +108,8 @@ class OnboardingController extends Controller
         $employee = User::where('employee_id', $data['employee_id'])->firstOrFail();
         $data['employee_id'] = $employee->employee_id;
 
+        abort_unless($this->scope->canManage($request->user(), $employee), 403, 'You cannot onboard this employee.');
+
         // Check for duplicate active onboarding
         $existing = Onboarding::where('employee_id', $employee->employee_id)
             ->whereNotIn('status', [Onboarding::STATUS_COMPLETED, Onboarding::STATUS_CANCELLED])
@@ -113,7 +122,7 @@ class OnboardingController extends Controller
             ], 422);
         }
 
-        $onboarding = DB::transaction(function () use ($data, $tasks, $employee) {
+        $onboarding = DB::transaction(function () use ($data, $tasks) {
             $onboarding = Onboarding::create($data);
 
             if (empty($tasks)) {
@@ -130,11 +139,12 @@ class OnboardingController extends Controller
         // Automatically queue biometric hardware provisioning
         $devicesQueued = $this->queueBiometricEnrollment($employee);
 
-        return response()->json([
+        return response()->json(array_filter([
             'message' => 'Onboarding process initiated successfully.',
             'onboarding' => $onboarding->load(['employee.department', 'employee.designation', 'tasks']),
             'devices_queued' => $devicesQueued,
-        ], 201);
+            'warning' => $devicesQueued === 0 ? self::NO_DEVICE_WARNING : null,
+        ], fn ($v) => $v !== null), 201);
     }
 
     /**
@@ -241,10 +251,13 @@ class OnboardingController extends Controller
 
         $queued = $this->queueBiometricEnrollment($employee);
 
-        return response()->json([
-            'message' => "Biometric enrollment command queued to {$queued} hardware devices.",
+        return response()->json(array_filter([
+            'message' => $queued > 0
+                ? "Biometric enrollment command queued to {$queued} hardware devices."
+                : 'No biometric enrollment was queued. '.self::NO_DEVICE_WARNING,
             'devices_queued' => $queued,
-        ]);
+            'warning' => $queued === 0 ? self::NO_DEVICE_WARNING : null,
+        ], fn ($v) => $v !== null));
     }
 
     /**
@@ -261,21 +274,27 @@ class OnboardingController extends Controller
     }
 
     /**
-     * List active employees who do not yet have an active or completed onboarding.
+     * List in-scope active employees who do not yet have an active or completed
+     * onboarding. Defaults to recent joiners (90 days); ?all=1 lifts that window.
      */
-    public function eligibleEmployees(): JsonResponse
+    public function eligibleEmployees(Request $request): JsonResponse
     {
         $existingEmpIds = Onboarding::whereNotIn('status', [Onboarding::STATUS_CANCELLED])
-            ->pluck('employee_id')
-            ->toArray();
+            ->pluck('employee_id');
 
-        $employees = User::whereNotIn('employee_id', $existingEmpIds)
+        $query = User::query()
+            ->whereNull('users.deleted_at')
+            ->whereNotIn('employee_id', $existingEmpIds)
             ->with(['department:id,name', 'designation:id,title'])
             ->select('employee_id', 'name', 'department_id', 'designation_id', 'date_of_joining')
-            ->orderBy('name')
-            ->get();
+            ->when($request->input('search'), fn ($q, $s) => $q->where(fn ($w) => $w
+                ->where('name', 'like', "%{$s}%")
+                ->orWhere('employee_id', 'like', "%{$s}%")))
+            ->when(! $request->boolean('all'), fn ($q) => $q->where('date_of_joining', '>=', now()->subDays(self::ELIGIBLE_JOINED_WITHIN_DAYS)->toDateString()));
 
-        return response()->json($employees);
+        $this->scope->applyToUsers($query, $request->user());
+
+        return response()->json($query->orderBy('name')->limit(50)->get());
     }
 
     /**
@@ -284,10 +303,16 @@ class OnboardingController extends Controller
     public function queueBiometricEnrollment(User $employee): int
     {
         try {
+            // Employee override devices, else devices linked to the employee's work location
+            // (resolvedBiometricDeviceIds() walks that chain). NEVER company-wide: pushing a
+            // new person to every terminal grants physical access at sites they don't work at.
             $deviceIds = $employee->resolvedBiometricDeviceIds();
-            $devices = empty($deviceIds)
-                ? BiometricDevice::where('is_active', true)->get()
-                : BiometricDevice::whereIn('id', $deviceIds)->where('is_active', true)->get();
+            if (empty($deviceIds)) {
+                Log::warning("OnboardingController: no mapped biometric devices for {$employee->employee_id}; nothing queued");
+
+                return 0;
+            }
+            $devices = BiometricDevice::whereIn('id', $deviceIds)->where('is_active', true)->get();
 
             $count = 0;
             foreach ($devices as $device) {

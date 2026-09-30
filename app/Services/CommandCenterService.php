@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,24 @@ class CommandCenterService
 {
     private const ROAD_KM = 48;
 
+    /** Holding any of these means the user works with the project / quality registers. */
+    private const PROJECT_PERMISSIONS = [
+        'daily-works.view', 'daily-works.own.view', 'projects.analytics',
+        'quality.view', 'quality.ncr.view', 'om.dashboard.view',
+    ];
+
+    public function __construct(private readonly DepartmentScope $scope) {}
+
+    /**
+     * Project registers (RFI, NCR, site instructions, budget, objections, milestones)
+     * are shown to global roles and to users who hold a project/quality permission. A
+     * department-scoped HR operator gets the workforce picture for their own scope only.
+     */
+    private function hasProjectAccess(User $user): bool
+    {
+        return $this->scope->isGlobal($user) || $user->hasAnyPermission(self::PROJECT_PERMISSIONS);
+    }
+
     public function payload(User $user): array
     {
         $version = Cache::get('daily_works_cache_version', 1);
@@ -26,7 +45,20 @@ class CommandCenterService
         return Cache::remember($key, now()->addMinutes(5), function () use ($user) {
             $canRfi = $user->can('daily-works.view') || $user->can('daily-works.own.view');
 
+            if (! $this->hasProjectAccess($user)) {
+                return [
+                    'access' => ['project' => false],
+                    'project' => null, 'kpis' => [], 'throughput' => [], 'quality' => [], 'disciplines' => [],
+                    'chainage' => [], 'ncr' => [], 'si' => [], 'objections' => [], 'budget' => [], 'milestones' => [],
+                    'workforce' => $this->workforce($user),
+                    'today' => $this->today($user),
+                    'feed' => [],
+                    'generated_at' => now()->toIso8601String(),
+                ];
+            }
+
             return [
+                'access' => ['project' => true],
                 'project'    => $this->project(),
                 'kpis'       => $this->kpis($canRfi),
                 'throughput' => $canRfi ? $this->throughput() : [],
@@ -370,12 +402,18 @@ class CommandCenterService
         if (! $maxDate) $maxDate = $today;
         $from = Carbon::parse($maxDate)->subDays(13)->toDateString();
 
+        // Non-global actors count only the employees DepartmentScope lets them see.
+        $visible = $this->scope->visibleEmployeeIds($user);
+
         $rows = DB::table('attendances')
             ->select(DB::raw('DATE(date) d'), DB::raw('count(distinct user_id) present'))
             ->whereBetween(DB::raw('DATE(date)'), [$from, $maxDate])
+            ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible === [] ? ['__NONE__'] : $visible))
             ->groupBy('d')->orderBy('d')->get();
 
-        $totalStaff = DB::table('users')->count();
+        $totalStaff = $visible !== null
+            ? count($visible)
+            : DB::table('users')->count();
         $series = $rows->map(fn ($r) => [
             'label' => Carbon::parse($r->d)->format('d M'),
             'present' => (int) $r->present,
@@ -393,11 +431,13 @@ class CommandCenterService
         $onLeave = 0; $holiday = null;
         if (Schema::hasTable('leaves')) {
             $today = now()->toDateString();
+            $visible = $this->scope->visibleEmployeeIds($user);
             $onLeave = DB::table('leaves')
                 ->whereDate('from_date', '<=', $today)->whereDate('to_date', '>=', $today)
+                ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible === [] ? ['__NONE__'] : $visible))
                 ->count();
         }
-        if (Schema::hasTable('holidays')) {
+        if (Schema::hasTable('holidays') && $user->can('holidays.view')) {
             $h = DB::table('holidays')->whereDate('from_date', '>=', now()->toDateString())
                 ->orderBy('from_date')->first();
             if ($h) {

@@ -8,7 +8,6 @@ use App\Services\FeatureFlagService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -18,10 +17,11 @@ use Spatie\Permission\Models\Role;
 /**
  * Admin surface for server-controlled flags / remote config.
  *
- * Authorisation MIRRORS admin device sessions: read behind `users.view`, write
- * behind `users.update` (wired in routes/web.php). Flipping a flag can disable
- * a fleet-wide capability, so it sits at the same trust level as revoking a
- * user's session — not a new, looser gate.
+ * Authorisation: read behind `users.view`, write behind `users.update` AND the
+ * `scope.global` gate (wired in routes/web.php). Flipping a flag can disable a
+ * fleet-wide capability, and `users.update` is also held by department-scoped
+ * operators for editing their own people — so writes additionally demand a
+ * company-wide actor rather than trusting that permission alone.
  */
 class FeatureFlagController extends Controller
 {

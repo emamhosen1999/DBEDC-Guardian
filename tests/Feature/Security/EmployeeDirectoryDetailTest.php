@@ -17,6 +17,9 @@ class EmployeeDirectoryDetailTest extends TestCase
         $department = Department::factory()->create();
         $actor = User::factory()->create(['department_id' => $department->id]);
         $actor->givePermissionTo(Permission::findOrCreate('employees.view', 'web'));
+        // Directory reach comes from administering the department (here: its head),
+        // not from merely sitting in it — see App\Services\Access\DepartmentScope.
+        $department->update(['manager_id' => $actor->employee_id]);
         $peer = User::factory()->create(['department_id' => $department->id]);
         $outsider = User::factory()->create(['department_id' => Department::factory()->create()->id]);
 
@@ -29,6 +32,12 @@ class EmployeeDirectoryDetailTest extends TestCase
             ->assertJsonMissingPath('employee.active_device');
 
         $this->getJson(route('employees.show', $outsider->getKey()))->assertNotFound();
+
+        // A same-department colleague who administers nothing fails closed.
+        $colleague = User::factory()->create(['department_id' => $department->id]);
+        $colleague->givePermissionTo('employees.view');
+        $this->actingAs($colleague)->getJson(route('employees.show', $peer->getKey()))->assertNotFound();
+        $this->actingAs($colleague)->getJson(route('employees.show', $colleague->getKey()))->assertOk();
     }
 
     public function test_employee_detail_requires_directory_permission(): void

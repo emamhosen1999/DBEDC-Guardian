@@ -20,6 +20,7 @@ class PunchExceptionApiTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Manager']);
+        Role::firstOrCreate(['name' => 'Administrator']);
 
         // These routes are guarded by
         // permission:attendance.correct|attendance.create|attendance.update.
@@ -34,6 +35,7 @@ class PunchExceptionApiTest extends TestCase
     public function test_manager_approves_a_provisional_punch(): void
     {
         $manager = User::factory()->create();
+        $manager->assignRole('Administrator'); // company-wide: a role-less manager is scoped to nobody and fails closed
         $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
         $att = Attendance::factory()->for($emp)->create([
@@ -58,6 +60,7 @@ class PunchExceptionApiTest extends TestCase
     public function test_manager_rejects_a_provisional_punch(): void
     {
         $manager = User::factory()->create();
+        $manager->assignRole('Administrator'); // company-wide: a role-less manager is scoped to nobody and fails closed
         $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
         $att = Attendance::factory()->for($emp)->create([
@@ -77,6 +80,7 @@ class PunchExceptionApiTest extends TestCase
     public function test_reject_without_reason_returns_validation_error(): void
     {
         $manager = User::factory()->create();
+        $manager->assignRole('Administrator'); // company-wide: a role-less manager is scoped to nobody and fails closed
         $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
         $att = Attendance::factory()->for($emp)->create([

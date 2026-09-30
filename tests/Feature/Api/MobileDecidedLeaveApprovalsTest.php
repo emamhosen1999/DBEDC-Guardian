@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -85,6 +86,7 @@ class MobileDecidedLeaveApprovalsTest extends TestCase
         Permission::findOrCreate('leaves.manage', 'web');
 
         $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web')); // a forced override is a company-wide action
         $admin->givePermissionTo('leaves.manage');
 
         $manager = User::factory()->create();   // chain level-1 approver, still pending
@@ -154,6 +156,7 @@ class MobileDecidedLeaveApprovalsTest extends TestCase
         Permission::findOrCreate('leaves.manage', 'web');
 
         $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web')); // a forced override is a company-wide action
         $admin->givePermissionTo('leaves.manage');
 
         $manager = User::factory()->create();   // still pending at override time

@@ -405,7 +405,11 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
 
     const isGlobalUser = auth.roles?.includes('Super Administrator') || auth.roles?.includes('Administrator') || auth.roles?.includes('HR Manager');
     const userDeptId = auth.user?.department_id;
-    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth.roles?.includes('Department Manager');
+    // Department-scoped managers (Department Manager role, or anyone holding department.admin) who
+    // administer a single department have it pinned; the server scopes every request regardless.
+    const isNonGlobalManager = !isGlobalUser && userDeptId !== null
+        && (auth.roles?.includes('Department Manager') || auth.permissions?.includes('department.admin'))
+        && departments.length <= 1;
 
     /* Department and page live in the URL under an `m_` prefix (every
        Attendance tab stays mounted). The employee search is shared with the

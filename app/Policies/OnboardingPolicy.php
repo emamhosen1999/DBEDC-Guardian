@@ -4,11 +4,14 @@ namespace App\Policies;
 
 use App\Models\HRM\Onboarding;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class OnboardingPolicy
 {
     use HandlesAuthorization;
+
+    public function __construct(private readonly DepartmentScope $scope) {}
 
     /**
      * Determine whether the user can view any models.
@@ -23,23 +26,9 @@ class OnboardingPolicy
      */
     public function view(User $user, Onboarding $onboarding): bool
     {
-        // Basic permission check
-        if (! $user->can('hr.onboarding.view')) {
-            return false;
-        }
-
-        // Department managers can only see onboarding for their department members
-        if ($user->hasRole('Department Manager') && $user->department_id) {
-            return $onboarding->employee && $onboarding->employee->department_id === $user->department_id;
-        }
-
-        // Employees can only see their own onboarding
-        if ($user->hasRole('Employee')) {
-            return $onboarding->employee_id === $user->id;
-        }
-
-        // HR and higher roles can see all
-        return true;
+        // Permission + department scope; an employee may read their own record only.
+        return $user->can('hr.onboarding.view')
+            && $this->scope->canActOn($user, $onboarding->employee_id, allowSelf: true);
     }
 
     /**
@@ -55,7 +44,7 @@ class OnboardingPolicy
      */
     public function update(User $user, Onboarding $onboarding): bool
     {
-        return $user->can('hr.onboarding.update');
+        return $user->can('hr.onboarding.update') && $this->scope->canManage($user, $onboarding->employee_id);
     }
 
     /**
@@ -63,7 +52,7 @@ class OnboardingPolicy
      */
     public function delete(User $user, Onboarding $onboarding): bool
     {
-        return $user->can('hr.onboarding.delete');
+        return $user->can('hr.onboarding.delete') && $this->scope->canManage($user, $onboarding->employee_id);
     }
 
     /**
@@ -71,7 +60,7 @@ class OnboardingPolicy
      */
     public function restore(User $user, Onboarding $onboarding): bool
     {
-        return $user->can('hr.onboarding.delete');
+        return $user->can('hr.onboarding.delete') && $this->scope->canManage($user, $onboarding->employee_id);
     }
 
     /**
@@ -79,6 +68,6 @@ class OnboardingPolicy
      */
     public function forceDelete(User $user, Onboarding $onboarding): bool
     {
-        return $user->can('hr.onboarding.delete');
+        return $user->can('hr.onboarding.delete') && $this->scope->canManage($user, $onboarding->employee_id);
     }
 }

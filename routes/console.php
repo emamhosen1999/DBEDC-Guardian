@@ -144,6 +144,16 @@ Schedule::command('attendance:absence-streak')
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/absence-streak.log'));
 
+// Offboarding safety net: queue LWD effects (access revocation, biometric removal)
+// for any offboarding whose last working day is over but was never processed.
+// This is the real mechanism on the `sync` queue driver, which ignores delay().
+Schedule::command('offboarding:process-due')
+    ->dailyAt('00:15')
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/offboarding-process-due.log'));
+
 // Client Diagnostics retention: drop resolved crash groups after 30 days and
 // anything untouched for 90 days. Off-peak so the chunked deletes never
 // compete with the morning punch traffic.
@@ -160,4 +170,3 @@ Schedule::command('aeon:index')
     ->dailyAt('04:00')->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping()
     ->runInBackground();
-

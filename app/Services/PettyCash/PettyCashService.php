@@ -418,9 +418,12 @@ class PettyCashService
             ->toArray();
     }
 
-    public function getAdminOverview(?string $status = null): array
+    public function getAdminOverview(?string $status = null, ?\App\Models\User $actor = null): array
     {
         $query = PettyCashLoan::with(['user', 'approver'])->orderBy('created_at', 'desc');
+        if ($actor) {
+            app(\App\Services\Access\DepartmentScope::class)->applyToEmployeeOwned($query, $actor, 'user_id');
+        }
         if ($status) {
             $query->where('status', $status);
         }

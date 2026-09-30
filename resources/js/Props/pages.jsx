@@ -43,7 +43,15 @@ import {
   BanknotesIcon,
 } from '@heroicons/react/24/outline';
 
-export const getPages = (roles, permissions, auth = null) => {
+/**
+ * Drop any group whose sub-menu ended up empty (recursively), so a parent's gate can never
+ * show an empty shell — or a stale permission reveal one — whatever its children resolve to.
+ */
+const prune = (items) => items
+  .map((item) => (item.subMenu ? { ...item, subMenu: prune(item.subMenu) } : item))
+  .filter((item) => !item.subMenu || item.subMenu.length > 0);
+
+export const getPages = (roles, permissions, auth = null, features = {}) => {
   // Super Administrator bypass helper: guarantees Super Admin receives 100% access across all modules
   const isSuperAdmin = Boolean(
     auth?.isSuperAdmin ||
@@ -74,7 +82,7 @@ export const getPages = (roles, permissions, auth = null) => {
 
   ];
 
-  return [
+  return prune([
     // 1. Dashboard (ISO 9000 - Information Management)
     ...(isOnlyEmployee ? [{
       name: 'Employee Dashboard',
@@ -104,27 +112,26 @@ export const getPages = (roles, permissions, auth = null) => {
         workspaceItems
       ) : []),
 
-    // 3. HR (Human Resources) - Reorganized with submodule groups
+    // 3. HR (Human Resources) - Reorganized with submodule groups.
+    // The parent gate is exactly the union of its children's gates (a permission with no
+    // child here must not reveal an empty group); prune() below also drops any empty group.
     ...(canAny([
         'employees.view',
-        'hr.onboarding.view',
-        'hr.skills.view',
-        'hr.benefits.view',
-        'hr.safety.view',
-        'hr.analytics.view',
-        'departments.view',
-        'designations.view',
         'attendance.view',
         'holidays.view',
-        'leaves.view'
+        'leaves.view',
+        'hr.onboarding.view',
+        'hr.offboarding.view',
+        'hr.assets.view',
+        'hr.payroll.view'
       ]) ? [{
       name: 'Workforce',
       icon: <UserGroupIcon className="" />,
       priority: 3,
       module: 'hrm',
       subMenu: [
-        // Core Employee Management
-        ...(canAny(['employees.view', 'departments.view', 'designations.view']) ? [{
+        // Core Employee Management (the /employees route itself requires employees.view)
+        ...(can('employees.view') ? [{
           name: 'Employees',
           icon: <UserGroupIcon  />,
           category: 'core',
@@ -132,7 +139,7 @@ export const getPages = (roles, permissions, auth = null) => {
         }] : []),
         
         // Time & Attendance Management
-        ...(canAny(['attendance.view', 'holidays.view', 'leaves.view', 'hr.timeoff.view']) ? [{
+        ...(canAny(['attendance.view', 'holidays.view', 'leaves.view']) ? [{
           name: 'Time/Attendance',
           icon: <CalendarDaysIcon  />,
           category: 'time',
@@ -163,7 +170,7 @@ export const getPages = (roles, permissions, auth = null) => {
         }] : []),
 
         // Asset Management
-        ...(can('employees.view') ? [{
+        ...(can('hr.assets.view') ? [{
           name: 'Asset Management',
           icon: <ArchiveBoxIcon />,
           category: 'hr',
@@ -171,7 +178,7 @@ export const getPages = (roles, permissions, auth = null) => {
         }] : []),
 
         // Payroll & Compensation
-        ...(can('employees.view') ? [{
+        ...(can('hr.payroll.view') && features?.hr_payroll ? [{
           name: 'Payroll',
           icon: <BanknotesIcon />,
           category: 'hr',
@@ -396,7 +403,7 @@ export const getPages = (roles, permissions, auth = null) => {
     }] : []),
 
     // 8. Admin & Settings (System Administration)
-    ...(canAny(['users.view', 'settings.view', 'roles.view', 'modules.view', 'company.settings', 'attendance.settings', 'leave-settings.view', 'request_logs.view']) ? [{
+    ...(canAny(['users.view', 'company.settings', 'request_logs.view', 'notifications.settings']) ? [{
       name: 'Admin',
       icon: <Cog6ToothIcon className="" />,
       priority: 8,
@@ -447,7 +454,7 @@ export const getPages = (roles, permissions, auth = null) => {
           }] : []),
       ]
     }] : []),
-  ];
+  ]);
 }
 
 // Utility functions for navigation management

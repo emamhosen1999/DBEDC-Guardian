@@ -5,6 +5,8 @@ namespace App\Http\Controllers\HRM;
 use App\Http\Controllers\Controller;
 use App\Models\HRM\Asset;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,12 +14,32 @@ use Inertia\Response;
 
 class AssetController extends Controller
 {
+    public function __construct(private readonly DepartmentScope $scope) {}
+
+    /**
+     * Assets the actor may see: those held by in-scope employees PLUS the unassigned
+     * 'available' pool (a department admin needs the pool to assign from). Global: all.
+     */
+    private function visibleAssets(User $actor): Builder
+    {
+        $query = Asset::query();
+
+        if ($this->scope->isGlobal($actor)) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($actor) {
+            $q->where(fn (Builder $held) => $this->scope->applyToEmployeeOwned($held, $actor, 'assets.assignee_id'))
+                ->orWhere(fn (Builder $pool) => $pool->whereNull('assets.assignee_id')->where('assets.status', Asset::STATUS_AVAILABLE));
+        });
+    }
+
     /**
      * List all company assets with filtering and statistics.
      */
     public function index(Request $request): JsonResponse|Response
     {
-        $query = Asset::with(['assignee:employee_id,name,department_id,designation_id'])
+        $query = $this->visibleAssets($request->user())->with(['assignee:employee_id,name,department_id,designation_id'])
             ->when($request->input('category'), fn ($q, $cat) => $q->where('category', $cat))
             ->when($request->input('status'), fn ($q, $st) => $q->where('status', $st))
             ->when($request->input('search'), function ($q, $search) {
@@ -35,11 +57,12 @@ class AssetController extends Controller
             return response()->json($assets);
         }
 
+        $visible = fn () => $this->visibleAssets($request->user());
         $stats = [
-            'total' => Asset::count(),
-            'assigned' => Asset::where('status', Asset::STATUS_ASSIGNED)->count(),
-            'available' => Asset::where('status', Asset::STATUS_AVAILABLE)->count(),
-            'damaged' => Asset::where('status', Asset::STATUS_DAMAGED)->count(),
+            'total' => $visible()->count(),
+            'assigned' => $visible()->where('status', Asset::STATUS_ASSIGNED)->count(),
+            'available' => $visible()->where('status', Asset::STATUS_AVAILABLE)->count(),
+            'damaged' => $visible()->where('status', Asset::STATUS_DAMAGED)->count(),
         ];
 
         return Inertia::render('HR/Assets', [
@@ -66,6 +89,8 @@ class AssetController extends Controller
         ]);
 
         if (! empty($validated['assignee_id'])) {
+            $target = User::withTrashed()->find($validated['assignee_id']);
+            abort_unless($target && ! $target->trashed() && $this->scope->canManage($request->user(), $target), 403, 'You cannot assign assets to this employee.');
             $validated['status'] = Asset::STATUS_ASSIGNED;
             $validated['assigned_date'] = now();
         } else {
@@ -86,6 +111,7 @@ class AssetController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $asset = Asset::findOrFail($id);
+        $this->authorize('update', $asset);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -116,6 +142,8 @@ class AssetController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $this->authorize('assign', [$asset, $validated['employee_id']]);
+
         $asset->update([
             'assignee_id' => $validated['employee_id'],
             'assigned_date' => now(),
@@ -138,6 +166,7 @@ class AssetController extends Controller
     public function returnAsset(Request $request, int $id): JsonResponse
     {
         $asset = Asset::findOrFail($id);
+        $this->authorize('return', $asset);
 
         $validated = $request->validate([
             'condition_on_return' => 'required|string|in:good,fair,damaged,lost',
@@ -149,7 +178,7 @@ class AssetController extends Controller
             'status' => $validated['condition_on_return'] === 'damaged' ? Asset::STATUS_DAMAGED : Asset::STATUS_AVAILABLE,
             'condition_on_return' => $validated['condition_on_return'],
             'assignee_id' => null,
-            'notes' => $validated['notes'] ? ($asset->notes . "\nReturn Note: " . $validated['notes']) : $asset->notes,
+            'notes' => ! empty($validated['notes']) ? ($asset->notes."\nReturn Note: ".$validated['notes']) : $asset->notes,
         ]);
 
         return response()->json([
@@ -161,8 +190,10 @@ class AssetController extends Controller
     /**
      * List all assets currently assigned to a specific employee.
      */
-    public function byEmployee(string $employeeId): JsonResponse
+    public function byEmployee(Request $request, string $employeeId): JsonResponse
     {
+        abort_unless($this->scope->canActOn($request->user(), $employeeId, allowSelf: true), 403, 'This employee is outside your scope.');
+
         $assets = Asset::where('assignee_id', $employeeId)
             ->where('status', Asset::STATUS_ASSIGNED)
             ->get();
@@ -176,6 +207,7 @@ class AssetController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $asset = Asset::findOrFail($id);
+        $this->authorize('delete', $asset);
         $asset->delete();
 
         return response()->json(['message' => 'Asset deleted successfully.']);

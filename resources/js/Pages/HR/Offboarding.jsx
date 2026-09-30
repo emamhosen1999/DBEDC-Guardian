@@ -21,6 +21,7 @@ import {
     Separator,
     Card,
     Progress,
+    Callout,
 } from '@radix-ui/themes';
 import {
     MagnifyingGlassIcon,
@@ -82,9 +83,14 @@ const OffboardingPage = ({
     absenceCases = [],
     filters = {},
 }) => {
-    const { auth } = usePage().props;
+    const { auth, features } = usePage().props;
     const canCreate = auth?.permissions?.includes('hr.offboarding.create') || auth?.roles?.includes('Super Administrator');
     const canUpdate = auth?.permissions?.includes('hr.offboarding.update') || auth?.roles?.includes('Super Administrator');
+    const isSuper = auth?.roles?.includes('Super Administrator');
+    const settlementEnabled = Boolean(features?.hr_final_settlement);
+    const canSettle = auth?.permissions?.includes('hr.settlement.manage') || isSuper;
+    const canApproveSettlement = auth?.permissions?.includes('hr.settlement.approve') || isSuper;
+    const canDisburseSettlement = auth?.permissions?.includes('hr.settlement.disburse') || isSuper;
 
     const [activeTab, setActiveTab] = useState('offboardings');
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
@@ -112,6 +118,7 @@ const OffboardingPage = ({
     const [selectedOffboarding, setSelectedOffboarding] = useState(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [updatingTaskId, setUpdatingTaskId] = useState(null);
+    const [completionBlockers, setCompletionBlockers] = useState([]);
 
     // Notice letter dialog state
     const [noticeLetter, setNoticeLetter] = useState(null);
@@ -198,6 +205,7 @@ const OffboardingPage = ({
             });
             if (res.data?.offboarding) {
                 setSelectedOffboarding(res.data.offboarding);
+                setCompletionBlockers(res.data.completion_blockers || []);
                 router.reload({ only: ['offboardings', 'stats'] });
             }
         } catch (e) {
@@ -555,6 +563,7 @@ const OffboardingPage = ({
                                                                     variant="soft"
                                                                     onClick={() => {
                                                                         setSelectedOffboarding(item);
+                                                                        setCompletionBlockers([]);
                                                                         setIsDetailOpen(true);
                                                                         fetchEmployeeAssets(item.employee_id);
                                                                     }}
@@ -562,7 +571,7 @@ const OffboardingPage = ({
                                                                 >
                                                                     <CheckCircledIcon /> Clearance
                                                                 </Button>
-                                                                {canUpdate && (
+                                                                {settlementEnabled && canUpdate && (
                                                                     <Button
                                                                         size="1"
                                                                         variant="surface"
@@ -872,6 +881,22 @@ const OffboardingPage = ({
                                     </Box>
                                 </Flex>
                             </Box>
+
+                            {completionBlockers.length > 0 && (
+                                <Callout.Root color="amber" size="1" mb="3">
+                                    <Callout.Icon>
+                                        <ExclamationTriangleIcon />
+                                    </Callout.Icon>
+                                    <Callout.Text>
+                                        Cannot be completed yet:
+                                        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                                            {completionBlockers.map((b) => (
+                                                <li key={b}>{b}</li>
+                                            ))}
+                                        </ul>
+                                    </Callout.Text>
+                                </Callout.Root>
+                            )}
 
                             <Flex direction="column" gap="2">
                                 {(selectedOffboarding.tasks || []).map((t) => {
@@ -1219,7 +1244,7 @@ const OffboardingPage = ({
                             <Flex justify="end" gap="3" mt="4">
                                 <Button variant="soft" color="gray" onClick={() => setIsSettlementOpen(false)}>Close</Button>
 
-                                {(!settlementData.existing_settlement || settlementData.existing_settlement.status === 'draft') && canUpdate && (
+                                {(!settlementData.existing_settlement || settlementData.existing_settlement.status === 'draft') && canSettle && (
                                     <Button
                                         variant="solid"
                                         color="indigo"
@@ -1231,13 +1256,13 @@ const OffboardingPage = ({
                                     </Button>
                                 )}
 
-                                {settlementData.existing_settlement?.status === 'draft' && canUpdate && (
+                                {settlementData.existing_settlement?.status === 'draft' && canApproveSettlement && (
                                     <Button variant="solid" color="green" onClick={handleApproveSettlement} style={{ cursor: 'pointer' }}>
                                         Approve
                                     </Button>
                                 )}
 
-                                {settlementData.existing_settlement?.status === 'approved' && canUpdate && (
+                                {settlementData.existing_settlement?.status === 'approved' && canDisburseSettlement && (
                                     <Button variant="solid" color="cyan" onClick={() => handleDisburseSettlement('bank_transfer')} style={{ cursor: 'pointer' }}>
                                         Disburse (Bank Transfer)
                                     </Button>

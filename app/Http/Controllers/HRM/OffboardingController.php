@@ -6,18 +6,30 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\HR\StoreOffboardingRequest;
 use App\Http\Requests\HR\UpdateOffboardingRequest;
 use App\Jobs\ProcessOffboardingLwd;
+use App\Models\HRM\AbsenceCase;
 use App\Models\HRM\Offboarding;
 use App\Models\HRM\OffboardingTask;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
+use App\Services\Attendance\AbsenceNoticeService;
+use App\Services\HR\OffboardingInitiationNotifier;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OffboardingController extends Controller
 {
+    /** Task attributes a client may write (mirrors the FormRequest rules). */
+    private const TASK_FIELDS = ['task', 'description', 'due_date', 'completed_date', 'status', 'assigned_to', 'notes'];
+
+    public function __construct(private readonly DepartmentScope $scope) {}
+
     /**
      * List offboardings with filtering and pagination.
      */
@@ -32,10 +44,8 @@ class OffboardingController extends Controller
                 $q->whereHas('employee', fn ($eq) => $eq->where('name', 'like', "%{$search}%")->orWhere('employee_id', 'like', "%{$search}%"));
             });
 
-        // Department managers see their own department only
-        if ($user->hasRole('Department Manager') && $user->department_id) {
-            $query->whereHas('employee', fn ($eq) => $eq->where('department_id', $user->department_id));
-        }
+        // Department scope: managed departments, reporting sub-tree and self (global roles: everyone).
+        $this->scope->applyToEmployeeOwned($query, $user);
 
         $offboardings = $query->orderByDesc('created_at')->paginate($request->input('per_page', 15));
 
@@ -43,21 +53,27 @@ class OffboardingController extends Controller
             return response()->json($offboardings);
         }
 
-        // Stats summary for header cards
+        // Stats summary for header cards — same scope as the list.
+        $scoped = fn () => $this->scope->applyToEmployeeOwned(Offboarding::query(), $user);
         $stats = [
-            'total' => Offboarding::whereNotIn('status', [Offboarding::STATUS_CANCELLED])->count(),
-            'in_progress' => Offboarding::where('status', Offboarding::STATUS_IN_PROGRESS)->count(),
-            'absconded' => Offboarding::where('reason', Offboarding::REASON_ABSCONDED)->count(),
-            'completed' => Offboarding::where('status', Offboarding::STATUS_COMPLETED)->count(),
-            'active_cases' => \App\Models\HRM\AbsenceCase::whereIn('stage', [
-                \App\Models\HRM\AbsenceCase::STAGE_MONITORING,
-                \App\Models\HRM\AbsenceCase::STAGE_NOTICE_SENT,
-                \App\Models\HRM\AbsenceCase::STAGE_SHOW_CAUSE,
-            ])->count(),
+            'total' => $scoped()->whereNotIn('status', [Offboarding::STATUS_CANCELLED])->count(),
+            'in_progress' => $scoped()->where('status', Offboarding::STATUS_IN_PROGRESS)->count(),
+            'absconded' => $scoped()->where('reason', Offboarding::REASON_ABSCONDED)->count(),
+            'completed' => $scoped()->where('status', Offboarding::STATUS_COMPLETED)->count(),
+            'active_cases' => $this->scope->applyToEmployeeOwned(AbsenceCase::query(), $user, 'user_id')
+                ->whereIn('stage', [
+                    AbsenceCase::STAGE_MONITORING,
+                    AbsenceCase::STAGE_NOTICE_SENT,
+                    AbsenceCase::STAGE_SHOW_CAUSE,
+                ])->count(),
         ];
 
         // Active absence cases for the tab
-        $absenceCases = \App\Models\HRM\AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title'])
+        $absenceCases = $this->scope->applyToEmployeeOwned(
+            AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title']),
+            $user,
+            'user_id',
+        )
             ->orderByDesc('streak_days')
             ->limit(50)
             ->get();
@@ -93,7 +109,7 @@ class OffboardingController extends Controller
     /**
      * Create a new offboarding process.
      */
-    public function store(StoreOffboardingRequest $request): JsonResponse
+    public function store(StoreOffboardingRequest $request, OffboardingInitiationNotifier $notifier): JsonResponse
     {
         $data = $request->validated();
         $tasks = $data['tasks'] ?? [];
@@ -102,6 +118,11 @@ class OffboardingController extends Controller
         // Resolve employee
         $employee = User::where('employee_id', $data['employee_id'])->firstOrFail();
         $data['employee_id'] = $employee->employee_id;
+
+        // Nobody offboards themselves through the admin flow; the target must be in the
+        // actor's scope and (for non-global actors) outranked by them.
+        abort_if($employee->employee_id === $request->user()->employee_id, 403, 'You cannot initiate your own offboarding.');
+        abort_unless($this->scope->canManage($request->user(), $employee), 403, 'You cannot offboard this employee.');
 
         // Check for duplicate active offboarding
         $existing = Offboarding::where('employee_id', $employee->employee_id)
@@ -130,8 +151,11 @@ class OffboardingController extends Controller
             return $offboarding;
         });
 
-        // Dispatch the LWD processing job
-        ProcessOffboardingLwd::dispatch($offboarding)->afterCommit();
+        // LWD effects (access revocation, biometric removal) are queued for the
+        // end of the last working day — never on day 1 of the notice period.
+        ProcessOffboardingLwd::dispatchFor($offboarding);
+
+        $notifier->send($offboarding, $employee);
 
         Log::info('Offboarding initiated', [
             'offboarding_id' => $offboarding->id,
@@ -161,35 +185,90 @@ class OffboardingController extends Controller
         $lwdChanged = isset($data['last_working_date'])
             && $offboarding->last_working_date?->toDateString() !== $data['last_working_date'];
 
-        DB::transaction(function () use ($offboarding, $data, $tasks) {
-            $offboarding->update($data);
+        $previousStatus = $offboarding->status;
+        $requestedStatus = $data['status'] ?? null;
+        unset($data['status']);
 
-            // If offboarding is marked completed, soft-delete the employee to move to inactive/former employee
-            if (isset($data['status']) && $data['status'] === Offboarding::STATUS_COMPLETED) {
-                $offboarding->employee?->delete();
-            } elseif (isset($data['status']) && $data['status'] !== Offboarding::STATUS_COMPLETED && $offboarding->getOriginal('status') === Offboarding::STATUS_COMPLETED) {
-                $offboarding->employee()?->withTrashed()->restore();
-            }
+        if ($lwdChanged) {
+            // New LWD: the LWD effects must be (re)run for the new date.
+            $data['lwd_processed_at'] = null;
+        }
+
+        DB::transaction(function () use ($offboarding, $data, $tasks, $requestedStatus, $previousStatus) {
+            $offboarding->update($data);
 
             // Sync tasks: update existing, create new, delete removed
             $incomingIds = collect($tasks)->pluck('id')->filter()->all();
             $offboarding->tasks()->whereNotIn('id', $incomingIds)->delete();
 
             foreach ($tasks as $taskData) {
+                $fields = Arr::only($taskData, self::TASK_FIELDS);
+
                 if (! empty($taskData['id'])) {
-                    OffboardingTask::where('id', $taskData['id'])->update($taskData);
+                    // Scoped to this offboarding — a task id from another process must not be writable.
+                    $task = $offboarding->tasks()->whereKey($taskData['id'])->first();
+                    if (! $task) {
+                        throw ValidationException::withMessages([
+                            'tasks' => 'A submitted task does not belong to this offboarding.',
+                        ]);
+                    }
+                    $task->update($fields);
                 } else {
-                    $offboarding->tasks()->create($taskData);
+                    $offboarding->tasks()->create($fields);
                 }
+            }
+
+            if ($requestedStatus === null) {
+                return;
+            }
+
+            $completing = $requestedStatus === Offboarding::STATUS_COMPLETED
+                && $previousStatus !== Offboarding::STATUS_COMPLETED;
+
+            if ($completing) {
+                $blockers = $offboarding->completionBlockers();
+                if ($blockers) {
+                    throw new HttpResponseException(response()->json([
+                        'message' => 'Offboarding cannot be completed yet.',
+                        'completion_blockers' => $blockers,
+                    ], 422));
+                }
+            }
+
+            $offboarding->update(['status' => $requestedStatus]);
+
+            if ($completing) {
+                $this->finalizeCompletion($offboarding);
+            } elseif ($requestedStatus !== Offboarding::STATUS_COMPLETED && $previousStatus === Offboarding::STATUS_COMPLETED) {
+                // Reopened: bring the employee back from former-employee state.
+                User::withTrashed()->where('employee_id', $offboarding->employee_id)->restore();
             }
         });
 
-        // Re-dispatch LWD job if the date changed
+        // LWD changed: queue the effects for the new date (a stale earlier job exits harmlessly).
         if ($lwdChanged) {
-            ProcessOffboardingLwd::dispatch($offboarding->fresh())->afterCommit();
+            ProcessOffboardingLwd::dispatchFor($offboarding->fresh());
         }
 
-        return response()->json($offboarding->fresh()->load('tasks'));
+        $fresh = $offboarding->fresh()->load('tasks');
+
+        return response()->json(array_merge($fresh->toArray(), [
+            'completion_blockers' => $fresh->status === Offboarding::STATUS_COMPLETED ? [] : $fresh->completionBlockers(),
+        ]));
+    }
+
+    /**
+     * Completing an offboarding: make sure LWD access revocation has run, then
+     * move the employee to former-employee (soft-delete). Callers must have
+     * verified completionBlockers() is empty (which implies the LWD has passed).
+     */
+    private function finalizeCompletion(Offboarding $offboarding): void
+    {
+        if (! $offboarding->fresh()->lwd_processed_at) {
+            ProcessOffboardingLwd::dispatchSync($offboarding);
+        }
+
+        User::where('employee_id', $offboarding->employee_id)->first()?->delete();
     }
 
     /**
@@ -217,15 +296,18 @@ class OffboardingController extends Controller
             Offboarding::STATUS_CANCELLED,
         ])->pluck('employee_id');
 
-        $employees = User::whereNull('deleted_at')
-            ->whereNotIn('id', $activeEmployeeIds)
+        $actor = $request->user();
+
+        $query = User::whereNull('users.deleted_at')
+            ->whereNotIn('employee_id', $activeEmployeeIds)
+            ->where('employee_id', '!=', $actor->employee_id)
             ->select('employee_id', 'name', 'department_id')
             ->with('department:id,name')
-            ->when($request->input('search'), fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
-            ->limit(50)
-            ->get();
+            ->when($request->input('search'), fn ($q, $s) => $q->where('name', 'like', "%{$s}%"));
 
-        return response()->json($employees);
+        $this->scope->applyToUsers($query, $actor);
+
+        return response()->json($query->limit(50)->get());
     }
 
     /**
@@ -269,19 +351,23 @@ class OffboardingController extends Controller
 
         $task->update($data);
 
-        // If all tasks are completed, check if offboarding can be marked completed
-        $pendingCount = $offboarding->tasks()
-            ->whereNotIn('status', [OffboardingTask::STATUS_COMPLETED, OffboardingTask::STATUS_NOT_APPLICABLE])
-            ->count();
+        // Ticking the last task only auto-completes when nothing else blocks it
+        // (LWD reached, assets returned, F&F paid). Otherwise it stays in_progress.
+        $blockers = $offboarding->completionBlockers();
 
-        if ($pendingCount === 0 && $offboarding->status === Offboarding::STATUS_IN_PROGRESS) {
-            $offboarding->update(['status' => Offboarding::STATUS_COMPLETED]);
-            $offboarding->employee?->delete();
+        if ($offboarding->status === Offboarding::STATUS_IN_PROGRESS && empty($blockers)) {
+            DB::transaction(function () use ($offboarding) {
+                $offboarding->update(['status' => Offboarding::STATUS_COMPLETED]);
+                $this->finalizeCompletion($offboarding);
+            });
         }
+
+        $fresh = $offboarding->fresh();
 
         return response()->json([
             'task' => $task->fresh(),
-            'offboarding' => $offboarding->fresh()->load('tasks'),
+            'offboarding' => $fresh->load('tasks'),
+            'completion_blockers' => $fresh->status === Offboarding::STATUS_COMPLETED ? [] : $blockers,
         ]);
     }
 
@@ -290,7 +376,11 @@ class OffboardingController extends Controller
      */
     public function absenceCases(Request $request): JsonResponse
     {
-        $cases = \App\Models\HRM\AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title'])
+        $cases = $this->scope->applyToEmployeeOwned(
+            AbsenceCase::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title']),
+            $request->user(),
+            'user_id',
+        )
             ->when($request->input('stage'), fn ($q, $stage) => $q->where('stage', $stage))
             ->orderByDesc('streak_days')
             ->paginate($request->input('per_page', 25));
@@ -301,9 +391,10 @@ class OffboardingController extends Controller
     /**
      * Generate official return-to-work or show-cause notice letter.
      */
-    public function generateNotice(int $caseId, string $type, \App\Services\Attendance\AbsenceNoticeService $noticeService): JsonResponse
+    public function generateNotice(Request $request, int $caseId, string $type, AbsenceNoticeService $noticeService): JsonResponse
     {
-        $case = \App\Models\HRM\AbsenceCase::with(['employee.department', 'employee.designation'])->findOrFail($caseId);
+        $case = AbsenceCase::with(['employee.department', 'employee.designation'])->findOrFail($caseId);
+        abort_unless($this->scope->canManage($request->user(), $case->user_id), 403, 'This absence case is outside your scope.');
 
         $notice = match ($type) {
             'return_to_work' => $noticeService->generateReturnToWorkNotice($case),
@@ -322,9 +413,10 @@ class OffboardingController extends Controller
     /**
      * Resolve an absence case: return to work (regularize/LWP) or convert to absconded offboarding.
      */
-    public function resolveAbsenceCase(Request $request, int $caseId): JsonResponse
+    public function resolveAbsenceCase(Request $request, int $caseId, OffboardingInitiationNotifier $notifier): JsonResponse
     {
-        $case = \App\Models\HRM\AbsenceCase::findOrFail($caseId);
+        $case = AbsenceCase::findOrFail($caseId);
+        abort_unless($this->scope->canManage($request->user(), $case->user_id), 403, 'This absence case is outside your scope.');
 
         $data = $request->validate([
             'action' => 'required|in:regularize,lwp,abscond',
@@ -334,19 +426,19 @@ class OffboardingController extends Controller
         $user = User::where('employee_id', $case->user_id)->firstOrFail();
 
         if ($data['action'] === 'abscond') {
-            $existing = Offboarding::where('employee_id', $user->id)
+            $existing = Offboarding::where('employee_id', $user->employee_id)
                 ->whereNotIn('status', [Offboarding::STATUS_CANCELLED])
                 ->first();
 
             if (! $existing) {
                 $offboarding = Offboarding::create([
-                    'employee_id' => $user->id,
+                    'employee_id' => $user->employee_id,
                     'initiation_date' => now()->toDateString(),
                     'last_working_date' => $case->first_absent_date ?? now()->subDay()->toDateString(),
                     'reason' => Offboarding::REASON_ABSCONDED,
                     'status' => Offboarding::STATUS_IN_PROGRESS,
                     'notes' => $data['notes'] ?? 'Auto-converted from prolonged absence case #'.$case->id,
-                    'created_by' => $request->user()->id,
+                    'created_by' => $request->user()->employee_id,
                 ]);
 
                 // Seed checklist tasks
@@ -354,13 +446,15 @@ class OffboardingController extends Controller
                     $offboarding->tasks()->create($task);
                 }
 
-                ProcessOffboardingLwd::dispatch($offboarding)->afterCommit();
+                ProcessOffboardingLwd::dispatchFor($offboarding);
+
+                $notifier->send($offboarding, $user);
 
                 $case->offboarding_id = $offboarding->id;
             }
 
-            $case->stage = \App\Models\HRM\AbsenceCase::STAGE_ABSCONDED;
-            $case->outcome = \App\Models\HRM\AbsenceCase::OUTCOME_ABSCONDED;
+            $case->stage = AbsenceCase::STAGE_ABSCONDED;
+            $case->outcome = AbsenceCase::OUTCOME_ABSCONDED;
             $case->addTimelineEntry('Converted to Absconded Offboarding', $data['notes'] ?? null);
             $case->save();
 
@@ -371,10 +465,10 @@ class OffboardingController extends Controller
         }
 
         // Return to work (regularize or LWP)
-        $case->stage = \App\Models\HRM\AbsenceCase::STAGE_RETURNED;
+        $case->stage = AbsenceCase::STAGE_RETURNED;
         $case->outcome = $data['action'] === 'regularize'
-            ? \App\Models\HRM\AbsenceCase::OUTCOME_REGULARIZED
-            : \App\Models\HRM\AbsenceCase::OUTCOME_LWP;
+            ? AbsenceCase::OUTCOME_REGULARIZED
+            : AbsenceCase::OUTCOME_LWP;
         $case->addTimelineEntry("Case resolved: {$data['action']}", $data['notes'] ?? null);
         $case->save();
 

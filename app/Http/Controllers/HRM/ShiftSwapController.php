@@ -8,6 +8,7 @@ use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\ShiftSwapService;
 use Carbon\Carbon;
@@ -21,13 +22,18 @@ class ShiftSwapController extends Controller
     public function __construct(
         private readonly RosterService $roster,
         private readonly ShiftSwapService $swaps,
+        private readonly DepartmentScope $scope,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
         $shifts = Shift::all()->keyBy('id');
 
+        // Admin list: a scoped actor sees swaps of employees in their scope only.
+        $visible = $this->scope->visibleAttendanceEmployeeIds($request->user());
+
         $swaps = ShiftSwapRequest::with(['requester', 'counterparty'])
+            ->when($visible !== null, fn ($q) => $q->whereIn('requester_id', $visible === [] ? ['__NONE__'] : $visible))
             ->orderByDesc('created_at')
             ->get()
             ->map(function ($swap) use ($shifts) {
@@ -57,6 +63,20 @@ class ShiftSwapController extends Controller
             });
 
         return response()->json(['swaps' => $swaps]);
+    }
+
+    /**
+     * Same non-null home department (the employee peer-swap rule), or a counterparty
+     * DepartmentScope lets the actor act on (a manager looking at their own team).
+     * Fails closed: two employees with no department are NOT peers.
+     */
+    private function isPeerOrManaged(User $user, User $counterparty): bool
+    {
+        if ($counterparty->department_id !== null && $counterparty->department_id === $user->department_id) {
+            return true;
+        }
+
+        return $this->scope->canActOn($user, $counterparty);
     }
 
     public function store(Request $request): JsonResponse
@@ -196,11 +216,7 @@ class ShiftSwapController extends Controller
 
         $user = $request->user();
         $counterparty = User::findOrFail($data['counterparty_id']);
-        abort_unless(
-            $counterparty->department_id !== null && $counterparty->department_id === $user->department_id,
-            403,
-            'The counterparty must be in your department.'
-        );
+        abort_unless($this->isPeerOrManaged($user, $counterparty), 403, 'The counterparty must be in your department.');
 
         $fmt = static fn ($t) => $t ? Carbon::parse($t)->format('H:i') : null;
 
@@ -357,6 +373,10 @@ class ShiftSwapController extends Controller
             ]);
         }
 
+        if ($res['code'] === 'forbidden') {
+            abort(403, $res['message']);
+        }
+
         if ($res['code'] === 'compliance_blocked') {
             return response()->json([
                 'message' => $res['message'],
@@ -379,6 +399,6 @@ class ShiftSwapController extends Controller
             return response()->json(['message' => $res['message'], 'swap' => $res['swap']]);
         }
 
-        abort(409, $res['message']);
+        abort($res['code'] === 'forbidden' ? 403 : 409, $res['message']);
     }
 }

@@ -137,6 +137,7 @@ class AttendanceAnalyticsTest extends TestCase
     public function test_the_endpoint_gives_a_manager_the_team_and_an_employee_only_themselves(): void
     {
         $manager = User::factory()->create();
+        $manager->assignRole(Role::firstOrCreate(['name' => 'HR Manager'])); // company-wide team view
         $manager->givePermissionTo(['attendance.view', 'attendance.own.view']);
 
         $team = $this->actingAs($manager)->getJson(route('attendance.analytics', ['month' => '2026-06']))
@@ -157,6 +158,7 @@ class AttendanceAnalyticsTest extends TestCase
     public function test_a_malformed_month_is_rejected(): void
     {
         $manager = User::factory()->create();
+        $manager->assignRole(Role::firstOrCreate(['name' => 'HR Manager'])); // company-wide team view
         $manager->givePermissionTo(['attendance.view', 'attendance.own.view']);
 
         $this->actingAs($manager)->getJson(route('attendance.analytics', ['month' => '2026-13']))->assertStatus(422);

@@ -29,7 +29,7 @@ const PayrollPage = ({
     selectedMonth = '',
 }) => {
     const { auth } = usePage().props;
-    const canGenerate = auth?.permissions?.includes('employees.view') || auth?.roles?.includes('Super Administrator');
+    const canGenerate = auth?.permissions?.includes('hr.payroll.process') || auth?.roles?.includes('Super Administrator');
 
     const [month, setMonth] = useState(selectedMonth || new Date().toISOString().slice(0, 7));
     const [isGenerating, setIsGenerating] = useState(false);

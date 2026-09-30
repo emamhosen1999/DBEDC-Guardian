@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\ProcessOffboardingLwd;
 use App\Models\HRM\AbsenceCase;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\Offboarding;
@@ -9,6 +10,7 @@ use App\Models\HRM\RosterDay;
 use App\Models\User;
 use App\Notifications\Attendance\AbsenceStreakEscalationNotification;
 use App\Services\Attendance\ShiftLifecycleAlertService;
+use App\Services\HR\OffboardingInitiationNotifier;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -322,7 +324,7 @@ class ProcessAbsenceStreak extends Command
             return;
         }
 
-        $existing = Offboarding::where('employee_id', $employee->id)
+        $existing = Offboarding::where('employee_id', $employee->employee_id)
             ->whereNotIn('status', [Offboarding::STATUS_COMPLETED, Offboarding::STATUS_CANCELLED])
             ->exists();
 
@@ -330,26 +332,51 @@ class ProcessAbsenceStreak extends Command
             return;
         }
 
-        $offboarding = Offboarding::create([
-            'employee_id' => $employee->id,
+        // offboardings.created_by is NOT NULL (and FK-constrained to users), and this runs
+        // from the scheduler with no authenticated user. Attribute the record to a system
+        // actor — the first Super Administrator — rather than loosening the audit column.
+        $systemActorId = $this->systemActorId();
+        if ($systemActorId === null) {
+            Log::error('Absence streak: cannot auto-create offboarding — no Super Administrator to attribute it to', [
+                'absence_case_id' => $case->id,
+                'employee_id' => $userId,
+            ]);
+
+            return;
+        }
+
+        $offboarding = new Offboarding([
+            'employee_id' => $employee->employee_id,
             'initiation_date' => now()->toDateString(),
             'last_working_date' => $case->first_absent_date->subDay()->toDateString(),
             'reason' => Offboarding::REASON_ABSCONDED,
             'status' => Offboarding::STATUS_PENDING,
             'notes' => "Auto-created from absence case. {$case->streak_days} consecutive unauthorized absences starting {$case->first_absent_date->toDateString()}.",
         ]);
+        $offboarding->created_by = $systemActorId; // not mass-assignable by design
+        $offboarding->save();
 
         $case->offboarding_id = $offboarding->id;
         $case->addTimelineEntry('Offboarding auto-created', "Offboarding #{$offboarding->id}");
 
         // Dispatch LWD processing
-        \App\Jobs\ProcessOffboardingLwd::dispatch($offboarding);
+        ProcessOffboardingLwd::dispatchFor($offboarding);
+
+        app(OffboardingInitiationNotifier::class)->send($offboarding, $employee);
 
         Log::info('Absence streak: auto-created offboarding', [
             'absence_case_id' => $case->id,
             'offboarding_id' => $offboarding->id,
             'employee_id' => $userId,
         ]);
+    }
+
+    /** employee_id of the first (lowest id) active Super Administrator, or null. */
+    private function systemActorId(): ?string
+    {
+        $id = User::role('Super Administrator')->whereNull('users.deleted_at')->orderBy('users.employee_id')->value('users.employee_id');
+
+        return $id === null ? null : (string) $id;
     }
 
     private function closeReturnedCases($returnedUserIds): int

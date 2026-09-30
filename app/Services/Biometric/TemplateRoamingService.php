@@ -206,7 +206,7 @@ class TemplateRoamingService
     public function listTemplates(?string $userId = null, ?int $deviceId = null): Collection
     {
         $query = DB::table('biometric_templates as t')
-            ->leftJoin('users as u', 'u.id', '=', 't.user_id')
+            ->leftJoin('users as u', 'u.employee_id', '=', 't.user_id')
             ->leftJoin('biometric_devices as d', 'd.id', '=', 't.biometric_device_id')
             ->select([
                 't.id',

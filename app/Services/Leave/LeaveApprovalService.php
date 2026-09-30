@@ -9,6 +9,8 @@ use App\Notifications\LeaveApprovalNotification;
 use App\Notifications\LeaveApprovedNotification;
 use App\Notifications\LeaveOverrideNoticeNotification;
 use App\Notifications\LeaveRejectedNotification;
+use App\Services\Access\DepartmentScope;
+use App\Services\Attendance\CoverageService;
 use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -188,10 +190,14 @@ class LeaveApprovalService
      */
     public function approve(Leave $leave, User $approver, ?string $comments = null, array $opts = []): array
     {
+        if ($this->isOwnLeave($leave, $approver)) {
+            return $this->selfApprovalDenied();
+        }
+
         DB::beginTransaction();
         try {
             $before = $leave->toArray();
-            $canOverride = $this->canOverride($approver);
+            $canOverride = $this->canOverride($approver, $leave);
             $isCurrentApprover = $this->canApprove($leave, $approver);
             $rawChain = $leave->approval_chain;
             $chainEmpty = empty($rawChain) || ! is_array($rawChain);
@@ -294,7 +300,7 @@ class LeaveApprovalService
 
             $coverageWarning = null;
             try {
-                $coverageService = app(\App\Services\Attendance\CoverageService::class);
+                $coverageService = app(CoverageService::class);
                 $coverageWarning = $coverageService->checkCoverageForLeave($leave);
             } catch (\Throwable $t) {
                 // Non-blocking
@@ -330,10 +336,14 @@ class LeaveApprovalService
      */
     public function reject(Leave $leave, User $approver, string $reason, array $opts = []): array
     {
+        if ($this->isOwnLeave($leave, $approver)) {
+            return $this->selfApprovalDenied();
+        }
+
         DB::beginTransaction();
         try {
             $before = $leave->toArray();
-            $canOverride = $this->canOverride($approver);
+            $canOverride = $this->canOverride($approver, $leave);
             $isCurrentApprover = $this->canApprove($leave, $approver);
             $rawChain = $leave->approval_chain;
             $chainEmpty = empty($rawChain) || ! is_array($rawChain);
@@ -424,8 +434,12 @@ class LeaveApprovalService
      */
     public function overrideStatus(Leave $leave, User $actor, string $targetStatus, ?string $reason = null): array
     {
+        if ($this->isOwnLeave($leave, $actor)) {
+            return $this->selfApprovalDenied() + ['updated' => false];
+        }
+
         $target = strtolower(trim($targetStatus));
-        $canOverride = $this->canOverride($actor);
+        $canOverride = $this->canOverride($actor, $leave);
 
         // approve/reject targets flow through the decision pipeline. Force is
         // honoured only for an override-capable actor; a plain current-level
@@ -545,13 +559,41 @@ class LeaveApprovalService
 
     /**
      * May this actor finalize a leave regardless of chain position?
-     * (leaves.manage/leaves.approve permission or administrative roles.)
+     * (leaves.manage permission or administrative roles — leaves.approve alone only
+     * lets a manager act on leaves where they are the current chain approver.)
      */
-    public function canOverride(User $actor): bool
+    public function canOverride(User $actor, ?Leave $leave = null): bool
     {
-        return $actor->can('leaves.manage')
-            || $actor->can('leaves.approve')
+        $privileged = $actor->can('leaves.manage')
             || $actor->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager']);
+
+        if (! $privileged) {
+            return false;
+        }
+
+        // With a concrete leave, the override is bounded by the actor's department scope
+        // (a department admin holding leaves.manage must not finalize another department's leave).
+        return $leave === null
+            || app(DepartmentScope::class)->canActOn($actor, (string) $leave->user_id);
+    }
+
+    /**
+     * Is the leave the actor's own? Nobody may decide their own leave request.
+     */
+    protected function isOwnLeave(Leave $leave, User $actor): bool
+    {
+        return (string) $leave->user_id === (string) $actor->employee_id;
+    }
+
+    /**
+     * @return array{success: false, message: string}
+     */
+    protected function selfApprovalDenied(): array
+    {
+        return [
+            'success' => false,
+            'message' => 'You cannot approve or reject your own leave request.',
+        ];
     }
 
     /**
@@ -735,13 +777,13 @@ class LeaveApprovalService
      */
     public function canApprove(Leave $leave, User $user): bool
     {
-        if (strtolower((string) $leave->status) !== 'pending') {
+        if (strtolower((string) $leave->status) !== 'pending' || $this->isOwnLeave($leave, $user)) {
             return false;
         }
 
         $approvalChain = $leave->approval_chain;
         if (! is_array($approvalChain) || empty($approvalChain)) {
-            return $this->canOverride($user);
+            return $this->canOverride($user, $leave);
         }
 
         $currentLevel = (int) $leave->current_approval_level;
@@ -755,7 +797,7 @@ class LeaveApprovalService
             }
         }
 
-        return $this->canOverride($user);
+        return $this->canOverride($user, $leave);
     }
 
     /**

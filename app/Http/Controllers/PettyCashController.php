@@ -5,12 +5,17 @@ namespace App\Http\Controllers;
 use App\Jobs\ExportPettyCashTransactions;
 use App\Models\PettyCashLoan;
 use App\Models\PettyCashTransaction;
+use App\Services\Access\DepartmentScope;
+use App\Services\PettyCash\PettyCashAnalyticsService;
 use App\Services\PettyCash\PettyCashFileService;
 use App\Services\PettyCash\PettyCashService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class PettyCashController extends Controller
 {
@@ -26,37 +31,69 @@ class PettyCashController extends Controller
         $this->fileService = $fileService;
     }
 
-    // ─── Helper: check if user is admin/manager ───
-    private function isAdminOrManager($user): bool
+    /**
+     * Legacy role names that used to gate petty cash by name. Kept as a TRANSITION
+     * fallback: holders keep every petty-cash permission until an admin has moved
+     * them onto real permissions (the migration grants Finance Manager / Accountant
+     * the permissions; 'Manager' was never seeded). Remove once no user holds them.
+     */
+    private const LEGACY_ROLES = ['Manager', 'Accountant', 'Finance Manager'];
+
+    private function holds($user, string $permission): bool
     {
-        try {
-            return $user->hasRole('Super Administrator') ||
-                   $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']) ||
-                   $user->hasPermissionTo('petty-cash.approve');
-        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
-            return $user->hasRole('Super Administrator') ||
-                   $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']);
-        }
+        return $user->can($permission) || $user->hasAnyRole(self::LEGACY_ROLES);
     }
 
-    // ─── Helper: check loan access (owner OR admin) ───
-    private function canAccessLoan(PettyCashLoan $loan, $user): bool
+    /** May approve / reject loans (petty-cash.approve, or a legacy finance role). */
+    private function isAdminOrManager($user): bool
     {
-        return (string) $loan->user_id === (string) $user->id || $this->isAdminOrManager($user);
+        return $this->holds($user, 'petty-cash.approve');
+    }
+
+    private function scope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
+    }
+
+    /**
+     * Company-wide finance visibility: global HR/admin roles, plus the legacy finance
+     * roles (transition — they were company-wide before permissions existed). Holders
+     * of only the petty-cash permissions (e.g. a Department Admin) stay department-scoped.
+     */
+    private function isCompanyWide($user): bool
+    {
+        return $this->scope()->isGlobal($user) || $user->hasAnyRole(self::LEGACY_ROLES);
+    }
+
+    /**
+     * Owner: always. Anyone else needs petty-cash.view-all (read) or petty-cash.manage
+     * (write) AND the loan owner inside their department scope (global roles: any).
+     */
+    private function canAccessLoan(PettyCashLoan $loan, $user, bool $write = false): bool
+    {
+        if ((string) $loan->user_id === (string) $user->employee_id) {
+            return true;
+        }
+
+        if (! $this->holds($user, $write ? 'petty-cash.manage' : 'petty-cash.view-all')) {
+            return false;
+        }
+
+        return $this->isCompanyWide($user) || $this->scope()->canActOn($user, (string) $loan->user_id);
     }
 
     // ─── Page Render ───
     public function index()
     {
         $user = Auth::user();
-        $activeLoans = $this->pettyCashService->getUserActiveLoans($user->id);
-        $pendingLoans = $this->pettyCashService->getUserPendingLoans($user->id);
+        $activeLoans = $this->pettyCashService->getUserActiveLoans($user->employee_id);
+        $pendingLoans = $this->pettyCashService->getUserPendingLoans($user->employee_id);
         $canApprove = $this->isAdminOrManager($user);
 
         return Inertia::render('PettyCashUnified', [
             'title' => 'Petty Cash Management',
-            'activeLoans' => $activeLoans->map(fn($l) => $this->pettyCashService->getLoanSummary($l))->toArray(),
-            'pendingLoans' => $pendingLoans->map(fn($l) => [
+            'activeLoans' => $activeLoans->map(fn ($l) => $this->pettyCashService->getLoanSummary($l))->toArray(),
+            'pendingLoans' => $pendingLoans->map(fn ($l) => [
                 'id' => $l->id,
                 'fund_name' => $l->fund_name ?? 'General Fund',
                 'original_amount' => $l->original_amount,
@@ -119,7 +156,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -156,7 +193,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -192,7 +229,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -237,7 +274,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -263,21 +300,21 @@ class PettyCashController extends Controller
     {
         $request->validate([
             'loan_id' => 'required|exists:petty_cash_loans,id',
-            'range' => 'nullable|in:'.implode(',', \App\Services\PettyCash\PettyCashAnalyticsService::RANGES),
+            'range' => 'nullable|in:'.implode(',', PettyCashAnalyticsService::RANGES),
         ]);
 
         try {
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
                 ], 403);
             }
 
-            $analytics = app(\App\Services\PettyCash\PettyCashAnalyticsService::class)
+            $analytics = app(PettyCashAnalyticsService::class)
                 ->build($loan, (string) $request->input('range', 'all'));
 
             return response()->json([
@@ -305,7 +342,7 @@ class PettyCashController extends Controller
             $loan = $transaction->pettyCashLoan;
             $user = Auth::user();
 
-            if (! $loan || ! $this->canAccessLoan($loan, $user)) {
+            if (! $loan || ! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this transaction',
@@ -319,7 +356,7 @@ class PettyCashController extends Controller
                 'message' => 'Bill uploaded successfully',
                 'bill' => $bill,
             ], 201);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             // A refused upload (too many bills) is the caller's to fix, not a server fault.
             return response()->json([
                 'success' => false,
@@ -346,7 +383,7 @@ class PettyCashController extends Controller
             $loan = $transaction->pettyCashLoan;
             $user = Auth::user();
 
-            if (! $loan || ! $this->canAccessLoan($loan, $user)) {
+            if (! $loan || ! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this transaction',
@@ -385,7 +422,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -421,7 +458,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user)) {
                 abort(403, 'Unauthorized access to this loan');
             }
 
@@ -429,7 +466,7 @@ class PettyCashController extends Controller
             $transactionsData = $this->pettyCashService->getTransactionHistory($loan, [
                 'per_page' => 999999,
                 'sort_by' => 'transaction_date',
-                'sort_order' => 'asc' // Chronological order is better for PDF ledger
+                'sort_order' => 'asc', // Chronological order is better for PDF ledger
             ]);
 
             $summary = $this->pettyCashService->getLoanSummary($loan);
@@ -443,11 +480,11 @@ class PettyCashController extends Controller
                 'generated_at' => now(),
             ]);
 
-            $filename = 'petty_cash_report_' . ($loan->fund_name ? str_replace(' ', '_', $loan->fund_name) : 'fund') . '_' . now()->format('Y_m_d') . '.pdf';
+            $filename = 'petty_cash_report_'.($loan->fund_name ? str_replace(' ', '_', $loan->fund_name) : 'fund').'_'.now()->format('Y_m_d').'.pdf';
 
             return $pdf->download($filename);
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to generate PDF: ' . $e->getMessage());
+            return back()->with('error', 'Failed to generate PDF: '.$e->getMessage());
         }
     }
 
@@ -467,7 +504,7 @@ class PettyCashController extends Controller
             $loan = $transaction->pettyCashLoan;
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this transaction',
@@ -501,7 +538,7 @@ class PettyCashController extends Controller
             $loan = $transaction->pettyCashLoan;
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this transaction',
@@ -534,7 +571,7 @@ class PettyCashController extends Controller
             $loan = PettyCashLoan::findOrFail($request->loan_id);
             $user = Auth::user();
 
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user, write: true)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -556,6 +593,20 @@ class PettyCashController extends Controller
         }
     }
 
+    /** Nobody decides their own loan; approvers stay inside their department scope. */
+    private function approvalDenied(PettyCashLoan $loan, $user): ?JsonResponse
+    {
+        if ((string) $loan->user_id === (string) $user->employee_id) {
+            return response()->json(['success' => false, 'error' => 'You cannot approve or reject your own loan.'], 403);
+        }
+
+        if (! $this->isCompanyWide($user) && ! $this->scope()->canActOn($user, (string) $loan->user_id)) {
+            return response()->json(['success' => false, 'error' => 'This loan is outside your scope.'], 403);
+        }
+
+        return null;
+    }
+
     // ─── Approval with Comments (Phase 5) ───
     public function approveLoan(Request $request)
     {
@@ -565,7 +616,7 @@ class PettyCashController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$this->isAdminOrManager($user)) {
+        if (! $this->isAdminOrManager($user)) {
             return response()->json([
                 'success' => false,
                 'error' => 'Unauthorized. Only admins or managers can approve loans.',
@@ -574,6 +625,11 @@ class PettyCashController extends Controller
 
         try {
             $loan = PettyCashLoan::findOrFail($request->loan_id);
+
+            if ($denied = $this->approvalDenied($loan, $user)) {
+                return $denied;
+            }
+
             $approved = $this->pettyCashService->approveLoan($loan, $request->comment);
 
             return response()->json([
@@ -597,7 +653,7 @@ class PettyCashController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$this->isAdminOrManager($user)) {
+        if (! $this->isAdminOrManager($user)) {
             return response()->json([
                 'success' => false,
                 'error' => 'Unauthorized. Only admins or managers can reject loans.',
@@ -606,6 +662,11 @@ class PettyCashController extends Controller
 
         try {
             $loan = PettyCashLoan::findOrFail($request->loan_id);
+
+            if ($denied = $this->approvalDenied($loan, $user)) {
+                return $denied;
+            }
+
             $rejected = $this->pettyCashService->rejectLoan($loan, $request->comment);
 
             return response()->json([
@@ -646,7 +707,7 @@ class PettyCashController extends Controller
     public function getAdminOverview(Request $request)
     {
         $user = Auth::user();
-        if (!$this->isAdminOrManager($user)) {
+        if (! $this->isAdminOrManager($user)) {
             return response()->json([
                 'success' => false,
                 'error' => 'Unauthorized. Only admins or managers can access the admin overview.',
@@ -655,7 +716,7 @@ class PettyCashController extends Controller
 
         try {
             $status = $request->query('status');
-            $overview = $this->pettyCashService->getAdminOverview($status);
+            $overview = $this->pettyCashService->getAdminOverview($status, $this->isCompanyWide($user) ? null : $user);
 
             return response()->json([
                 'success' => true,
@@ -683,7 +744,7 @@ class PettyCashController extends Controller
             $user = Auth::user();
 
             // Only loan owner or admin can see audit logs
-            if (!$this->canAccessLoan($loan, $user)) {
+            if (! $this->canAccessLoan($loan, $user)) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to audit log',
@@ -711,16 +772,14 @@ class PettyCashController extends Controller
     // ─── Export Status Check ───
     public function checkExportStatus($filename)
     {
-        $exists = \Illuminate\Support\Facades\Storage::disk('public')->exists('exports/'.$filename);
+        $exists = Storage::disk('public')->exists('exports/'.$filename);
         if ($exists) {
             return response()->json([
                 'status' => 'ready',
-                'url' => asset('storage/exports/'.$filename)
+                'url' => asset('storage/exports/'.$filename),
             ]);
         }
 
         return response()->json(['status' => 'processing'], 202);
     }
 }
-
-

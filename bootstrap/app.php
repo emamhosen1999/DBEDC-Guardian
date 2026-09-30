@@ -7,6 +7,8 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DeviceAuthMiddleware;
 use App\Http\Middleware\DisableCacheHeaders;
 use App\Http\Middleware\EnhancedRateLimit;
+use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Http\Middleware\EnsureGlobalScope;
 use App\Http\Middleware\EnsureRolePermissionSync;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogRequestMiddleware;
@@ -85,6 +87,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'attendance.rate_limit' => AttendanceRateLimit::class,
             'role_permission_sync' => EnsureRolePermissionSync::class,
             'track_security' => TrackSecurityActivity::class,
+            'feature' => EnsureFeatureEnabled::class,
+            'scope.global' => EnsureGlobalScope::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

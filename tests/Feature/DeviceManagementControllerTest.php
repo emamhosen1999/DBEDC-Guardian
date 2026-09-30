@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class DeviceManagementControllerTest extends TestCase
@@ -28,6 +29,7 @@ class DeviceManagementControllerTest extends TestCase
     {
         /** @var User $admin */
         $admin = User::factory()->createOne();
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web')); // the admin device routes are scoped: a role-less actor manages nobody
         /** @var User $user */
         $user = User::factory()->createOne([
             'single_device_login_enabled' => true,
@@ -70,6 +72,7 @@ class DeviceManagementControllerTest extends TestCase
     {
         /** @var User $admin */
         $admin = User::factory()->createOne();
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web')); // the admin device routes are scoped: a role-less actor manages nobody
         /** @var User $user */
         $user = User::factory()->createOne([
             'single_device_login_enabled' => true,
@@ -113,6 +116,7 @@ class DeviceManagementControllerTest extends TestCase
     {
         /** @var User $admin */
         $admin = User::factory()->createOne();
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web')); // the admin device routes are scoped: a role-less actor manages nobody
         /** @var User $user */
         $user = User::factory()->createOne([
             'single_device_login_enabled' => true,

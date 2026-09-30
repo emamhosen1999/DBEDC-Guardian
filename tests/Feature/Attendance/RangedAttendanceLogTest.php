@@ -26,7 +26,7 @@ class RangedAttendanceLogTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Employee']);
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']); // company-wide: a legacy 'Admin' role is scoped to nobody
         AttendanceSetting::create([
             'office_start_time' => '09:00:00',
             'late_mark_after' => 15,
@@ -123,7 +123,7 @@ class RangedAttendanceLogTest extends TestCase
     {
         Permission::firstOrCreate(['name' => 'attendance.view']);
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
         $user = $this->employee('Log Worker');
         Attendance::create([
@@ -171,7 +171,7 @@ class RangedAttendanceLogTest extends TestCase
         Queue::fake();
         Permission::firstOrCreate(['name' => 'attendance.view']);
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $response = $this->actingAs($admin)->getJson(route('attendance.log.export', [
@@ -190,7 +190,7 @@ class RangedAttendanceLogTest extends TestCase
     {
         Permission::firstOrCreate(['name' => 'attendance.view']);
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $response = $this->actingAs($admin)->getJson(route('attendance.log.export', [
@@ -205,7 +205,7 @@ class RangedAttendanceLogTest extends TestCase
     {
         Permission::firstOrCreate(['name' => 'attendance.view']);
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $from = '2026-01-01';

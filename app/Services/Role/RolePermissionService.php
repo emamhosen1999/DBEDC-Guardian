@@ -140,7 +140,7 @@ class RolePermissionService
                 'users.view', 'users.create', 'users.update', 'users.delete', 'users.impersonate',
                 'roles.view', 'roles.create', 'roles.update', 'roles.delete', 'permissions.assign',
                 'settings.view', 'settings.update',
-                'company.settings', 'attendance.settings', 'email.settings', 'notification.settings',
+                'company.settings', 'attendance.settings', 'attendance.roster.manage', 'email.settings', 'notification.settings',
                 'theme.settings', 'localization.settings', 'performance.settings', 'approval.settings',
                 'invoice.settings', 'salary.settings', 'system.settings',
                 'audit.view', 'audit.export', 'backup.create', 'backup.restore',

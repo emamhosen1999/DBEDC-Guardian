@@ -25,7 +25,7 @@ class AttendanceReportService
     /**
      * Get all Employee users with their attendances and leaves for a given month.
      */
-    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?string $userId = null, ?int $designationId = null, ?string $employee = null): Collection
+    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?string $userId = null, ?int $designationId = null, ?string $employee = null, ?array $employeeIds = null): Collection
     {
         $query = User::query()
             ->select('users.*')
@@ -35,6 +35,12 @@ class AttendanceReportService
             $query->where('users.employee_id', (string) $userId);
         } else {
             $query->role('Employee');
+
+            // Actor scope (DepartmentScope::visibleEmployeeIds): null = unrestricted,
+            // an empty list must yield nobody, never everybody.
+            if ($employeeIds !== null) {
+                $query->whereIn('users.employee_id', $employeeIds === [] ? ['__NONE__'] : $employeeIds);
+            }
 
             if ($departmentId) {
                 $query->where('users.department_id', $departmentId);
@@ -250,6 +256,7 @@ class AttendanceReportService
         $employee = $filters['employee'] ?? null;
         $statusFilter = $filters['status'] ?? null;
         $userId = $filters['user_id'] ?? null;
+        $employeeIds = $filters['team_member_ids'] ?? null;
 
         $leaveTypes = LeaveSetting::all();
 
@@ -260,7 +267,7 @@ class AttendanceReportService
             $month = (int) $cursor->month;
 
             $users = $this->getEmployeeUsersWithAttendanceAndLeaves(
-                $year, $month, $departmentId, $userId, $designationId, $employee
+                $year, $month, $departmentId, $userId, $designationId, $employee, $employeeIds
             );
             $holidays = $this->getHolidaysForMonth($year, $month);
 
@@ -337,7 +344,8 @@ class AttendanceReportService
         bool $isGlobalScope,
         ?string $userId,
         bool $withBreakdown = false,
-        ?int $departmentId = null
+        ?int $departmentId = null,
+        ?array $employeeIds = null
     ): array {
         $resolver = app(ScheduleResolver::class);
         $policyResolver = app(PolicyResolver::class);
@@ -359,7 +367,8 @@ class AttendanceReportService
         $holidays = $this->getHolidaysForMonth($currentYear, $currentMonth);
 
         $users = $this->getEmployeeUsersWithAttendanceAndLeaves(
-            $currentYear, $currentMonth, $isGlobalScope ? $departmentId : null, $isGlobalScope ? null : $userId
+            $currentYear, $currentMonth, $isGlobalScope ? $departmentId : null, $isGlobalScope ? null : $userId,
+            null, null, $isGlobalScope ? $employeeIds : null
         );
 
         $totalEmployees = $users->count();
@@ -648,7 +657,7 @@ class AttendanceReportService
      *
      * @return array{meta: array, rows: array<int, array>}
      */
-    public function getPerEmployeeMonthlySummary(int $year, int $month, ?int $departmentId = null): array
+    public function getPerEmployeeMonthlySummary(int $year, int $month, ?int $departmentId = null, ?array $employeeIds = null): array
     {
         $resolver = app(ScheduleResolver::class);
         $policyResolver = app(PolicyResolver::class);
@@ -659,7 +668,7 @@ class AttendanceReportService
         $analysisEndDate = $endOfMonth->isFuture() ? Carbon::now()->endOfDay() : $endOfMonth;
 
         $holidays = $this->getHolidaysForMonth($year, $month);
-        $users = $this->getEmployeeUsersWithAttendanceAndLeaves($year, $month, $departmentId);
+        $users = $this->getEmployeeUsersWithAttendanceAndLeaves($year, $month, $departmentId, null, null, null, $employeeIds);
 
         // Paid/unpaid lookup. The leaves eager-load aliases leave_type to the type
         // NAME, so resolve by name; fall back to id for any numeric leave_type.

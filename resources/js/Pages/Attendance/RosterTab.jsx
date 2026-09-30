@@ -36,7 +36,11 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
 
     const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
     const userDeptId = auth?.user?.department_id;
-    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
+    // Department-scoped managers (Department Manager role, or anyone holding department.admin) who
+    // administer a single department have it pinned; the server scopes every request regardless.
+    const isNonGlobalManager = !isGlobalUser && userDeptId !== null
+        && (auth?.roles?.includes('Department Manager') || auth?.permissions?.includes('department.admin'))
+        && departments.length <= 1;
 
     /* ── The roster's own filters live in the URL next to the page's tab/month,
          under an `r_` prefix because every Attendance tab stays mounted. A

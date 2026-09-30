@@ -18,9 +18,13 @@ class AttendanceAdminExport
 {
     protected ?int $departmentId;
 
-    public function __construct(?int $departmentId = null)
+    /** @var array<int, string>|null actor scope (DepartmentScope::visibleEmployeeIds); null = unrestricted */
+    protected ?array $employeeIds;
+
+    public function __construct(?int $departmentId = null, ?array $employeeIds = null)
     {
         $this->departmentId = $departmentId;
+        $this->employeeIds = $employeeIds;
     }
 
     public function export($month)
@@ -71,7 +75,7 @@ class AttendanceAdminExport
         // (attendances policy_status != rejected, leaves status = approved); loading the
         // relations directly would leak pending/rejected leaves + rejected punches into the sheet.
         $users = app(AttendanceReportService::class)
-            ->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $this->departmentId);
+            ->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $this->departmentId, null, null, null, $this->employeeIds);
 
         $leaveTypes = LeaveSetting::all();
         $holidays = Holiday::all();
@@ -161,7 +165,7 @@ class AttendanceAdminExport
         $sheet->setTitle('Calendar');
 
         $summary = app(AttendanceReportService::class)
-            ->getPerEmployeeMonthlySummary($from->year, $from->month, $this->departmentId);
+            ->getPerEmployeeMonthlySummary($from->year, $from->month, $this->departmentId, $this->employeeIds);
         $summarySheet = $spreadsheet->createSheet();
         (new \App\Exports\AttendancePerEmployeeSummaryExport)->writeSheet($summarySheet, $summary);
 

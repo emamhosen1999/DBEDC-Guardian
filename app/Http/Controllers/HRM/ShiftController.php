@@ -9,6 +9,7 @@ use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftAssignment;
 use App\Models\HRM\ShiftRotationPattern;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Attendance\ShiftService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,7 @@ use InvalidArgumentException;
 
 class ShiftController extends Controller
 {
-    public function __construct(private readonly ShiftService $shifts) {}
+    public function __construct(private readonly ShiftService $shifts, private readonly DepartmentScope $scope) {}
 
     public function index(): JsonResponse
     {
@@ -28,7 +29,9 @@ class ShiftController extends Controller
 
         $query = Shift::with('creator:employee_id,name')->orderBy('start_time')->orderBy('name');
 
-        if (! $isGlobal) {
+        // Shift definitions are company-wide reference data. Roster managers (department
+        // admins) must see the catalogue to assign from it; anyone else sees only their own.
+        if (! $isGlobal && ! $user->can('attendance.roster.manage')) {
             $query->where('created_by', $user->employee_id ?? $user->getKey());
         }
 
@@ -229,7 +232,9 @@ class ShiftController extends Controller
 
         $query = ShiftRotationPattern::with('creator:employee_id,name')->orderBy('name');
 
-        if (! $isGlobal) {
+        // Rotation patterns are company-wide reference data, like shift definitions:
+        // roster managers (department admins) must see the catalogue to assign from it.
+        if (! $isGlobal && ! $user->can('attendance.roster.manage')) {
             $query->where('created_by', $user->id);
         }
 
@@ -293,15 +298,22 @@ class ShiftController extends Controller
         return response()->json(['message' => 'Pattern deleted.']);
     }
 
-    private function validateScopeForManager(string $scopeType, array $scopeIds, int $userDeptId)
+    /**
+     * A non-global actor may only assign shifts inside the departments they manage
+     * and to employees DepartmentScope lets them act on. Fails closed: an actor with
+     * no managed department can target only themselves (user scope).
+     */
+    private function validateScopeForManager(string $scopeType, array $scopeIds, User $actor): void
     {
         if ($scopeType === 'org') {
             abort(403, 'Unauthorized to assign shifts at the organization level.');
         }
 
+        $managed = $this->scope->managedDepartmentIds($actor);
+
         if ($scopeType === 'department') {
             foreach ($scopeIds as $id) {
-                if ((int) $id !== $userDeptId) {
+                if (! in_array((int) $id, $managed, true)) {
                     abort(403, 'Unauthorized to assign shifts for other departments.');
                 }
             }
@@ -309,7 +321,7 @@ class ShiftController extends Controller
 
         if ($scopeType === 'designation') {
             $invalidCount = Designation::whereIn('id', $scopeIds)
-                ->where('department_id', '!=', $userDeptId)
+                ->where(fn ($q) => $q->whereNull('department_id')->orWhereNotIn('department_id', $managed))
                 ->count();
             if ($invalidCount > 0) {
                 abort(403, 'Unauthorized to assign shifts for designations outside your department.');
@@ -317,13 +329,27 @@ class ShiftController extends Controller
         }
 
         if ($scopeType === 'user') {
-            $invalidCount = User::whereIn('employee_id', $scopeIds)
-                ->where('department_id', '!=', $userDeptId)
-                ->count();
-            if ($invalidCount > 0) {
-                abort(403, 'Unauthorized to assign shifts to employees outside your department.');
+            foreach ($scopeIds as $id) {
+                if (! $this->scope->canActOn($actor, (string) $id, allowSelf: true)) {
+                    abort(403, 'Unauthorized to assign shifts to employees outside your department.');
+                }
             }
         }
+    }
+
+    /** May the (non-global) actor act on an existing assignment's target? */
+    private function assignmentInScope(User $actor, ShiftAssignment $assignment): bool
+    {
+        $managed = $this->scope->managedDepartmentIds($actor);
+
+        return match ($assignment->scope_type) {
+            'user' => $this->scope->canActOn($actor, (string) $assignment->scope_id, allowSelf: true),
+            'department' => in_array((int) $assignment->scope_id, $managed, true),
+            'designation' => Designation::whereKey($assignment->scope_id)
+                ->whereIn('department_id', $managed)
+                ->exists(),
+            default => false,
+        };
     }
 
     /**
@@ -377,14 +403,12 @@ class ShiftController extends Controller
         $data['scope_id'] = $this->normalizeScopeIds($data['scope_type'], [$data['scope_id'] ?? null])[0];
 
         $user = auth()->user();
-        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $user->department_id;
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $this->validateScopeForManager($data['scope_type'], [$data['scope_id']], $userDeptId);
+        if (! $this->scope->isAttendanceAdmin($user)) {
+            $this->validateScopeForManager($data['scope_type'], [$data['scope_id']], $user);
         }
 
-        $data['assigned_by'] = $user->id;
+        $data['assigned_by'] = $user->getKey();
 
         try {
             $assignment = DB::transaction(fn () => $this->shifts->createAssignment($data));
@@ -420,14 +444,12 @@ class ShiftController extends Controller
         ]);
 
         $user = auth()->user();
-        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $user->department_id;
 
         $scopeType = $data['scope_type'];
         $scopeIds = $this->normalizeScopeIds($scopeType, $data['scope_ids'] ?? []);
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $this->validateScopeForManager($scopeType, $scopeIds, $userDeptId);
+        if (! $this->scope->isAttendanceAdmin($user)) {
+            $this->validateScopeForManager($scopeType, $scopeIds, $user);
         }
 
         $created = [];
@@ -438,7 +460,7 @@ class ShiftController extends Controller
                 foreach ($scopeIds as $scopeId) {
                     $row = $data;
                     $row['scope_id'] = $scopeId;
-                    $row['assigned_by'] = $user->id;
+                    $row['assigned_by'] = $user->getKey();
                     unset($row['scope_ids']);
 
                     try {
@@ -474,24 +496,19 @@ class ShiftController extends Controller
     public function assignmentsIndex(): JsonResponse
     {
         $user = auth()->user();
-        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $user->department_id;
 
         $query = ShiftAssignment::with(['shift:id,code,name', 'rotationPattern:id,name', 'assigner:employee_id,name'])
             ->orderByDesc('created_at');
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $query->where(function ($q) use ($userDeptId, $user) {
-                $q->where(function ($sub) use ($userDeptId) {
-                    $sub->where('scope_type', 'user')
-                        ->whereIn('scope_id', User::where('department_id', $userDeptId)->pluck('employee_id'));
-                })->orWhere(function ($sub) use ($userDeptId) {
-                    $sub->where('scope_type', 'department')
-                        ->where('scope_id', $userDeptId);
-                })->orWhere(function ($sub) use ($userDeptId) {
-                    $sub->where('scope_type', 'designation')
-                        ->whereIn('scope_id', Designation::where('department_id', $userDeptId)->pluck('id'));
-                })->orWhere('assigned_by', $user->employee_id ?? $user->getKey());
+        if (! $this->scope->isAttendanceAdmin($user)) {
+            $managed = $this->scope->managedDepartmentIds($user);
+            $visibleIds = $this->scope->visibleEmployeeIds($user) ?? [];
+
+            $query->where(function ($q) use ($managed, $visibleIds) {
+                $q->where(fn ($sub) => $sub->where('scope_type', 'user')->whereIn('scope_id', $visibleIds))
+                    ->orWhere(fn ($sub) => $sub->where('scope_type', 'department')->whereIn('scope_id', $managed))
+                    ->orWhere(fn ($sub) => $sub->where('scope_type', 'designation')
+                        ->whereIn('scope_id', Designation::whereIn('department_id', $managed)->pluck('id')));
             });
         }
 
@@ -514,35 +531,15 @@ class ShiftController extends Controller
     public function updateAssignment(Request $request, int $id): JsonResponse
     {
         $user = auth()->user();
-        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $user->department_id;
-
         $assignment = ShiftAssignment::findOrFail($id);
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $isAuthorized = false;
-            if ($assignment->assigned_by === $user->id) {
-                $isAuthorized = true;
-            } elseif ($assignment->scope_type === 'user') {
-                $scopedUser = User::find($assignment->scope_id);
-                if ($scopedUser && $scopedUser->department_id === $userDeptId) {
-                    $isAuthorized = true;
-                }
-            } elseif ($assignment->scope_type === 'department' && (int) $assignment->scope_id === $userDeptId) {
-                $isAuthorized = true;
-            } elseif ($assignment->scope_type === 'designation') {
-                $scopedDesig = Designation::find($assignment->scope_id);
-                if ($scopedDesig && $scopedDesig->department_id === $userDeptId) {
-                    $isAuthorized = true;
-                }
-            }
-
-            if (! $isAuthorized) {
+        if (! $this->scope->isAttendanceAdmin($user)) {
+            if (! $this->assignmentInScope($user, $assignment)) {
                 abort(403, 'Unauthorized to update this shift assignment.');
             }
 
             if ($request->has('scope_type') && $request->has('scope_id')) {
-                $this->validateScopeForManager($request->input('scope_type'), [$request->input('scope_id')], $userDeptId);
+                $this->validateScopeForManager($request->input('scope_type'), [$request->input('scope_id')], $user);
             }
         }
 
@@ -583,32 +580,10 @@ class ShiftController extends Controller
     public function destroyAssignment(int $id): JsonResponse
     {
         $user = auth()->user();
-        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $user->department_id;
-
         $assignment = ShiftAssignment::findOrFail($id);
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $isAuthorized = false;
-            if ($assignment->assigned_by === $user->id) {
-                $isAuthorized = true;
-            } elseif ($assignment->scope_type === 'user') {
-                $scopedUser = User::find($assignment->scope_id);
-                if ($scopedUser && $scopedUser->department_id === $userDeptId) {
-                    $isAuthorized = true;
-                }
-            } elseif ($assignment->scope_type === 'department' && (int) $assignment->scope_id === $userDeptId) {
-                $isAuthorized = true;
-            } elseif ($assignment->scope_type === 'designation') {
-                $scopedDesig = Designation::find($assignment->scope_id);
-                if ($scopedDesig && $scopedDesig->department_id === $userDeptId) {
-                    $isAuthorized = true;
-                }
-            }
-
-            if (! $isAuthorized) {
-                abort(403, 'Unauthorized to delete this shift assignment.');
-            }
+        if (! $this->scope->isAttendanceAdmin($user) && ! $this->assignmentInScope($user, $assignment)) {
+            abort(403, 'Unauthorized to delete this shift assignment.');
         }
 
         DB::transaction(fn () => $assignment->delete());

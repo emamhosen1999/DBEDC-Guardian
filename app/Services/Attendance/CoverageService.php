@@ -3,7 +3,10 @@
 namespace App\Services\Attendance;
 
 use App\Models\HRM\CoverageRequirement;
+use App\Models\HRM\Leave;
 use App\Models\HRM\RosterDay;
+use App\Models\HRM\Shift;
+use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +20,11 @@ class CoverageService
 {
     public function __construct(private readonly RosterOverlayService $overlay) {}
 
-    public function forRange(string $from, string $to, ?array $locationIds = null): array
+    /**
+     * @param  array<int, string>|null  $employeeIds  actor scope (DepartmentScope::visibleEmployeeIds):
+     *                                                null = every employee; a list counts only those employees
+     */
+    public function forRange(string $from, string $to, ?array $locationIds = null, ?array $employeeIds = null): array
     {
         $start = Carbon::parse($from)->startOfDay();
         $end = Carbon::parse($to)->startOfDay();
@@ -35,13 +42,13 @@ class CoverageService
         $pairs = $requirements->map(fn ($r) => ['loc' => $r->work_location_id, 'shift' => $r->shift_id])
             ->unique(fn ($p) => $p['loc'].'-'.$p['shift'])->values();
 
-        $assigned = $this->assignedWeights($start, $end, $locationIds); // [date][loc][shift]['total'|desigId] => float
+        $assigned = $this->assignedWeights($start, $end, $locationIds, $employeeIds); // [date][loc][shift]['total'|desigId] => float
 
         $todayStr = now()->toDateString();
         $actualPunches = [];
         if ($start->toDateString() <= $todayStr) {
             $actualEnd = $end->toDateString() <= $todayStr ? $end->toDateString() : $todayStr;
-            $actualPunches = $this->actualPunchWeights($start, Carbon::parse($actualEnd), $locationIds);
+            $actualPunches = $this->actualPunchWeights($start, Carbon::parse($actualEnd), $locationIds, $employeeIds);
         }
 
         $out = [];
@@ -110,7 +117,7 @@ class CoverageService
 
         $locId = $locationId;
         if (! $locId) {
-            $user = \App\Models\User::where('employee_id', $userId)->orWhere('id', $userId)->first();
+            $user = User::where('employee_id', (string) $userId)->first();
             $locId = $user?->work_location_id;
         }
         if (! $locId) {
@@ -122,7 +129,7 @@ class CoverageService
         if ($cell && isset($cell['required']) && $cell['required'] > 0) {
             $newAssigned = $cell['assigned'] - 1.0;
             if ($newAssigned < $cell['required']) {
-                $shiftName = \App\Models\HRM\Shift::find($oldShiftId)?->name ?? "Shift #{$oldShiftId}";
+                $shiftName = Shift::find($oldShiftId)?->name ?? "Shift #{$oldShiftId}";
 
                 return "Coverage warning: Removing this shift leaves {$shiftName} on {$date} understaffed ({$newAssigned} of {$cell['required']} required).";
             }
@@ -134,7 +141,7 @@ class CoverageService
     /**
      * Check if approving a leave causes understaffing on any leave date.
      */
-    public function checkCoverageForLeave(\App\Models\HRM\Leave $leave): ?string
+    public function checkCoverageForLeave(Leave $leave): ?string
     {
         $employee = $leave->employee;
         if (! $employee || ! $employee->work_location_id) {
@@ -183,7 +190,7 @@ class CoverageService
         return $understaffed;
     }
 
-    private function actualPunchWeights(CarbonInterface $start, CarbonInterface $end, ?array $locationIds): array
+    private function actualPunchWeights(CarbonInterface $start, CarbonInterface $end, ?array $locationIds, ?array $employeeIds = null): array
     {
         $rows = DB::table('attendances')
             ->join('users', 'users.employee_id', '=', 'attendances.user_id')
@@ -191,6 +198,7 @@ class CoverageService
             ->whereNotNull('attendances.punchin')
             ->where('attendances.policy_status', '!=', 'rejected')
             ->whereNotNull('attendances.shift_id')
+            ->when($employeeIds !== null, fn ($q) => $q->whereIn('attendances.user_id', $employeeIds === [] ? ['__NONE__'] : $employeeIds))
             ->select([
                 'attendances.date',
                 'attendances.shift_id',
@@ -247,12 +255,13 @@ class CoverageService
      * Effective assigned weight per date/loc/shift, keyed 'total' and by designation_id,
      * reduced by approved leave (full -1.0, half -0.5). Pending/holiday do not reduce.
      */
-    private function assignedWeights(CarbonInterface $start, CarbonInterface $end, ?array $locationIds): array
+    private function assignedWeights(CarbonInterface $start, CarbonInterface $end, ?array $locationIds, ?array $employeeIds = null): array
     {
         $rows = RosterDay::query()
             ->join('users', 'users.employee_id', '=', 'roster_days.user_id')
             ->whereBetween('roster_days.date', [$start->toDateString(), $end->toDateString()])
             ->whereNotNull('roster_days.shift_id')
+            ->when($employeeIds !== null, fn ($q) => $q->whereIn('roster_days.user_id', $employeeIds === [] ? ['__NONE__'] : $employeeIds))
             ->select([
                 'roster_days.date',
                 'roster_days.shift_id',

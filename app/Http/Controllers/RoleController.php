@@ -22,7 +22,7 @@ use Spatie\Permission\Models\Permission; // added
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
- // added
+// added
 
 /**
  * Enterprise Role Controller
@@ -185,7 +185,7 @@ class RoleController extends BaseController
 
                     // Get users with their roles for the User-Role assignment tab
                     $users = User::with('roles')
-                        ->select(['id', 'name', 'email'])
+                        ->select(['employee_id', 'name', 'email'])
                         ->orderBy('name')
                         ->get()
                         ->map(function ($user) {

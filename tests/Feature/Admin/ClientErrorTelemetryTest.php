@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -326,6 +327,9 @@ class ClientErrorTelemetryTest extends TestCase
     protected function adminWith(array $permissions): User
     {
         $admin = User::factory()->create();
+        // Fleet-wide admin surfaces are for company-wide actors: `users.update` alone is also
+        // held by department-scoped operators, so the acting admin carries a global role too.
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web'));
 
         foreach ($permissions as $permission) {
             Permission::findOrCreate($permission, 'web');

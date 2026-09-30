@@ -17,12 +17,16 @@ import {
     MagnifyingGlassIcon
 } from '@radix-ui/react-icons';
 import { useForm } from 'laravel-precognition-react';
+import { usePage } from '@inertiajs/react';
+import DepartmentScopeSection from '@/Components/Access/DepartmentScopeSection';
 import { showToast } from "@/utils/toastUtils";
 
 const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, workLocations = [], attendanceTypes = [], setUsers, open, closeModal, editMode = false, onSuccess, scope = 'full' }) => {
     // scope: 'full' (create — everything), 'profile' (identity/personal/org), 'access' (roles & security)
     const showProfile = scope !== 'access';
     const showAccess = scope !== 'profile';
+    const { auth } = usePage().props;
+    const canManageScopes = editMode && !!user?.id && (auth?.permissions?.includes('department.scopes.manage') || false);
     const [showPassword, setShowPassword] = useState(false);
     const [selectedImage, setSelectedImage] = useState(user?.profile_image_url || user?.profile_image || null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -594,6 +598,10 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                 </Flex>
                                             )}
                                         </Box>
+
+                                        {canManageScopes && (
+                                            <DepartmentScopeSection userId={user.id} departments={departments} />
+                                        )}
 
                                         {/* Single Device Feature */}
                                         <Box p="3" style={{ backgroundColor: 'var(--gray-2)', borderRadius: 'var(--radius-3)' }}>

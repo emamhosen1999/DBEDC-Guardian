@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog, Flex, Box, Select, TextField, Button, Text, Callout, SegmentedControl } from '@radix-ui/themes';
 import { InfoCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
@@ -10,6 +11,13 @@ import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } fro
 
 export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assignment = null, employees = [], departments = [], designations = [] }) {
     const isEdit = !!assignment;
+    // Assigning to the whole organization is company-wide: the server refuses it for anyone who is
+    // not an attendance administrator (a global role, or attendance.settings) — a department admin
+    // assigns within their own departments.
+    const { auth } = usePage().props;
+    const canAssignOrg = Boolean(auth?.isSuperAdmin
+        || auth?.permissions?.includes('attendance.settings')
+        || ['Super Administrator', 'Administrator', 'HR Manager'].some((r) => auth?.roles?.includes(r)));
     const empty = {
         scope_type: 'user',
         scope_ids: [],
@@ -191,7 +199,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
                                 <Select.Item value="user">Employee(s)</Select.Item>
                                 <Select.Item value="department">Department(s)</Select.Item>
                                 <Select.Item value="designation">Designation(s)</Select.Item>
-                                <Select.Item value="org">Whole Organization</Select.Item>
+                                {canAssignOrg && <Select.Item value="org">Whole Organization</Select.Item>}
                             </Select.Content>
                         </Select.Root>
                     </Box>

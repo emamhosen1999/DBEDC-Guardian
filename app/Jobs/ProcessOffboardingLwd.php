@@ -8,6 +8,7 @@ use App\Models\HRM\Offboarding;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\ShiftAssignment;
 use App\Models\User;
+use App\Notifications\Attendance\OffboardingInitiatedNotification;
 use App\Services\DeviceAuthService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,6 +31,27 @@ class ProcessOffboardingLwd implements ShouldQueue
         public readonly Offboarding $offboarding,
     ) {}
 
+    /**
+     * Queue the LWD effects: delayed to the end of the last working day when it
+     * is still in the future, immediately when it is already past (e.g. abscond).
+     * Safe to call repeatedly — handle() re-checks everything.
+     */
+    public static function dispatchFor(Offboarding $offboarding): void
+    {
+        // Non-destructive: the process is under way as soon as it is initiated.
+        if ($offboarding->status === Offboarding::STATUS_PENDING) {
+            $offboarding->update(['status' => Offboarding::STATUS_IN_PROGRESS]);
+        }
+
+        if ($offboarding->lwdHasPassed()) {
+            static::dispatch($offboarding)->afterCommit();
+
+            return;
+        }
+
+        static::dispatch($offboarding)->delay($offboarding->lwdEndsAt())->afterCommit();
+    }
+
     public function handle(DeviceAuthService $deviceAuth): void
     {
         $offboarding = $this->offboarding->fresh();
@@ -50,7 +72,22 @@ class ProcessOffboardingLwd implements ShouldQueue
             return;
         }
 
-        $employee = User::find($offboarding->employee_id);
+        // LWD still ahead (never reached, or extended after this job was queued):
+        // nothing destructive may happen. A later dispatch / the daily sweep handles it.
+        if (! $offboarding->lwdHasPassed()) {
+            Log::info('ProcessOffboardingLwd: last working date not over yet, skipping', [
+                'offboarding_id' => $offboarding->id,
+                'lwd' => $lwd->toDateString(),
+            ]);
+
+            return;
+        }
+
+        if ($offboarding->lwd_processed_at) {
+            return;
+        }
+
+        $employee = User::withTrashed()->find($offboarding->employee_id);
         if (! $employee) {
             Log::warning('ProcessOffboardingLwd: employee not found', [
                 'offboarding_id' => $offboarding->id,
@@ -71,7 +108,7 @@ class ProcessOffboardingLwd implements ShouldQueue
             'reason' => $offboarding->reason,
         ]);
 
-        DB::transaction(function () use ($employee, $employeeId, $lwd, $lwdStr, $offboarding) {
+        DB::transaction(function () use ($employeeId, $lwd, $lwdStr) {
             // 1. End shift assignments — set effective_to to LWD
             ShiftAssignment::where('scope_type', 'user')
                 ->where('scope_id', $employeeId)
@@ -89,15 +126,10 @@ class ProcessOffboardingLwd implements ShouldQueue
             Log::info("ProcessOffboardingLwd: cleared {$deleted} future roster days for {$employeeId}");
         });
 
-        // 3. Revoke all sessions and API tokens
-        try {
-            $deviceAuth->terminateUserAccess($employee);
-            Log::info("ProcessOffboardingLwd: revoked sessions/tokens for {$employeeId}");
-        } catch (\Throwable $e) {
-            Log::error("ProcessOffboardingLwd: failed to revoke access for {$employeeId}", [
-                'error' => $e->getMessage(),
-            ]);
-        }
+        // 3. Revoke all sessions and API tokens. A failure propagates so the job
+        // retries and the row is NOT marked processed (the daily sweep re-queues it).
+        $deviceAuth->terminateUserAccess($employee);
+        Log::info("ProcessOffboardingLwd: revoked sessions/tokens for {$employeeId}");
 
         // 4. Queue biometric DELETE_USER on all active devices
         $this->queueBiometricDeletion($employee);
@@ -105,10 +137,12 @@ class ProcessOffboardingLwd implements ShouldQueue
         // 5. Notify relevant people
         $this->sendNotifications($offboarding, $employee);
 
-        // 6. Update offboarding status to in_progress if still pending
+        // 6. Mark processed (idempotency) and move pending -> in_progress
+        $offboarding->lwd_processed_at = now();
         if ($offboarding->status === Offboarding::STATUS_PENDING) {
-            $offboarding->update(['status' => Offboarding::STATUS_IN_PROGRESS]);
+            $offboarding->status = Offboarding::STATUS_IN_PROGRESS;
         }
+        $offboarding->save();
 
         Log::info('ProcessOffboardingLwd: completed', [
             'offboarding_id' => $offboarding->id,
@@ -139,18 +173,23 @@ class ProcessOffboardingLwd implements ShouldQueue
         }
     }
 
+    public static function reasonLabel(string $reason): string
+    {
+        return match ($reason) {
+            Offboarding::REASON_ABSCONDED => 'Job Abandonment (Absconded)',
+            Offboarding::REASON_RESIGNATION_WITHOUT_NOTICE => 'Resignation Without Notice',
+            Offboarding::REASON_RESIGNATION => 'Resignation',
+            Offboarding::REASON_TERMINATION => 'Termination',
+            Offboarding::REASON_RETIREMENT => 'Retirement',
+            Offboarding::REASON_END_CONTRACT => 'End of Contract',
+            default => ucfirst($reason),
+        };
+    }
+
     private function sendNotifications(Offboarding $offboarding, User $employee): void
     {
         try {
-            $reasonLabel = match ($offboarding->reason) {
-                Offboarding::REASON_ABSCONDED => 'Job Abandonment (Absconded)',
-                Offboarding::REASON_RESIGNATION_WITHOUT_NOTICE => 'Resignation Without Notice',
-                Offboarding::REASON_RESIGNATION => 'Resignation',
-                Offboarding::REASON_TERMINATION => 'Termination',
-                Offboarding::REASON_RETIREMENT => 'Retirement',
-                Offboarding::REASON_END_CONTRACT => 'End of Contract',
-                default => ucfirst($offboarding->reason),
-            };
+            $reasonLabel = self::reasonLabel($offboarding->reason);
 
             // Collect recipients: HR managers, employee's manager, IT admins
             $recipients = User::where(function ($q) use ($employee) {
@@ -169,7 +208,7 @@ class ProcessOffboardingLwd implements ShouldQueue
 
             // Use database notification channel
             foreach ($recipients as $recipient) {
-                $recipient->notify(new \App\Notifications\Attendance\OffboardingInitiatedNotification(
+                $recipient->notify(new OffboardingInitiatedNotification(
                     $employee->name,
                     $reasonLabel,
                     $offboarding->last_working_date->toDateString(),

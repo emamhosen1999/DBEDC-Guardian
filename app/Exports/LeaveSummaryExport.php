@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\User;
 use App\Services\Leave\LeaveSummaryService;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -17,15 +18,18 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
 
     protected $summaryService;
 
-    public function __construct(array $filters)
+    protected ?User $actor;
+
+    public function __construct(array $filters, ?User $actor = null)
     {
         $this->filters = $filters;
+        $this->actor = $actor;
         $this->summaryService = app(LeaveSummaryService::class);
     }
 
     public function collection()
     {
-        $summaryData = $this->summaryService->generateLeaveSummary($this->filters);
+        $summaryData = $this->summaryService->generateLeaveSummary($this->filters, $this->actor);
         $data = $summaryData['data'] ?? [];
         $leaveTypes = $summaryData['leave_types'] ?? [];
 
@@ -71,7 +75,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
 
     public function headings(): array
     {
-        $summaryData = $this->summaryService->generateLeaveSummary($this->filters);
+        $summaryData = $this->summaryService->generateLeaveSummary($this->filters, $this->actor);
         $leaveTypes = $summaryData['leave_types'] ?? [];
 
         $baseHeaders = [
@@ -114,7 +118,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $summaryData = $this->summaryService->generateLeaveSummary($this->filters);
+                $summaryData = $this->summaryService->generateLeaveSummary($this->filters, $this->actor);
                 $stats = $summaryData['stats'] ?? [];
                 $leaveTypes = $summaryData['leave_types'] ?? [];
 

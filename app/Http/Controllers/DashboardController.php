@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DailyWork;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\CommandCenterService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -115,10 +116,16 @@ class DashboardController extends Controller
             ], 403);
         }
 
-        $users = User::with('roles:name')
-            ->whereHas('roles', function ($query) {
+        // Non-global actors see only their managed departments / reporting subtree / self.
+        $scope = app(DepartmentScope::class);
+        $visibleIds = $scope->visibleEmployeeIds($user);
+
+        $users = $scope->applyToUsers(
+            User::with('roles:name')->whereHas('roles', function ($query) {
                 $query->where('name', 'Employee');
-            })
+            }),
+            $user
+        )
             ->get()
             ->map(function ($user) {
                 $userData = $user->toArray();
@@ -141,6 +148,8 @@ class DashboardController extends Controller
             // If user can only view own leaves, filter accordingly
             if (! $user->can('leaves.view') && $user->can('leave.own.view')) {
                 $leaveQuery->where('leaves.user_id', $user->id);
+            } elseif ($visibleIds !== null) {
+                $leaveQuery->whereIn('leaves.user_id', $visibleIds === [] ? ['__NONE__'] : $visibleIds);
             }
 
             $todayLeaves = (clone $leaveQuery)

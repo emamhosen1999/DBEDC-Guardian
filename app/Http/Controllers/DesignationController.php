@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -70,7 +71,7 @@ class DesignationController extends Controller
 
         $query = Designation::with(['department'])->withCount('users');
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $query->where('department_id', $userDeptId);
         }
 
@@ -130,19 +131,20 @@ class DesignationController extends Controller
             'designation_id' => 'required|exists:designations,id',
         ]);
 
-        $authUser = Auth::user();
-        $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $authUser->department_id;
+        $user = User::findOrFail($id);
 
-        if (!$isGlobal && $userDeptId !== null) {
-            $targetUser = User::findOrFail($id);
+        // Non-global: only employees they manage, only to a designation of a
+        // department they administer (fail closed — no department grants nothing).
+        $scope = app(DepartmentScope::class);
+        $authUser = $request->user();
+        if (! $scope->isGlobal($authUser)) {
             $targetDesig = Designation::findOrFail($request->input('designation_id'));
-            if ($targetUser->department_id !== $userDeptId || $targetDesig->department_id !== $userDeptId) {
-                abort(403, 'Unauthorized to modify designations outside your department.');
+            if (! $scope->canManage($authUser, $user)
+                || ! in_array((int) $targetDesig->department_id, $scope->managedDepartmentIds($authUser), true)) {
+                abort(403, 'Unauthorized to modify designations outside your department scope.');
             }
         }
 
-        $user = User::findOrFail($id);
         $user->designation_id = $request->input('designation_id');
         $user->save();
 
@@ -158,7 +160,7 @@ class DesignationController extends Controller
         $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $userDeptId = $authUser->department_id;
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $request->merge(['department_id' => $userDeptId]);
         }
 
@@ -198,9 +200,9 @@ class DesignationController extends Controller
         $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $userDeptId = $authUser->department_id;
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $designation = Designation::findOrFail($id);
-            if ($designation->department_id !== $userDeptId || (int)$request->input('department_id') !== (int)$userDeptId) {
+            if ($designation->department_id !== $userDeptId || (int) $request->input('department_id') !== (int) $userDeptId) {
                 abort(403, 'Unauthorized to modify designations outside your department.');
             }
         }
@@ -231,7 +233,7 @@ class DesignationController extends Controller
         $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $userDeptId = $authUser->department_id;
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $designation = Designation::findOrFail($id);
             if ($designation->department_id !== $userDeptId) {
                 abort(403, 'Unauthorized to delete designations outside your department.');
@@ -258,11 +260,12 @@ class DesignationController extends Controller
         $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $userDeptId = $authUser->department_id;
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $designations = Designation::select('id', 'title')
                 ->where('is_active', true)
                 ->where('department_id', $userDeptId)
                 ->get();
+
             return response()->json($designations);
         }
 

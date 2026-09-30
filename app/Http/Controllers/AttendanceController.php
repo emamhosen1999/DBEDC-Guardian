@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ExportAttendanceReport;
+use App\Models\HRM\AbsenceCase;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceAuditLog;
 use App\Models\HRM\AttendanceSetting;
@@ -12,6 +13,7 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Attendance\AttendanceAuditService;
 use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
@@ -35,6 +37,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class AttendanceController extends Controller
 {
@@ -60,11 +63,44 @@ class AttendanceController extends Controller
         $this->upcomingShiftService = $upcomingShiftService;
     }
 
+    private function scope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
+    }
+
+    /**
+     * The actor's visible employee ids for service-layer filters: NULL = unrestricted
+     * (global), an array = restricted (empty = nobody). Fails closed.
+     *
+     * @return array<int, string>|null
+     */
+    private function visibleEmployeeIds(User $actor): ?array
+    {
+        return $this->scope()->visibleEmployeeIds($actor);
+    }
+
+    /** whereIn() input that keeps "empty scope" from meaning "no filter". */
+    private function idFilter(array $ids): array
+    {
+        return $ids === [] ? ['__NONE__'] : $ids;
+    }
+
+    /**
+     * Abort 403 unless the actor may operate on this employee's attendance
+     * (own department(s) / reporting subtree; never oneself, never another department).
+     */
+    private function assertMayActOn(string $employeeId): void
+    {
+        $actor = Auth::user();
+        if (! $actor || (! $this->scope()->isGlobal($actor) && ! $this->scope()->canActOn($actor, $employeeId))) {
+            abort(403, 'You do not have access to this employee.');
+        }
+    }
+
     public function indexUnified(): Response
     {
         $user = Auth::user();
-        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $user->department_id;
+        $scope = $this->scope();
 
         $departmentsQuery = Department::active();
         $employeesQuery = User::role('Employee')
@@ -73,10 +109,11 @@ class AttendanceController extends Controller
 
         $designationsQuery = Designation::select('id', 'title', 'department_id')->orderBy('title');
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $departmentsQuery->where('id', $userDeptId);
-            $employeesQuery->where('department_id', $userDeptId);
-            $designationsQuery->where('department_id', $userDeptId);
+        if (! $scope->isGlobal($user)) {
+            $managed = $scope->managedDepartmentIds($user);
+            $departmentsQuery->whereIn('id', $managed);
+            $scope->applyToUsers($employeesQuery, $user);
+            $designationsQuery->whereIn('department_id', $managed);
         }
 
         return Inertia::render('Attendance/AttendancePage', [
@@ -180,8 +217,7 @@ class AttendanceController extends Controller
     {
         try {
             $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
+            $employeeIds = $this->visibleEmployeeIds($user);
 
             $perPage = (int) $request->get('per_page', $request->get('perPage', 20));
             $page = (int) $request->get('page', 1);
@@ -190,11 +226,7 @@ class AttendanceController extends Controller
             $currentYear = (int) $request->get('currentYear');
             $departmentId = $request->get('department_id') ? (int) $request->get('department_id') : null;
 
-            if (! $isGlobal && $userDeptId !== null) {
-                $departmentId = $userDeptId;
-            }
-
-            $users = $this->attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($currentYear, $currentMonth, $departmentId);
+            $users = $this->attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($currentYear, $currentMonth, $departmentId, null, null, null, $employeeIds);
             $leaveTypes = LeaveSetting::all();
             $holidays = $this->attendanceReportService->getHolidaysForMonth($currentYear, $currentMonth);
             $leaveCountsArray = $this->attendanceReportService->getLeaveCountsArray($currentYear, $currentMonth);
@@ -391,6 +423,16 @@ class AttendanceController extends Controller
             $selectedDate = Carbon::parse($request->query('date'))->format('Y-m-d');
             $locations = $this->attendanceQueryService->getUserLocationsForDate($selectedDate);
 
+            // The service returns every employee's punches for the day; keep only the
+            // ones the actor may see (fails closed for non-global actors).
+            $visible = $this->visibleEmployeeIds(Auth::user());
+            if ($visible !== null) {
+                $locations = collect($locations)
+                    ->filter(fn ($row) => in_array((string) ($row['employee_id'] ?? ''), $visible, true))
+                    ->values()
+                    ->all();
+            }
+
             $attendanceTypeConfigs = AttendanceType::all()->map(function ($type) {
                 return [
                     'id' => $type->id,
@@ -406,6 +448,8 @@ class AttendanceController extends Controller
                 'locations' => $locations,
                 'attendance_type_configs' => $attendanceTypeConfigs,
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to get user locations: '.$e->getMessage());
 
@@ -436,8 +480,6 @@ class AttendanceController extends Controller
             $employeeKeyword = trim((string) $request->query('employee', ''));
 
             $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
 
             $usersWithAttendanceQuery = User::query()
                 ->whereHas('roles', function ($query) {
@@ -449,15 +491,12 @@ class AttendanceController extends Controller
                         ->whereDate('date', $selectedDate);
                 });
 
-            if (! $isGlobal && $userDeptId !== null) {
-                $usersWithAttendanceQuery->where('department_id', $userDeptId);
-            }
+            // Non-global actors are confined to their managed departments / reporting
+            // subtree / self (fails closed); a requested department only narrows further.
+            $this->scope()->applyToUsers($usersWithAttendanceQuery, $user);
 
-            // Global admins can narrow the present table by department (matching the
-            // stat band / partition, which is already department-scoped). Non-global
-            // managers stay locked to their own department above.
             $requestedDeptId = $request->query('department_id');
-            if ($isGlobal && $requestedDeptId !== null && $requestedDeptId !== '') {
+            if ($requestedDeptId !== null && $requestedDeptId !== '') {
                 $usersWithAttendanceQuery->where('department_id', (int) $requestedDeptId);
             }
 
@@ -619,12 +658,11 @@ class AttendanceController extends Controller
         try {
             $date = $request->query('date', now()->toDateString());
             $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
 
             $filters = [];
-            if (! $isGlobal && $userDeptId !== null) {
-                $filters['department_id'] = $userDeptId;
+            $employeeIds = $this->visibleEmployeeIds($user);
+            if ($employeeIds !== null) {
+                $filters['team_member_ids'] = $employeeIds;
             }
 
             $users = $this->attendanceQueryService->getPresentUsersForDate($date, $filters);
@@ -647,17 +685,13 @@ class AttendanceController extends Controller
             $employeeKeyword = trim((string) $request->query('employee', ''));
 
             $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
 
             $allUsersQuery = User::query()
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 });
 
-            if (! $isGlobal && $userDeptId !== null) {
-                $allUsersQuery->where('department_id', $userDeptId);
-            }
+            $this->scope()->applyToUsers($allUsersQuery, $user);
 
             if ($employeeKeyword !== '') {
                 $allUsersQuery->where(function ($query) use ($employeeKeyword) {
@@ -678,11 +712,9 @@ class AttendanceController extends Controller
                         ->whereDate('date', $date);
                 });
 
-            if (! $isGlobal && $userDeptId !== null) {
-                $presentUserIdsQuery->where('department_id', $userDeptId);
-            }
+            $this->scope()->applyToUsers($presentUserIdsQuery, $user);
 
-            $presentUserIds = $presentUserIdsQuery->pluck('id');
+            $presentUserIds = $presentUserIdsQuery->pluck('employee_id');
 
             $absentUsers = $allUsers->filter(function (User $user) use ($presentUserIds) {
                 return ! $presentUserIds->contains($user->id);
@@ -751,8 +783,8 @@ class AttendanceController extends Controller
             if (Schema::hasTable('absence_cases') && $absentUsers->isNotEmpty()) {
                 $employeeIds = $absentUsers->pluck('employee_id')->filter()->all();
                 if (! empty($employeeIds)) {
-                    $absenceStreaks = \App\Models\HRM\AbsenceCase::whereIn('user_id', $employeeIds)
-                        ->whereNotIn('stage', [\App\Models\HRM\AbsenceCase::STAGE_RETURNED, \App\Models\HRM\AbsenceCase::STAGE_ABSCONDED])
+                    $absenceStreaks = AbsenceCase::whereIn('user_id', $employeeIds)
+                        ->whereNotIn('stage', [AbsenceCase::STAGE_RETURNED, AbsenceCase::STAGE_ABSCONDED])
                         ->get()
                         ->keyBy('user_id');
                 }
@@ -839,12 +871,22 @@ class AttendanceController extends Controller
             }
             $isGlobalScope = $userId === null;
 
-            $stats = $this->attendanceReportService->calculateMonthlyStats($currentMonth, $currentYear, $isGlobalScope, $userId);
+            // Another employee's stats need that employee to be in the actor's scope.
+            if ($userId !== null && (string) $userId !== (string) Auth::id()) {
+                $this->assertMayActOn((string) $userId);
+            }
+
+            $stats = $this->attendanceReportService->calculateMonthlyStats(
+                $currentMonth, $currentYear, $isGlobalScope, $userId, false, null,
+                $isGlobalScope ? $this->visibleEmployeeIds(Auth::user()) : null
+            );
 
             return response()->json([
                 'stats' => $stats,
                 'data' => $stats,
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to get monthly attendance stats: '.$e->getMessage());
 
@@ -873,22 +915,27 @@ class AttendanceController extends Controller
             $canTeam = $user->can('attendance.view');
             $isGlobalScope = $canTeam && ($validated['scope'] ?? 'team') === 'team';
 
-            // Department managers without HR-wide access see only their department.
+            // Non-global actors are confined to their managed departments / reporting
+            // subtree / self; a single managed department is pinned (locked in the UI).
             $departmentId = $validated['department_id'] ?? null;
-            $isHrWide = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            if ($isGlobalScope && ! $isHrWide && $user->department_id !== null) {
-                $departmentId = (int) $user->department_id;
+            $employeeIds = $this->visibleEmployeeIds($user);
+            $isScoped = $employeeIds !== null;
+            if ($isGlobalScope && $isScoped) {
+                $managed = $this->scope()->managedDepartmentIds($user);
+                if (count($managed) === 1) {
+                    $departmentId = $managed[0];
+                }
             }
 
             $stats = $this->attendanceReportService->calculateMonthlyStats(
                 (int) $month->month, (int) $month->year, $isGlobalScope,
-                $isGlobalScope ? null : (string) $user->employee_id, true, $departmentId
+                $isGlobalScope ? null : (string) $user->employee_id, true, $departmentId, $employeeIds
             );
 
             $previous = $month->copy()->subMonthNoOverflow();
             $previousStats = $this->attendanceReportService->calculateMonthlyStats(
                 (int) $previous->month, (int) $previous->year, $isGlobalScope,
-                $isGlobalScope ? null : (string) $user->employee_id, true, $departmentId
+                $isGlobalScope ? null : (string) $user->employee_id, true, $departmentId, $employeeIds
             );
 
             $stats['comparison'] = [
@@ -902,7 +949,7 @@ class AttendanceController extends Controller
             $stats['meta']['scope'] = $isGlobalScope ? 'team' : 'self';
             $stats['meta']['canViewTeam'] = $canTeam;
             $stats['meta']['departmentId'] = $departmentId;
-            $stats['meta']['departmentLocked'] = $isGlobalScope && ! $isHrWide && $user->department_id !== null;
+            $stats['meta']['departmentLocked'] = $isGlobalScope && $isScoped && count($this->scope()->managedDepartmentIds($user)) === 1;
 
             return response()->json(['data' => $stats]);
         } catch (\Exception $e) {
@@ -919,16 +966,14 @@ class AttendanceController extends Controller
             $departmentId = $request->query('department_id') ? (int) $request->query('department_id') : null;
 
             $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
-
-            if (! $isGlobal && $userDeptId !== null) {
-                $departmentId = $userDeptId;
-            }
+            $employeeIds = $this->visibleEmployeeIds($user);
 
             $employeesQuery = User::query()->whereHas('roles', function ($q) {
                 $q->where('name', 'Employee');
             });
+            if ($employeeIds !== null) {
+                $employeesQuery->whereIn('employee_id', $this->idFilter($employeeIds));
+            }
             if ($departmentId) {
                 $employeesQuery->where('department_id', $departmentId);
             }
@@ -938,6 +983,9 @@ class AttendanceController extends Controller
             $attendanceQuery = Attendance::whereDate('date', $date)
                 ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                 ->where('policy_status', '!=', 'rejected');
+            if ($employeeIds !== null) {
+                $attendanceQuery->whereIn('user_id', $this->idFilter($employeeIds));
+            }
             if ($departmentId) {
                 $attendanceQuery->whereHas('user', function ($q) use ($departmentId) {
                     $q->where('department_id', $departmentId);
@@ -967,6 +1015,10 @@ class AttendanceController extends Controller
                     ->whereDate('from_date', '<=', $date)
                     ->whereDate('to_date', '>=', $date)
                     ->whereRaw('LOWER(status) = ?', ['approved']);
+
+                if ($employeeIds !== null) {
+                    $onLeaveQuery->whereIn('leaves.'.$leaveUserColumn, $this->idFilter($employeeIds));
+                }
 
                 if ($departmentId) {
                     $onLeaveQuery->join('users', 'leaves.'.$leaveUserColumn, '=', 'users.employee_id')
@@ -1014,7 +1066,13 @@ class AttendanceController extends Controller
     public function checkForLocationUpdates($date)
     {
         try {
-            $lastUpdate = Attendance::whereDate('date', $date)->max('updated_at');
+            $query = Attendance::whereDate('date', $date);
+            // Change-detection must not reveal activity outside the actor's scope.
+            $visible = $this->visibleEmployeeIds(Auth::user());
+            if ($visible !== null) {
+                $query->whereIn('user_id', $this->idFilter($visible));
+            }
+            $lastUpdate = $query->max('updated_at');
             $lastUpdateTime = $lastUpdate ? Carbon::parse($lastUpdate) : null;
 
             return response()->json([
@@ -1051,16 +1109,8 @@ class AttendanceController extends Controller
             $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
             $designationId = isset($validated['designation_id']) ? (int) $validated['designation_id'] : null;
 
-            $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
-
-            if (! $isGlobal && $userDeptId !== null) {
-                $departmentId = $userDeptId;
-            }
-
             $data = app(AttendanceDayPartitionService::class)
-                ->partition($date, $departmentId, null, $designationId);
+                ->partition($date, $departmentId, $this->visibleEmployeeIds(Auth::user()), $designationId);
 
             return response()->json($data);
         } catch (ValidationException $e) {
@@ -1080,6 +1130,8 @@ class AttendanceController extends Controller
                 'date' => 'required|date',
             ]);
 
+            $this->assertMayActOn((string) $validated['user_id']);
+
             // Shift-based, idempotent, audited — the ONE definition, shared with
             // the mobile mark-present parity endpoint.
             $attendance = app(AttendanceDayPartitionService::class)
@@ -1090,6 +1142,8 @@ class AttendanceController extends Controller
                 'message' => 'Employee marked as present successfully',
                 'attendance' => $attendance,
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to mark user as present: '.$e->getMessage());
 
@@ -1106,6 +1160,10 @@ class AttendanceController extends Controller
                 'date' => 'required|date',
             ]);
 
+            foreach ($validated['user_ids'] as $candidateId) {
+                $this->assertMayActOn((string) $candidateId);
+            }
+
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
 
             // Shared, per-user shift-based mark-present (idempotent + audited).
@@ -1120,6 +1178,8 @@ class AttendanceController extends Controller
                 'message' => 'Employees marked as present successfully',
                 'count' => count($attendances),
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to bulk mark as present: '.$e->getMessage());
 
@@ -1130,20 +1190,27 @@ class AttendanceController extends Controller
     public function checkTimesheetUpdates($date, $month = null)
     {
         try {
-            $query = Attendance::query()->whereDate('date', $date);
+            // Change-detection must not reveal activity outside the actor's scope.
+            $visible = $this->visibleEmployeeIds(Auth::user());
+            $scoped = fn () => Attendance::query()
+                ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $this->idFilter($visible)));
 
-            if ($month) {
-                $year = (int) substr($month, 0, 4);
-                $monthNumber = (int) substr($month, 5, 2);
+            $query = $scoped()->where(function ($window) use ($date, $month) {
+                $window->whereDate('date', $date);
 
-                $query->orWhere(function ($orQuery) use ($year, $monthNumber) {
-                    $orQuery->whereYear('date', $year)
-                        ->whereMonth('date', $monthNumber);
-                });
-            }
+                if ($month) {
+                    $year = (int) substr($month, 0, 4);
+                    $monthNumber = (int) substr($month, 5, 2);
+
+                    $window->orWhere(function ($orQuery) use ($year, $monthNumber) {
+                        $orQuery->whereYear('date', $year)
+                            ->whereMonth('date', $monthNumber);
+                    });
+                }
+            });
 
             $lastUpdate = $query->max('updated_at');
-            $hasRecords = Attendance::query()->whereDate('date', $date)->exists();
+            $hasRecords = $scoped()->whereDate('date', $date)->exists();
 
             return response()->json([
                 'success' => true,
@@ -1304,14 +1371,8 @@ class AttendanceController extends Controller
                 ], 422);
             }
 
-            $user = Auth::user();
-            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $user->department_id;
-
+            // The queued job re-derives (and enforces) the actor's scope from the requester id.
             $reqDeptId = $request->query('department_id') ? (int) $request->query('department_id') : null;
-            if (! $isGlobal && $userDeptId !== null) {
-                $reqDeptId = $userDeptId;
-            }
 
             $filters = array_filter([
                 'from' => $from->toDateString(),
@@ -1349,6 +1410,7 @@ class AttendanceController extends Controller
 
         try {
             $attendance = Attendance::findOrFail($id);
+            $this->assertMayActOn((string) $attendance->user_id);
 
             $validated = $request->validate([
                 'punchin' => 'nullable|date_format:Y-m-d H:i:s',
@@ -1381,6 +1443,8 @@ class AttendanceController extends Controller
                 'message' => 'Attendance record updated successfully',
                 'attendance' => $attendance->fresh(['user']),
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Error updating attendance record', [
                 'error' => $e->getMessage(),
@@ -1406,6 +1470,8 @@ class AttendanceController extends Controller
                 'punchin_location' => 'nullable|array',
                 'punchout_location' => 'nullable|array',
             ]);
+
+            $this->assertMayActOn((string) $validated['user_id']);
 
             if (! empty($validated['punchin']) && ! empty($validated['punchout'])) {
                 $punchin = Carbon::parse($validated['punchin']);
@@ -1437,6 +1503,8 @@ class AttendanceController extends Controller
                 'message' => 'Attendance record added successfully',
                 'attendance' => $attendance->fresh(['user']),
             ], 201);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Error adding attendance record', [
                 'error' => $e->getMessage(),
@@ -1455,6 +1523,7 @@ class AttendanceController extends Controller
 
         try {
             $attendance = Attendance::findOrFail($id);
+            $this->assertMayActOn((string) $attendance->user_id);
             $audit = app(AttendanceAuditService::class);
             $before = $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']);
 
@@ -1467,6 +1536,8 @@ class AttendanceController extends Controller
                 'success' => true,
                 'message' => 'Attendance record deleted successfully',
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Error deleting attendance record', [
                 'error' => $e->getMessage(),
@@ -1485,6 +1556,7 @@ class AttendanceController extends Controller
 
         try {
             $attendance = Attendance::findOrFail($id);
+            $this->assertMayActOn((string) $attendance->user_id);
 
             $validated = $request->validate([
                 'symbol' => 'required|string|max:10',
@@ -1504,6 +1576,8 @@ class AttendanceController extends Controller
                 'message' => 'Attendance status updated successfully',
                 'attendance' => $attendance->fresh(['user']),
             ]);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Error updating attendance status', [
                 'error' => $e->getMessage(),
@@ -1535,6 +1609,11 @@ class AttendanceController extends Controller
                 'status' => $request->query('status'),
             ], fn ($v) => $v !== null && $v !== '');
 
+            $employeeIds = $this->visibleEmployeeIds(Auth::user());
+            if ($employeeIds !== null) {
+                $filters['team_member_ids'] = $employeeIds;
+            }
+
             $rows = $this->attendanceReportService->getRangedAttendanceLog($from, $to, $filters);
 
             $total = count($rows);
@@ -1547,7 +1626,7 @@ class AttendanceController extends Controller
                 'page' => $page,
                 'per_page' => $perPage,
                 'last_page' => $lastPage,
-                'applied_filters' => array_merge($filters, [
+                'applied_filters' => array_merge(array_diff_key($filters, ['team_member_ids' => true]), [
                     'from' => $from->toDateString(),
                     'to' => $to->toDateString(),
                 ]),
@@ -1561,6 +1640,13 @@ class AttendanceController extends Controller
 
     public function auditHistory(int $id): JsonResponse
     {
+        $ownerId = Attendance::query()->whereKey($id)->value('user_id');
+        if ($ownerId !== null) {
+            $this->assertMayActOn((string) $ownerId);
+        } elseif (! $this->scope()->isGlobal(Auth::user())) {
+            abort(404);
+        }
+
         $logs = AttendanceAuditLog::with('actor:employee_id,name')
             ->where('attendance_id', $id)
             ->orderByDesc('created_at')

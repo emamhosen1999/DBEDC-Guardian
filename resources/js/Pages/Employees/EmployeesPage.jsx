@@ -40,14 +40,21 @@ const EmployeesPage = ({
     const [headerActions, setHeaderActions] = useState(null);
 
     /* ── permission checks ─────────────────────────────────── */
-    const canViewRoles = auth?.permissions?.includes('roles.view') || auth?.roles?.includes('Super Administrator');
+    const isSuperAdmin = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator');
+    const has = (permission) => Boolean(isSuperAdmin || auth?.permissions?.includes(permission));
+    const canViewRoles = has('roles.view');
+    /* Each tab loads data behind its own permission — a department-scoped operator (employees
+       only) must not be offered organisation-structure tabs whose every request would 403. */
+    const canViewDepartments = has('departments.view');
+    const canViewDesignations = has('designations.view');
+    const canViewWorkLocations = has('jurisdiction.view') || has('attendance.settings');
 
     /* ── tab definitions ──────────────────────────────────── */
     const tabs = [
         { value: 'employees',      label: 'Employees',      icon: <PersonIcon /> },
-        { value: 'departments',    label: 'Departments',    icon: <HomeIcon /> },
-        { value: 'designations',   label: 'Designations',   icon: <LayersIcon /> },
-        { value: 'work_locations', label: 'Work Locations', icon: <SewingPinIcon /> },
+        ...(canViewDepartments ? [{ value: 'departments', label: 'Departments', icon: <HomeIcon /> }] : []),
+        ...(canViewDesignations ? [{ value: 'designations', label: 'Designations', icon: <LayersIcon /> }] : []),
+        ...(canViewWorkLocations ? [{ value: 'work_locations', label: 'Work Locations', icon: <SewingPinIcon /> }] : []),
         ...(canViewRoles ? [{ value: 'roles', label: 'Roles & Permissions', icon: <LockClosedIcon /> }] : []),
     ];
 
@@ -155,31 +162,37 @@ const EmployeesPage = ({
                             </Tabs.Content>
 
                             {/* ── Departments Tab ───────────────────────── */}
-                            <Tabs.Content value="departments">
-                                <Box mt="4">
-                                    <ErrorBoundary>
-                                        <DepartmentsTab isActive={activeTab === 'departments'} />
-                                    </ErrorBoundary>
-                                </Box>
-                            </Tabs.Content>
+                            {canViewDepartments && (
+                                <Tabs.Content value="departments">
+                                    <Box mt="4">
+                                        <ErrorBoundary>
+                                            <DepartmentsTab isActive={activeTab === 'departments'} />
+                                        </ErrorBoundary>
+                                    </Box>
+                                </Tabs.Content>
+                            )}
 
                             {/* ── Designations Tab ──────────────────────── */}
-                            <Tabs.Content value="designations">
-                                <Box mt="4">
-                                    <ErrorBoundary>
-                                        <DesignationsTab isActive={activeTab === 'designations'} />
-                                    </ErrorBoundary>
-                                </Box>
-                            </Tabs.Content>
+                            {canViewDesignations && (
+                                <Tabs.Content value="designations">
+                                    <Box mt="4">
+                                        <ErrorBoundary>
+                                            <DesignationsTab isActive={activeTab === 'designations'} />
+                                        </ErrorBoundary>
+                                    </Box>
+                                </Tabs.Content>
+                            )}
 
                             {/* ── Work Locations Tab ────────────────────── */}
-                            <Tabs.Content value="work_locations">
-                                <Box mt="4">
-                                    <ErrorBoundary>
-                                        <WorkLocationsTab isActive={activeTab === 'work_locations'} />
-                                    </ErrorBoundary>
-                                </Box>
-                            </Tabs.Content>
+                            {canViewWorkLocations && (
+                                <Tabs.Content value="work_locations">
+                                    <Box mt="4">
+                                        <ErrorBoundary>
+                                            <WorkLocationsTab isActive={activeTab === 'work_locations'} />
+                                        </ErrorBoundary>
+                                    </Box>
+                                </Tabs.Content>
+                            )}
 
                             {/* ── Roles & Permissions Tab (IT Admin) ───── */}
                             {canViewRoles && (

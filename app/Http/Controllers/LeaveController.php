@@ -9,17 +9,21 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Leave\LeaveApprovalService;
 use App\Services\Leave\LeaveCrudService;
 use App\Services\Leave\LeaveOverlapService;
 use App\Services\Leave\LeaveQueryService;
 use App\Services\Leave\LeaveSummaryService;
 use App\Services\Leave\LeaveValidationService;
+use App\Services\Realtime\RealtimeSignal;
 use App\Traits\HandlesApiExceptions;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -64,7 +68,7 @@ class LeaveController extends Controller
     {
         return Inertia::render('LeavesEmployee', [
             'title' => 'Leaves',
-            'allUsers' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            'allUsers' => $this->scope()->applyToUsers(User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name'), $this->actor())->get(),
 
         ]);
     }
@@ -73,7 +77,7 @@ class LeaveController extends Controller
     {
         return Inertia::render('LeavesAdmin', [
             'title' => 'Leaves',
-            'allUsers' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            'allUsers' => $this->scope()->applyToUsers(User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name'), $this->actor())->get(),
         ]);
     }
 
@@ -196,7 +200,7 @@ class LeaveController extends Controller
             } catch (\Throwable $th) {
                 Log::warning('LeaveController create: failed to fetch updated leaveRecords after creation', ['error' => $th->getMessage()]);
                 $leaveData = [
-                    'leaveRecords' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
+                    'leaveRecords' => new LengthAwarePaginator([], 0, 20),
                     'leavesData' => [
                         'leaveTypes' => LeaveSetting::all(),
                         'leaveCountsByUser' => [],
@@ -206,7 +210,7 @@ class LeaveController extends Controller
             }
 
             // Realtime: a new application lights up the approver queue live.
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $userId, 'apply');
+            app(RealtimeSignal::class)->touch('leave', 'all', $userId, 'apply');
 
             // Non-blocking advisory: teammates already on leave in this range.
             $teamWarnings = $this->overlapService->teamConflictWarnings($userId, $fromDate, $toDate);
@@ -298,7 +302,7 @@ class LeaveController extends Controller
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $safeData['user_id'], 'update');
+            app(RealtimeSignal::class)->touch('leave', 'all', $safeData['user_id'], 'update');
 
             return response()->json([
                 'success' => true,
@@ -377,7 +381,7 @@ class LeaveController extends Controller
     /**
      * Persist uploaded supporting documents onto the leave record.
      */
-    private function storeAttachments(Request $request, \App\Models\HRM\Leave $leave): void
+    private function storeAttachments(Request $request, Leave $leave): void
     {
         if (! $request->hasFile('attachments')) {
             return;
@@ -442,7 +446,7 @@ class LeaveController extends Controller
         try {
             $leave = $this->crudService->cancelLeave((int) $id, Auth::user(), $request->input('reason'));
 
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $leave->user_id, 'cancel');
+            app(RealtimeSignal::class)->touch('leave', 'all', $leave->user_id, 'cancel');
 
             return response()->json([
                 'success' => true,
@@ -506,7 +510,7 @@ class LeaveController extends Controller
             'leave_type' => $request->input('leave_type'),
         ];
 
-        $summaryData = $this->summaryService->generateLeaveSummary($filters);
+        $summaryData = $this->summaryService->generateLeaveSummary($filters, $this->actor());
 
         return Inertia::render('LeaveSummary', [
             'title' => 'Leave Summary',
@@ -524,7 +528,7 @@ class LeaveController extends Controller
             'leave_type' => null,
         ];
 
-        return $this->summaryService->generateLeaveSummary($filters);
+        return $this->summaryService->generateLeaveSummary($filters, $this->actor());
     }
 
     public function bulkApprove(Request $request): JsonResponse
@@ -669,7 +673,7 @@ class LeaveController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$updatedCount} leave(s) {$statusLabel} successfully" .
+                'message' => "{$updatedCount} leave(s) {$statusLabel} successfully".
                     ($skippedCount > 0 ? " ({$skippedCount} skipped — already {$statusLabel})" : ''),
                 'updated_count' => $updatedCount,
                 'skipped_count' => $skippedCount,
@@ -699,7 +703,7 @@ class LeaveController extends Controller
             ];
 
             return Excel::download(
-                new LeaveSummaryExport($filters),
+                new LeaveSummaryExport($filters, $this->actor()),
                 'Leave_Summary_'.($filters['year'] ?? now()->year).'.xlsx'
             );
         } catch (\Exception $e) {
@@ -721,7 +725,7 @@ class LeaveController extends Controller
                 'leave_type' => $request->input('leave_type'),
             ];
 
-            $summaryData = $this->summaryService->generateLeaveSummary($filters);
+            $summaryData = $this->summaryService->generateLeaveSummary($filters, $this->actor());
 
             $pdf = PDF::loadView('leave_summary_pdf', [
                 'title' => 'Leave Summary - '.($filters['year'] ?? now()->year),
@@ -869,12 +873,28 @@ class LeaveController extends Controller
         }
     }
 
+    private function scope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
+    }
+
+    private function actor(): User
+    {
+        return Auth::user();
+    }
+
+    /** Leaves of employees the acting user may see (global roles: every leave). */
+    private function scopedLeaveQuery(): Builder
+    {
+        return $this->scope()->applyToEmployeeOwned(Leave::query(), $this->actor(), 'leaves.user_id');
+    }
+
     /**
      * Get monthly leave trends
      */
     protected function getMonthlyTrends($year, $departmentId = null)
     {
-        $query = Leave::whereYear('from_date', $year);
+        $query = $this->scopedLeaveQuery()->whereYear('from_date', $year);
 
         if ($departmentId) {
             $query->whereHas('user', function ($q) use ($departmentId) {
@@ -902,7 +922,12 @@ class LeaveController extends Controller
      */
     protected function getDepartmentComparison($year)
     {
-        return Department::withCount(['users as average_days' => function ($query) use ($year) {
+        $departments = Department::query();
+        if (! $this->scope()->isGlobal($this->actor())) {
+            $departments->whereIn('id', $this->scope()->managedDepartmentIds($this->actor()));
+        }
+
+        return $departments->withCount(['users as average_days' => function ($query) use ($year) {
             $query->join('leaves', 'users.employee_id', '=', 'leaves.user_id')
                 ->whereYear('leaves.from_date', $year)
                 ->where('leaves.status', 'approved')
@@ -923,7 +948,7 @@ class LeaveController extends Controller
      */
     protected function getLeaveTypeDistribution($year, $departmentId = null)
     {
-        $query = Leave::whereYear('from_date', $year)
+        $query = $this->scopedLeaveQuery()->whereYear('from_date', $year)
             ->where('status', 'approved');
 
         if ($departmentId) {
@@ -951,7 +976,7 @@ class LeaveController extends Controller
     {
         $workingDays = 260; // Approximate working days in a year
 
-        $query = Leave::whereYear('from_date', $year)
+        $query = $this->scopedLeaveQuery()->whereYear('from_date', $year)
             ->where('status', 'approved');
 
         if ($departmentId) {
@@ -961,9 +986,10 @@ class LeaveController extends Controller
         }
 
         $totalLeaveDays = $query->sum('no_of_days');
-        $employeeCount = User::when($departmentId, function ($q) use ($departmentId) {
-            $q->where('department_id', $departmentId);
-        })->count();
+        $employeeCount = $this->scope()->applyToUsers(User::query(), $this->actor())
+            ->when($departmentId, function ($q) use ($departmentId) {
+                $q->where('department_id', $departmentId);
+            })->count();
 
         if ($employeeCount === 0) {
             return 0;
@@ -977,7 +1003,7 @@ class LeaveController extends Controller
      */
     protected function getPeakPeriods($year, $departmentId = null)
     {
-        $query = Leave::whereYear('from_date', $year)
+        $query = $this->scopedLeaveQuery()->whereYear('from_date', $year)
             ->where('status', 'approved');
 
         if ($departmentId) {
@@ -1005,7 +1031,7 @@ class LeaveController extends Controller
      */
     protected function getTopLeaveTakers($year, $departmentId = null)
     {
-        $query = Leave::whereYear('from_date', $year)
+        $query = $this->scopedLeaveQuery()->whereYear('from_date', $year)
             ->whereIn('status', ['approved', 'pending']);
 
         if ($departmentId) {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\DeviceAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,22 @@ class DeviceController extends Controller
     public function __construct(DeviceAuthService $deviceAuthService)
     {
         $this->deviceAuthService = $deviceAuthService;
+    }
+
+    /**
+     * The admin device routes sit behind `users.update` / `users.view`, which
+     * department-scoped operators hold too. The TARGET must therefore be inside the
+     * actor's DepartmentScope and — for a non-global actor — outranked by them (a
+     * department admin must never reset the devices of an Administrator in their
+     * department). Global actors and the target themself always pass.
+     */
+    private function assertMayManageDevicesOf(User $target): void
+    {
+        abort_unless(
+            app(DepartmentScope::class)->canManage(Auth::user(), $target, allowSelf: true),
+            403,
+            'You cannot manage devices of a user outside your department scope.'
+        );
     }
 
     /**
@@ -41,8 +58,9 @@ class DeviceController extends Controller
      */
     public function getUserDevices(Request $request, string $userId): JsonResponse|InertiaResponse
     {
-        // Authorization check should be done via middleware or policy
         $user = User::findOrFail($userId);
+        // Out-of-scope reads as not-found so the directory cannot be probed for existence.
+        abort_unless(app(DepartmentScope::class)->canActOn(Auth::user(), $user, allowSelf: true), 404);
         $devices = collect($this->deviceAuthService->getUserDevices($user));
 
         $userState = $this->buildUserDeviceState($user);
@@ -77,6 +95,7 @@ class DeviceController extends Controller
         ]);
 
         $user = User::findOrFail($userId);
+        $this->assertMayManageDevicesOf($user);
         $resetReason = trim((string) $request->input('reason', ''));
         $persistedResetReason = $resetReason !== ''
             ? $resetReason
@@ -134,6 +153,7 @@ class DeviceController extends Controller
     public function adminDeactivateDevice(Request $request, string $userId, int $deviceId): JsonResponse
     {
         $user = User::findOrFail($userId);
+        $this->assertMayManageDevicesOf($user);
         $success = $this->deviceAuthService->deactivateDevice($user, $deviceId);
 
         if (! $success) {
@@ -163,6 +183,7 @@ class DeviceController extends Controller
     public function toggleSingleDeviceLogin(Request $request, string $userId): JsonResponse
     {
         $user = User::findOrFail($userId);
+        $this->assertMayManageDevicesOf($user);
 
         // Toggle the setting
         $newStatus = ! $user->single_device_login_enabled;

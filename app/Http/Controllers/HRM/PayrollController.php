@@ -4,12 +4,12 @@ namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\HRM\Attendance;
-use App\Models\HRM\Leave;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\HRM\Payroll;
 use App\Models\HRM\Payslip;
 use App\Models\PettyCashLoan;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +19,8 @@ use Inertia\Response;
 
 class PayrollController extends Controller
 {
+    public function __construct(private readonly DepartmentScope $scope) {}
+
     /**
      * List payroll runs and monthly summaries.
      */
@@ -26,7 +28,7 @@ class PayrollController extends Controller
     {
         $selectedMonth = $request->input('month', now()->format('Y-m'));
 
-        $start = Carbon::parse($selectedMonth . '-01')->startOfMonth();
+        $start = Carbon::parse($selectedMonth.'-01')->startOfMonth();
         $end = $start->copy()->endOfMonth();
 
         $query = Payroll::with(['employee:employee_id,name,department_id,designation_id', 'employee.department:id,name', 'employee.designation:id,title'])
@@ -36,18 +38,25 @@ class PayrollController extends Controller
                 $q->whereHas('employee', fn ($eq) => $eq->where('name', 'like', "%{$search}%")->orWhere('employee_id', 'like', "%{$search}%"));
             });
 
+        $this->scope->applyToEmployeeOwned($query, $request->user(), 'user_id');
+
         $payrolls = $query->paginate($request->input('per_page', 25));
 
         if ($request->wantsJson() && ! $request->header('X-Inertia')) {
             return response()->json($payrolls);
         }
 
+        $periodStats = fn () => $this->scope->applyToEmployeeOwned(
+            Payroll::where('pay_period_start', $start->toDateString()),
+            $request->user(),
+            'user_id',
+        );
         $stats = [
-            'total_employees' => Payroll::where('pay_period_start', $start->toDateString())->count(),
-            'total_gross' => Payroll::where('pay_period_start', $start->toDateString())->sum('gross_salary'),
-            'total_deductions' => Payroll::where('pay_period_start', $start->toDateString())->sum('total_deductions'),
-            'total_net' => Payroll::where('pay_period_start', $start->toDateString())->sum('net_salary'),
-            'total_overtime' => Payroll::where('pay_period_start', $start->toDateString())->sum('overtime_amount'),
+            'total_employees' => $periodStats()->count(),
+            'total_gross' => $periodStats()->sum('gross_salary'),
+            'total_deductions' => $periodStats()->sum('total_deductions'),
+            'total_net' => $periodStats()->sum('net_salary'),
+            'total_overtime' => $periodStats()->sum('overtime_amount'),
         ];
 
         return Inertia::render('HR/Payroll', [
@@ -63,12 +72,15 @@ class PayrollController extends Controller
      */
     public function generate(Request $request): JsonResponse
     {
+        // A payroll run is company-wide (every active employee); scoped admins may not trigger it.
+        abort_unless($this->scope->isGlobal($request->user()), 403, 'Payroll generation is restricted to company-wide administrators.');
+
         $request->validate([
             'month' => 'required|date_format:Y-m',
         ]);
 
         $monthStr = $request->input('month');
-        $start = Carbon::parse($monthStr . '-01')->startOfMonth();
+        $start = Carbon::parse($monthStr.'-01')->startOfMonth();
         $end = $start->copy()->endOfMonth();
         $totalDaysInMonth = $start->daysInMonth;
 
@@ -152,7 +164,7 @@ class PayrollController extends Controller
                 );
 
                 // Auto-generate / update payslip
-                $payslipNum = 'PS-' . $start->format('Ym') . '-' . str_pad($emp->employee_id, 4, '0', STR_PAD_LEFT);
+                $payslipNum = 'PS-'.$start->format('Ym').'-'.str_pad($emp->employee_id, 4, '0', STR_PAD_LEFT);
                 Payslip::updateOrCreate(
                     [
                         'payroll_id' => $payroll->id,
@@ -186,9 +198,12 @@ class PayrollController extends Controller
     /**
      * View individual payslip details.
      */
-    public function payslip(int $id): JsonResponse
+    public function payslip(Request $request, int $id): JsonResponse
     {
         $payslip = Payslip::with(['employee.department', 'employee.designation'])->findOrFail($id);
+
+        // Scope (or the owner themself) — never a bare id lookup.
+        abort_unless($this->scope->canActOn($request->user(), $payslip->user_id, allowSelf: true), 403, 'This payslip is outside your scope.');
 
         return response()->json($payslip);
     }

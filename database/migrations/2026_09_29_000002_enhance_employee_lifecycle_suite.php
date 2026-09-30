@@ -9,28 +9,35 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Re-structure assets table for full employee lifecycle allocation
-        if (Schema::hasTable('assets')) {
-            Schema::dropIfExists('assets');
+        // The 2024 `assets` table (assignee/asset_id/asset_image) holds real data:
+        // keep it as `assets_legacy_2024` instead of dropping it.
+        if (Schema::hasTable('assets') && ! Schema::hasColumn('assets', 'asset_code')) {
+            if (Schema::hasTable('assets_legacy_2024')) {
+                throw new RuntimeException('Cannot preserve legacy assets table: assets_legacy_2024 already exists.');
+            }
+            Schema::rename('assets', 'assets_legacy_2024');
         }
 
-        Schema::create('assets', function (Blueprint $table) {
-            $table->id();
-            $table->string('asset_code')->unique();
-            $table->string('name');
-            $table->string('category')->default('it_hardware'); // it_hardware, sim_card, access_card, safety_gear, keys, vehicle, other
-            $table->string('serial_number')->nullable();
-            $table->string('assignee_id', 50)->nullable();
-            $table->dateTime('assigned_date')->nullable();
-            $table->dateTime('return_date')->nullable();
-            $table->string('status')->default('available'); // available, assigned, returned, damaged, disposed
-            $table->string('condition_on_issue')->nullable()->default('good');
-            $table->string('condition_on_return')->nullable();
-            $table->text('notes')->nullable();
-            $table->softDeletes();
-            $table->timestamps();
+        if (! Schema::hasTable('assets')) {
+            Schema::create('assets', function (Blueprint $table) {
+                $table->id();
+                $table->string('asset_code')->unique();
+                $table->string('name');
+                $table->string('category')->default('it_hardware'); // it_hardware, sim_card, access_card, safety_gear, keys, vehicle, other
+                $table->string('serial_number')->nullable();
+                $table->string('assignee_id', 50)->nullable();
+                $table->dateTime('assigned_date')->nullable();
+                $table->dateTime('return_date')->nullable();
+                $table->string('status')->default('available'); // available, assigned, returned, damaged, disposed
+                $table->string('condition_on_issue')->nullable()->default('good');
+                $table->string('condition_on_return')->nullable();
+                $table->text('notes')->nullable();
+                $table->softDeletes();
+                $table->timestamps();
 
-            $table->foreign('assignee_id')->references('employee_id')->on('users')->onDelete('set null');
-        });
+                $table->foreign('assignee_id')->references('employee_id')->on('users')->onDelete('set null');
+            });
+        }
 
         // 2. Extend users table for probation & confirmation tracking
         Schema::table('users', function (Blueprint $table) {
@@ -96,6 +103,7 @@ return new class extends Migration
             $table->dropColumn(['employment_status', 'probation_end_date', 'confirmation_date', 'probation_notes']);
         });
 
+        // The legacy 2024 table (assets_legacy_2024) is intentionally left in place.
         Schema::dropIfExists('assets');
     }
 };

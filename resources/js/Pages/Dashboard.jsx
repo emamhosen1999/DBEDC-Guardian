@@ -6,7 +6,7 @@ import { Box, Flex, Text, Heading, Skeleton, Button, Grid, Badge } from '@radix-
 import App from '@/Layouts/App.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useCommandData, MONO } from '@/Components/Dashboard/Command/kit.jsx';
-import { ProjectHero, OperationsFeed } from '@/Components/Dashboard/Command/Widgets.jsx';
+import { ProjectHero, OperationsFeed, WorkforceTrend, TodayPanel } from '@/Components/Dashboard/Command/Widgets.jsx';
 import { SectionLabel } from '@/Components/Dashboard/Command/kit.jsx';
 
 function greeting() {
@@ -38,6 +38,18 @@ export default function Dashboard({ auth }) {
                     </Panel>
                 ) : isLoading ? (
                     <LoadingState />
+                ) : data?.access?.project === false ? (
+                    /* Department-scoped operators (no project / quality permission) get the
+                       workforce picture of their own scope only — the server already limits it. */
+                    <Box className="cc-grid">
+                        <SectionLabel>Your workforce</SectionLabel>
+                        <Box className="cc-span-8">
+                            <ErrorBoundary><WorkforceTrend workforce={data.workforce} /></ErrorBoundary>
+                        </Box>
+                        <Box className="cc-span-4">
+                            <ErrorBoundary><TodayPanel today={data.today} showProject={false} /></ErrorBoundary>
+                        </Box>
+                    </Box>
                 ) : (
                     <Box className="cc-grid">
                         <ErrorBoundary><ProjectHero project={data.project} chainage={data.chainage} objections={data.objections} /></ErrorBoundary>

@@ -8,6 +8,7 @@ use App\Exports\AttendanceRangeExport;
 use App\Models\HRM\BiometricDownloadSession;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Biometric\BiometricProcessingService;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
@@ -85,14 +86,24 @@ class ExportAttendanceReport implements ShouldQueue
 
             $user = User::find($this->userId);
             $departmentId = null;
-            if ($user && ! $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
-                $departmentId = $user->department_id;
+
+            // Scope comes from DepartmentScope (managed departments + reporting subtree +
+            // self); it fails closed. An export never runs unscoped for a requester who
+            // cannot be resolved, and a stored filter can never widen the actor's scope.
+            if (! $user) {
+                throw new \RuntimeException('Attendance export requester could not be resolved.');
+            }
+            $employeeIds = app(DepartmentScope::class)->visibleEmployeeIds($user);
+            if ($employeeIds !== null) {
+                $this->filters['team_member_ids'] = $employeeIds;
+            } else {
+                unset($this->filters['team_member_ids']);
             }
 
             if ($this->type === 'daily_excel') {
-                Excel::store(new AttendanceExport($this->date, $departmentId), $filePath, 'public');
+                Excel::store(new AttendanceExport($this->date, $departmentId, $employeeIds), $filePath, 'public');
             } elseif ($this->type === 'daily_pdf') {
-                $rows = (new AttendanceExport($this->date, $departmentId))->collection();
+                $rows = (new AttendanceExport($this->date, $departmentId, $employeeIds))->collection();
                 $pdf = PDF::loadView('attendance_pdf', [
                     'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($this->date)),
                     'generatedOn' => now()->format('F d, Y h:i A'),
@@ -101,14 +112,14 @@ class ExportAttendanceReport implements ShouldQueue
 
                 Storage::disk('public')->put($filePath, $pdf->output());
             } elseif ($this->type === 'monthly_excel') {
-                (new AttendanceAdminExport($departmentId))->saveToDisk($this->month, $filePath, 'public');
+                (new AttendanceAdminExport($departmentId, $employeeIds))->saveToDisk($this->month, $filePath, 'public');
             } elseif ($this->type === 'monthly_pdf') {
                 $from = Carbon::parse($this->month.'-01');
                 $to = $from->copy()->endOfMonth();
                 $monthName = $from->format('F Y');
 
                 // Shared loader applies the same approved-leave / non-rejected-punch filters as the grid.
-                $users = $attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $departmentId);
+                $users = $attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $departmentId, null, null, null, $employeeIds);
                 $leaveTypes = LeaveSetting::all();
                 $holidays = $attendanceReportService->getHolidaysForMonth($from->year, $from->month);
 
@@ -117,7 +128,7 @@ class ExportAttendanceReport implements ShouldQueue
                     $attendanceData[] = $attendanceReportService->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
                 }
 
-                $summary = $attendanceReportService->getPerEmployeeMonthlySummary($from->year, $from->month, $departmentId);
+                $summary = $attendanceReportService->getPerEmployeeMonthlySummary($from->year, $from->month, $departmentId, $employeeIds);
 
                 $pdf = PDF::loadView('attendance_admin_pdf', [
                     'monthName' => $monthName,

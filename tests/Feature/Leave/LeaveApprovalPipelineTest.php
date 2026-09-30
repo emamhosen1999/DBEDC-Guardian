@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Mockery;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -93,6 +94,8 @@ class LeaveApprovalPipelineTest extends TestCase
 
         $admin = User::factory()->create(['email_verified_at' => now()]);
         $admin->givePermissionTo(['leaves.approve', 'leaves.manage']);
+        // Overrides are bounded by department scope: this admin is company-wide HR.
+        $admin->assignRole(Role::findOrCreate('HR Manager', 'web'));
 
         $manager = User::factory()->create();   // Wang Fu — the chain level-1 approver
         $employee = User::factory()->create();
@@ -134,6 +137,8 @@ class LeaveApprovalPipelineTest extends TestCase
 
         $admin = User::factory()->create();
         $admin->givePermissionTo('leaves.manage');
+        // Overrides are bounded by department scope: this admin is company-wide HR.
+        $admin->assignRole(Role::findOrCreate('HR Manager', 'web'));
 
         $level1 = User::factory()->create();
         $level2 = User::factory()->create();

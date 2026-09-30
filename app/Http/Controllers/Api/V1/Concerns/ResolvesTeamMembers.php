@@ -2,31 +2,29 @@
 
 namespace App\Http\Controllers\Api\V1\Concerns;
 
-use App\Models\HRM\Department;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 
 /**
- * Resolves whether a user is a manager, and the set of team members they may
- * see, from durable RELATIONSHIPS and PERMISSIONS rather than a hard-coded
- * role-name whitelist.
+ * Mobile-facing adapter over App\Services\Access\DepartmentScope, so the mobile
+ * "team" and the web employee scope are the SAME set.
  *
  * A user manages a team if ANY of these hold:
- *   - they are admin-like (super-admin / admin / HR manager) — always true;
+ *   - they are global / admin-like — always true;
  *   - someone reports to them (users.report_to points at them);
- *   - they are a department head — assigned as a department's manager_id, or
- *     they hold the "Department Manager" role over their own department;
+ *   - they administer a department — department head (manager_id), Department
+ *     Manager role / department.admin permission over their own department, or an
+ *     active admin/acting user_department_scopes grant;
  *   - they hold a team/approval permission (leave / time-off approval, etc.).
  *
- * The team scope is the UNION of their reporting sub-tree and — for a
- * department head — the members of the department(s) they head. This is
- * computed server-side; the client is never trusted to assert manager-ness.
+ * The team is computed per request, so an acting grant that expires stops
+ * applying on the very next call even before the device re-bootstraps.
  */
 trait ResolvesTeamMembers
 {
     /**
-     * Permissions that, on their own, make a user a manager. Any team/approval
-     * capability qualifies. Checked with hasAnyPermission(), which is safe when
-     * a permission is not registered (returns false instead of throwing).
+     * Permissions that, on their own, make a user a manager. Checked with
+     * hasAnyPermission(), which is safe when a permission is not registered.
      *
      * @var array<int, string>
      */
@@ -35,158 +33,92 @@ trait ResolvesTeamMembers
         'hr.timeoff.approve',
     ];
 
+    protected function departmentScope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
+    }
+
     protected function isManagerUser(User $user): bool
     {
-        // Admins and super-admins always manage.
         if ($this->isAdminLikeUser($user)) {
             return true;
         }
 
-        // Someone reports to them directly.
-        if ($user->directReports()->whereNull('deleted_at')->exists()) {
+        if ($user->directReports()->exists()) {
             return true;
         }
 
-        // Head of a department (explicit assignment or Department Manager role).
         if ($this->isDepartmentHead($user)) {
             return true;
         }
 
-        // Holds a team/approval permission.
-        if ($user->hasAnyPermission(static::$managerPermissions)) {
-            return true;
-        }
-
-        return false;
+        return $user->hasAnyPermission(static::$managerPermissions);
     }
 
     protected function isAdminLikeUser(User $user): bool
     {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Super Administrator',
-            'Administrator',
-        ]);
+        // Legacy role names kept alongside the canonical global list.
+        return $this->departmentScope()->isGlobal($user) || $user->hasRole(['Super Admin', 'Admin']);
     }
 
     /**
-     * A department head is either explicitly assigned as a department's
-     * manager_id, or holds the "Department Manager" role over their own
-     * department. Both are durable data assignments, not a bare role list.
+     * Administers at least one department right now (head, Department Manager /
+     * department.admin over own department, or an active scope grant).
      */
     protected function isDepartmentHead(User $user): bool
     {
-        $uid = (string) ($user->employee_id ?? $user->getKey());
-        if (Department::query()->where('manager_id', $uid)->exists()) {
-            return true;
-        }
-
-        return $user->department_id !== null && $user->hasRole('Department Manager');
+        return $this->departmentScope()->managedDepartmentIds($user) !== [];
     }
 
     /**
-     * The team a manager may see: the UNION of everyone below them in the
-     * reporting tree AND — if they head a department — that department's
-     * members. The manager's own id is never included.
+     * The team a manager may see — the same set the web scopes to: everyone for a
+     * global actor; otherwise the reporting sub-tree UNION members of every managed
+     * department. The manager's own id is never included.
      *
-     * @return array<int, string|int>
+     * @return array<int, string>
      */
     protected function resolveTeamMemberIds(User $user): array
     {
-        $uid = (string) ($user->employee_id ?? $user->getKey());
-        $ids = $this->collectDescendantIds($uid);
+        $uid = (string) $user->getKey();
 
-        if ($this->isDepartmentHead($user)) {
-            $ids = array_merge($ids, $this->departmentMemberIds($user));
-        }
-
-        // De-duplicate and drop the manager's own id.
-        $unique = [];
-        foreach ($ids as $id) {
-            $idStr = (string) $id;
-            if ($idStr !== $uid) {
-                $unique[$idStr] = true;
-            }
-        }
-
-        return array_keys($unique);
+        return $this->departmentScope()
+            ->applyToUsers(User::query(), $user)
+            ->where('employee_id', '!=', $uid)
+            ->pluck('employee_id')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
-     * Members of every department this user heads — via an explicit manager_id
-     * assignment, plus their own department when they hold the Department
-     * Manager role.
+     * Members of every department this user administers, excluding the user.
      *
-     * @return array<int, string|int>
+     * @return array<int, string>
      */
     protected function departmentMemberIds(User $user): array
     {
-        $uid = (string) ($user->employee_id ?? $user->getKey());
-        $departmentIds = Department::query()
-            ->where('manager_id', $uid)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        if ($user->department_id !== null && $user->hasRole('Department Manager')) {
-            $departmentIds[] = (int) $user->department_id;
-        }
-
-        $departmentIds = array_values(array_unique($departmentIds));
+        $departmentIds = $this->departmentScope()->managedDepartmentIds($user);
 
         if ($departmentIds === []) {
             return [];
         }
 
         return User::query()
-            ->whereNull('deleted_at')
             ->whereIn('department_id', $departmentIds)
-            ->where('employee_id', '!=', $uid)
+            ->where('employee_id', '!=', (string) $user->getKey())
             ->pluck('employee_id')
+            ->map(fn ($id) => (string) $id)
             ->all();
     }
 
     /**
      * Walk the report_to hierarchy and collect all descendant user IDs.
-     * Depth-capped at 10 levels and 500 users to guard against circular
-     * references and runaway queries in very large orgs.
      *
-     * @return array<int, string|int>
+     * @return array<int, string>
      */
     protected function collectDescendantIds(string|int $rootId, int $maxDepth = 10): array
     {
-        $collected = [];
-        $currentLevelIds = [(string) $rootId];
-        $visited = [(string) $rootId => true];
-
-        for ($depth = 0; $depth < $maxDepth; $depth++) {
-            $children = User::query()
-                ->whereNull('deleted_at')
-                ->whereIn('report_to', $currentLevelIds)
-                ->pluck('employee_id')
-                ->filter(fn ($id) => ! isset($visited[(string) $id]))
-                ->values()
-                ->all();
-
-            if ($children === []) {
-                break;
-            }
-
-            foreach ($children as $childId) {
-                $childStr = (string) $childId;
-                $visited[$childStr] = true;
-                $collected[] = $childStr;
-            }
-
-            $currentLevelIds = $children;
-
-            if (count($collected) >= 500) {
-                break;
-            }
-        }
-
-        return $collected;
+        return $this->departmentScope()->descendantIds($rootId, $maxDepth);
     }
 }

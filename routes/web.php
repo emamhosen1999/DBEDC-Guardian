@@ -4,11 +4,13 @@ use App\Http\Controllers\Admin\ClientErrorController;
 use App\Http\Controllers\Admin\DeviceSessionController;
 use App\Http\Controllers\Admin\FeatureFlagController;
 use App\Http\Controllers\Admin\NotificationSettingsController;
+use App\Http\Controllers\Admin\UserDepartmentScopeController;
 use App\Http\Controllers\Aeon\AeonController;
 use App\Http\Controllers\Aeon\AeonPageController;
 use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
+use App\Http\Controllers\CameraMonitoringController;
 use App\Http\Controllers\DailyWorkController;
 use App\Http\Controllers\DailyWorkSummaryController;
 use App\Http\Controllers\DashboardController;
@@ -20,21 +22,21 @@ use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\FirebaseTokenController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\HRM\AssetController;
 use App\Http\Controllers\HRM\CompOffController;
 use App\Http\Controllers\HRM\CoverageController;
 use App\Http\Controllers\HRM\CoverageRequirementController;
+use App\Http\Controllers\HRM\OffboardingController;
+use App\Http\Controllers\HRM\OnboardingController;
 use App\Http\Controllers\HRM\OvertimeController;
+use App\Http\Controllers\HRM\PayrollController;
 use App\Http\Controllers\HRM\PolicyController;
 use App\Http\Controllers\HRM\PunchExceptionController;
 use App\Http\Controllers\HRM\RegularizationController;
 use App\Http\Controllers\HRM\RosterController;
+use App\Http\Controllers\HRM\SettlementController;
 use App\Http\Controllers\HRM\ShiftController;
 use App\Http\Controllers\HRM\ShiftSwapController;
-use App\Http\Controllers\HRM\OffboardingController;
-use App\Http\Controllers\HRM\OnboardingController;
-use App\Http\Controllers\HRM\AssetController;
-use App\Http\Controllers\HRM\SettlementController;
-use App\Http\Controllers\HRM\PayrollController;
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveBalanceController;
 use App\Http\Controllers\LeaveController;
@@ -43,10 +45,9 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ObjectionController;
-use App\Http\Controllers\CameraMonitoringController;
-use App\Http\Controllers\OperationsMaintenanceController;
-use App\Http\Controllers\OmRenovationController;
 use App\Http\Controllers\OmLookupController;
+use App\Http\Controllers\OmRenovationController;
+use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
@@ -66,6 +67,7 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -515,6 +517,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users/bulk/role', [UserController::class, 'bulkAssignRole'])->name('users.bulk.role');
     });
 
+    // Department scope grants (standing admin / time-boxed acting charge). The
+    // controller additionally requires a global actor who outranks the grantee.
+    Route::middleware(['permission:department.scopes.manage'])->group(function () {
+        Route::get('/users/{id}/department-scopes', [UserDepartmentScopeController::class, 'index'])->name('users.department-scopes.index');
+        Route::post('/users/{id}/department-scopes', [UserDepartmentScopeController::class, 'store'])->name('users.department-scopes.store');
+        Route::delete('/users/{id}/department-scopes/{scopeId}', [UserDepartmentScopeController::class, 'destroy'])
+            ->whereNumber('scopeId')
+            ->name('users.department-scopes.destroy');
+    });
+
     Route::middleware(['permission:users.delete'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/bulk/delete', [UserController::class, 'bulkDelete'])->name('users.bulk.delete');
@@ -550,7 +562,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/feature-flags', [FeatureFlagController::class, 'index'])->name('admin.feature-flags.index');
     });
 
-    Route::middleware(['permission:users.update'])->group(function () {
+    // Fleet-wide config: `users.update` alone is NOT enough — a department-scoped operator
+    // holds it for editing their own people, so the write side also demands a global actor.
+    Route::middleware(['permission:users.update', 'scope.global'])->group(function () {
         Route::post('/admin/feature-flags', [FeatureFlagController::class, 'store'])->name('admin.feature-flags.store');
         Route::put('/admin/feature-flags/{flag}', [FeatureFlagController::class, 'update'])->whereNumber('flag')->name('admin.feature-flags.update');
         Route::post('/admin/feature-flags/{flag}/toggle', [FeatureFlagController::class, 'toggle'])->whereNumber('flag')->name('admin.feature-flags.toggle');
@@ -565,7 +579,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/client-errors/{error}', [ClientErrorController::class, 'show'])->whereNumber('error')->name('admin.client-errors.show');
     });
 
-    Route::middleware(['permission:users.update'])->group(function () {
+    Route::middleware(['permission:users.update', 'scope.global'])->group(function () {
         Route::post('/admin/client-errors/{error}/resolve', [ClientErrorController::class, 'resolve'])->whereNumber('error')->name('admin.client-errors.resolve');
     });
 
@@ -720,7 +734,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('settings/request-logs/export', [RequestLogController::class, 'export'])->name('request-logs.export');
     });
 
-    Route::middleware(['permission:attendance.view|attendance.settings'])->group(function () {
+    Route::middleware(['permission:attendance.view|attendance.settings|attendance.roster.manage'])->group(function () {
         // Shift and roster reads
         Route::get('/attendance/shifts', [ShiftController::class, 'index'])->name('attendance.shifts.index');
         Route::get('/attendance/rotation-patterns', [ShiftController::class, 'indexPatterns'])->name('attendance.patterns.index');
@@ -728,14 +742,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/roster', [RosterController::class, 'index'])->name('attendance.roster.index');
     });
 
+    // Company-wide attendance CONFIGURATION: shift definitions and rotation patterns.
     Route::middleware(['permission:attendance.settings'])->group(function () {
-        // Shift and roster mutations
         Route::post('/attendance/shifts', [ShiftController::class, 'store'])->name('attendance.shifts.store');
         Route::put('/attendance/shifts/{id}', [ShiftController::class, 'update'])->name('attendance.shifts.update');
         Route::delete('/attendance/shifts/{id}', [ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
         Route::post('/attendance/rotation-patterns', [ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
         Route::put('/attendance/rotation-patterns/{id}', [ShiftController::class, 'updatePattern'])->name('attendance.patterns.update');
         Route::delete('/attendance/rotation-patterns/{id}', [ShiftController::class, 'destroyPattern'])->name('attendance.patterns.destroy');
+    });
+
+    // PER-EMPLOYEE roster operations: shift assignment and roster cells. `attendance.roster.manage`
+    // is what a department admin holds; `attendance.settings` (a superset by definition, and
+    // granted the ability by migration/seeder) still passes. The controllers confine a
+    // non-global actor to their DepartmentScope, so this gate never widens whom they can touch.
+    Route::middleware(['permission:attendance.roster.manage|attendance.settings'])->group(function () {
         Route::post('/attendance/shift-assignments', [ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
         Route::post('/attendance/shift-assignments/bulk', [ShiftController::class, 'storeBulkAssignment'])->name('attendance.assignments.storeBulk');
         Route::put('/attendance/shift-assignments/{id}', [ShiftController::class, 'updateAssignment'])->name('attendance.assignments.update');
@@ -751,17 +772,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/work-locations', [CoverageController::class, 'workLocations'])->name('attendance.workLocations.index');
     });
 
+    // Shift-swap DECISIONS are per-employee (the service confines a scoped actor to their
+    // DepartmentScope and bars decisions on one's own swap), so they follow the roster gate.
+    Route::middleware(['permission:attendance.roster.manage|attendance.settings'])->group(function () {
+        Route::get('/attendance/swaps', [ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
+        Route::post('/attendance/swaps/{id}/approve', [ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
+        Route::post('/attendance/swaps/{id}/reject', [ShiftSwapController::class, 'reject'])->name('attendance.swaps.reject');
+    });
+
     Route::middleware(['permission:attendance.settings'])->group(function () {
         // Coverage requirements (Admin settings)
         Route::get('/attendance/coverage-requirements', [CoverageRequirementController::class, 'index'])->name('attendance.coverageRequirements.index');
         Route::post('/attendance/coverage-requirements', [CoverageRequirementController::class, 'store'])->name('attendance.coverageRequirements.store');
         Route::put('/attendance/coverage-requirements/{id}', [CoverageRequirementController::class, 'update'])->name('attendance.coverageRequirements.update');
         Route::delete('/attendance/coverage-requirements/{id}', [CoverageRequirementController::class, 'destroy'])->name('attendance.coverageRequirements.destroy');
-
-        // Swap management routes (admin)
-        Route::get('/attendance/swaps', [ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
-        Route::post('/attendance/swaps/{id}/approve', [ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
-        Route::post('/attendance/swaps/{id}/reject', [ShiftSwapController::class, 'reject'])->name('attendance.swaps.reject');
 
         // Attendance Policy CRUD + activation + simulation
         Route::get('/attendance/policies', [PolicyController::class, 'index'])->name('attendance.policies.index');
@@ -816,9 +840,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // ── HR Assets (Equipment & Property Handover) ───────────────────────────
-    Route::middleware(['permission:employees.view'])->group(function () {
+    Route::middleware(['permission:hr.assets.view'])->group(function () {
         Route::get('/hr/assets', [AssetController::class, 'index'])->name('hr.assets.index');
         Route::get('/hr/assets/by-employee/{employeeId}', [AssetController::class, 'byEmployee'])->name('hr.assets.byEmployee');
+    });
+
+    Route::middleware(['permission:hr.assets.manage'])->group(function () {
         Route::post('/hr/assets', [AssetController::class, 'store'])->name('hr.assets.store');
         Route::put('/hr/assets/{id}', [AssetController::class, 'update'])->name('hr.assets.update');
         Route::post('/hr/assets/{id}/assign', [AssetController::class, 'assign'])->name('hr.assets.assign');
@@ -827,26 +854,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // ── HR Full & Final Settlement (F&F) ────────────────────────────────────
+    // Certificates stay available; the calculation/approval/disbursal flow is
+    // behind the `hr_final_settlement` feature flag (default OFF) until rebuilt.
     Route::middleware(['permission:hr.offboarding.view'])->group(function () {
-        Route::get('/hr/offboarding/{id}/settlement/calculate', [SettlementController::class, 'calculate'])->name('hr.settlement.calculate');
+        Route::get('/hr/offboarding/{id}/settlement/calculate', [SettlementController::class, 'calculate'])->middleware('feature:hr_final_settlement')->name('hr.settlement.calculate');
         Route::get('/hr/offboarding/{id}/certificate/{type}', [SettlementController::class, 'printCertificate'])->name('hr.settlement.certificate');
     });
 
-    Route::middleware(['permission:hr.offboarding.update'])->group(function () {
-        Route::post('/hr/offboarding/settlement', [SettlementController::class, 'store'])->name('hr.settlement.store');
-        Route::post('/hr/offboarding/settlement/{id}/approve', [SettlementController::class, 'approve'])->name('hr.settlement.approve');
-        Route::post('/hr/offboarding/settlement/{id}/disburse', [SettlementController::class, 'disburse'])->name('hr.settlement.disburse');
+    Route::middleware(['feature:hr_final_settlement'])->group(function () {
+        Route::post('/hr/offboarding/settlement', [SettlementController::class, 'store'])->middleware('permission:hr.settlement.manage')->name('hr.settlement.store');
+        Route::post('/hr/offboarding/settlement/{id}/approve', [SettlementController::class, 'approve'])->middleware('permission:hr.settlement.approve')->name('hr.settlement.approve');
+        Route::post('/hr/offboarding/settlement/{id}/disburse', [SettlementController::class, 'disburse'])->middleware('permission:hr.settlement.disburse')->name('hr.settlement.disburse');
     });
 
-    // ── HR Payroll & Compensation ───────────────────────────────────────────
-    Route::middleware(['permission:employees.view'])->group(function () {
-        Route::get('/hr/payroll', [PayrollController::class, 'index'])->name('hr.payroll.index');
-        Route::post('/hr/payroll/generate', [PayrollController::class, 'generate'])->name('hr.payroll.generate');
-        Route::get('/hr/payroll/payslip/{id}', [PayrollController::class, 'payslip'])->name('hr.payroll.payslip');
+    // ── HR Payroll & Compensation (feature flag `hr_payroll`, default OFF) ──
+    Route::middleware(['feature:hr_payroll'])->group(function () {
+        Route::get('/hr/payroll', [PayrollController::class, 'index'])->middleware('permission:hr.payroll.view')->name('hr.payroll.index');
+        Route::post('/hr/payroll/generate', [PayrollController::class, 'generate'])->middleware('permission:hr.payroll.process')->name('hr.payroll.generate');
+        Route::get('/hr/payroll/payslip/{id}', [PayrollController::class, 'payslip'])->middleware('permission:hr.payroll.view')->name('hr.payroll.payslip');
     });
 
     // ── HR Employee Confirmation ────────────────────────────────────────────
-    Route::middleware(['permission:employees.edit'])->post('/employees/{id}/confirm', [UserController::class, 'confirmEmployee'])->name('employees.confirm');
+    Route::middleware(['permission:hr.probation.manage'])->post('/employees/{id}/confirm', [UserController::class, 'confirmEmployee'])->name('employees.confirm');
 
     // Task management routes
     Route::middleware(['permission:tasks.view'])->group(function () {
@@ -980,18 +1009,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return response()->json(Department::select('id', 'name')->get());
     })->name('departments.list');
 
-    Route::get('/api/users/managers/list', function () {
-        return response()->json(User::whereHas('roles', function ($query) {
-            $query->whereIn('name', [
-                'Super Administrator',
-                'Administrator',
-                'HR Manager',
-                'Project Manager',
-                'Department Manager',
-                'Team Lead',
-            ]);
-        })
-            ->select('id', 'name')
+    Route::get('/api/users/managers/list', function (Request $request, DepartmentScope $scope) {
+        // Scoped like the rest of the directory: a non-global actor only sees the
+        // managers inside their own department scope.
+        return response()->json($scope->applyToUsers(User::query(), $request->user())
+            ->whereHas('roles', function ($query) {
+                $query->whereIn('name', [
+                    'Super Administrator',
+                    'Administrator',
+                    'HR Manager',
+                    'Project Manager',
+                    'Department Admin',
+                    'Department Manager',
+                    'Team Lead',
+                ]);
+            })
+            ->select('employee_id', 'employee_id as id', 'name')
+            ->orderBy('name')
             ->get());
     })->name('users.managers.list');
 });
@@ -1014,8 +1048,8 @@ Route::get('/service-worker.js', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('petty-cash.index');
     Route::post('/petty-cash/loan', [PettyCashController::class, 'createLoan'])->name('petty-cash.loan');
-    Route::post('/petty-cash/loan/approve', [PettyCashController::class, 'approveLoan'])->name('petty-cash.loan.approve');
-    Route::post('/petty-cash/loan/reject', [PettyCashController::class, 'rejectLoan'])->name('petty-cash.loan.reject');
+    Route::post('/petty-cash/loan/approve', [PettyCashController::class, 'approveLoan'])->middleware('role_or_permission:petty-cash.approve|Manager|Accountant|Finance Manager')->name('petty-cash.loan.approve');
+    Route::post('/petty-cash/loan/reject', [PettyCashController::class, 'rejectLoan'])->middleware('role_or_permission:petty-cash.approve|Manager|Accountant|Finance Manager')->name('petty-cash.loan.reject');
     Route::post('/petty-cash/loan/close', [PettyCashController::class, 'closeLoan'])->name('petty-cash.loan.close');
     Route::post('/petty-cash/expense', [PettyCashController::class, 'addExpense'])->name('petty-cash.expense');
     Route::post('/petty-cash/reimbursement', [PettyCashController::class, 'addReimbursement'])->name('petty-cash.reimbursement');
@@ -1030,7 +1064,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/petty-cash/export-pdf', [PettyCashController::class, 'exportPdf'])->name('petty-cash.export-pdf');
     Route::get('/petty-cash/export/status/{filename}', [PettyCashController::class, 'checkExportStatus'])->name('petty-cash.export.status');
     Route::get('/petty-cash/history', [PettyCashController::class, 'getHistory'])->name('petty-cash.history');
-    Route::get('/petty-cash/admin/overview', [PettyCashController::class, 'getAdminOverview'])->name('petty-cash.admin.overview');
+    Route::get('/petty-cash/admin/overview', [PettyCashController::class, 'getAdminOverview'])->middleware('role_or_permission:petty-cash.approve|Manager|Accountant|Finance Manager')->name('petty-cash.admin.overview');
     Route::get('/petty-cash/categories', [PettyCashController::class, 'getCategories'])->name('petty-cash.categories');
     Route::get('/petty-cash/audit-log', [PettyCashController::class, 'getAuditLog'])->name('petty-cash.audit-log');
 });

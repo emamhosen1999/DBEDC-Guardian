@@ -20,7 +20,7 @@ class AttendanceAuditEnforcementTest extends TestCase
     {
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']); // company-wide: a legacy 'Admin' role is scoped to nobody
         foreach (['attendance.correct', 'attendance.create', 'attendance.update', 'attendance.manage'] as $p) {
             Permission::firstOrCreate(['name' => $p]);
         }
@@ -28,7 +28,7 @@ class AttendanceAuditEnforcementTest extends TestCase
 
     public function test_marking_a_user_present_writes_an_audit_row(): void
     {
-        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin = User::factory()->create(); $admin->assignRole('Administrator');
         // mark-as-present is guarded by attendance.correct|create|update.
         $admin->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
 
@@ -51,7 +51,7 @@ class AttendanceAuditEnforcementTest extends TestCase
 
     public function test_correcting_a_record_writes_an_audit_row(): void
     {
-        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin = User::factory()->create(); $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.correct');
 
         $user = User::factory()->create();
@@ -76,7 +76,7 @@ class AttendanceAuditEnforcementTest extends TestCase
 
     public function test_deleting_a_record_writes_an_audit_row(): void
     {
-        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin = User::factory()->create(); $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.correct');
         $a = Attendance::factory()->create(['date' => '2026-06-19']);
 
@@ -91,7 +91,7 @@ class AttendanceAuditEnforcementTest extends TestCase
 
     public function test_correcting_punchout_before_existing_punchin_fails_validation(): void
     {
-        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin = User::factory()->create(); $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.correct');
 
         $user = User::factory()->create();

@@ -21,10 +21,14 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
 
     protected $departmentId;
 
-    public function __construct(string $date, ?int $departmentId = null)
+    /** @var array<int, string>|null actor scope (DepartmentScope::visibleEmployeeIds); null = unrestricted */
+    protected ?array $employeeIds;
+
+    public function __construct(string $date, ?int $departmentId = null, ?array $employeeIds = null)
     {
         $this->date = $date;
         $this->departmentId = $departmentId;
+        $this->employeeIds = $employeeIds;
     }
 
     public function collection()
@@ -34,6 +38,10 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
 
         if ($this->departmentId) {
             $query->where('users.department_id', $this->departmentId);
+        }
+
+        if ($this->employeeIds !== null) {
+            $query->whereIn('users.employee_id', $this->employeeIds === [] ? ['__NONE__'] : $this->employeeIds);
         }
 
         $users = $query->get();

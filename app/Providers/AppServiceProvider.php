@@ -27,6 +27,7 @@ use App\Models\PettyCashLoan;
 use App\Models\PettyCashTransaction;
 use App\Observers\OperationsRealtimeObserver;
 use App\Observers\PettyCashRealtimeObserver;
+use App\Services\Access\DepartmentScope;
 use App\Services\Aeon\AeonService;
 use App\Services\Aeon\Data\QueryTool;
 use App\Services\Aeon\Data\RowScope;
@@ -43,6 +44,8 @@ use App\Services\Aeon\Tools\PrepareOperationTool;
 use App\Services\Aeon\Tools\ToolRegistry;
 use App\Services\FeatureFlagService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\Events\RequestHandled;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -60,6 +63,11 @@ class AppServiceProvider extends ServiceProvider
         // (config endpoint, sync kill switch) may resolve flags in one request
         // and CACHE_STORE is null in production, i.e. every miss hits the DB.
         $this->app->singleton(FeatureFlagService::class);
+
+        // Per-request (and per-queue-job) memo of who-sees-whom. Scoped, not a
+        // singleton, so a long-lived worker never serves a stale scope; it is also
+        // dropped after every handled HTTP request (see boot()).
+        $this->app->scoped(DepartmentScope::class);
 
         // --- Aeon AI Assistant Engine Bindings ---
         $this->app->bind(AiProvider::class, function ($app) {
@@ -91,6 +99,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        Event::listen(RequestHandled::class, fn () => $this->app->forgetInstance(DepartmentScope::class));
 
         Model::preventLazyLoading(! $this->app->isProduction());
 

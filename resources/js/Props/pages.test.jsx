@@ -21,8 +21,9 @@ describe('pages.jsx utility module', () => {
       
       const pages = getPages(roles, permissions);
       
-      // Should show Petty Cash + 3 permitted workspace items directly
-      expect(pages).toHaveLength(4);
+      // Employee Dashboard + Petty Cash + 3 permitted workspace items, all top level
+      expect(pages).toHaveLength(5);
+      expect(pages.map(p => p.name)).toContain('Employee Dashboard');
       expect(pages.map(p => p.name)).toContain('Daily Works');
       expect(pages.map(p => p.name)).toContain('My Attendance');
       expect(pages.map(p => p.name)).toContain('My Leaves');
@@ -95,9 +96,16 @@ describe('pages.jsx utility module', () => {
       const adminMenu = pages.find(p => p.name === 'Admin');
       expect(adminMenu).toBeDefined();
       expect(adminMenu.subMenu).toBeDefined();
-      expect(adminMenu.subMenu).toHaveLength(2);
-      expect(adminMenu.subMenu.map(i => i.name)).toContain('Company Details');
-      expect(adminMenu.subMenu.map(i => i.name)).toContain('Request Logs');
+      // users.view also opens the fleet-wide admin surfaces
+      expect(adminMenu.subMenu.map(i => i.name)).toEqual([
+        'Company Details',
+        'Request Logs',
+        'Device Sessions',
+        'Feature Flags',
+        'Client Diagnostics',
+      ]);
+      // ...but never the Super Administrator-only monitoring page
+      expect(adminMenu.subMenu.map(i => i.name)).not.toContain('Monitoring');
     });
 
     it('shows Monitoring only under Admin menu for Super Administrators', () => {
@@ -113,9 +121,71 @@ describe('pages.jsx utility module', () => {
       const adminMenu = adminPages.find(p => p.name === 'Admin');
       expect(adminMenu).toBeDefined();
       expect(adminMenu.subMenu).toBeDefined();
-      expect(adminMenu.subMenu).toHaveLength(1);
-      expect(adminMenu.subMenu[0].name).toBe('Monitoring');
-      expect(adminMenu.subMenu[0].route).toBe('admin.system-monitoring');
+      const monitoring = adminMenu.subMenu.find(i => i.name === 'Monitoring');
+      expect(monitoring).toBeDefined();
+      expect(monitoring.route).toBe('admin.system-monitoring');
+    });
+  });
+
+  describe('Department Admin navigation', () => {
+    // Mirrors ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames() and migration
+    // 2026_09_30_000005 (tests/Feature/Access/DepartmentAdminRoleTest pins the PHP side).
+    const DEPARTMENT_ADMIN_PERMISSIONS = [
+      'department.admin',
+      'core.dashboard.view', 'core.stats.view', 'core.updates.view',
+      'attendance.own.view', 'attendance.own.punch',
+      'leave.own.view', 'leave.own.create', 'leave.own.update', 'leave.own.delete',
+      'communications.own.view',
+      'profile.own.view', 'profile.own.update', 'profile.password.change',
+      'employees.view', 'employees.create', 'employees.update',
+      'users.create', 'users.update',
+      'attendance.view', 'attendance.create', 'attendance.update', 'attendance.correct', 'attendance.export',
+      'attendance.roster.manage',
+      'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'leaves.delete',
+      'hr.onboarding.view', 'hr.onboarding.create', 'hr.onboarding.update', 'hr.onboarding.delete',
+      'hr.offboarding.view', 'hr.offboarding.create', 'hr.offboarding.update', 'hr.offboarding.delete',
+      'hr.assets.view', 'hr.assets.manage',
+    ];
+
+    /** Render the menu as an indented list of names. */
+    const outline = (items, depth = 0) => items.flatMap((item) => [
+      `${'  '.repeat(depth)}${item.name}`,
+      ...(item.subMenu ? outline(item.subMenu, depth + 1) : []),
+    ]);
+
+    it('shows exactly Dashboard, own self-service and the HR modules — nothing else', () => {
+      const pages = getPages(['Department Admin'], DEPARTMENT_ADMIN_PERMISSIONS, null, { hr_payroll: true });
+
+      expect(outline(pages)).toEqual([
+        'Dashboard',
+        'My Attendance',
+        'My Leaves',
+        'Petty Cash',
+        'Workforce',
+        '  Employees',
+        '  Time/Attendance',
+        '    Attendances',
+        '    Leave Management',
+        '  Onboarding',
+        '  Offboarding',
+        '  Asset Management',
+      ]);
+    });
+
+    it('never reaches payroll, holidays, settings, admin or O&M even with the payroll flag on', () => {
+      const names = outline(getPages(['Department Admin'], DEPARTMENT_ADMIN_PERMISSIONS, null, { hr_payroll: true }));
+
+      ['Payroll', 'Holidays', 'Daily Works', 'Admin', 'Company Details', 'Device Sessions', 'Feature Flags',
+        'Client Diagnostics', 'Operations & Maintenance', 'Monitoring'].forEach((forbidden) => {
+        expect(names.map((n) => n.trim())).not.toContain(forbidden);
+      });
+    });
+
+    it('drops a group whose children are all hidden (a stale parent gate cannot show an empty shell)', () => {
+      // hr.skills.view / hr.safety.view used to open an empty Workforce group.
+      const pages = getPages(['Custom'], ['hr.skills.view', 'hr.safety.view', 'hr.analytics.view', 'hr.benefits.view']);
+
+      expect(pages.map((p) => p.name)).toEqual(['Petty Cash']);
     });
   });
 

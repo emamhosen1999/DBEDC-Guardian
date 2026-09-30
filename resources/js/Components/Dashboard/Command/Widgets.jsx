@@ -415,7 +415,7 @@ export function OperationsFeed({ feed = [] }) {
 }
 
 /* ══════════════════════════ TODAY PANEL ════════════════════════════ */
-export function TodayPanel({ today = {}, project = {} }) {
+export function TodayPanel({ today = {}, project = {}, showProject = true }) {
     const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
     return (
         <CommandCard title="Today on Site" sub={dateLabel} minHeight={300}>
@@ -423,10 +423,14 @@ export function TodayPanel({ today = {}, project = {} }) {
                 sub={`${today.on_leave ?? 0} approved`} />
             <TodayRow tone="blue" icon={ic(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>)}
                 name="Next holiday" sub={today.next_holiday ? `${today.next_holiday.name} · in ${today.next_holiday.in_days} days` : 'none scheduled'} />
-            <TodayRow tone="amber" icon={ic(<><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>)}
-                name="Current phase" sub={project.current_phase || '—'} />
-            <TodayRow tone="iris" icon={ic(<><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>)}
-                name="Schedule / cost index" sub={`SPI ${project.spi ?? '—'} · CPI ${project.cpi ?? '—'}`} />
+            {showProject && (
+                <>
+                    <TodayRow tone="amber" icon={ic(<><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>)}
+                        name="Current phase" sub={project.current_phase || '—'} />
+                    <TodayRow tone="iris" icon={ic(<><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>)}
+                        name="Schedule / cost index" sub={`SPI ${project.spi ?? '—'} · CPI ${project.cpi ?? '—'}`} />
+                </>
+            )}
         </CommandCard>
     );
 }

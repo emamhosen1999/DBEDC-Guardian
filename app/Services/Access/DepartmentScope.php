@@ -1,0 +1,368 @@
+<?php
+
+namespace App\Services\Access;
+
+use App\Models\HRM\Department;
+use App\Models\User;
+use App\Models\UserDepartmentScope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * The single source of truth for "which employees may this actor see / act on".
+ *
+ * An actor is either GLOBAL (company-wide roles — no restriction) or scoped to:
+ *   - the departments they MANAGE:
+ *       * active user_department_scopes grants (admin / acting, time-boxed at query time),
+ *       * departments whose manager_id is the actor,
+ *       * their own department_id, when they hold the "Department Manager" role or
+ *         the `department.admin` permission;
+ *   - their report_to sub-tree (direct + indirect reports);
+ *   - themselves.
+ * Anything else FAILS CLOSED: a non-global actor with no managed department and no
+ * reports sees only their own record — never "everyone" because department_id is null.
+ *
+ * Bound as a scoped (per-request / per-job) instance; per-user results are memoized
+ * for that lifetime only. Call forget() after changing a user's grants mid-request.
+ */
+class DepartmentScope
+{
+    /** Roles whose scope is company-wide. The ONE place this list lives. */
+    public const GLOBAL_ROLES = ['Super Administrator', 'Administrator', 'HR Manager'];
+
+    /** Role that implicitly administers its holder's own department. */
+    public const DEPARTMENT_HEAD_ROLE = 'Department Manager';
+
+    /** Permission that implicitly administers its holder's own department. */
+    public const DEPARTMENT_ADMIN_PERMISSION = 'department.admin';
+
+    /** Permission to grant / revoke user_department_scopes. */
+    public const MANAGE_SCOPES_PERMISSION = 'department.scopes.manage';
+
+    /** Company-wide attendance CONFIGURATION (shift definitions, policies, devices, coverage rules). */
+    public const ATTENDANCE_SETTINGS_PERMISSION = 'attendance.settings';
+
+    /** Reporting-tree walk guards (circular report_to chains, runaway orgs). */
+    private const MAX_TREE_DEPTH = 10;
+
+    private const MAX_TREE_SIZE = 500;
+
+    /** @var array<string, array<int, int>> */
+    private array $departmentMemo = [];
+
+    /** @var array<string, array<int, string>> */
+    private array $subtreeMemo = [];
+
+    private ?bool $scopesTableExists = null;
+
+    // ──────────────────────────────────────────────
+    //  Who the actor is
+    // ──────────────────────────────────────────────
+
+    public function isGlobal(User $user): bool
+    {
+        return $user->hasRole(self::GLOBAL_ROLES);
+    }
+
+    public function canSeeAll(User $user): bool
+    {
+        return $this->isGlobal($user);
+    }
+
+    /**
+     * Is the actor company-wide for per-employee ATTENDANCE administration — rosters, shift
+     * assignments, swap decisions and coverage? Global roles are; so is anyone holding
+     * `attendance.settings`: configuring shifts, policies, devices and coverage rules is by
+     * nature not department-bounded (and already exposes every employee's raw punches), so it
+     * cannot sensibly be paired with a per-department roster restriction.
+     *
+     * `attendance.roster.manage` alone — what a department admin holds — NEVER widens scope.
+     */
+    public function isAttendanceAdmin(User $user): bool
+    {
+        return $this->isGlobal($user) || $user->checkPermissionTo(self::ATTENDANCE_SETTINGS_PERMISSION);
+    }
+
+    /**
+     * visibleEmployeeIds() for the roster / shift / swap / coverage modules. NULL means
+     * unrestricted (attendance administrator) — the same NULL-vs-empty contract.
+     *
+     * @return array<int, string>|null
+     */
+    public function visibleAttendanceEmployeeIds(User $actor): ?array
+    {
+        return $this->isAttendanceAdmin($actor) ? null : $this->visibleEmployeeIds($actor);
+    }
+
+    /**
+     * Departments this user administers right now (never includes expired or
+     * not-yet-started grants).
+     *
+     * @return array<int, int>
+     */
+    public function managedDepartmentIds(User $user): array
+    {
+        $key = $this->key($user);
+        if (isset($this->departmentMemo[$key])) {
+            return $this->departmentMemo[$key];
+        }
+
+        $ids = Department::query()->where('manager_id', $key)->pluck('id')->all();
+
+        if ($this->scopesTableExists()) {
+            $ids = array_merge($ids, UserDepartmentScope::query()
+                ->active()
+                ->where('user_id', $key)
+                ->pluck('department_id')
+                ->all());
+        }
+
+        if ($user->department_id !== null
+            && ($user->hasRole(self::DEPARTMENT_HEAD_ROLE) || $user->checkPermissionTo(self::DEPARTMENT_ADMIN_PERMISSION))) {
+            $ids[] = $user->department_id;
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        sort($ids);
+
+        return $this->departmentMemo[$key] = $ids;
+    }
+
+    /**
+     * Everyone below the user in the report_to tree (direct + indirect), excluding
+     * the user. Active users only.
+     *
+     * @return array<int, string>
+     */
+    public function reportingSubtreeIds(User $user): array
+    {
+        $key = $this->key($user);
+
+        return $this->subtreeMemo[$key] ??= $this->descendantIds($key);
+    }
+
+    /**
+     * Walk the report_to hierarchy from $rootId and collect descendant employee_ids.
+     * Depth-capped and size-capped against circular references and runaway queries.
+     *
+     * @return array<int, string>
+     */
+    public function descendantIds(string|int $rootId, int $maxDepth = self::MAX_TREE_DEPTH): array
+    {
+        $collected = [];
+        $currentLevelIds = [(string) $rootId];
+        $visited = [(string) $rootId => true];
+
+        for ($depth = 0; $depth < $maxDepth; $depth++) {
+            $children = User::query()
+                ->whereIn('report_to', $currentLevelIds)
+                ->pluck('employee_id')
+                ->map(fn ($id) => (string) $id)
+                ->reject(fn (string $id) => isset($visited[$id]))
+                ->values()
+                ->all();
+
+            if ($children === []) {
+                break;
+            }
+
+            foreach ($children as $childId) {
+                $visited[$childId] = true;
+                $collected[] = $childId;
+            }
+
+            $currentLevelIds = $children;
+
+            if (count($collected) >= self::MAX_TREE_SIZE) {
+                break;
+            }
+        }
+
+        return $collected;
+    }
+
+    // ──────────────────────────────────────────────
+    //  Query helpers
+    // ──────────────────────────────────────────────
+
+    /**
+     * Narrow a USERS query to the actor's visible set. Global: no-op. Otherwise
+     * managed departments ∪ reporting sub-tree ∪ self; with neither, only self.
+     *
+     * @param  Builder  $query  a query over App\Models\User (key column = employee_id)
+     * @param  string  $column  the department column to match (qualify it when joining)
+     */
+    public function applyToUsers(Builder $query, User $actor, string $column = 'department_id'): Builder
+    {
+        if ($this->isGlobal($actor)) {
+            return $query;
+        }
+
+        $keyColumn = $query->qualifyColumn($query->getModel()->getKeyName());
+        $departmentIds = $this->managedDepartmentIds($actor);
+        $personIds = array_values(array_unique(array_merge(
+            [$this->key($actor)],
+            $this->reportingSubtreeIds($actor),
+        )));
+
+        return $query->where(function (Builder $scoped) use ($column, $keyColumn, $departmentIds, $personIds): void {
+            $scoped->whereIn($keyColumn, $personIds);
+            if ($departmentIds !== []) {
+                $scoped->orWhereIn($column, $departmentIds);
+            }
+        });
+    }
+
+    /**
+     * Narrow a query over any table keyed by an employee FK (offboardings.employee_id,
+     * onboardings.employee_id, assets.assignee_id, payrolls.user_id, leaves.user_id,
+     * final_settlements.employee_id, ...) to records of employees the actor can see.
+     * Former (soft-deleted) employees stay visible to their department's admin.
+     * Non-global actors never see rows whose FK is null (fail closed).
+     */
+    public function applyToEmployeeOwned(Builder $query, User $actor, string $employeeFk = 'employee_id'): Builder
+    {
+        if ($this->isGlobal($actor)) {
+            return $query;
+        }
+
+        return $query->whereIn($employeeFk, $this->visibleUserIdsQuery($actor));
+    }
+
+    /**
+     * The employee_ids the actor may see, for services that filter by an explicit id
+     * list. NULL means unrestricted (global actor) — callers must treat NULL as "no
+     * filter" and an empty array as "nobody" (never conflate the two).
+     *
+     * @return array<int, string>|null
+     */
+    public function visibleEmployeeIds(User $actor): ?array
+    {
+        if ($this->isGlobal($actor)) {
+            return null;
+        }
+
+        return $this->applyToUsers(User::query()->select('employee_id'), $actor)
+            ->pluck('employee_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    /**
+     * Sub-query selecting the employee_ids the actor may see (soft-deleted included).
+     */
+    public function visibleUserIdsQuery(User $actor): Builder
+    {
+        return $this->applyToUsers(User::withTrashed()->select('employee_id'), $actor);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Per-record checks
+    // ──────────────────────────────────────────────
+
+    /**
+     * May the actor operate on this employee's record at all (scope only — pair with
+     * outranks() / canManage() for writes)? Acting on oneself is allowed only when
+     * the caller opts in.
+     */
+    public function canActOn(User $actor, User|string $target, bool $allowSelf = false): bool
+    {
+        $targetUser = $this->resolveUser($target);
+        if ($targetUser === null) {
+            return false;
+        }
+
+        if ($this->key($actor) === $this->key($targetUser)) {
+            return $allowSelf;
+        }
+
+        if ($this->isGlobal($actor)) {
+            return true;
+        }
+
+        if ($targetUser->department_id !== null
+            && in_array((int) $targetUser->department_id, $this->managedDepartmentIds($actor), true)) {
+            return true;
+        }
+
+        return in_array($this->key($targetUser), $this->reportingSubtreeIds($actor), true);
+    }
+
+    /**
+     * Write-side check: in scope AND, for a non-global actor, strictly outranking the
+     * target — a department admin must never reset the password of (or otherwise edit)
+     * an Administrator who happens to sit in their department.
+     */
+    public function canManage(User $actor, User|string $target, bool $allowSelf = false): bool
+    {
+        $targetUser = $this->resolveUser($target);
+        if ($targetUser === null || ! $this->canActOn($actor, $targetUser, $allowSelf)) {
+            return false;
+        }
+
+        if ($this->key($actor) === $this->key($targetUser) || $this->isGlobal($actor)) {
+            return true;
+        }
+
+        return $this->outranks($actor, $targetUser);
+    }
+
+    /**
+     * Is the actor's most powerful role strictly more powerful than the target's?
+     * (roles.hierarchy_level: lower = more powerful.) A target with no role is
+     * outranked by anyone holding a role; an actor with no role outranks no one.
+     */
+    public function outranks(User $actor, User $target): bool
+    {
+        $actorLevel = $this->bestRoleLevel($actor);
+        if ($actorLevel === null) {
+            return false;
+        }
+
+        $targetLevel = $this->bestRoleLevel($target);
+
+        return $targetLevel === null || $actorLevel < $targetLevel;
+    }
+
+    /**
+     * The user's most powerful role level, or null when they hold no role.
+     */
+    public function bestRoleLevel(User $user): ?int
+    {
+        $level = $user->roles()->min('hierarchy_level');
+
+        return $level === null ? null : (int) $level;
+    }
+
+    /**
+     * Drop memoized results (one user, or everyone) — call after changing grants,
+     * department heads or report_to within the same request.
+     */
+    public function forget(User|string|null $user = null): void
+    {
+        if ($user === null) {
+            $this->departmentMemo = [];
+            $this->subtreeMemo = [];
+
+            return;
+        }
+
+        $key = $user instanceof User ? $this->key($user) : (string) $user;
+        unset($this->departmentMemo[$key], $this->subtreeMemo[$key]);
+    }
+
+    private function resolveUser(User|string $target): ?User
+    {
+        return $target instanceof User ? $target : User::withTrashed()->find($target);
+    }
+
+    private function key(User $user): string
+    {
+        return (string) $user->getKey();
+    }
+
+    private function scopesTableExists(): bool
+    {
+        return $this->scopesTableExists ??= Schema::hasTable('user_department_scopes');
+    }
+}

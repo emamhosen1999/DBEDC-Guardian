@@ -40,6 +40,20 @@ class FeatureFlagSeeder extends Seeder
                 'role' => 'Project Manager',
                 'description' => 'Project Managers poll more often: approval queues must not be stale in the field.',
             ],
+            [
+                'key' => 'hr_payroll',
+                'value' => null,
+                'is_enabled' => false,
+                'role' => null,
+                'description' => 'Payroll module (generation and payslips). OFF until rebuilt against the payroll schema.',
+            ],
+            [
+                'key' => 'hr_final_settlement',
+                'value' => null,
+                'is_enabled' => false,
+                'role' => null,
+                'description' => 'Full and final settlement calculation, approval and disbursal. OFF until rebuilt.',
+            ],
         ];
 
         foreach ($flags as $flag) {

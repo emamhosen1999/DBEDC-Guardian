@@ -5,8 +5,8 @@ namespace Tests\Feature\Admin;
 use App\Models\FeatureFlag;
 use App\Models\User;
 use App\Services\FeatureFlagService;
+use Database\Seeders\FeatureFlagSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -22,6 +22,15 @@ use Tests\TestCase;
 class FeatureFlagTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Migration 2026_09_30_000001 ships the default-OFF lifecycle module flags (hr_payroll,
+        // hr_final_settlement); these tests assert on an otherwise empty feature_flags table.
+        FeatureFlag::query()->delete();
+    }
 
     /* ─────────────────────────── admin surface ─────────────────────────── */
 
@@ -334,10 +343,11 @@ class FeatureFlagTest extends TestCase
     {
         Role::findOrCreate('Project Manager');
 
-        $this->seed(\Database\Seeders\FeatureFlagSeeder::class);
-        $this->seed(\Database\Seeders\FeatureFlagSeeder::class);
+        $this->seed(FeatureFlagSeeder::class);
+        $this->seed(FeatureFlagSeeder::class);
 
-        $this->assertDatabaseCount('feature_flags', 3);
+        // 3 wired mobile flags + the 2 default-OFF lifecycle module flags (hr_payroll, hr_final_settlement).
+        $this->assertDatabaseCount('feature_flags', 5);
         $this->assertDatabaseHas('feature_flags', [
             'key' => 'mobile.offline_sync_push_enabled',
             'role' => null,
@@ -377,6 +387,9 @@ class FeatureFlagTest extends TestCase
     protected function adminWith(array $permissions): User
     {
         $admin = User::factory()->create();
+        // Fleet-wide admin surfaces are for company-wide actors: `users.update` alone is also
+        // held by department-scoped operators, so the acting admin carries a global role too.
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web'));
 
         foreach ($permissions as $permission) {
             Permission::findOrCreate($permission, 'web');

@@ -68,10 +68,21 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
     /* permissions — Super Administrator bypasses all gates unconditionally (matches the
        backend Gate::before bypass), even for abilities that don't exist as permission records. */
     const isSuperAdmin = auth.isSuperAdmin || false;
-    const canSettings = isSuperAdmin || auth.permissions?.includes('attendance.settings') || false;
-    const canManage   = isSuperAdmin || auth.permissions?.includes('attendance.manage')   || false;
+    const has = (permission) => isSuperAdmin || auth.permissions?.includes(permission) || false;
+    /* Company-wide attendance CONFIGURATION (settings, biometric devices, shift definitions,
+       rotation patterns, policies) stays on attendance.settings. */
+    const canSettings = has('attendance.settings');
+    /* PER-EMPLOYEE roster work — assign shifts, edit the roster, decide swaps — rides on
+       attendance.roster.manage (what a department admin holds; attendance.settings implies it,
+       matching the route gate). Department Managers keep the read-only roster view. */
+    const canRosterManage = has('attendance.roster.manage') || canSettings;
     const isDeptManager = auth.roles?.includes('Department Manager') || false;
-    const canRoster = canSettings || isDeptManager;
+    const canRoster = canRosterManage || isDeptManager;
+    /* The Approvals inbox (regularizations, overtime, swaps, punch exceptions) is gated per
+       endpoint in routes/web.php by these permissions — `attendance.manage` alone is not a
+       real permission, so it only ever opened the tab for a Super Administrator. */
+    const canManage = has('attendance.manage') || has('attendance.correct') || has('attendance.create')
+        || has('attendance.update') || canRosterManage;
 
     /* tab definitions */
     const tabs = [

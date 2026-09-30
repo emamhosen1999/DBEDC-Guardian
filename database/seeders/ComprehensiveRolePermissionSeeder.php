@@ -128,6 +128,12 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'hr.offboarding.create' => 'Create offboarding process',
                 'hr.offboarding.update' => 'Update offboarding process',
                 'hr.offboarding.delete' => 'Delete offboarding process',
+                'hr.settlement.manage' => 'Create full and final settlement drafts',
+                'hr.settlement.approve' => 'Approve full and final settlements',
+                'hr.settlement.disburse' => 'Disburse full and final settlements',
+                'hr.assets.view' => 'View company assets and assignments',
+                'hr.assets.manage' => 'Create, assign, return and delete company assets',
+                'hr.probation.manage' => 'Confirm employees after probation',
                 'hr.checklists.view' => 'View HR checklists',
                 'hr.checklists.create' => 'Create HR checklists',
                 'hr.checklists.update' => 'Update HR checklists',
@@ -407,6 +413,9 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'ledger.manage' => 'Manage general ledger',
                 'financial-reports.view' => 'View financial reports',
                 'financial-reports.create' => 'Create financial reports',
+                'petty-cash.view-all' => 'View other employees\' petty cash loans and transactions',
+                'petty-cash.approve' => 'Approve or reject petty cash loans',
+                'petty-cash.manage' => 'Record, edit and close transactions on other employees\' petty cash loans',
             ],
 
             // System Administration
@@ -416,6 +425,8 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'users.update' => 'Update user accounts',
                 'users.delete' => 'Delete user accounts',
                 'users.impersonate' => 'Impersonate other users',
+                'department.scopes.manage' => 'Grant and revoke department admin / acting scopes',
+                'department.admin' => 'Administer own department (employees, attendance, leave, lifecycle)',
                 'roles.view' => 'View roles and permissions',
                 'roles.create' => 'Create roles',
                 'roles.update' => 'Update roles',
@@ -425,6 +436,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'settings.update' => 'Update system settings',
                 'company.settings' => 'Manage company settings',
                 'attendance.settings' => 'Manage attendance settings',
+                'attendance.roster.manage' => 'Assign shifts, edit the roster and decide shift swaps (no company-wide attendance settings)',
                 'email.settings' => 'Manage email settings',
                 'notification.settings' => 'Manage notification settings',
                 'theme.settings' => 'Manage theme and branding',
@@ -619,6 +631,12 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'is_system_role' => false,
             ],
             [
+                'name' => 'Department Admin',
+                'description' => 'Department-scoped administrator: full operations within assigned department(s)',
+                'hierarchy_level' => 25,
+                'is_system_role' => false,
+            ],
+            [
                 'name' => 'Department Manager',
                 'description' => 'Departmental management and team oversight',
                 'hierarchy_level' => 30,
@@ -685,6 +703,10 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             'backup.restore',
         ])->get();
         $admin->givePermissionTo($adminPermissions);
+
+        // Finance roles (not seeded everywhere — grant only where they exist)
+        Role::whereIn('name', ['Finance Manager', 'Accountant'])->where('guard_name', 'web')->get()
+            ->each->givePermissionTo(['petty-cash.view-all', 'petty-cash.approve', 'petty-cash.manage']);
 
         // HR Manager - HR and employee management
         $hrManager = Role::findByName('HR Manager');
@@ -799,6 +821,20 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->get();
         $deptManager->givePermissionTo($deptPermissions);
 
+        // Department Admin - a department-only HR operator. The role defines WHAT the
+        // holder may do; their home department (App\Services\Access\DepartmentScope)
+        // defines ON WHOM. Synced, never additive: re-seeding narrows a role that was
+        // created from an earlier, broader definition.
+        Role::findByName('Department Admin')->syncPermissions(
+            Permission::query()
+                ->where('guard_name', 'web')
+                ->whereIn('name', self::departmentAdminPermissionNames())
+                ->get()
+        );
+
+        // Department scope grants are managed by the company-wide HR roles.
+        $hrManager->givePermissionTo('department.scopes.manage');
+
         // Team Lead - Team management
         $teamLead = Role::findByName('Team Lead');
         $teamPermissions = Permission::whereIn('module', ['core', 'self-service'])
@@ -908,8 +944,57 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->get();
         $intern->givePermissionTo($internPermissions);
 
+        // Whoever can configure attendance keeps the per-employee roster / shift-assignment
+        // abilities that used to ride on the same permission (custom roles included).
+        Role::query()
+            ->where('guard_name', 'web')
+            ->whereHas('permissions', fn ($query) => $query->where('name', 'attendance.settings'))
+            ->with('permissions')
+            ->get()
+            ->each->givePermissionTo('attendance.roster.manage');
+
         if ($this->command) {
             $this->command->info('✅ Permissions assigned to all roles');
         }
+    }
+
+    /**
+     * Department Admin = a department-only HR operator: dashboard, own self-service and
+     * ONLY Employees, Attendance (+ roster / shift assignment inside it), Leave,
+     * Onboarding, Offboarding and Asset Management, confined by DepartmentScope to the
+     * holder's home department (grants in user_department_scopes stay optional, for
+     * exceptions). The list is EXACT, not derived from another role: never payroll /
+     * F&F, delete, roles, settings, feature flags, company-wide attendance settings,
+     * projects, quality, O&M, camera or analytics.
+     *
+     * Mirrored verbatim by migration 2026_09_30_000005_seed_department_scope_permissions_and_role
+     * (production does not re-run seeders) — tests/Feature/Access/DepartmentAdminRoleTest
+     * fails if the two drift apart.
+     *
+     * @return array<int, string>
+     */
+    public static function departmentAdminPermissionNames(): array
+    {
+        return [
+            'department.admin',
+            // Dashboard + the same self-service base every Employee gets (modules core + self-service).
+            'core.dashboard.view', 'core.stats.view', 'core.updates.view',
+            'attendance.own.view', 'attendance.own.punch',
+            'leave.own.view', 'leave.own.create', 'leave.own.update', 'leave.own.delete',
+            'communications.own.view',
+            'profile.own.view', 'profile.own.update', 'profile.password.change',
+            // Workforce -> Employees (no delete: exit goes through Offboarding).
+            'employees.view', 'employees.create', 'employees.update',
+            'users.create', 'users.update',
+            // Time/Attendance -> Attendances (+ roster / shift assignment / swaps), not settings.
+            'attendance.view', 'attendance.create', 'attendance.update', 'attendance.correct', 'attendance.export',
+            'attendance.roster.manage',
+            // Leave Management.
+            'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'leaves.delete',
+            // Lifecycle.
+            'hr.onboarding.view', 'hr.onboarding.create', 'hr.onboarding.update', 'hr.onboarding.delete',
+            'hr.offboarding.view', 'hr.offboarding.create', 'hr.offboarding.update', 'hr.offboarding.delete',
+            'hr.assets.view', 'hr.assets.manage',
+        ];
     }
 }

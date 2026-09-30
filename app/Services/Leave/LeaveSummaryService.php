@@ -6,6 +6,7 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Carbon\Carbon;
 
 class LeaveSummaryService
@@ -13,7 +14,7 @@ class LeaveSummaryService
     /**
      * Generate comprehensive leave summary data
      */
-    public function generateLeaveSummary(array $filters = []): array
+    public function generateLeaveSummary(array $filters = [], ?User $actor = null): array
     {
         $year = $filters['year'] ?? now()->year;
         $departmentId = $filters['department_id'] ?? null;
@@ -25,8 +26,14 @@ class LeaveSummaryService
         $usersQuery = User::with(['department', 'designation'])
             ->whereHas('department') // Only users with departments
             ->when($departmentId, fn ($q) => $q->where('department_id', $departmentId))
-            ->when($employeeId, fn ($q) => $q->where('id', $employeeId))
+            ->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId))
             ->orderBy('name');
+
+        // Department scope: a non-global actor only sees people they manage / report to / themself.
+        $scope = app(DepartmentScope::class);
+        if ($actor) {
+            $scope->applyToUsers($usersQuery, $actor);
+        }
 
         $users = $usersQuery->get();
 
@@ -44,6 +51,10 @@ class LeaveSummaryService
             ->when($employeeId, fn ($q) => $q->where('user_id', $employeeId))
             ->when($statusFilter, fn ($q) => $q->where('status', $statusFilter))
             ->when($leaveTypeFilter, fn ($q) => $q->where('leave_type', $leaveTypeFilter));
+
+        if ($actor) {
+            $scope->applyToEmployeeOwned($leavesQuery, $actor, 'leaves.user_id');
+        }
 
         $leaves = $leavesQuery->get();
 

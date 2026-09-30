@@ -9,6 +9,7 @@ use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
 use App\Notifications\Attendance\ShiftSwapDecidedNotification;
 use App\Notifications\Attendance\ShiftSwapRequestedNotification;
+use App\Services\Access\DepartmentScope;
 use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ class ShiftSwapService
         private readonly RosterService $roster,
         private readonly WorkTimeComplianceService $compliance,
         private readonly RealtimeSignal $signal,
+        private readonly DepartmentScope $scope,
     ) {}
 
     /**
@@ -217,6 +219,9 @@ class ShiftSwapService
      */
     public function approve(ShiftSwapRequest $swap, User $actor): array
     {
+        if (! $this->actorMayDecide($swap, $actor)) {
+            return $this->fail('forbidden', 'You are not authorized to decide this swap request.');
+        }
         if ($swap->status !== 'pending') {
             return $this->fail('already_decided', 'This swap request has already been decided.');
         }
@@ -301,7 +306,7 @@ class ShiftSwapService
 
         $coverageWarning = null;
         try {
-            $coverageService = app(\App\Services\Attendance\CoverageService::class);
+            $coverageService = app(CoverageService::class);
             $coverageWarning = $coverageService->checkCoverageForSwap($swap);
         } catch (\Throwable $t) {
             // Non-blocking
@@ -323,6 +328,9 @@ class ShiftSwapService
      */
     public function reject(ShiftSwapRequest $swap, User $actor): array
     {
+        if (! $this->actorMayDecide($swap, $actor)) {
+            return $this->fail('forbidden', 'You are not authorized to decide this swap request.');
+        }
         if ($swap->status !== 'pending') {
             return $this->fail('already_decided', 'This swap request has already been decided.');
         }
@@ -410,6 +418,25 @@ class ShiftSwapService
             'user_name' => $actor->name,
             'timestamp' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Who may take the manager decision on a swap: an attendance administrator (global role
+     * or attendance.settings), or a scoped actor (DepartmentScope) over the REQUESTER who is
+     * neither party to the swap (nobody approves a swap they are part of).
+     */
+    private function actorMayDecide(ShiftSwapRequest $swap, User $actor): bool
+    {
+        if ($this->scope->isAttendanceAdmin($actor)) {
+            return true;
+        }
+
+        $key = (string) $actor->getKey();
+        if ($key === (string) $swap->requester_id || $key === (string) $swap->counterparty_id) {
+            return false;
+        }
+
+        return $this->scope->canActOn($actor, (string) $swap->requester_id);
     }
 
     private function fail(string $code, string $message): array

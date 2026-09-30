@@ -13,11 +13,14 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
 use App\Models\WorkLocation;
+use App\Services\Access\DepartmentScope;
 use App\Services\Admin\UserManagementService;
 use App\Traits\HandlesApiExceptions;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -35,9 +38,26 @@ class UserController extends Controller
 
     protected UserManagementService $userService;
 
+    /**
+     * Fields a user may never change on their own record.
+     */
+    private const SELF_PROTECTED_FIELDS = [
+        'roles', 'salary_amount', 'department_id', 'designation_id', 'employee_id', 'report_to',
+        'attendance_type_id', 'attendance_type_ids', 'biometric_device_ids', 'work_location_id', 'date_of_joining',
+    ];
+
     public function __construct(UserManagementService $userService)
     {
         $this->userService = $userService;
+    }
+
+    /**
+     * Resolved per call, not injected: route-cached controller instances outlive a
+     * request, while the scope memo must not.
+     */
+    private function scope(): DepartmentScope
+    {
+        return app(DepartmentScope::class);
     }
 
     public function index(Request $request): Response
@@ -45,25 +65,32 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
 
         $authUser = Auth::user();
-        $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-        $userDeptId = $authUser->department_id;
+        $isGlobal = $this->scope()->isGlobal($authUser);
+        // Departments a non-global actor may see: the ones they administer, plus
+        // their own (so their own record still renders with its department).
+        $visibleDeptIds = array_values(array_unique(array_filter(array_merge(
+            $this->scope()->managedDepartmentIds($authUser),
+            [$authUser->department_id !== null ? (int) $authUser->department_id : null],
+        ), fn ($id) => $id !== null)));
 
         $departmentsQuery = Department::select('id', 'name', 'code', 'parent_id', 'is_active');
         $designationsQuery = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
             ->with('department:id,name') // department_name is appended in Designation::toArray(); avoid lazy-load violation
             ->orderBy('hierarchy_level', 'asc');
-        $usersQuery = User::select('employee_id as id', 'employee_id', 'name', 'email', 'department_id', 'designation_id')
-            ->whereNull('deleted_at');
+        $usersQuery = $this->scope()->applyToUsers(User::query(), $authUser)
+            ->select('employee_id as id', 'employee_id', 'name', 'email', 'department_id', 'designation_id');
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $departmentsQuery->where('id', $userDeptId);
-            $designationsQuery->where('department_id', $userDeptId);
-            $usersQuery->where('department_id', $userDeptId);
+        if (! $isGlobal) {
+            $departmentsQuery->whereIn('id', $visibleDeptIds);
+            $designationsQuery->whereIn('department_id', $visibleDeptIds);
         }
 
         $departments = $departmentsQuery->get();
         $designations = $designationsQuery->get();
-        $roles = Role::with('permissions')->get();
+        // Scoped actors only get the roles they may actually grant (never Administrator etc.).
+        $roles = $isGlobal
+            ? Role::with('permissions')->get()
+            : $this->userService->grantableRoles($authUser)->with('permissions')->get();
 
         $attendanceTypes = AttendanceType::select('id', 'name', 'slug', 'config', 'is_active')
             ->with(['biometricDevices:id,name,serial_number,location'])
@@ -86,9 +113,9 @@ class UserController extends Controller
         $designationsPaginateQuery = Designation::with('department:id,name')
             ->withCount(['users as employee_count']);
 
-        if (! $isGlobal && $userDeptId !== null) {
-            $departmentsPaginateQuery->where('id', $userDeptId);
-            $designationsPaginateQuery->where('department_id', $userDeptId);
+        if (! $isGlobal) {
+            $departmentsPaginateQuery->whereIn('id', $visibleDeptIds);
+            $designationsPaginateQuery->whereIn('department_id', $visibleDeptIds);
         }
 
         $initialDepartments = $departmentsPaginateQuery->paginate(10);
@@ -109,17 +136,32 @@ class UserController extends Controller
             'total_locations' => $workLocations->count(),
         ];
 
-        // 4. Admin - Roles & Permissions data
-        $permissions = Permission::all();
-        $roleHasPermissions = DB::table('role_has_permissions')->get();
-        $permissionsGrouped = Permission::all()->groupBy('module')
-            ->map(fn ($perms, $module) => [
-                'label' => $module,
-                'permissions' => $perms->values(),
-            ]);
+        // 4. Admin - Roles & Permissions data. Only for actors who can open the Roles tab
+        // (roles.view) — a department admin must not receive the whole role/permission matrix.
+        if ($authUser->can('roles.view')) {
+            $permissions = Permission::all();
+            $roleHasPermissions = DB::table('role_has_permissions')->get();
+            $permissionsGrouped = Permission::all()->groupBy('module')
+                ->map(fn ($perms, $module) => [
+                    'label' => $module,
+                    'permissions' => $perms->values(),
+                ]);
+        } else {
+            $permissions = collect();
+            $roleHasPermissions = collect();
+            $permissionsGrouped = collect();
+        }
 
         // 5. Admin - Biometric Devices data
-        $devices = BiometricDevice::all();
+        // Scoped actors: only terminals mapped to the work locations of people in their scope.
+        if ($isGlobal) {
+            $devices = BiometricDevice::all();
+        } else {
+            $locationIds = $this->scope()->applyToUsers(User::query(), $authUser)
+                ->whereNotNull('work_location_id')->distinct()->pluck('work_location_id');
+            $devices = BiometricDevice::whereIn('id', DB::table('work_location_biometric_device')
+                ->whereIn('work_location_id', $locationIds)->select('biometric_device_id'))->get();
+        }
 
         return Inertia::render('Employees/EmployeesPage', [
             'title' => 'Employees Console',
@@ -172,12 +214,18 @@ class UserController extends Controller
             $profileImage = $request->file('profile_image');
 
             $authUser = Auth::user();
-            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $authUser->department_id;
 
-            if (! $isGlobal && $userDeptId !== null) {
-                $validated['department_id'] = $userDeptId;
+            if (! $this->scope()->isGlobal($authUser)) {
+                // A department admin creates plain employees, and only into a
+                // department they administer (defaulting when they administer one).
+                $validated['department_id'] = $this->resolveCreatableDepartment($authUser, $validated['department_id'] ?? null);
+                $this->assertReportToInScope($authUser, $validated['report_to'] ?? null);
                 $roles = ['Employee'];
+            } elseif ($roles) {
+                // Global actors may create staff, but never a role equal to or more powerful
+                // than their own (an HR Manager must not mint an Administrator) — the same
+                // hierarchy rule the role endpoints enforce.
+                $this->userService->assertCanGrantRoles($authUser, (array) $roles);
             }
 
             $user = $this->userService->createUser($validated, $roles, $profileImage);
@@ -222,17 +270,66 @@ class UserController extends Controller
             $profileImage = $request->file('profile_image');
 
             $authUser = Auth::user();
-            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $authUser->department_id;
+            $isGlobal = $this->scope()->isGlobal($authUser);
+            $targetUser = User::findOrFail($id);
+            $isSelf = (string) $authUser->employee_id === (string) $targetUser->employee_id;
 
-            if (! $isGlobal && $userDeptId !== null) {
-                $targetUser = User::findOrFail($id);
-                if ($targetUser->department_id !== $userDeptId) {
-                    abort(403, 'Unauthorized to update users outside your department.');
+            if ($isSelf) {
+                // Self-service edits must never touch role, pay, org placement or identity
+                // fields. A Super Administrator is exempt for non-role fields only.
+                $roles = null;
+                $hasRoles = false;
+                if (! $authUser->hasRole('Super Administrator')) {
+                    $validated = Arr::except($validated, self::SELF_PROTECTED_FIELDS);
                 }
-                $validated['department_id'] = $userDeptId;
-                $roles = ['Employee'];
-                $hasRoles = true;
+            } elseif (! $isGlobal) {
+                // Non-global actors never change roles here (that would demote e.g. a
+                // Team Lead on every phone-number edit), only touch employees in their
+                // scope whom they outrank, and only move them between departments
+                // they administer.
+                if (! $this->scope()->canManage($authUser, $targetUser)) {
+                    abort(403, 'Unauthorized to update users outside your department scope.');
+                }
+                if (array_key_exists('department_id', $validated)
+                    && (int) $validated['department_id'] !== (int) $targetUser->department_id
+                    && ! in_array((int) $validated['department_id'], $this->scope()->managedDepartmentIds($authUser), true)) {
+                    abort(403, 'You can only assign employees to departments you manage.');
+                }
+                if (array_key_exists('report_to', $validated)
+                    && (string) $validated['report_to'] !== (string) $targetUser->report_to) {
+                    $this->assertReportToInScope($authUser, $validated['report_to']);
+                }
+                $roles = null;
+                $hasRoles = false;
+            } elseif ($hasRoles) {
+                $requestedRoles = array_values(array_filter((array) $roles, 'is_string'));
+                $currentRoles = $targetUser->roles->pluck('name')->all();
+
+                if (array_diff($requestedRoles, $currentRoles) === [] && array_diff($currentRoles, $requestedRoles) === []) {
+                    // The edit form echoes the current roles back; an unchanged set is a no-op.
+                    $roles = null;
+                    $hasRoles = false;
+                } else {
+                    if (! $authUser->can('updateRoles', $targetUser)) {
+                        abort(403, 'You are not allowed to change this user\'s roles.');
+                    }
+                    $this->userService->assertCanModifyTarget($authUser, $targetUser);
+                    $this->userService->assertCanGrantRoles($authUser, $requestedRoles);
+                }
+            }
+
+            if (! $isSelf) {
+                if (array_key_exists('salary_amount', $validated)
+                    && (float) $validated['salary_amount'] !== (float) $targetUser->salary_amount) {
+                    if (! $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager'])) {
+                        abort(403, 'Only HR may change salary.');
+                    }
+                }
+                if (array_key_exists('employee_id', $validated)
+                    && (string) $validated['employee_id'] !== (string) $targetUser->employee_id
+                    && ! $authUser->hasRole(['Super Administrator', 'Administrator'])) {
+                    abort(403, 'Only an Administrator may change an employee ID.');
+                }
             }
 
             $user = $this->userService->updateUser($id, $validated, $roles, $hasRoles, $profileImage);
@@ -318,7 +415,10 @@ class UserController extends Controller
     {
         try {
             $user = User::withTrashed()->findOrFail($id);
-            $this->authorize('update', $user);
+            // Restore is the inverse of delete: it needs `users.delete` AND scope over the
+            // target (UserPolicy::restore). `users.update` alone — which a department admin
+            // holds — must not reinstate an offboarded employee.
+            $this->authorize('restore', $user);
             $restoredUser = $this->userService->restoreUser($user);
 
             Log::info('User restored', [
@@ -359,6 +459,10 @@ class UserController extends Controller
 
         try {
             $user = User::findOrFail($id);
+
+            if (! $this->scope()->canManage($request->user(), $user, allowSelf: true)) {
+                abort(403, 'You cannot reset the password of a user outside your department scope.');
+            }
 
             // Privilege-escalation guard: only someone who can manage super admins
             // (i.e. a Super Administrator) may reset a Super Administrator's password.
@@ -404,10 +508,9 @@ class UserController extends Controller
     {
         try {
             $user = User::findOrFail($id);
-            if (in_array('Super Administrator', $request->input('roles', []), true)
-                && ! $request->user()->hasRole('Super Administrator')) {
-                abort(403, 'Only a Super Administrator may grant that role.');
-            }
+            $this->authorize('updateRoles', $user);
+            $this->userService->assertCanModifyTarget($request->user(), $user);
+            $this->userService->assertCanGrantRoles($request->user(), (array) $request->input('roles', []));
             $updatedUser = $this->userService->syncRoles($user, $request->input('roles'));
 
             Log::info('User roles updated via updateUserRole', [
@@ -445,10 +548,7 @@ class UserController extends Controller
             'role' => 'required|string|exists:roles,name',
         ]);
 
-        if ($validated['role'] === 'Super Administrator'
-            && ! $request->user()->hasRole('Super Administrator')) {
-            abort(403, 'Only a Super Administrator may grant that role.');
-        }
+        $this->userService->assertCanGrantRoles($request->user(), [$validated['role']]);
 
         $users = User::query()
             ->whereIn('employee_id', $validated['user_ids'])
@@ -457,6 +557,7 @@ class UserController extends Controller
 
         foreach ($users as $user) {
             $this->authorize('updateRoles', $user);
+            $this->userService->assertCanModifyTarget($request->user(), $user);
         }
 
         $count = DB::transaction(fn (): int => $this->userService->bulkAssignRole(
@@ -522,6 +623,12 @@ class UserController extends Controller
         try {
             $user = User::findOrFail($id);
             $this->authorize('update', $user);
+            if ((string) $user->getKey() === (string) $request->user()->getKey() && ! $request->user()->hasRole('Super Administrator')) {
+                abort(403, 'You cannot change your own reporting line.');
+            }
+            if (! $this->scope()->isGlobal($request->user())) {
+                $this->assertReportToInScope($request->user(), $request->input('report_to'));
+            }
             $updatedUser = $this->userService->updateReportTo($user, $request->input('report_to'));
 
             return response()->json([
@@ -662,7 +769,7 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
         $filters = $request->only(['perPage', 'page', 'search', 'role', 'status', 'department']);
-        $result = $this->userService->paginateUsers($filters);
+        $result = $this->userService->paginateUsers($filters, $request->user());
 
         return response()->json([
             'users' => new UserCollection($result['users']),
@@ -677,7 +784,7 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
         $filters = $request->only(['perPage', 'page', 'search', 'department', 'designation', 'attendanceType', 'role', 'status', 'showDeleted']);
-        $result = $this->userService->paginateEmployees($filters);
+        $result = $this->userService->paginateEmployees($filters, $request->user());
 
         return response()->json([
             'employees' => $result['employees'],
@@ -699,10 +806,11 @@ class UserController extends Controller
             'attendanceTypes:id,name,slug',
         ]);
         $actor = $request->user();
-        if (! $actor->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $actor->department_id !== null) {
-            $query->where('department_id', $actor->department_id);
+        $user = $query->find($id);
+        // Out-of-scope reads as not-found so the directory cannot probe for existence.
+        if ($user === null || ! $this->scope()->canActOn($actor, $user, allowSelf: true)) {
+            abort(404);
         }
-        $user = $query->findOrFail($id);
 
         return response()->json([
             // Directory access is not access to private profile/device details.
@@ -727,11 +835,11 @@ class UserController extends Controller
     /**
      * Get statistics for user management dashboard.
      */
-    public function stats()
+    public function stats(Request $request)
     {
         $this->authorize('viewAny', User::class);
         try {
-            $stats = $this->userService->getUserStats();
+            $stats = $this->userService->getUserStats($request->user());
 
             return response()->json(['stats' => $stats]);
         } catch (HttpException $e) {
@@ -755,11 +863,11 @@ class UserController extends Controller
     /**
      * Get employee demographics and retention statistics.
      */
-    public function employeeStats()
+    public function employeeStats(Request $request)
     {
         $this->authorize('viewAny', User::class);
         try {
-            $stats = $this->userService->getEmployeeStats();
+            $stats = $this->userService->getEmployeeStats($request->user());
 
             return response()->json(['stats' => $stats]);
         } catch (HttpException $e) {
@@ -787,6 +895,7 @@ class UserController extends Controller
     {
         try {
             $user = User::findOrFail($id);
+            $this->authorize('view', $user);
             $rolesData = $this->userService->getUserRoles($user);
 
             return response()->json($rolesData);
@@ -815,6 +924,7 @@ class UserController extends Controller
     {
         try {
             $user = User::findOrFail($id);
+            $this->authorize('view', $user);
             $permsData = $this->userService->getUserPermissions($user);
 
             return response()->json($permsData);
@@ -848,6 +958,9 @@ class UserController extends Controller
 
         try {
             $user = User::findOrFail($id);
+            $this->authorize('updateRoles', $user);
+            $this->userService->assertCanModifyTarget($request->user(), $user);
+            $this->userService->assertCanGrantRoles($request->user(), $request->input('roles'));
             $updatedUser = $this->userService->syncUserRoles($user, $request->input('roles'));
 
             return response()->json([
@@ -884,6 +997,8 @@ class UserController extends Controller
 
         try {
             $user = User::findOrFail($id);
+            $this->authorize('updateRoles', $user);
+            $this->userService->assertCanModifyTarget($request->user(), $user);
             $result = $this->userService->syncUserPermissions($user, $request->input('permissions'));
 
             return response()->json(array_merge([
@@ -918,6 +1033,8 @@ class UserController extends Controller
 
         try {
             $user = User::findOrFail($id);
+            $this->authorize('updateRoles', $user);
+            $this->userService->assertCanModifyTarget($request->user(), $user);
             $result = $this->userService->giveUserPermission($user, $request->input('permission'));
 
             if ($result === null) {
@@ -958,6 +1075,8 @@ class UserController extends Controller
 
         try {
             $user = User::findOrFail($id);
+            $this->authorize('updateRoles', $user);
+            $this->userService->assertCanModifyTarget($request->user(), $user);
             $result = $this->userService->revokeUserPermission($user, $request->input('permission'));
 
             if ($result === null) {
@@ -984,6 +1103,65 @@ class UserController extends Controller
                 'error' => 'Failed to revoke permission',
                 'message' => $this->safeExceptionMessage($e),
             ], 500);
+        }
+    }
+
+    /**
+     * Admin-side write on another employee: in scope and outranked. Only a Super
+     * Administrator may use these admin endpoints on their own record (mirrors
+     * SELF_PROTECTED_FIELDS in update()).
+     */
+    private function canManageOther(User $actor, User $target): bool
+    {
+        return $this->scope()->canManage($actor, $target, allowSelf: $actor->hasRole('Super Administrator'));
+    }
+
+    /**
+     * The department a non-global actor may create an employee in: the requested one
+     * when they administer it, else their single administered department. Throws a
+     * 422 when the request is ambiguous or out of scope, 403 when they administer none.
+     */
+    private function resolveCreatableDepartment(User $actor, mixed $requested): int
+    {
+        $managed = $this->scope()->managedDepartmentIds($actor);
+
+        if ($managed === []) {
+            abort(403, 'You do not administer any department.');
+        }
+
+        if ($requested === null || $requested === '') {
+            if (count($managed) === 1) {
+                return $managed[0];
+            }
+
+            throw ValidationException::withMessages([
+                'department_id' => 'Select one of the departments you manage.',
+            ]);
+        }
+
+        if (! in_array((int) $requested, $managed, true)) {
+            throw ValidationException::withMessages([
+                'department_id' => 'You can only add employees to a department you manage.',
+            ]);
+        }
+
+        return (int) $requested;
+    }
+
+    /**
+     * A non-global actor may only point a reporting line at someone in their own
+     * scope (or themselves) — never graft an employee under an outside manager.
+     */
+    private function assertReportToInScope(User $actor, mixed $reportTo): void
+    {
+        if ($reportTo === null || $reportTo === '') {
+            return;
+        }
+
+        if (! $this->scope()->canActOn($actor, (string) $reportTo, allowSelf: true)) {
+            throw ValidationException::withMessages([
+                'report_to' => 'The reporting manager must be within your department scope.',
+            ]);
         }
     }
 
@@ -1058,6 +1236,9 @@ class UserController extends Controller
             ]);
 
             $user = User::findOrFail($id);
+            if (! $this->canManageOther($request->user(), $user)) {
+                abort(403, 'You cannot update users outside your department scope.');
+            }
             $user->update([
                 'work_location_id' => $request->work_location_id,
             ]);
@@ -1066,8 +1247,15 @@ class UserController extends Controller
                 'message' => 'Work location updated successfully',
                 'user' => $user->fresh(['workLocation']),
             ]);
+        } catch (HttpException|ValidationException|HttpResponseException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Failed to update work location: '.$e->getMessage());
+
+            return response()->json([
+                'error' => 'Failed to update work location',
+                'message' => $this->safeExceptionMessage($e),
+            ], 500);
         }
     }
 
@@ -1077,6 +1265,9 @@ class UserController extends Controller
     public function confirmEmployee(Request $request, $id): JsonResponse
     {
         $user = User::findOrFail($id);
+        if (! $this->canManageOther($request->user(), $user)) {
+            abort(403, 'You cannot confirm employees outside your department scope.');
+        }
         $user->update([
             'employment_status' => 'confirmed',
             'confirmation_date' => now()->toDateString(),

@@ -19,7 +19,7 @@ class MarkPresentShiftAwareTest extends TestCase
     {
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']); // company-wide: a legacy 'Admin' role is scoped to nobody
         // mark-as-present is guarded by attendance.correct|create|update, not the
         // legacy attendance.manage this fixture used to grant alone.
         foreach (['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update'] as $p) {
@@ -35,7 +35,7 @@ class MarkPresentShiftAwareTest extends TestCase
             'early_leave_before' => 0, 'overtime_after' => 0,
             'weekend_days' => ['friday'], 'auto_punch_out' => false,
         ]);
-        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin = User::factory()->create(); $admin->assignRole('Administrator');
         $admin->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
 

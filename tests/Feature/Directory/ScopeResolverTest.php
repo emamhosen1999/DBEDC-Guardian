@@ -24,7 +24,7 @@ class ScopeResolverTest extends TestCase
         $hr->assignRole($this->role('HR Manager'));
         User::factory()->count(3)->create();
 
-        $resolver = new ScopeResolver();
+        $resolver = new ScopeResolver;
         $count = $resolver->applyBaseScope(User::query(), $hr)->count();
 
         $this->assertTrue($resolver->isGlobal($hr));
@@ -43,8 +43,8 @@ class ScopeResolverTest extends TestCase
         User::factory()->count(2)->create(['department_id' => $deptA->id]);
         User::factory()->count(4)->create(['department_id' => $deptB->id]);
 
-        $resolver = new ScopeResolver();
-        $ids = $resolver->applyBaseScope(User::query(), $mgr)->pluck('id');
+        $resolver = new ScopeResolver;
+        $ids = $resolver->applyBaseScope(User::query(), $mgr)->pluck('employee_id');
 
         $this->assertFalse($resolver->isGlobal($mgr));
         $this->assertTrue($ids->contains($mgr->id));
@@ -57,8 +57,8 @@ class ScopeResolverTest extends TestCase
         $emp->assignRole($this->role('Employee'));
         User::factory()->count(5)->create();
 
-        $resolver = new ScopeResolver();
-        $ids = $resolver->applyBaseScope(User::query(), $emp)->pluck('id');
+        $resolver = new ScopeResolver;
+        $ids = $resolver->applyBaseScope(User::query(), $emp)->pluck('employee_id');
 
         $this->assertSame([$emp->id], $ids->all());
     }

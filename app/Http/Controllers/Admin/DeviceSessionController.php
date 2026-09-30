@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\RefreshToken;
 use App\Models\User;
 use App\Models\UserDevice;
+use App\Services\Access\DepartmentScope;
 use App\Services\DeviceAuthService;
 use App\Services\RefreshTokenService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,7 +53,11 @@ class DeviceSessionController extends Controller
         $status = (string) $request->input('status', 'all');
         $perPage = min(max((int) $request->input('per_page', 15), 5), 100);
 
-        $query = UserDevice::query()->with('user:employee_id,name,email,current_device_id,single_device_login_enabled');
+        // Non-global actors see only the devices of people inside their DepartmentScope
+        // (fails closed); the header counters below are scoped the same way.
+        $actor = $request->user();
+        $query = $this->scopedDevices($actor)
+            ->with('user:employee_id,name,email,current_device_id,single_device_login_enabled');
 
         if ($search !== '') {
             $query->where(function ($outer) use ($search) {
@@ -145,7 +151,7 @@ class DeviceSessionController extends Controller
                 'status' => in_array($status, ['all', 'active', 'inactive'], true) ? $status : 'all',
                 'per_page' => $perPage,
             ],
-            'summary' => $this->fleetSummary(),
+            'summary' => $this->fleetSummary($actor),
         ];
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -180,6 +186,14 @@ class DeviceSessionController extends Controller
         if ($user === null) {
             abort(404, 'The user for this device no longer exists.');
         }
+
+        // `users.update` is also held by department-scoped operators: the device's OWNER must
+        // be inside the actor's DepartmentScope and outranked by them (self always passes).
+        abort_unless(
+            app(DepartmentScope::class)->canManage($request->user(), $user, allowSelf: true),
+            403,
+            'You cannot revoke sessions of a user outside your department scope.'
+        );
 
         $deviceId = trim((string) $userDevice->device_id);
 
@@ -373,23 +387,46 @@ class DeviceSessionController extends Controller
      *
      * @return array<string, int>
      */
-    protected function fleetSummary(): array
+    protected function fleetSummary(?User $actor = null): array
     {
-        $total = UserDevice::query()->count();
-        $active = UserDevice::query()->where('is_active', true)->count();
+        $total = $this->scopedDevices($actor)->count();
+        $active = $this->scopedDevices($actor)->where('is_active', true)->count();
+
+        $refreshTokens = RefreshToken::query()
+            ->whereNull('revoked_at')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', Carbon::now());
+            });
+
+        if ($actor !== null) {
+            app(DepartmentScope::class)->applyToEmployeeOwned($refreshTokens, $actor, 'user_id');
+        }
 
         return [
             'total_devices' => $total,
             'active_devices' => $active,
             'inactive_devices' => max($total - $active, 0),
-            'users_with_devices' => (int) UserDevice::query()->distinct()->count('user_id'),
-            'active_refresh_tokens' => RefreshToken::query()
-                ->whereNull('revoked_at')
-                ->where(function ($q) {
-                    $q->whereNull('expires_at')->orWhere('expires_at', '>', Carbon::now());
-                })
-                ->count(),
+            'users_with_devices' => (int) $this->scopedDevices($actor)->distinct()->count('user_id'),
+            'active_refresh_tokens' => $refreshTokens->count(),
         ];
+    }
+
+    /**
+     * Device rows the actor may see: everyone's for a global actor, otherwise only the
+     * devices of employees inside their DepartmentScope. A null actor is unscoped
+     * (internal callers only — every route passes the authenticated user).
+     *
+     * @return Builder<UserDevice>
+     */
+    protected function scopedDevices(?User $actor)
+    {
+        $query = UserDevice::query();
+
+        if ($actor !== null) {
+            app(DepartmentScope::class)->applyToEmployeeOwned($query, $actor, 'user_id');
+        }
+
+        return $query;
     }
 
     protected function mapKey(string $userId, string $deviceId): string

@@ -6,22 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\HRM\FinalSettlement;
 use App\Models\HRM\Offboarding;
 use App\Models\PettyCashLoan;
-use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class SettlementController extends Controller
 {
+    public function __construct(private readonly DepartmentScope $scope) {}
+
     /**
      * Auto-calculate the Full & Final Settlement for an offboarding record.
      */
-    public function calculate(int $offboardingId): JsonResponse
+    public function calculate(Request $request, int $offboardingId): JsonResponse
     {
         $offboarding = Offboarding::with(['employee.department', 'employee.designation'])->findOrFail($offboardingId);
+        abort_unless($this->scope->canActOn($request->user(), $offboarding->employee_id), 403, 'This employee is outside your scope.');
         $employee = $offboarding->employee;
 
         if (! $employee) {
@@ -134,6 +135,13 @@ class SettlementController extends Controller
         ]);
 
         $offboarding = Offboarding::findOrFail($validated['offboarding_id']);
+        abort_unless($this->scope->canManage($request->user(), $offboarding->employee_id), 403, 'This employee is outside your scope.');
+
+        $current = FinalSettlement::where('offboarding_id', $offboarding->id)->first();
+        if ($current && $current->status !== FinalSettlement::STATUS_DRAFT) {
+            return response()->json(['message' => 'Only a draft settlement can be edited.'], 422);
+        }
+
         $validated['employee_id'] = $offboarding->employee_id;
         $validated['last_working_date'] = $offboarding->last_working_date;
         $validated['prepared_by'] = (string) $request->user()->employee_id;
@@ -156,6 +164,17 @@ class SettlementController extends Controller
     public function approve(Request $request, int $id): JsonResponse
     {
         $settlement = FinalSettlement::findOrFail($id);
+        $actorId = (string) $request->user()->employee_id;
+
+        abort_unless($this->scope->canManage($request->user(), $settlement->employee_id), 403, 'This employee is outside your scope.');
+
+        // Four-eyes: the preparer and the employee being paid can never approve.
+        abort_if($actorId === (string) $settlement->prepared_by || $actorId === (string) $settlement->employee_id, 403, 'You cannot approve a settlement you prepared or that is payable to you.');
+
+        if ($settlement->status !== FinalSettlement::STATUS_DRAFT) {
+            return response()->json(['message' => 'Only a draft settlement can be approved.'], 422);
+        }
+
         $settlement->update([
             'status' => FinalSettlement::STATUS_APPROVED,
             'approved_by' => (string) $request->user()->employee_id,
@@ -173,6 +192,12 @@ class SettlementController extends Controller
     public function disburse(Request $request, int $id): JsonResponse
     {
         $settlement = FinalSettlement::findOrFail($id);
+
+        abort_unless($this->scope->canManage($request->user(), $settlement->employee_id), 403, 'This employee is outside your scope.');
+
+        if ($settlement->status !== FinalSettlement::STATUS_APPROVED) {
+            return response()->json(['message' => 'Only an approved settlement can be disbursed.'], 422);
+        }
 
         $validated = $request->validate([
             'payment_method' => 'required|string|in:bank_transfer,cheque,cash',
@@ -207,9 +232,10 @@ class SettlementController extends Controller
     /**
      * Generate printable Experience & Release Certificate (BLA Section 31).
      */
-    public function printCertificate(int $offboardingId, string $type = 'experience'): JsonResponse
+    public function printCertificate(Request $request, int $offboardingId, string $type = 'experience'): JsonResponse
     {
         $offboarding = Offboarding::with(['employee.department', 'employee.designation'])->findOrFail($offboardingId);
+        abort_unless($this->scope->canActOn($request->user(), $offboarding->employee_id, allowSelf: true), 403, 'This employee is outside your scope.');
         $employee = $offboarding->employee;
 
         if (! $employee) {
@@ -222,7 +248,7 @@ class SettlementController extends Controller
         $certificate = [
             'type' => $type,
             'title' => $type === 'release' ? 'RELEASE & CLEARANCE CERTIFICATE' : 'CERTIFICATE OF EXPERIENCE',
-            'reference_no' => 'DBEDC/HR/' . date('Y') . '/' . str_pad($offboarding->id, 4, '0', STR_PAD_LEFT),
+            'reference_no' => 'DBEDC/HR/'.date('Y').'/'.str_pad($offboarding->id, 4, '0', STR_PAD_LEFT),
             'issue_date' => now()->format('F d, Y'),
             'company_name' => 'Dhaka Bypass Expressway Development Company Limited (DBEDC)',
             'employee' => [

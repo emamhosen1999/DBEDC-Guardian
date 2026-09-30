@@ -7,6 +7,7 @@ use App\Models\OmIncident;
 use App\Models\OmWorkOrder;
 use App\Models\RfiObjection;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Project\DailyWorkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -49,7 +50,9 @@ class GlobalSearchController extends Controller
             return null;
         }
 
-        $query = User::query()
+        // Department scope applied BEFORE the limit, so out-of-scope matches can
+        // neither leak nor crowd authorized results out of the window.
+        $query = app(DepartmentScope::class)->applyToUsers(User::query(), $actor)
             ->select(['employee_id', 'name', 'email', 'department_id'])
             ->with('department:id,name')
             ->where(function (Builder $builder) use ($search): void {
@@ -57,10 +60,6 @@ class GlobalSearchController extends Controller
                     ->orWhere('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             });
-
-        if (! $actor->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $actor->department_id !== null) {
-            $query->where('department_id', $actor->department_id);
-        }
 
         $items = $query->orderBy('name')->limit(8)->get()->map(fn (User $employee): array => [
             'id' => (string) $employee->getKey(),

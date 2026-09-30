@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\HRM\Department;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Traits\HandlesApiExceptions;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DepartmentController extends Controller
 {
@@ -147,8 +149,8 @@ class DepartmentController extends Controller
             $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
             $userDeptId = $authUser->department_id;
 
-            if (!$isGlobal && $userDeptId !== null) {
-                if ((int)$id !== (int)$userDeptId) {
+            if (! $isGlobal && $userDeptId !== null) {
+                if ((int) $id !== (int) $userDeptId) {
                     abort(403, 'Unauthorized to modify other departments.');
                 }
             }
@@ -206,8 +208,8 @@ class DepartmentController extends Controller
             $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
             $userDeptId = $authUser->department_id;
 
-            if (!$isGlobal && $userDeptId !== null) {
-                if ((int)$id !== (int)$userDeptId) {
+            if (! $isGlobal && $userDeptId !== null) {
+                if ((int) $id !== (int) $userDeptId) {
                     abort(403, 'Unauthorized to delete other departments.');
                 }
             }
@@ -247,23 +249,24 @@ class DepartmentController extends Controller
     public function updateUserDepartment(Request $request, $id)
     {
         try {
-            $authUser = auth()->user();
-            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
-            $userDeptId = $authUser->department_id;
-
-            if (!$isGlobal && $userDeptId !== null) {
-                $targetUser = User::findOrFail($id);
-                $newDeptId = (int) $request->input('department');
-                if ($targetUser->department_id !== $userDeptId || $newDeptId !== (int) $userDeptId) {
-                    abort(403, 'Unauthorized to move users outside your department.');
-                }
-            }
-
             $request->validate([
                 'department' => 'required|integer|exists:departments,id',
             ]);
 
             $user = User::findOrFail($id);
+
+            // A non-global actor may only move employees they manage, and only
+            // between departments they administer (fail closed otherwise).
+            $scope = app(DepartmentScope::class);
+            $authUser = $request->user();
+            if (! $scope->isGlobal($authUser)) {
+                $managed = $scope->managedDepartmentIds($authUser);
+                if (! $scope->canManage($authUser, $user)
+                    || ! in_array((int) $user->department_id, $managed, true)
+                    || ! in_array((int) $request->input('department'), $managed, true)) {
+                    abort(403, 'You can only move employees between departments you manage.');
+                }
+            }
 
             // Get the new department ID and verify it exists
             $newDepartmentId = $request->input('department');
@@ -276,7 +279,7 @@ class DepartmentController extends Controller
             }
 
             // Check if department changed
-            $departmentChanged = $user->department_id !== $newDepartmentId;
+            $departmentChanged = (int) $user->department_id !== (int) $newDepartmentId;
 
             // Update department
             $user->department_id = $newDepartmentId;
@@ -305,6 +308,8 @@ class DepartmentController extends Controller
             ]);
 
             return response()->json(['errors' => ['User not found']], 404);
+        } catch (HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Unexpected error during updateUserDepartment', [
                 'message' => $e->getMessage(),

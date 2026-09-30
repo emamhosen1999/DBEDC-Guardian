@@ -23,13 +23,14 @@ class CoverageEndpointTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Admin']);
         Permission::firstOrCreate(['name' => 'attendance.settings']);
+        Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
     private function admin(): User
     {
         $a = User::factory()->create();
         $a->assignRole('Admin');
-        $a->givePermissionTo('attendance.settings');
+        $a->givePermissionTo(['attendance.settings', 'attendance.view']);
 
         return $a;
     }

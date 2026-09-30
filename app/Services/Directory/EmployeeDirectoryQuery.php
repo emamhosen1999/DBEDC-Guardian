@@ -67,13 +67,12 @@ class EmployeeDirectoryQuery
     }
 
     /**
-     * Filtered + sorted builder for the full list page (list mode).
-     * NOT permission-scoped: the list keeps global visibility (gated upstream by
-     * the employees.view permission). Only search() applies applyBaseScope.
+     * Filtered + sorted builder for the full list page (list mode), narrowed to
+     * the requester's department scope like search().
      */
     public function baseQuery(User $requester, array $filters): Builder
     {
-        $query = User::withTrashed();
+        $query = $this->scope->applyBaseScope(User::withTrashed(), $requester);
 
         $status = $filters['status'] ?? null;
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -124,6 +123,7 @@ class EmployeeDirectoryQuery
         }
         if ($scope === 'myteam') {
             $query->where('report_to', $requester->id);
+
             return;
         }
         [$type, $id] = array_pad(explode(':', $scope, 2), 2, null);

@@ -5,9 +5,12 @@ namespace App\Http\Controllers\HRM;
 use App\Http\Controllers\Controller;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\RosterDay;
+use App\Models\HRM\RosterDayChange;
 use App\Models\HRM\Shift;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
+use App\Services\Access\DepartmentScope;
+use App\Services\Attendance\CoverageService;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\WorkTimeComplianceService;
@@ -18,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class RosterController extends Controller
 {
@@ -26,6 +30,7 @@ class RosterController extends Controller
         private readonly RealtimeSignal $signals,
         private readonly RosterOverlayService $overlay,
         private readonly WorkTimeComplianceService $compliance,
+        private readonly DepartmentScope $scope,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -36,13 +41,13 @@ class RosterController extends Controller
             'department_id' => 'nullable|integer',
         ]);
 
-        $user = $request->user();
-        if (! $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
-            $data['department_id'] = $user->department_id;
-        }
+        // Anyone who is not an attendance administrator sees only their managed departments /
+        // reporting subtree / self (fails closed); a requested department only narrows that further.
+        $visibleIds = $this->scope->visibleAttendanceEmployeeIds($request->user());
 
         $rows = RosterDay::with(['shift:id,code,color,name', 'user:employee_id,name', 'user.media'])
             ->whereBetween('date', [$data['from'], $data['to']])
+            ->when($visibleIds !== null, fn ($q) => $q->whereIn('user_id', $visibleIds === [] ? ['__NONE__'] : $visibleIds))
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
                 'user',
                 fn ($uq) => $uq->where('department_id', $departmentId)
@@ -217,12 +222,11 @@ class RosterController extends Controller
         ]);
 
         $user = $request->user();
-        if ($user && ! $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
-            $invalidCount = User::whereIn('employee_id', $data['user_ids'])
-                ->where('department_id', '!=', $user->department_id)
-                ->count();
-            if ($invalidCount > 0) {
-                return response()->json(['error' => 'You can only generate rosters for your own department.'], 403);
+        if (! $this->scope->isAttendanceAdmin($user)) {
+            foreach ($data['user_ids'] as $targetId) {
+                if (! $this->scope->canActOn($user, (string) $targetId, allowSelf: true)) {
+                    return response()->json(['error' => 'You can only generate rosters for your own department.'], 403);
+                }
             }
         }
 
@@ -295,11 +299,8 @@ class RosterController extends Controller
         ]);
 
         $user = $request->user();
-        if ($user && ! $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
-            $targetUser = User::find($data['user_id']);
-            if (! $targetUser || $targetUser->department_id !== $user->department_id) {
-                return response()->json(['error' => 'You can only update roster cells for your own department.'], 403);
-            }
+        if (! $this->scope->isAttendanceAdmin($user) && ! $this->scope->canActOn($user, (string) $data['user_id'], allowSelf: true)) {
+            return response()->json(['error' => 'You can only update roster cells for your own department.'], 403);
         }
 
         // Multiple rows may already exist for this user+date (double-rostered
@@ -368,8 +369,8 @@ class RosterController extends Controller
             ]))->values();
 
             // Record audit trail in roster_day_changes
-            if (\Illuminate\Support\Facades\Schema::hasTable('roster_day_changes') && $created->isNotEmpty()) {
-                \App\Models\HRM\RosterDayChange::create([
+            if (Schema::hasTable('roster_day_changes') && $created->isNotEmpty()) {
+                RosterDayChange::create([
                     'roster_day_id' => $created->first()->id,
                     'actor_id' => (string) ($user->employee_id ?? $user->id),
                     'field' => 'shift_id',
@@ -400,7 +401,7 @@ class RosterController extends Controller
         // Coverage warning check
         $coverageWarning = null;
         try {
-            $coverageService = app(\App\Services\Attendance\CoverageService::class);
+            $coverageService = app(CoverageService::class);
             $coverageWarning = $coverageService->evaluateWarning(
                 $data['user_id'],
                 $data['date'],

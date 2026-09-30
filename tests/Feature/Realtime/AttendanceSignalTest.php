@@ -7,6 +7,7 @@ use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -32,6 +33,7 @@ class AttendanceSignalTest extends TestCase
     public function test_mark_as_present_publishes_attendance_signal_for_date(): void
     {
         $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('Administrator', 'web')); // company-wide: marking present is scoped
         $admin->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $target = User::factory()->create();
 

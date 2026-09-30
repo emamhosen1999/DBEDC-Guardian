@@ -6,6 +6,7 @@ use App\Models\HRM\Holiday;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveLedger;
 use App\Models\HRM\LeaveSetting;
+use App\Services\Access\DepartmentScope;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,10 @@ class LeaveQueryService
                        $request->header('X-Admin-View') === 'true';
 
         // If no explicit admin indicators, default to employee view (safer default)
-        $isAdmin = $isAdminView && $user;
+        // Reading other people's leaves needs leaves.view AND department scope; an
+        // admin_view / user_id query param alone never widens what the actor sees.
+        $scope = app(DepartmentScope::class);
+        $isAdmin = $isAdminView && $user && $user->can('leaves.view');
 
         $perPage = $request->get('perPage', $perPage);
         $page = $request->get('employee') ? 1 : $request->get('page', $page);
@@ -39,6 +43,10 @@ class LeaveQueryService
         $department = $request->get('department'); // Extract department if provided
         $leaveType = $request->get('leave_type');
         $specificUserId = $request->get('user_id'); // Extract user_id if provided
+        if ($specificUserId && (string) $specificUserId !== (string) $user->employee_id
+            && ! ($user->can('leaves.view') && $scope->canActOn($user, (string) $specificUserId))) {
+            $specificUserId = (string) $user->employee_id; // out of scope: fall back to own leaves
+        }
 
         $currentYear = $year;
         if (! $currentYear && $month) {
@@ -61,10 +69,12 @@ class LeaveQueryService
         }
         // Otherwise apply standard authorization rules
         elseif (! $isAdmin) {
-            $leavesQuery->where('leaves.user_id', $user->id);
+            $leavesQuery->where('leaves.user_id', $user->employee_id);
+        } else {
+            $scope->applyToEmployeeOwned($leavesQuery, $user, 'leaves.user_id');
         }
 
-        $this->applyDateFilters($leavesQuery, $year, $month, $isAdmin, $user->id);
+        $this->applyDateFilters($leavesQuery, $year, $month, $isAdmin, (string) $user->employee_id);
         $this->applyEmployeeFilter($leavesQuery, $employee);
         $this->applyStatusFilter($leavesQuery, $status);
         $this->applyLeaveTypeFilter($leavesQuery, $leaveType);
@@ -305,17 +315,20 @@ class LeaveQueryService
     private function calculateLeaveCounts(?int $year, int $currentYear, $user, ?string $specificUserId = null): array
     {
         // Use specific user ID if provided, otherwise use authenticated user
-        $targetUserId = $specificUserId ?: $user->id;
+        $targetUserId = $specificUserId ?: $user->employee_id;
 
         // If admin is viewing all users and no specific user is selected, calculate for all users
-        $calculateForAllUsers = is_null($specificUserId) && ($user->can('manage leaves') || $user->hasRole(['admin', 'hr']));
+        $calculateForAllUsers = is_null($specificUserId) && ($user->can('manage leaves') || $user->can('leaves.view') || $user->hasRole(['admin', 'hr']));
 
         if ($calculateForAllUsers) {
-            // Calculate for all users (admin view)
-            $allLeaves = Leave::with('leaveSetting')
-                ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
-                ->whereYear('leaves.from_date', $currentYear)
-                ->get();
+            // Calculate for every user the actor is allowed to see (admin view)
+            $allLeaves = app(DepartmentScope::class)->applyToEmployeeOwned(
+                Leave::with('leaveSetting')
+                    ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
+                    ->whereYear('leaves.from_date', $currentYear),
+                $user,
+                'leaves.user_id',
+            )->get();
         } else {
             // Calculate for specific user only
             $allLeaves = Leave::with('leaveSetting')
@@ -388,7 +401,7 @@ class LeaveQueryService
                        $request->get('view_all', false) ||
                        $request->header('X-Admin-View') === 'true';
 
-        $isAdmin = $isAdminView && $user;
+        $isAdmin = $isAdminView && $user && $user->can('leaves.view');
 
         $month = $request->get('month');
         $year = $request->get('year', now()->year);
@@ -403,6 +416,8 @@ class LeaveQueryService
         // Base filtering
         if (! $isAdmin) {
             $query->where('leaves.user_id', $user->employee_id ?? $user->getKey());
+        } else {
+            app(DepartmentScope::class)->applyToEmployeeOwned($query, $user, 'leaves.user_id');
         }
 
         // Apply filters
@@ -469,7 +484,8 @@ class LeaveQueryService
 
         // Authorization check: Only self or manager/approver can view
         if ($requestedUserId !== (string) ($user->employee_id ?? $user->getKey())
-            && ! $user->can('leaves.approve') && ! $user->can('leaves.manage')) {
+            && (! ($user->can('leaves.approve') || $user->can('leaves.manage'))
+                || ! app(DepartmentScope::class)->canActOn($user, $requestedUserId))) {
             $requestedUserId = (string) ($user->employee_id ?? $user->getKey());
         }
 

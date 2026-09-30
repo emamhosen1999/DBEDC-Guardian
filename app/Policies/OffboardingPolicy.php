@@ -4,11 +4,14 @@ namespace App\Policies;
 
 use App\Models\HRM\Offboarding;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class OffboardingPolicy
 {
     use HandlesAuthorization;
+
+    public function __construct(private readonly DepartmentScope $scope) {}
 
     /**
      * Determine whether the user can view any models.
@@ -23,23 +26,9 @@ class OffboardingPolicy
      */
     public function view(User $user, Offboarding $offboarding): bool
     {
-        // Basic permission check
-        if (! $user->can('hr.offboarding.view')) {
-            return false;
-        }
-
-        // Department managers can only see offboarding for their department members
-        if ($user->hasRole('Department Manager') && $user->department_id) {
-            return $offboarding->employee && $offboarding->employee->department_id === $user->department_id;
-        }
-
-        // Employees can only see their own offboarding
-        if ($user->hasRole('Employee')) {
-            return $offboarding->employee_id === $user->id;
-        }
-
-        // HR and higher roles can see all
-        return true;
+        // Permission + department scope; an employee may read their own record only.
+        return $user->can('hr.offboarding.view')
+            && $this->scope->canActOn($user, $offboarding->employee_id, allowSelf: true);
     }
 
     /**
@@ -55,7 +44,7 @@ class OffboardingPolicy
      */
     public function update(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.update');
+        return $user->can('hr.offboarding.update') && $this->scope->canManage($user, $offboarding->employee_id);
     }
 
     /**
@@ -63,7 +52,7 @@ class OffboardingPolicy
      */
     public function delete(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.delete');
+        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id);
     }
 
     /**
@@ -71,7 +60,7 @@ class OffboardingPolicy
      */
     public function restore(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.delete');
+        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id);
     }
 
     /**
@@ -79,6 +68,6 @@ class OffboardingPolicy
      */
     public function forceDelete(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.delete');
+        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id);
     }
 }
