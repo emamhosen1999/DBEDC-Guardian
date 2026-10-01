@@ -304,3 +304,29 @@ Full findings: [NOTIFICATIONS_AUDIT_2026-09-30.md](NOTIFICATIONS_AUDIT_2026-09-3
   - Web push click handler.
   - Generic lock-screen text and `bn` localisation.
 - **Notif-4 (with Phase 2/3 module rebuilds):** assets, payroll/payslip, F&F, onboarding, petty cash, NCR, lane closure, letters, security alerts.
+
+---
+
+## 7. Deploy #1 and production verification (2026-09-30)
+
+- **Shipped** `31f3d9a29` to erp.dhakabypass.com:
+  - Phases 0, 1a and 1b, the Department Admin role, and attendance/roster/dashboard scoping.
+  - The mobile web build under `/mobile`.
+  - A pre-deploy DB backup is at `~/backups/erp-predeploy-20260930-160608.sql.gz`.
+  - All 6 new migrations ran, with 0 errors in the log afterwards.
+- **Mahdi scenario verified live.** Mahadi Hasan, employee 1537, Department Admin with home department Inspection (id 30), no scope grants:
+  - He sees only himself.
+  - Another department's employee returns 404, and writing to another department's user returns 403.
+  - Excluded modules return 403.
+  - The nav matches the spec exactly, and the mobile `/auth/me` response is correct.
+  - Test device registrations were removed afterwards.
+
+### New findings from production (add to the plan)
+- **P-1 Scheduler cron was lost after Sept 19.** Only the camera streaming line survived. **Fixed:** the ERP and `public_html` lines were restored at the old 5-minute cadence. Move the ERP line to every minute once the 22:17 `attendance:reminders` bug (Notif F-7) is fixed. At a 5-minute cadence, :17 never fires.
+- **P-2 Stray scripts in the server app root.** `test_user_model.php`, `test_roles_res.php`, `test_leave_routes.php`, `test_inertia_user.php`, `verify_opt2.php`, `LeaveController.php` and `unresolved_errors.json` sit there. Confirm whether they're web-reachable, then remove them. This needs the owner's decision.
+- **P-3 18 employees have no `date_of_joining`**, so they stay "probationary". HR needs to fix the data. This feeds the probation dashboard and lifecycle metrics.
+- **P-4 New users get their PIN on every terminal.** `UserManagementService::createUser` → `queueBiometricSync` falls back to **all** terminals when the user has no device mapping. Extend the M5 fix, which so far covers onboarding only.
+- **P-5 The GitHub mirror is behind production.** Deploys push straight to the server; push `main` to GitHub after each deploy.
+- **P-6 The mobile web was also uploaded by FTP.** `deploy-web.ps1` uploads to `/mobile`, bypassing git, and those untracked files blocked this deploy. Ship `/mobile` only through the tracked `mobile/` folder.
+- **P-7 OTA "v3.0.0 v9" is pending.** Publishing must use the CRLF fingerprint procedure; see `production-deploy` memory and the deploy notes.
+- **P-8 No forced password change at first login.** Add `must_change_password`, as industry standard for admin-set or shared passwords, and set it for Mahdi.

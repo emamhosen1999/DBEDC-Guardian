@@ -94,3 +94,6 @@ prod-roster-*.png
 test-results/
 tests/playwright/report/
 tests/playwright/.auth-state.json
+
+# Mobile APKs are release artifacts, hosted on the server (too large for git/GitHub)
+/public/apk/*.apk
