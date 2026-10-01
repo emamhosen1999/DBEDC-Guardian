@@ -147,8 +147,9 @@ return [
         Features::registration(),
         Features::resetPasswords(),
         // Features::emailVerification(),
-        Features::updateProfileInformation(),
-        Features::updatePasswords(),
+        // updateProfileInformation / updatePasswords stay OFF: this app has its own profile and password flows
+        // (ProfileController, AccountPasswordController) and Fortify's actions are not bound, so the stock
+        // PUT user/profile-information and PUT user/password routes could only ever answer 500.
         Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,

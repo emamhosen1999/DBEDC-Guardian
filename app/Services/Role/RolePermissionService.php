@@ -48,6 +48,8 @@ class RolePermissionService
             'name' => 'Human Resource Management',
             'permissions' => [
                 'employees.view', 'employees.create', 'employees.update', 'employees.delete', 'employees.import', 'employees.export',
+                'employees.placement.update', 'employees.attendance-config.update', 'employees.compensation.view', 'employees.compensation.update',
+                'employees.password.reset', 'employees.devices.manage', 'employees.access.manage', 'employees.restore',
                 'departments.view', 'departments.create', 'departments.update', 'departments.delete',
                 'designations.view', 'designations.create', 'designations.update', 'designations.delete',
                 'attendance.view', 'attendance.create', 'attendance.update', 'attendance.delete', 'attendance.import', 'attendance.export',

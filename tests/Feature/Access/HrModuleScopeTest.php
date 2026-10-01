@@ -257,8 +257,8 @@ class HrModuleScopeTest extends TestCase
         $expect = [
             'onboarding_store' => ['da' => [201, 403, 403], 'emp' => [403, 403, 403], 'hr' => [201, 201, 403]],
             'offboarding_store' => ['da' => [201, 403, 403], 'emp' => [403, 403, 403], 'hr' => [201, 201, 403]],
-            'onboarding_show' => ['da' => [200, 403, 200], 'emp' => [403, 403, 200], 'hr' => [200, 200, 200]],
-            'offboarding_show' => ['da' => [200, 403, 200], 'emp' => [403, 403, 200], 'hr' => [200, 200, 200]],
+            'onboarding_show' => ['da' => [200, 404, 200], 'emp' => [404, 404, 200], 'hr' => [200, 200, 200]],
+            'offboarding_show' => ['da' => [200, 404, 200], 'emp' => [404, 404, 200], 'hr' => [200, 200, 200]],
             'offboarding_update' => ['da' => [200, 403, 403], 'emp' => [403, 403, 403], 'hr' => [200, 200, 403]],
             'offboarding_destroy' => ['da' => [200, 403, 403], 'emp' => [403, 403, 403], 'hr' => [200, 200, 403]],
             'onboarding_destroy' => ['da' => [200, 403, 403], 'emp' => [403, 403, 403], 'hr' => [200, 200, 403]],
@@ -266,7 +266,7 @@ class HrModuleScopeTest extends TestCase
             'assets_by_employee' => ['da' => [200, 403, 200], 'emp' => [403, 403, 200], 'hr' => [200, 200, 200]],
             'payslip_show' => ['da' => [200, 403, 200], 'emp' => [403, 403, 200], 'hr' => [200, 200, 200]],
             'settlement_calculate' => ['da' => [200, 403, 403], 'emp' => [403, 403, 403], 'hr' => [200, 200, 403]],
-            'certificate' => ['da' => [200, 403, 200], 'emp' => [403, 403, 200], 'hr' => [200, 200, 200]],
+            'certificate' => ['da' => [200, 404, 200], 'emp' => [404, 404, 200], 'hr' => [200, 200, 200]],
         ];
         foreach ($expect as $endpoint => $byActor) {
             foreach ($byActor as $actor => $statuses) {

@@ -19,6 +19,8 @@ import QueryState from '@/Components/Common/QueryState';
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
 import PageToolbar from '@/Components/PageToolbar';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
+import { useDepartmentScope } from '@/Hooks/useDepartmentScope';
 
 import EmployeeTable from '../Tables/EmployeeTable.jsx';
 import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
@@ -78,11 +80,11 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
 };
 
 const EmployeesTab = ({ isActive }) => {
-    const { auth, departments, designations, attendanceTypes, roles, workLocations } = usePage().props;
+    const { auth, departments, designations, attendanceTypes, roles, workLocations, biometricDevices } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 768px)');
     
-    const canCreate = auth?.permissions?.includes('users.create') || false;
+    const canCreate = Boolean(auth?.isSuperAdmin || auth?.permissions?.includes('employees.create'));
 
     /* ── dialog state ── */
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -102,16 +104,15 @@ const EmployeesTab = ({ isActive }) => {
          change updates the URL client-side without a server round trip.
          This tab shares the URL with the page-level `?tab=`; each hook leaves
          the other's params alone. ── */
-    const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
-    const userDeptId = auth?.user?.department_id;
-    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
+    // The server already confines the list to the actor's departments; the scope only decides
+    // what the department filter offers (full list / limited list / a read-only badge).
+    const deptScope = useDepartmentScope(departments);
 
     const f = useQueryFilters({
         mode: 'client',
         defaults: {
             search: '',
-            // A department manager's list is scoped to their department by default.
-            department: isNonGlobalManager ? String(userDeptId) : 'all',
+            department: 'all',
             designation: 'all',
             attendanceType: 'all',
             role: 'all',
@@ -194,10 +195,14 @@ const EmployeesTab = ({ isActive }) => {
         refetch();
     }, [refetch, refetchStats]);
 
+    // A single-department actor has no department filter to pick from: his one department IS the
+    // chosen department, so the designation filter below works for him as well.
+    const effectiveDepartment = deptScope.isSingle ? String(deptScope.single.id) : filters.department;
+
     const filteredDesignations = useMemo(() => {
-        if (filters.department === 'all') return designations;
-        return designations?.filter(d => d.department_id === parseInt(filters.department));
-    }, [designations, filters.department]);
+        if (effectiveDepartment === 'all') return designations;
+        return designations?.filter(d => String(d.department_id) === String(effectiveDepartment));
+    }, [designations, effectiveDepartment]);
 
     const totalPages = Math.ceil(pagination.total / pagination.perPage);
     const startRow = ((pagination.currentPage - 1) * pagination.perPage) + 1;
@@ -267,22 +272,11 @@ const EmployeesTab = ({ isActive }) => {
                         mb="0"
                     >
                         <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '6' }} gap="4" align="end">
-                            {!isNonGlobalManager && (
-                                <Box>
-                                    <Text size="2" color="gray" mb="1" as="div">Department</Text>
-                                    <Select.Root size="2" value={filters.department} onValueChange={handleDeptChange}>
-                                        <Select.Trigger style={{ width: '100%' }} placeholder="All Departments" />
-                                        <Select.Content>
-                                            <Select.Item value="all">All Departments</Select.Item>
-                                            {departments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-                            )}
+                            <DepartmentFilter label="Department" value={filters.department} onChange={handleDeptChange} departments={departments} />
                             <Box>
                                 <Text size="2" color="gray" mb="1" as="div">Designation</Text>
-                                <Select.Root size="2" value={filters.designation} onValueChange={v => setFilter('designation', v)} disabled={filters.department === 'all'}>
-                                    <Select.Trigger style={{ width: '100%' }} placeholder={filters.department === 'all' ? 'Select Department First' : 'All Designations'} />
+                                <Select.Root size="2" value={filters.designation} onValueChange={v => setFilter('designation', v)} disabled={effectiveDepartment === 'all'}>
+                                    <Select.Trigger style={{ width: '100%' }} placeholder={effectiveDepartment === 'all' ? 'Select Department First' : 'All Designations'} />
                                     <Select.Content>
                                         <Select.Item value="all">All Designations</Select.Item>
                                         {filteredDesignations?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>)}
@@ -375,6 +369,7 @@ const EmployeesTab = ({ isActive }) => {
                     designations={designations}
                     attendanceTypes={attendanceTypes}
                     workLocations={workLocations}
+                    biometricDevices={biometricDevices}
                     allManagers={allManagers}
                     isMobile={isMobile}
                     isTablet={isTablet}
@@ -396,6 +391,9 @@ const EmployeesTab = ({ isActive }) => {
                     departments={departments}
                     designations={designations}
                     roles={roles}
+                    workLocations={workLocations}
+                    attendanceTypes={attendanceTypes}
+                    biometricDevices={biometricDevices}
                     allUsers={allManagers}
                     setUsers={null}
                     onSuccess={() => {

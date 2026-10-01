@@ -10,6 +10,7 @@ use App\Models\HRM\Shift;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\ShiftTemplateScope;
 use App\Services\Attendance\CoverageService;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
@@ -301,6 +302,18 @@ class RosterController extends Controller
         $user = $request->user();
         if (! $this->scope->isAttendanceAdmin($user) && ! $this->scope->canActOn($user, (string) $data['user_id'], allowSelf: true)) {
             return response()->json(['error' => 'You can only update roster cells for your own department.'], 403);
+        }
+
+        // A non-company-wide scheduler rosters only the shifts he can see: company-wide ones and those
+        // of the departments he administers — never another department's template.
+        if (! $this->scope->isAttendanceAdmin($user)) {
+            $templates = app(ShiftTemplateScope::class);
+            $requestedShiftIds = collect([$data['shift_id'] ?? null])->merge($data['shift_ids'] ?? [])->filter()->unique();
+            foreach ($requestedShiftIds as $requestedShiftId) {
+                if (! $templates->canAssign($user, Shift::findOrFail($requestedShiftId))) {
+                    return response()->json(['error' => 'You can only roster shifts that are company-wide or belong to your own departments.'], 403);
+                }
+            }
         }
 
         // Multiple rows may already exist for this user+date (double-rostered

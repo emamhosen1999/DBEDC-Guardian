@@ -8,6 +8,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
+use App\Services\Access\DepartmentScope;
 use App\Services\Attendance\RosterOverlayService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -66,13 +67,27 @@ class RosterController extends Controller
         ));
     }
 
-    public function shifts(): JsonResponse
+    public function shifts(Request $request): JsonResponse
     {
+        $actor = $request->user();
+        $columns = ['id', 'code', 'name', 'color', 'type', 'start_time', 'end_time', 'crosses_midnight'];
+        $query = fn () => Shift::query()->orderBy('start_time')->orderBy('name');
+
+        // The catalogue the actor may see (company-wide + their own departments' shifts) PLUS any shift
+        // their in-scope people are actually rostered on, so the roster still renders its names. Another
+        // department's templates stay out.
+        $scope = app(DepartmentScope::class);
+        $managed = $scope->managedDepartmentIds($actor);
+        $visible = $scope->isAttendanceAdmin($actor)
+            ? $query()->get($columns)
+            : $query()->where(fn ($q) => $q->whereNull('department_id')->orWhereIn('department_id', $managed))->get($columns);
+        $ids = $scope->visibleEmployeeIds($actor);
+        $inUse = $ids === null
+            ? collect()
+            : $query()->whereIn('id', RosterDay::query()->whereIn('user_id', array_merge($ids, [(string) $actor->getKey()]))->whereNotNull('shift_id')->select('shift_id'))->get($columns);
+
         return $this->successResponse([
-            'shifts' => Shift::query()
-                ->orderBy('start_time')
-                ->orderBy('name')
-                ->get(['id', 'code', 'name', 'color', 'type', 'start_time', 'end_time', 'crosses_midnight']),
+            'shifts' => $visible->concat($inUse)->unique('id')->sortBy([['start_time', 'asc'], ['name', 'asc']])->values(),
         ]);
     }
 

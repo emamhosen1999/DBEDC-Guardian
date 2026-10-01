@@ -6,7 +6,32 @@ import { showToast } from '@/utils/toastUtils';
 
 const DeleteDesignationForm = ({ open, onClose, onSuccess, designation }) => {
     const deleteDesignation = useDesignationsQuery.useDeleteDesignation();
-    const isMutating = deleteDesignation.isPending;
+    const updateDesignation = useDesignationsQuery.useUpdateDesignation();
+    const isMutating = deleteDesignation.isPending || updateDesignation.isPending;
+
+    // A designation employees hold cannot be deleted: deactivating it keeps their records intact and
+    // stops it being assigned to anyone new.
+    const handleDeactivate = async () => {
+        if (!designation) return;
+
+        try {
+            await updateDesignation.mutateAsync({
+                id: designation.id,
+                data: {
+                    title: designation.title,
+                    department_id: designation.department_id,
+                    hierarchy_level: designation.hierarchy_level,
+                    parent_id: designation.parent_id,
+                    is_active: false,
+                },
+            });
+            showToast.success('Designation deactivated');
+            if (onSuccess) onSuccess({ ...designation, is_active: false });
+            onClose();
+        } catch (error) {
+            showToast.error(error.response?.data?.message || 'Could not deactivate the designation');
+        }
+    };
 
     const handleDelete = async () => {
         if (!designation) return;
@@ -18,7 +43,7 @@ const DeleteDesignationForm = ({ open, onClose, onSuccess, designation }) => {
             onClose();
         } catch (error) {
             if (error.response?.status === 400 || error.response?.status === 422) {
-                showToast.error(error.response?.data?.error || 'Cannot delete designation with assigned employees');
+                showToast.error(error.response?.data?.message || error.response?.data?.error || 'Cannot delete designation with assigned employees');
             } else {
                 showToast.error('An error occurred while deleting the designation');
             }
@@ -44,8 +69,8 @@ const DeleteDesignationForm = ({ open, onClose, onSuccess, designation }) => {
                         <Callout.Root color="red" role="alert">
                             <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
                             <Callout.Text>
-                                This designation has <strong>{designation.employee_count}</strong> employees assigned to it. 
-                                You cannot delete a designation with active employees. Please reassign them first.
+                                This designation has <strong>{designation.employee_count}</strong> employees assigned to it.
+                                It cannot be deleted while employees hold it: reassign them, or deactivate it instead.
                             </Callout.Text>
                         </Callout.Root>
                     )}
@@ -55,6 +80,11 @@ const DeleteDesignationForm = ({ open, onClose, onSuccess, designation }) => {
                     <Button variant="soft" color="gray" onClick={onClose} disabled={isMutating}>
                         Cancel
                     </Button>
+                    {hasEmployees && designation.is_active && (
+                        <Button color="amber" variant="soft" onClick={handleDeactivate} disabled={isMutating}>
+                            Deactivate instead
+                        </Button>
+                    )}
                     <Button color="red" onClick={handleDelete} disabled={isMutating || hasEmployees}>
                         {isMutating ? <Spinner size="1" /> : <><TrashIcon /> Delete Designation</>}
                     </Button>

@@ -18,6 +18,7 @@ import { useAttendanceStore } from '@/store/attendanceStore';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import MonthlySidebar from './Components/MonthlySidebar';
 import TablePagination from '@/Components/TablePagination.jsx';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 /* ── status map ───────────────────────────────────────────── */
 const STATUS_MAP = {
@@ -403,13 +404,6 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
     // Zustand store for shared state
     const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
 
-    const isGlobalUser = auth.roles?.includes('Super Administrator') || auth.roles?.includes('Administrator') || auth.roles?.includes('HR Manager');
-    const userDeptId = auth.user?.department_id;
-    // Department-scoped managers (Department Manager role, or anyone holding department.admin) who
-    // administer a single department have it pinned; the server scopes every request regardless.
-    const isNonGlobalManager = !isGlobalUser && userDeptId !== null
-        && (auth.roles?.includes('Department Manager') || auth.permissions?.includes('department.admin'))
-        && departments.length <= 1;
 
     /* Department and page live in the URL under an `m_` prefix (every
        Attendance tab stays mounted). The employee search is shared with the
@@ -419,7 +413,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
         pageKey: 'm_page',
         debounceKeys: [],
         defaults: {
-            m_dept: isNonGlobalManager ? String(userDeptId) : 'all',
+            m_dept: 'all',
             m_page: 1,
             m_per: 20,
         },
@@ -538,21 +532,15 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
                         </TextField.Root>
                     )}
 
-                    {isAdminView && !isNonGlobalManager && departments?.length > 0 && (
-                        <Select.Root
+                    {isAdminView && (
+                        <DepartmentFilter
+                            attendance
                             value={selectedDepartmentId || 'all'}
-                            onValueChange={val => setSelectedDepartmentId(val)}
-                        >
-                            <Select.Trigger size="2" style={{ minWidth: 150 }} placeholder="All Departments" />
-                            <Select.Content>
-                                <Select.Item value="all">All Departments</Select.Item>
-                                {departments.map(dept => (
-                                    <Select.Item key={dept.id} value={String(dept.id)}>
-                                        {dept.name}
-                                    </Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
+                            onChange={setSelectedDepartmentId}
+                            departments={departments}
+                            width="auto"
+                            minWidth="150px"
+                        />
                     )}
 
 

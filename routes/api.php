@@ -19,15 +19,17 @@ use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
 use App\Http\Controllers\Api\VersionController;
 use App\Http\Controllers\CameraMonitoringController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\OmLookupController;
 use App\Http\Controllers\OmRenovationController;
+use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ApiDeviceAuthMiddleware;
+use App\Http\Middleware\EnforcePasswordChange;
 use App\Http\Middleware\SlideTokenExpiration;
+use App\Models\ClientErrorLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -83,7 +85,7 @@ Route::post('/log-error', function (Request $request) {
         ]);
 
         try {
-            \App\Models\ClientErrorLog::record([
+            ClientErrorLog::record([
                 'source' => 'web',
                 'platform' => 'web',
                 'error_type' => 'FrontendCrash',
@@ -97,7 +99,8 @@ Route::post('/log-error', function (Request $request) {
                     'user_agent' => $validated['user_agent'] ?? null,
                 ],
             ], $request->user()?->employee_id ?? $request->user()?->id);
-        } catch (\Throwable) {}
+        } catch (Throwable) {
+        }
 
         if (Schema::hasTable('error_logs')) {
             DB::table('error_logs')->insert([
@@ -179,20 +182,21 @@ Route::prefix('locale')->middleware('throttle:api')->group(function () {
 // ============================================================================
 // RBAC API Routes - Role and Permission Management
 // ============================================================================
+// Every route names its permission (deny by default): the controllers check again, this is the front door.
 Route::middleware(['web', 'auth', 'throttle:api'])->prefix('roles')->group(function () {
     // Role CRUD operations
-    Route::get('/', [RoleController::class, 'apiIndex'])->name('api.roles.index');
-    Route::post('/', [RoleController::class, 'storeRole'])->name('api.roles.store');
-    Route::get('/{id}', [RoleController::class, 'apiShow'])->name('api.roles.show');
-    Route::put('/{id}', [RoleController::class, 'updateRole'])->name('api.roles.update');
-    Route::delete('/{id}', [RoleController::class, 'deleteRole'])->name('api.roles.destroy');
+    Route::get('/', [RoleController::class, 'apiIndex'])->middleware('permission:roles.view')->name('api.roles.index');
+    Route::post('/', [RoleController::class, 'storeRole'])->middleware('permission:roles.create')->name('api.roles.store');
+    Route::get('/{id}', [RoleController::class, 'apiShow'])->middleware('permission:roles.view')->name('api.roles.show');
+    Route::put('/{id}', [RoleController::class, 'updateRole'])->middleware('permission:roles.update')->name('api.roles.update');
+    Route::delete('/{id}', [RoleController::class, 'deleteRole'])->middleware('permission:roles.delete')->name('api.roles.destroy');
 
     // Role-Permission assignment
-    Route::patch('/{id}/permissions', [RoleController::class, 'batchUpdatePermissions'])->name('api.roles.permissions.batch');
-    Route::post('/{id}/permissions/sync', [RoleController::class, 'syncRolePermissions'])->name('api.roles.permissions.sync');
+    Route::patch('/{id}/permissions', [RoleController::class, 'batchUpdatePermissions'])->middleware('permission:roles.update|permissions.assign')->name('api.roles.permissions.batch');
+    Route::post('/{id}/permissions/sync', [RoleController::class, 'syncRolePermissions'])->middleware('permission:roles.update|permissions.assign')->name('api.roles.permissions.sync');
 });
 
-Route::middleware(['web', 'auth', 'throttle:api'])->prefix('permissions')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:api', 'permission:roles.view|roles.update|permissions.assign'])->prefix('permissions')->group(function () {
     // Permission CRUD operations
     Route::get('/', [PermissionController::class, 'index'])->name('api.permissions.index');
     Route::post('/', [PermissionController::class, 'store'])->name('api.permissions.store');
@@ -204,7 +208,9 @@ Route::middleware(['web', 'auth', 'throttle:api'])->prefix('permissions')->group
     Route::get('/grouped/modules', [PermissionController::class, 'groupedByModule'])->name('api.permissions.grouped');
 });
 
-Route::middleware(['web', 'auth', 'throttle:api'])->prefix('users')->group(function () {
+// Roles and direct permissions of an employee are access management: employees.access.manage
+// (held by company-wide actors only), then UserPolicy / the role hierarchy on the target.
+Route::middleware(['web', 'auth', 'throttle:api', 'permission:employees.access.manage'])->prefix('users')->group(function () {
     // User-Role assignment
     Route::get('/{id}/roles', [UserController::class, 'getUserRoles'])->name('api.users.roles.index');
     Route::post('/{id}/roles', [UserController::class, 'updateUserRole'])->name('api.users.roles.sync');
@@ -235,7 +241,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         ->name('api.v1.client-errors.store');
 });
 
-Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, EnforcePasswordChange::class, 'throttle:api'])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
     Route::post('/heartbeat', HeartbeatController::class)->middleware('throttle:30,1')->name('api.v1.heartbeat');
     // Runtime remote config: server-controlled flags the app reads after login

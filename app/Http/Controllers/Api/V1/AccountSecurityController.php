@@ -66,6 +66,7 @@ class AccountSecurityController extends Controller
 
         $user->forceFill([
             'password' => $validated['new_password'],
+            'must_change_password' => false,
         ])->save();
 
         return $this->successResponse(null, 'Password changed successfully.');

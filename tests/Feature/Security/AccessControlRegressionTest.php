@@ -51,7 +51,7 @@ class AccessControlRegressionTest extends TestCase
 
         $this->actingAs($actor)
             ->get("/profile/{$target->employee_id}")
-            ->assertForbidden();
+            ->assertNotFound(); // someone else's profile outside the actor's reach reads like one that does not exist
     }
 
     public function test_user_directory_permission_allows_viewing_another_employee_profile(): void

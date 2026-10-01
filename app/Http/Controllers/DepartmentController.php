@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\HRM\Department;
 use App\Models\User;
-use App\Services\Access\DepartmentScope;
 use App\Traits\HandlesApiExceptions;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -255,18 +254,14 @@ class DepartmentController extends Controller
 
             $user = User::findOrFail($id);
 
-            // A non-global actor may only move employees they manage, and only
-            // between departments they administer (fail closed otherwise).
-            $scope = app(DepartmentScope::class);
-            $authUser = $request->user();
-            if (! $scope->isGlobal($authUser)) {
-                $managed = $scope->managedDepartmentIds($authUser);
-                if (! $scope->canManage($authUser, $user)
-                    || ! in_array((int) $user->department_id, $managed, true)
-                    || ! in_array((int) $request->input('department'), $managed, true)) {
-                    abort(403, 'You can only move employees between departments you manage.');
-                }
-            }
+            // UserPolicy::transfer — employees.update AND scope over the employee AND, for a non-global
+            // actor, only employees in a department he administers, only into another department he
+            // administers (fail closed otherwise); never one's own department.
+            abort_unless(
+                $request->user()->can('transfer', [$user, (int) $request->input('department')]),
+                403,
+                'You can only move employees between departments you manage.'
+            );
 
             // Get the new department ID and verify it exists
             $newDepartmentId = $request->input('department');

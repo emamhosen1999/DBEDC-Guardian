@@ -71,6 +71,9 @@ class AssignUserRoles extends Command
                 $this->info("✅ Super Administrator role assigned to: {$user->name} (ID: {$user->id}, Email: {$user->email})");
             } else {
                 $user->assignRole('Employee');
+                if (Role::where('name', 'Daily Works Contributor')->exists()) {
+                    $user->assignRole('Daily Works Contributor'); // the field-reporting half of the old Employee role
+                }
                 $employeeCount++;
             }
         }

@@ -187,8 +187,8 @@ class DeviceSessionController extends Controller
             abort(404, 'The user for this device no longer exists.');
         }
 
-        // `users.update` is also held by department-scoped operators: the device's OWNER must
-        // be inside the actor's DepartmentScope and outranked by them (self always passes).
+        // `employees.devices.manage` is also held by department-scoped operators: the device's OWNER
+        // must be inside the actor's DepartmentScope and outranked by them (self always passes).
         abort_unless(
             app(DepartmentScope::class)->canManage($request->user(), $user, allowSelf: true),
             403,

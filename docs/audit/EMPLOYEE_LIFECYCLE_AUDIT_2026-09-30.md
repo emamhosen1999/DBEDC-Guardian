@@ -330,3 +330,9 @@ Full findings: [NOTIFICATIONS_AUDIT_2026-09-30.md](NOTIFICATIONS_AUDIT_2026-09-3
 - **P-6 The mobile web was also uploaded by FTP.** `deploy-web.ps1` uploads to `/mobile`, bypassing git, and those untracked files blocked this deploy. Ship `/mobile` only through the tracked `mobile/` folder.
 - **P-7 OTA "v3.0.0 v9" is pending.** Publishing must use the CRLF fingerprint procedure; see `production-deploy` memory and the deploy notes.
 - **P-8 No forced password change at first login.** Add `must_change_password`, as industry standard for admin-set or shared passwords, and set it for Mahdi.
+- **P-9 (High) 175 of 301 production tables use MyISAM.** That's no transactions, no foreign keys, and table-level locks. `DB::transaction` and FK constraints silently don't protect those tables. **Fix:** a maintenance-window migration (`ALTER TABLE … ENGINE=InnoDB`) after a backup, starting with the HR, finance and attendance tables. Check for 1000-byte index limits; InnoDB with DYNAMIC rows allows 3072. The local replica (2026-10-01) is already all InnoDB.
+- **P-10 (High) 3,536 jobs are stuck in the production `default` queue (oldest 2025-11-25), plus 1 `biometric` job.** No worker processes them. **Fix:**
+  1. Triage by job class.
+  2. Discard stale notification jobs; don't replay months-old pushes or emails.
+  3. Replay only idempotent, still-relevant work.
+  4. Run a scheduled `queue:work --stop-when-empty` cron for the queues actually used (see Notif F-1).

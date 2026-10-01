@@ -9,6 +9,7 @@ use App\Http\Controllers\Aeon\AeonController;
 use App\Http\Controllers\Aeon\AeonPageController;
 use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\Auth\AccountPasswordController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\CameraMonitoringController;
 use App\Http\Controllers\DailyWorkController;
@@ -338,7 +339,7 @@ Route::middleware($middlewareStack)->group(function () {
         ->name('holidays-delete');
 
     // Profile reads are owner-scoped unless the actor has user-directory access.
-    Route::middleware(['permission:profile.own.view|users.view'])->group(function () {
+    Route::middleware(['permission:profile.own.view|employees.view|users.view'])->group(function () {
         Route::get('/profile/{user}', [ProfileController::class, 'index'])->name('profile');
         Route::get('/profile/{user}/stats', [ProfileController::class, 'stats'])->name('profile.stats');
         Route::get('/profile/{user}/export', [ProfileController::class, 'export'])->name('profile.export');
@@ -346,7 +347,7 @@ Route::middleware($middlewareStack)->group(function () {
     });
 
     // Profile writes are independently owner/administrator authorized in each controller.
-    Route::middleware(['permission:profile.own.update|users.update'])->group(function () {
+    Route::middleware(['permission:profile.own.update|employees.update'])->group(function () {
         Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile/delete', [ProfileController::class, 'destroy'])->name('profile.delete');
 
@@ -383,7 +384,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/leaves', function (Request $request) {
             return Inertia::render('LeavesUnified', [
                 'title' => 'Leave Management',
-                'allUsers' => User::with('department')->get(),
+                // Only the people the actor may see, and only what a picker needs (never the whole user record).
+                'allUsers' => app(DepartmentScope::class)
+                    ->applyToUsers(User::query()->select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('department:id,name'), $request->user())
+                    ->get(),
                 'summaryData' => app(LeaveController::class)->getSummaryData($request),
                 'leaveTypes' => LeaveSetting::all(),
             ]);
@@ -457,9 +461,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:departments.view'])->get('/departments/{id}', [DepartmentController::class, 'show'])->name('departments.show');
     Route::middleware(['permission:departments.update'])->put('/departments/{id}', [DepartmentController::class, 'update'])->name('departments.update');
     Route::middleware(['permission:departments.delete'])->delete('/departments/{id}', [DepartmentController::class, 'destroy'])->name('departments.delete');
-    Route::middleware(['permission:departments.update'])->put('/users/{id}/department', [DepartmentController::class, 'updateUserDepartment'])->name('users.update-department');
-    Route::middleware(['permission:designations.update'])->post('/users/{id}/designation', [DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
-    Route::middleware(['permission:employees.update'])->put('/users/{id}/work-location', [UserController::class, 'updateWorkLocation'])->name('users.updateWorkLocation');
+    // Change one's own password (also where a forced change lands: EnforcePasswordChange).
+    Route::get('/account/password', [AccountPasswordController::class, 'edit'])->name('account.password.edit');
+    Route::put('/account/password', [AccountPasswordController::class, 'update'])->name('account.password.update');
+
+    // Placing an employee is an EMPLOYEE action, not company configuration: moving one between
+    // departments is employees.update (a non-global actor only between departments he manages — the
+    // policy's `transfer`), designation / reports-to / work location are employees.placement.update.
+    Route::middleware(['permission:employees.update'])->put('/users/{id}/department', [DepartmentController::class, 'updateUserDepartment'])->name('users.update-department');
+    Route::middleware(['permission:employees.placement.update'])->post('/users/{id}/designation', [DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
+    Route::middleware(['permission:employees.placement.update'])->put('/users/{id}/work-location', [UserController::class, 'updateWorkLocation'])->name('users.updateWorkLocation');
+
+    // Designation Management. A company-wide actor manages every designation; a department admin only
+    // those of the departments he administers (DesignationController scopes every read and write).
+    // NOTE: this block used to sit inside the Super-Administrator-only "System Monitoring" group, which
+    // made the whole Designations tab a 403 for everyone else.
+    Route::middleware(['permission:designations.view'])->group(function () {
+        // Initial page render (Inertia)
+        Route::get('/designations', [DesignationController::class, 'index'])->name('designations.index');
+        // API data fetch (JSON)
+        Route::get('/designations/json', [DesignationController::class, 'getDesignations'])->name('designations.json');
+        // Stats endpoint for frontend analytics
+        Route::get('/designations/stats', [DesignationController::class, 'stats'])->name('designations.stats');
+        // For dropdowns and API (must be before wildcard {id})
+        Route::get('/designations/list', [DesignationController::class, 'list'])->name('designations.list');
+        Route::post('/designations', [DesignationController::class, 'store'])->name('designations.store');
+        Route::get('/designations/{id}', [DesignationController::class, 'show'])->name('designations.show');
+        Route::put('/designations/{id}', [DesignationController::class, 'update'])->name('designations.update');
+        Route::delete('/designations/{id}', [DesignationController::class, 'destroy'])->name('designations.destroy');
+    });
 
     Route::middleware(['permission:jurisdiction.view'])->get('/jurisdiction', [JurisdictionController::class, 'index'])->name('jurisdiction');
 
@@ -494,28 +524,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/profiles/search', [ProfileController::class, 'search'])->name('profiles.search');
     });
 
-    Route::middleware(['permission:users.create'])->group(function () {
+    Route::middleware(['permission:employees.create'])->group(function () {
         Route::post('/users', [UserController::class, 'store'])
             ->middleware(['precognitive'])
             ->name('users.store');
-        // Legacy route for backward compatibility
-        Route::post('/users/legacy', [ProfileController::class, 'store'])->name('addUser');
+        // Legacy route for backward compatibility (no department scoping of its own: company-wide actors only)
+        Route::post('/users/legacy', [ProfileController::class, 'store'])->middleware('scope.global')->name('addUser');
     });
 
-    Route::middleware(['permission:users.update'])->group(function () {
+    // Employee administration: one named permission per action (see UserPolicy). `users.update`
+    // gates none of them any more.
+    Route::middleware(['permission:employees.update'])->group(function () {
         Route::put('/users/{id}', [UserController::class, 'update'])
             ->middleware(['precognitive'])
             ->name('users.update');
+    });
+    Route::middleware(['permission:employees.access.manage'])->group(function () {
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
-        Route::post('/users/{id}/change-password', [UserController::class, 'changePassword'])->name('users.changePassword');
-        Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
-        Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateAttendanceType'])->name('users.updateAttendanceType');
-        Route::post('/users/{id}/biometric-device', [UserController::class, 'assignBiometricDevice'])->name('users.updateBiometricDevice');
-        Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
-
-        // Bulk operations
         Route::post('/users/bulk/role', [UserController::class, 'bulkAssignRole'])->name('users.bulk.role');
     });
+    Route::post('/users/{id}/change-password', [UserController::class, 'changePassword'])
+        ->middleware('permission:employees.password.reset')
+        ->name('users.changePassword');
+    Route::post('/users/{id}/restore', [UserController::class, 'restore'])
+        ->middleware('permission:employees.restore')
+        ->name('users.restore');
+    Route::middleware(['permission:employees.attendance-config.update'])->group(function () {
+        Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateAttendanceType'])->name('users.updateAttendanceType');
+        Route::post('/users/{id}/biometric-device', [UserController::class, 'assignBiometricDevice'])->name('users.updateBiometricDevice');
+    });
+    Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])
+        ->middleware('permission:employees.placement.update')
+        ->name('users.updateReportTo');
 
     // Department scope grants (standing admin / time-boxed acting charge). The
     // controller additionally requires a global actor who outranks the grantee.
@@ -527,7 +567,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('users.department-scopes.destroy');
     });
 
-    Route::middleware(['permission:users.delete'])->group(function () {
+    Route::middleware(['permission:employees.delete'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/bulk/delete', [UserController::class, 'bulkDelete'])->name('users.bulk.delete');
         // Legacy route for backward compatibility
@@ -539,15 +579,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/my-devices', [DeviceController::class, 'index'])->name('user.devices');
     Route::delete('/my-devices/{deviceId}', [DeviceController::class, 'deactivateDevice'])->name('user.devices.deactivate');
 
-    // Admin device management
-    Route::middleware(['permission:users.view'])->group(function () {
-        Route::get('/users/{userId}/devices', [DeviceController::class, 'getUserDevices'])->name('admin.users.devices');
+    // Admin device management: device history of ONE employee needs employees.devices.manage (or the
+    // legacy directory read `users.view`); the controller confines it to the actor's scope.
+    Route::get('/users/{userId}/devices', [DeviceController::class, 'getUserDevices'])
+        ->middleware('permission:employees.devices.manage|users.view')
+        ->name('admin.users.devices');
 
-        // Fleet-wide session dashboard (every user's devices in one list)
+    // Fleet-wide session dashboard (every user's devices in one list)
+    Route::middleware(['permission:users.view'])->group(function () {
         Route::get('/admin/device-sessions', [DeviceSessionController::class, 'index'])->name('admin.device-sessions.index');
     });
 
-    Route::middleware(['permission:users.update'])->group(function () {
+    Route::middleware(['permission:employees.devices.manage'])->group(function () {
         Route::post('/users/{userId}/devices/reset', [DeviceController::class, 'resetDevices'])->name('admin.users.devices.reset');
         Route::post('/users/{userId}/devices/toggle', [DeviceController::class, 'toggleSingleDeviceLogin'])->name('admin.users.devices.toggle');
         Route::delete('/users/{userId}/devices/{deviceId}', [DeviceController::class, 'adminDeactivateDevice'])->name('admin.users.devices.deactivate');
@@ -742,8 +785,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/roster', [RosterController::class, 'index'])->name('attendance.roster.index');
     });
 
-    // Company-wide attendance CONFIGURATION: shift definitions and rotation patterns.
-    Route::middleware(['permission:attendance.settings'])->group(function () {
+    // Shift definitions and rotation patterns ("templates"). Company-wide ones are CONFIGURATION
+    // (attendance.settings); a template OWNED by a department is delegated to that department's
+    // admin (attendance.roster.manage). The controller decides per template — ShiftTemplateScope:
+    // a roster manager can create / edit / delete only the templates of the departments he
+    // administers, never a company-wide one.
+    Route::middleware(['permission:attendance.settings|attendance.roster.manage'])->group(function () {
         Route::post('/attendance/shifts', [ShiftController::class, 'store'])->name('attendance.shifts.store');
         Route::put('/attendance/shifts/{id}', [ShiftController::class, 'update'])->name('attendance.shifts.update');
         Route::delete('/attendance/shifts/{id}', [ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
@@ -799,7 +846,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:hr.onboarding.view'])->group(function () {
         Route::get('/hr/onboarding', [OnboardingController::class, 'index'])->name('hr.onboarding.index');
         Route::get('/hr/onboarding/eligible-employees', [OnboardingController::class, 'eligibleEmployees'])->name('hr.onboarding.eligible');
-        Route::get('/hr/onboarding/{id}', [OnboardingController::class, 'show'])->name('hr.onboarding.show');
+        Route::get('/hr/onboarding/{id}', [OnboardingController::class, 'show'])->whereNumber('id')->name('hr.onboarding.show');
     });
 
     Route::middleware(['permission:hr.onboarding.create'])->group(function () {
@@ -820,9 +867,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:hr.offboarding.view'])->group(function () {
         Route::get('/hr/offboarding', [OffboardingController::class, 'index'])->name('hr.offboarding.index');
         Route::get('/hr/offboarding/eligible-employees', [OffboardingController::class, 'eligibleEmployees'])->name('hr.offboarding.eligible');
-        Route::get('/hr/offboarding/{id}', [OffboardingController::class, 'show'])->name('hr.offboarding.show');
+        Route::get('/hr/offboarding/{id}', [OffboardingController::class, 'show'])->whereNumber('id')->name('hr.offboarding.show');
         Route::get('/hr/absence-cases', [OffboardingController::class, 'absenceCases'])->name('hr.absence-cases.index');
-        Route::get('/hr/absence-cases/{id}/notice/{type}', [OffboardingController::class, 'generateNotice'])->name('hr.absence-cases.notice');
+        Route::get('/hr/absence-cases/{id}/notice/{type}', [OffboardingController::class, 'generateNotice'])->whereNumber('id')->name('hr.absence-cases.notice');
     });
 
     Route::middleware(['permission:hr.offboarding.create'])->group(function () {
@@ -858,7 +905,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // behind the `hr_final_settlement` feature flag (default OFF) until rebuilt.
     Route::middleware(['permission:hr.offboarding.view'])->group(function () {
         Route::get('/hr/offboarding/{id}/settlement/calculate', [SettlementController::class, 'calculate'])->middleware('feature:hr_final_settlement')->name('hr.settlement.calculate');
-        Route::get('/hr/offboarding/{id}/certificate/{type}', [SettlementController::class, 'printCertificate'])->name('hr.settlement.certificate');
+        Route::get('/hr/offboarding/{id}/certificate/{type}', [SettlementController::class, 'printCertificate'])->whereNumber('id')->name('hr.settlement.certificate');
     });
 
     Route::middleware(['feature:hr_final_settlement'])->group(function () {
@@ -944,7 +991,7 @@ Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(funct
 });
 
 // Test route for role controller
-Route::middleware(['auth', 'verified'])->get('/admin/roles-test', [RoleController::class, 'test'])->name('admin.roles.test');
+Route::middleware(['auth', 'verified', 'permission:roles.view'])->get('/admin/roles-test', [RoleController::class, 'test'])->name('admin.roles.test');
 
 // Module Permission Registry Management Routes
 Route::middleware(['auth', 'verified', 'permission:modules.view'])->group(function () {
@@ -981,32 +1028,22 @@ Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(funct
     Route::post('/admin/errors/{errorId}/resolve', [SystemMonitoringController::class, 'resolveError'])->name('admin.errors.resolve');
     Route::get('/admin/system-report', [SystemMonitoringController::class, 'exportReport'])->name('admin.system-report');
     Route::get('/admin/optimization-report', [SystemMonitoringController::class, 'getOptimizationReport'])->name('admin.optimization-report');
-
-    // Designation Management
-    Route::middleware(['permission:designations.view'])->group(function () {
-        // Initial page render (Inertia)
-        Route::get('/designations', [DesignationController::class, 'index'])->name('designations.index');
-        // API data fetch (JSON)
-        Route::get('/designations/json', [DesignationController::class, 'getDesignations'])->name('designations.json');
-        // Stats endpoint for frontend analytics
-        Route::get('/designations/stats', [DesignationController::class, 'stats'])->name('designations.stats');
-        // For dropdowns and API (must be before wildcard {id})
-        Route::get('/designations/list', [DesignationController::class, 'list'])->name('designations.list');
-        Route::post('/designations', [DesignationController::class, 'store'])->name('designations.store');
-        Route::get('/designations/{id}', [DesignationController::class, 'show'])->name('designations.show');
-        Route::put('/designations/{id}', [DesignationController::class, 'update'])->name('designations.update');
-        Route::delete('/designations/{id}', [DesignationController::class, 'destroy'])->name('designations.destroy');
-    });
 });
 
 // API routes for dropdown data
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/api/designations/list', function () {
-        return response()->json(Designation::select('id', 'title as name')->get());
+    // Picker lists: a non-global actor receives only the departments (and their designations) they may see.
+    Route::get('/api/designations/list', function (Request $request, DepartmentScope $scope) {
+        $query = Designation::select('id', 'title as name');
+        if (! $scope->isGlobal($request->user())) {
+            $query->whereIn('department_id', $scope->visibleDepartmentIds($request->user()));
+        }
+
+        return response()->json($query->get());
     })->name('api.designations.list');
 
-    Route::get('/api/departments/list', function () {
-        return response()->json(Department::select('id', 'name')->get());
+    Route::get('/api/departments/list', function (Request $request, DepartmentScope $scope) {
+        return response()->json($scope->applyToDepartments(Department::select('id', 'name'), $request->user())->get());
     })->name('departments.list');
 
     Route::get('/api/users/managers/list', function (Request $request, DepartmentScope $scope) {
@@ -1277,8 +1314,8 @@ Route::middleware(['auth', 'verified'])->prefix('aeon')->name('aeon.')->group(fu
     Route::post('/message', [AeonController::class, 'message'])->name('message');
     Route::post('/message/stream', [AeonController::class, 'stream'])->name('message.stream');
     Route::get('/conversations', [AeonController::class, 'conversations'])->name('conversations.index');
-    Route::get('/conversations/{id}', [AeonController::class, 'show'])->name('conversations.show');
-    Route::delete('/conversations/{id}', [AeonController::class, 'destroy'])->name('conversations.destroy');
+    Route::get('/conversations/{id}', [AeonController::class, 'show'])->whereNumber('id')->name('conversations.show');
+    Route::delete('/conversations/{id}', [AeonController::class, 'destroy'])->whereNumber('id')->name('conversations.destroy');
     Route::post('/messages/{id}/feedback', [AeonController::class, 'feedback'])->name('messages.feedback');
 });
 

@@ -129,6 +129,28 @@ class DepartmentScope
     }
 
     /**
+     * Departments a NON-global actor may see and pick from: the ones they administer
+     * plus their own (so their own record still renders with its department). Global
+     * actors are unrestricted — callers branch on isGlobal() first and never call this
+     * for them.
+     *
+     * @return array<int, int>
+     */
+    public function visibleDepartmentIds(User $user): array
+    {
+        $ids = $this->managedDepartmentIds($user);
+
+        if ($user->department_id !== null) {
+            $ids[] = (int) $user->department_id;
+        }
+
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+
+        return $ids;
+    }
+
+    /**
      * Everyone below the user in the report_to tree (direct + indirect), excluding
      * the user. Active users only.
      *
@@ -211,6 +233,21 @@ class DepartmentScope
                 $scoped->orWhereIn($column, $departmentIds);
             }
         });
+    }
+
+    /**
+     * Narrow a DEPARTMENTS query to the departments the actor may see and pick from: everything for
+     * a global actor, otherwise the ones they administer plus their own (none -> no rows).
+     *
+     * @param  string  $column  the department id column to match (qualify it when joining)
+     */
+    public function applyToDepartments(Builder $query, User $actor, string $column = 'id'): Builder
+    {
+        if ($this->isGlobal($actor)) {
+            return $query;
+        }
+
+        return $query->whereIn($column, $this->visibleDepartmentIds($actor));
     }
 
     /**
@@ -329,7 +366,11 @@ class DepartmentScope
      */
     public function bestRoleLevel(User $user): ?int
     {
-        $level = $user->roles()->min('hierarchy_level');
+        // A directory page evaluates this for every row: use the roles already eager-loaded on the
+        // model (the same view of its roles Spatie's own checks use) instead of one query per row.
+        $level = $user->relationLoaded('roles')
+            ? $user->roles->min('hierarchy_level')
+            : $user->roles()->min('hierarchy_level');
 
         return $level === null ? null : (int) $level;
     }

@@ -145,6 +145,7 @@ class PasswordResetController extends Controller
         $user->update([
             'password' => Hash::make($password),
         ]);
+        $user->forceFill(['must_change_password' => false])->save(); // proof of mailbox ownership replaces an admin-set password
 
         // Clean up reset tokens for this email
         DB::table('password_reset_tokens_secure')

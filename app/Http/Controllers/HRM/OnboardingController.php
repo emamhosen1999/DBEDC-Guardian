@@ -91,7 +91,8 @@ class OnboardingController extends Controller
             'updater:employee_id,name',
         ])->findOrFail($id);
 
-        $this->authorize('view', $onboarding);
+        // Out of scope reads exactly like "no such record" (no existence oracle).
+        abort_unless(request()->user()->can('view', $onboarding), 404);
 
         return response()->json($onboarding);
     }

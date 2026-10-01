@@ -183,7 +183,10 @@ class LeaveSummaryService
 
         return [
             'users' => $users,
-            'departments' => Department::orderBy('name')->get(['id', 'name']),
+            // Only the departments the actor may see (a department admin must not receive the company's list).
+            'departments' => ($actor !== null
+                ? app(DepartmentScope::class)->applyToDepartments(Department::query(), $actor)
+                : Department::query())->orderBy('name')->get(['id', 'name']),
             'leave_types' => $leaveTypes,
             'columns' => $columns,
             'data' => $result,

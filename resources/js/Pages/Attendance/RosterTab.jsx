@@ -22,6 +22,7 @@ import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import TablePagination from '@/Components/TablePagination.jsx';
 import PageToolbar from '@/Components/PageToolbar';
 import SearchFilterBar from '@/Components/SearchFilterBar';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 export default function RosterTab({ month, onMonthChange, departments = [], isActive = true }) {
     const { employees = [], auth } = usePage().props;
@@ -34,13 +35,6 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
 
     const employeesById = useMemo(() => keyEmployeesById(employees), [employees]);
 
-    const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
-    const userDeptId = auth?.user?.department_id;
-    // Department-scoped managers (Department Manager role, or anyone holding department.admin) who
-    // administer a single department have it pinned; the server scopes every request regardless.
-    const isNonGlobalManager = !isGlobalUser && userDeptId !== null
-        && (auth?.roles?.includes('Department Manager') || auth?.permissions?.includes('department.admin'))
-        && departments.length <= 1;
 
     /* ── The roster's own filters live in the URL next to the page's tab/month,
          under an `r_` prefix because every Attendance tab stays mounted. A
@@ -52,7 +46,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         pageKey: 'r_page',
         debounceKeys: ['r_q'],
         defaults: {
-            r_dept: isNonGlobalManager ? String(userDeptId) : 'all',
+            r_dept: 'all',
             r_q: '',
             r_view: 'grid',
             r_emp: '',
@@ -336,22 +330,14 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             </TextField.Slot>
                         </TextField.Root>
 
-                        {!isNonGlobalManager && departments?.length > 0 && (
-                            <Select.Root
-                                value={selectedDepartmentId}
-                                onValueChange={setSelectedDepartmentId}
-                            >
-                                <Select.Trigger size="2" style={{ minWidth: 150 }} placeholder="All Departments" />
-                                <Select.Content>
-                                    <Select.Item value="all">All Departments</Select.Item>
-                                    {departments.map(dept => (
-                                        <Select.Item key={dept.id} value={String(dept.id)}>
-                                            {dept.name}
-                                        </Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        )}
+                        <DepartmentFilter
+                            attendance
+                            value={selectedDepartmentId}
+                            onChange={setSelectedDepartmentId}
+                            departments={departments}
+                            width="auto"
+                            minWidth="150px"
+                        />
                     </Flex>
                 }
                 extraActions={

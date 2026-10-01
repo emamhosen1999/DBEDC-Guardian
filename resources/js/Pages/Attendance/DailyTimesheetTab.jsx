@@ -27,6 +27,7 @@ import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
 import PageToolbar from '@/Components/PageToolbar';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -521,16 +522,9 @@ const DailyTimesheetTab = ({
     // Range + filter state (Log mode)
     const [toDate, setToDate] = useState(selectedDate);
     const [preset, setPreset] = useState('today');
-    const isGlobalUser = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager') || auth?.permissions?.includes('attendance.settings');
-    const userDeptId = auth?.user?.department_id;
-    // Department-scoped managers (Department Manager role, or anyone holding department.admin) who
-    // administer a single department have it pinned; the server scopes every request regardless.
-    const isNonGlobalManager = !isGlobalUser && userDeptId !== null
-        && (auth?.roles?.includes('Department Manager') || auth?.permissions?.includes('department.admin'))
-        && departments.length <= 1;
 
-    // A department manager's timesheet is scoped to their department.
-    const deptFilter = f.values.t_dept || (isNonGlobalManager ? String(userDeptId) : '');
+    // The server confines the timesheet to the actor's departments; the filter only narrows within them.
+    const deptFilter = f.values.t_dept || '';
     const setDeptFilter = (v) => f.set('t_dept', v);
     const desigFilter = f.values.t_desig;
     const setDesigFilter = (v) => f.set('t_desig', v);
@@ -932,16 +926,16 @@ const DailyTimesheetTab = ({
 
                     {/* Department + Designation: shown for admin in BOTH single-day (tabs)
                         and range (log) mode. Department drives the partition endpoint. */}
-                    {isAdminView && !isNonGlobalManager && (
-                        <Select.Root value={deptFilter || 'all'} onValueChange={v => setDeptFilter(v === 'all' ? '' : v)}>
-                            <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
-                            <Select.Content>
-                                <Select.Item value="all">All departments</Select.Item>
-                                {departments.map(d => (
-                                    <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
+                    {isAdminView && (
+                        <DepartmentFilter
+                            attendance
+                            value={deptFilter || 'all'}
+                            onChange={v => setDeptFilter(v === 'all' ? '' : v)}
+                            departments={departments}
+                            placeholder="Department"
+                            allLabel="All departments"
+                            width="150px"
+                        />
                     )}
 
                     {isAdminView && (

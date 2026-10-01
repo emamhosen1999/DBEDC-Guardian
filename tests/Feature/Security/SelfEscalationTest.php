@@ -34,16 +34,28 @@ class SelfEscalationTest extends TestCase
             Role::create(['name' => $name, 'guard_name' => 'web', 'hierarchy_level' => $level]);
         }
 
-        foreach (['users.update', 'users.view', 'users.delete', 'users.create', 'employees.view', 'employees.update', 'employees.create'] as $permission) {
+        foreach (array_merge(['users.update', 'users.view', 'users.delete', 'users.create', 'employees.view', 'employees.create', 'employees.delete'], self::EMPLOYEE_ADMIN, self::COMPENSATION) as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
     }
+
+    /** What the production migration grants every holder of the old coarse `users.update`. */
+    private const EMPLOYEE_ADMIN = [
+        'employees.update', 'employees.placement.update', 'employees.attendance-config.update',
+        'employees.password.reset', 'employees.devices.manage', 'employees.access.manage',
+    ];
+
+    /** Salary used to be gated by role NAME; the migration grants it to exactly those roles. */
+    private const COMPENSATION = ['employees.compensation.view', 'employees.compensation.update'];
 
     private function makeUser(string $role, array $attrs = []): User
     {
         $user = User::factory()->create($attrs);
         $user->assignRole($role);
-        $user->givePermissionTo('users.update');
+        $user->givePermissionTo(array_merge(['users.update'], self::EMPLOYEE_ADMIN));
+        if (in_array($role, ['Super Administrator', 'Administrator', 'HR Manager'], true)) {
+            $user->givePermissionTo(self::COMPENSATION);
+        }
 
         return $user;
     }
@@ -181,7 +193,7 @@ class SelfEscalationTest extends TestCase
         $employee = User::factory()->create();
         $employee->assignRole('Employee');
 
-        // HR Manager lacks updateRoles (Super Administrator / Administrator only).
+        // HR Manager manages roles below its own level but cannot delegate a permission it does not hold (payroll.manage).
         $this->actingAs($hr)
             ->postJson("/api/users/{$employee->employee_id}/permissions/give", ['permission' => 'payroll.manage'])
             ->assertForbidden();
@@ -190,6 +202,7 @@ class SelfEscalationTest extends TestCase
             ->assertForbidden();
 
         $admin = $this->makeUser('Administrator');
+        $admin->givePermissionTo('payroll.manage'); // an Administrator holds the permission it delegates
         $this->actingAs($admin)
             ->postJson("/api/users/{$admin->employee_id}/permissions/give", ['permission' => 'payroll.manage'])
             ->assertForbidden();

@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\CompanySetting;
+use App\Models\HRM\Department;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use App\Services\Aeon\AeonService;
 use App\Services\FeatureFlagService;
 use Illuminate\Http\Request;
@@ -72,6 +74,7 @@ class HandleInertiaRequests extends Middleware
                     'biometric_device_name' => $userWithRelations->employeeAttendanceType?->biometricDevice?->name,
                 ] : null,
                 'isAuthenticated' => (bool) $user,
+                'mustChangePassword' => (bool) ($user?->must_change_password),
                 'sessionValid' => $user && $request->session()->isStarted(),
                 'roles' => $user ? $user->roles->pluck('name')->toArray() : [],
                 // Super Administrator authority comes from a Gate::before bypass (AuthServiceProvider),
@@ -86,6 +89,11 @@ class HandleInertiaRequests extends Middleware
                         : $user->getAllPermissions()->pluck('name')->toArray())
                     : [],
                 'isSuperAdmin' => $user ? $user->hasRole('Super Administrator') : false,
+                // Which departments this actor operates on. Department pickers and filters render
+                // from this (one shared component): global -> the full list, one department ->
+                // locked to it, several -> a limited list. The server enforces the same scope on
+                // every query; this only keeps the UI from offering what would be refused.
+                'scope' => $user ? $this->scopeProps($user) : ['global' => false, 'attendance' => false, 'departments' => []],
                 'designation' => $userWithRelations?->designation?->title,
                 // Navigation is built client-side from resources/js/Props/pages.jsx (see Layouts/App.jsx).
                 // The legacy DB-driven Module Permission Registry nav is disabled: as a bare Inertia v2
@@ -140,6 +148,38 @@ class HandleInertiaRequests extends Middleware
             'fallbackLocale' => config('app.fallback_locale', 'en'),
             'supportedLocales' => SetLocale::getSupportedLocales(),
             'translations' => fn () => $this->getTranslations(),
+        ];
+    }
+
+    /**
+     * The actor's department scope for the UI: `global` actors are unrestricted (the client
+     * falls back to each page's full list), everyone else gets exactly the departments they
+     * may pick from. `attendance` marks an attendance administrator (global, or holding
+     * `attendance.settings`): company-wide on the attendance pages even when their people
+     * scope is not.
+     *
+     * @return array{global: bool, attendance: bool, departments: array<int, array{id: int, name: string}>}
+     */
+    protected function scopeProps(User $user): array
+    {
+        $scope = app(DepartmentScope::class);
+        $attendance = $scope->isAttendanceAdmin($user);
+
+        if ($scope->isGlobal($user)) {
+            return ['global' => true, 'attendance' => true, 'departments' => []];
+        }
+
+        $ids = $scope->visibleDepartmentIds($user);
+
+        return [
+            'global' => false,
+            'attendance' => $attendance,
+            'departments' => $ids === []
+                ? []
+                : Department::query()->whereIn('id', $ids)->orderBy('name')->get(['id', 'name'])
+                    ->map(fn (Department $department) => ['id' => (int) $department->id, 'name' => $department->name])
+                    ->values()
+                    ->all(),
         ];
     }
 

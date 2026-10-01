@@ -21,6 +21,7 @@ import PageToolbar from '@/Components/PageToolbar';
 import DesignationTable from '../Tables/DesignationTable.jsx';
 import DesignationForm from '../Components/DesignationForm.jsx';
 import DeleteDesignationForm from '../Components/DeleteDesignationForm.jsx';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 const DesignationsTab = ({ isActive }) => {
     const { auth, initialDesignations, departments, allDesignations, designationStats: initialStats } = usePage().props;
@@ -130,13 +131,7 @@ const DesignationsTab = ({ isActive }) => {
                         extraActions={
                             <Flex gap="2" wrap="wrap">
                                 <Box style={{ minWidth: '180px' }}>
-                                    <Select.Root value={filters.department} onValueChange={(v) => handleFilterChange('department', v)}>
-                                        <Select.Trigger style={{ width: '100%' }} />
-                                        <Select.Content>
-                                            <Select.Item value="all">All Departments</Select.Item>
-                                            {departments?.map(dept => <Select.Item key={dept.id} value={String(dept.id)}>{dept.name}</Select.Item>)}
-                                        </Select.Content>
-                                    </Select.Root>
+                                    <DepartmentFilter value={filters.department} onChange={(v) => handleFilterChange('department', v)} departments={departments} />
                                 </Box>
 
                                 <Box style={{ minWidth: '140px' }}>

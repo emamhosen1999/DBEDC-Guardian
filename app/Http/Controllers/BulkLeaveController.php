@@ -8,6 +8,7 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Holiday;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
+use App\Services\Access\DepartmentScope;
 use App\Services\Leave\BulkLeaveService;
 use App\Services\Leave\LeaveQueryService;
 use Carbon\Carbon;
@@ -130,7 +131,7 @@ class BulkLeaveController extends Controller
                                 return $dates;
                             })->toArray(),
                     ],
-                    'departments' => Department::all('id', 'name'),
+                    'departments' => app(DepartmentScope::class)->applyToDepartments(Department::query(), Auth::user())->get(['id', 'name']),
                     // Bulk-specific summary data
                     'summary' => $result['summary'],
                     'failed_dates' => $result['failed_dates'] ?? [],
@@ -402,7 +403,7 @@ class BulkLeaveController extends Controller
                             return $dates;
                         })->toArray(),
                 ],
-                'departments' => Department::all('id', 'name'),
+                'departments' => app(DepartmentScope::class)->applyToDepartments(Department::query(), Auth::user())->get(['id', 'name']),
             ];
 
             return response()->json($response, 200);

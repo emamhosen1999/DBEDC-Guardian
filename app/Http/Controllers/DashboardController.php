@@ -20,9 +20,8 @@ class DashboardController extends Controller
         }
         $user = Auth::user();
 
-        // Check if the user has ONLY the Employee role
-        $roles = $user->roles->pluck('name')->toArray();
-        if (count($roles) === 1 && $roles[0] === 'Employee') {
+        // Someone holding ONLY the base roles (Employee, optionally with Daily Works Contributor) gets the employee dashboard
+        if ($user->hasOnlyBaseRoles()) {
             return redirect()->route('employee-dashboard');
         }
 

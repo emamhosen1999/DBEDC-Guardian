@@ -18,6 +18,7 @@ import {
     TableIcon, BarChartIcon 
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 /* ── Responsive Stat Pill (Aligned with AdminLeavesPanel) ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
@@ -209,15 +210,13 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                         </Select.Content>
                     </Select.Root>
 
-                    <Select.Root size="2" value={deptId || 'all'} onValueChange={v => setDeptId(v === 'all' ? '' : v)}>
-                        <Select.Trigger style={{ minWidth: isMobile ? '100%' : '180px' }} placeholder="All Departments" />
-                        <Select.Content>
-                            <Select.Item value="all">All Departments</Select.Item>
-                            {departments.map(d => (
-                                <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                            ))}
-                        </Select.Content>
-                    </Select.Root>
+                    <DepartmentFilter
+                        value={deptId || 'all'}
+                        onChange={v => setDeptId(v === 'all' ? '' : v)}
+                        departments={departments}
+                        width="auto"
+                        minWidth={isMobile ? '100%' : '180px'}
+                    />
                 </Flex>
             </Flex>
 

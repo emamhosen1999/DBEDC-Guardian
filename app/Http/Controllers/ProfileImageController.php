@@ -233,11 +233,7 @@ class ProfileImageController extends Controller
             return false;
         }
 
-        // User can update their own profile
-        if ($currentUser->id === $user->id) {
-            return $currentUser->can('profile.own.update');
-        }
-
-        return $currentUser->can('users.update');
+        // Own photo with profile.own.update; anyone else's with employees.update and scope over them.
+        return $currentUser->can('updateProfile', $user);
     }
 }

@@ -6,10 +6,17 @@ use App\Models\User;
 use App\Services\Access\DepartmentScope;
 
 /**
- * Department scoping is delegated to App\Services\Access\DepartmentScope: global
- * roles reach everyone; anyone else only the departments they administer plus
- * their reporting sub-tree (fail closed — a null department grants nothing).
- * Writes additionally require a non-global actor to outrank the target.
+ * Employee administration, one ability per action and one named permission per ability
+ * (employees.update, employees.placement.update, employees.attendance-config.update,
+ * employees.compensation.view|update, employees.password.reset, employees.devices.manage,
+ * employees.access.manage, employees.delete, employees.restore). The coarse `users.update` /
+ * `users.delete` / `users.create` no longer gate any of them.
+ *
+ * Department scoping is delegated to App\Services\Access\DepartmentScope: global roles reach
+ * everyone; anyone else only the departments they administer plus their reporting sub-tree
+ * (fail closed — a null department grants nothing). Writes additionally require a non-global
+ * actor to outrank the target (canManage), and privileged changes — roles, salary, department,
+ * reporting line, password reset, deactivation — are never allowed on oneself.
  */
 class UserPolicy
 {
@@ -18,12 +25,23 @@ class UserPolicy
         return app(DepartmentScope::class);
     }
 
+    /** checkPermissionTo (not hasPermissionTo): a permission that does not exist is simply "no". */
+    private function holds(User $user, string $permission): bool
+    {
+        return $user->checkPermissionTo($permission);
+    }
+
+    private function isSelf(User $user, User $model): bool
+    {
+        return (string) $user->getKey() === (string) $model->getKey();
+    }
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('users.view') || $user->hasPermissionTo('employees.view');
+        return $this->holds($user, 'users.view') || $this->holds($user, 'employees.view');
     }
 
     /**
@@ -32,11 +50,11 @@ class UserPolicy
     public function view(User $user, User $model): bool
     {
         // Users can always view themselves
-        if ($user->id === $model->id) {
+        if ($this->isSelf($user, $model)) {
             return true;
         }
 
-        if (! ($user->hasPermissionTo('users.view') || $user->hasPermissionTo('employees.view'))) {
+        if (! ($this->holds($user, 'users.view') || $this->holds($user, 'employees.view'))) {
             return false;
         }
 
@@ -44,20 +62,38 @@ class UserPolicy
     }
 
     /**
+     * Open someone's profile page: one's own with profile.own.view; anyone else's with the
+     * company-wide user directory (`users.view`, the administrator-level read) or with
+     * `employees.view` AND scope over them — a department admin reads his department only.
+     */
+    public function viewProfile(User $user, User $model): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return $this->holds($user, 'profile.own.view');
+        }
+
+        if ($this->holds($user, 'users.view')) {
+            return true;
+        }
+
+        return $this->holds($user, 'employees.view') && $this->scope()->canActOn($user, $model);
+    }
+
+    /**
      * Determine whether the user can create models.
      */
     public function create(User $user): bool
     {
-        return $user->hasPermissionTo('users.create') || $user->hasPermissionTo('employees.create');
+        return $this->holds($user, 'employees.create');
     }
 
     /**
-     * Determine whether the user can update the model.
+     * Determine whether the user can update the model (the employee edit form). Users can update
+     * themselves — which fields is enforced by the controller (SELF_PROTECTED_FIELDS).
      */
     public function update(User $user, User $model): bool
     {
-        // Users can update themselves (limited fields — enforced by the controller)
-        if ($user->id === $model->id) {
+        if ($this->isSelf($user, $model)) {
             return true;
         }
 
@@ -65,20 +101,117 @@ class UserPolicy
             return true;
         }
 
-        if (! ($user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update'))) {
-            return false;
-        }
-
-        return $this->scope()->canManage($user, $model);
+        return $this->holds($user, 'employees.update') && $this->scope()->canManage($user, $model);
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Edit someone's PROFILE sections (personal, education, experience, photo): one's own with
+     * profile.own.update, anyone else's with employees.update AND scope over them (and, for a
+     * non-global actor, outranking them).
+     */
+    public function updateProfile(User $user, User $model): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return $this->holds($user, 'profile.own.update');
+        }
+
+        return $this->holds($user, 'employees.update') && $this->scope()->canManage($user, $model);
+    }
+
+    /**
+     * Designation, reporting line and work location. Never one's own placement.
+     */
+    public function updatePlacement(User $user, User $model): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return false;
+        }
+
+        return $this->holds($user, 'employees.placement.update') && $this->scope()->canManage($user, $model);
+    }
+
+    /**
+     * Move an employee to another department. A non-global actor may only move employees they
+     * manage, between departments they administer — and never themselves.
+     */
+    public function transfer(User $user, User $model, ?int $toDepartmentId = null): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return false;
+        }
+
+        if (! ($this->holds($user, 'employees.update') && $this->scope()->canManage($user, $model))) {
+            return false;
+        }
+
+        if ($this->scope()->isGlobal($user)) {
+            return true;
+        }
+
+        $managed = $this->scope()->managedDepartmentIds($user);
+
+        return in_array((int) $model->department_id, $managed, true)
+            && ($toDepartmentId === null || in_array($toDepartmentId, $managed, true));
+    }
+
+    /**
+     * Attendance method / biometric device rules of an employee: global HR, or a department
+     * admin for employees in their scope whom they outrank.
+     */
+    public function updateAttendanceConfig(User $user, User $model): bool
+    {
+        if (! $this->holds($user, 'employees.attendance-config.update')) {
+            return false;
+        }
+
+        return $this->scope()->isGlobal($user) || $this->scope()->canManage($user, $model);
+    }
+
+    /**
+     * See an employee's salary and statutory details: one's own always, anyone else's with
+     * employees.compensation.view AND scope over them.
+     */
+    public function viewCompensation(User $user, User $model): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return true;
+        }
+
+        return $this->holds($user, 'employees.compensation.view')
+            && $this->scope()->canActOn($user, $model);
+    }
+
+    /**
+     * Change an employee's salary and statutory details — never one's own.
+     */
+    public function updateCompensation(User $user, User $model): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return false;
+        }
+
+        return $this->holds($user, 'employees.compensation.update') && $this->scope()->canManage($user, $model);
+    }
+
+    /**
+     * Reset another employee's password. Use the profile for one's own.
+     */
+    public function resetPassword(User $user, User $model): bool
+    {
+        if ($this->isSelf($user, $model)) {
+            return false;
+        }
+
+        return $this->holds($user, 'employees.password.reset') && $this->scope()->canManage($user, $model);
+    }
+
+    /**
+     * Determine whether the user can delete (deactivate — soft delete) the model.
      */
     public function delete(User $user, User $model): bool
     {
         // Cannot delete yourself
-        if ($user->id === $model->id) {
+        if ($this->isSelf($user, $model)) {
             return false;
         }
 
@@ -86,15 +219,15 @@ class UserPolicy
             return true;
         }
 
-        return $user->hasPermissionTo('users.delete') && $this->scope()->canManage($user, $model);
+        return $this->holds($user, 'employees.delete') && $this->scope()->canManage($user, $model);
     }
 
     /**
-     * Determine whether the user can restore the model.
+     * Determine whether the user can restore a deactivated model.
      */
     public function restore(User $user, User $model): bool
     {
-        return $user->hasPermissionTo('users.delete') && $this->scope()->canManage($user, $model);
+        return $this->holds($user, 'employees.restore') && $this->scope()->canManage($user, $model);
     }
 
     /**
@@ -107,23 +240,22 @@ class UserPolicy
     }
 
     /**
-     * Determine whether the user can update roles.
+     * Roles and direct permissions: employees.access.manage, never one's own, and only a Super
+     * Administrator may touch another Super Administrator. The role hierarchy (grant only roles
+     * below one's own, modify only users below oneself) is enforced by UserManagementService.
      */
     public function updateRoles(User $user, User $model): bool
     {
         // Cannot change your own roles
-        if ($user->id === $model->id) {
+        if ($this->isSelf($user, $model)) {
             return false;
         }
 
-        // Only a Super Administrator may grant or revoke roles on another
-        // Super Administrator.
         if ($model->hasRole('Super Administrator') && ! $user->hasRole('Super Administrator')) {
             return false;
         }
 
-        return $user->hasPermissionTo('users.update') &&
-               $user->hasRole(['Super Administrator', 'Administrator']);
+        return $this->holds($user, 'employees.access.manage') && $this->scope()->canManage($user, $model);
     }
 
     /**
@@ -132,7 +264,7 @@ class UserPolicy
     public function toggleStatus(User $user, User $model): bool
     {
         // Cannot deactivate yourself
-        if ($user->id === $model->id) {
+        if ($this->isSelf($user, $model)) {
             return false;
         }
 
@@ -140,54 +272,20 @@ class UserPolicy
             return false;
         }
 
-        return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
+        return $this->holds($user, 'employees.update');
     }
 
     /**
-     * Determine whether the user can manage devices.
+     * Device lock, device history and sessions: one's own always, anyone else's with
+     * employees.devices.manage and scope over them.
      */
     public function manageDevices(User $user, User $model): bool
     {
         // Users can manage their own devices
-        if ($user->id === $model->id) {
+        if ($this->isSelf($user, $model)) {
             return true;
         }
 
-        if (! $this->scope()->canManage($user, $model)) {
-            return false;
-        }
-
-        return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
-    }
-
-    /**
-     * Determine whether the user can update department.
-     */
-    public function updateDepartment(User $user, User $model): bool
-    {
-        // HR managers and admins can update departments
-        return $this->scope()->isGlobal($user) && $user->hasPermissionTo('users.update');
-    }
-
-    /**
-     * Determine whether the user can update designation.
-     */
-    public function updateDesignation(User $user, User $model): bool
-    {
-        // HR managers and admins can update designations
-        return $this->scope()->isGlobal($user) && $user->hasPermissionTo('users.update');
-    }
-
-    /**
-     * Determine whether the user can update attendance type: global HR, or a
-     * department admin for employees in their scope whom they outrank.
-     */
-    public function updateAttendanceType(User $user, User $model): bool
-    {
-        if (! $user->hasPermissionTo('users.update')) {
-            return false;
-        }
-
-        return $this->scope()->isGlobal($user) || $this->scope()->canManage($user, $model);
+        return $this->holds($user, 'employees.devices.manage') && $this->scope()->canManage($user, $model);
     }
 }

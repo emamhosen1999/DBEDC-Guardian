@@ -6,8 +6,15 @@ import {
 import { PersonIcon } from '@radix-ui/react-icons';
 import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
 import { showToast } from '@/utils/toastUtils';
+import DepartmentField from '@/Components/Access/DepartmentField';
 
-const DesignationForm = ({ open, onClose, onSuccess, designation = null, departments = [], designations = [] }) => {
+/*
+ * Create / edit a designation. The department field is scope-aware (DepartmentField): a department
+ * admin is locked to his department; the parent designation must stay inside the chosen department
+ * (the server enforces both). `defaultDepartmentId` pre-fills it for the quick "+ New designation"
+ * in the employee form.
+ */
+const DesignationForm = ({ open, onClose, onSuccess, designation = null, departments = [], designations = [], defaultDepartmentId = null }) => {
     const [errors, setErrors] = useState({});
 
     // React Query mutations
@@ -17,7 +24,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
 
     const initialFormState = {
         title: '',
-        department_id: 'none',
+        department_id: defaultDepartmentId ? String(defaultDepartmentId) : '',
         hierarchy_level: 1,
         parent_id: 'none',
         is_active: true,
@@ -29,7 +36,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
         if (designation) {
             setFormData({
                 title: designation.title || '',
-                department_id: designation.department_id ? String(designation.department_id) : 'none',
+                department_id: designation.department_id ? String(designation.department_id) : '',
                 hierarchy_level: designation.hierarchy_level || 1,
                 parent_id: designation.parent_id ? String(designation.parent_id) : 'none',
                 is_active: designation.is_active ?? true,
@@ -44,7 +51,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
 
     const availableParents = designations?.filter(d => {
         if (designation?.id && d.id === designation.id) return false;
-        if (formData.department_id !== 'none' && String(d.department_id) !== formData.department_id) return false;
+        if (formData.department_id !== '' && String(d.department_id) !== formData.department_id) return false;
         return true;
     }) || [];
 
@@ -53,7 +60,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
         setErrors({});
 
         const payload = { ...formData };
-        if (payload.department_id === 'none') payload.department_id = null;
+        if (payload.department_id === '') payload.department_id = null;
         if (payload.parent_id === 'none') payload.parent_id = null;
 
         try {
@@ -100,19 +107,15 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
                             {errors.title && <Text size="1" color="red">{errors.title[0]}</Text>}
                         </Box>
 
-                        <Box>
-                            <Text size="2" weight="medium" mb="1" as="div">Department</Text>
-                            <Select.Root value={formData.department_id} onValueChange={v => handleChange('department_id', v)} disabled={isMutating}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    <Select.Item value="none">Select Department...</Select.Item>
-                                    {departments.map(d => (
-                                        <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                            {errors.department_id && <Text size="1" color="red">{errors.department_id[0]}</Text>}
-                        </Box>
+                        <DepartmentField
+                            value={formData.department_id}
+                            onChange={(v) => setFormData(prev => (String(prev.department_id) === String(v) ? prev : { ...prev, department_id: v, parent_id: 'none' }))}
+                            departments={departments}
+                            required
+                            disabled={isMutating || Boolean(designation?.employee_count > 0 || (!designation && defaultDepartmentId))}
+                            helper={designation?.employee_count > 0 ? 'Employees hold this designation: reassign them before moving it to another department.' : null}
+                            error={errors.department_id?.[0]}
+                        />
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Hierarchy Level (1 = Highest)</Text>
@@ -137,6 +140,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
                                         ))}
                                     </Select.Content>
                                 </Select.Root>
+                                {errors.parent_id && <Text size="1" color="red">{errors.parent_id[0]}</Text>}
                             </Box>
                         )}
 

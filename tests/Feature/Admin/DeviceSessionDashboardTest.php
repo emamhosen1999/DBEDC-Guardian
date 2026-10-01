@@ -18,7 +18,7 @@ use Tests\TestCase;
 /**
  * Covers the fleet-wide admin device-session dashboard: what an authorised admin
  * sees, exactly what a revoke destroys, and that it is gated behind the same
- * users.view / users.update permissions as the rest of admin user management.
+ * users.view (list) / employees.devices.manage (revoke) permissions as the rest of admin user management.
  */
 class DeviceSessionDashboardTest extends TestCase
 {
@@ -78,7 +78,7 @@ class DeviceSessionDashboardTest extends TestCase
 
     public function test_revoke_kills_access_token_refresh_chain_and_deactivates_device(): void
     {
-        $admin = $this->adminWith(['users.view', 'users.update']);
+        $admin = $this->adminWith(['users.view', 'employees.devices.manage']);
         $employee = User::factory()->create();
 
         $device = $this->registerDevice($employee);

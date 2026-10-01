@@ -101,7 +101,8 @@ class OffboardingController extends Controller
             'updater:employee_id,name',
         ])->findOrFail($id);
 
-        $this->authorize('view', $offboarding);
+        // Out of scope reads exactly like "no such record" (no existence oracle).
+        abort_unless(request()->user()->can('view', $offboarding), 404);
 
         return response()->json($offboarding);
     }

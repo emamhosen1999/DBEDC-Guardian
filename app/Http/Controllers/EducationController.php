@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Education;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -147,14 +148,15 @@ class EducationController extends Controller
         return $userIds->first();
     }
 
+    /**
+     * One's own profile with profile.own.update; anyone else's with employees.update AND scope over
+     * them (UserPolicy::updateProfile) — a department admin edits his department only.
+     */
     private function authorizeProfileUpdate(Request $request, string $targetUserId): void
     {
         $actor = $request->user();
-        $isSelf = $actor && (string) $actor->getKey() === $targetUserId;
+        $target = User::find($targetUserId);
 
-        abort_unless(
-            $actor && (($isSelf && $actor->can('profile.own.update')) || $actor->can('users.update')),
-            403
-        );
+        abort_unless($actor && $target && $actor->can('updateProfile', $target), 403);
     }
 }

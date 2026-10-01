@@ -4,10 +4,15 @@ import { TrashIcon } from '@radix-ui/react-icons';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DepartmentField from '@/Components/Access/DepartmentField';
+import { usePage } from '@inertiajs/react';
 
 const OFF = 'off';
 
-export default function RotationPatternForm({ open, onOpenChange, onSaved, initial }) {
+export default function RotationPatternForm({ open, onOpenChange, onSaved, initial, departments = [] }) {
+    const { auth } = usePage().props;
+    const canMoveOwner = Boolean(auth?.scope?.attendance);
+    const [departmentId, setDepartmentId] = useState(''); // '' = company-wide
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
     const [cycleLength, setCycleLength] = useState(7);
@@ -19,11 +24,14 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved, initi
         queryFn: () => requestJson('get', '/attendance/shifts'),
         enabled: open,
     });
-    const shifts = data?.shifts || [];
+    const allShifts = data?.shifts || [];
+    // A department's pattern uses company-wide shifts and its own; a company-wide one only company-wide shifts.
+    const shifts = allShifts.filter((s) => s.department_id == null || (departmentId !== '' && String(s.department_id) === String(departmentId)));
 
     useEffect(() => {
         if (open) {
             if (initial) {
+                setDepartmentId(initial.department_id ? String(initial.department_id) : '');
                 setName(initial.name || '');
                 setCode(initial.code || '');
                 setCycleLength(initial.cycle_length_days || 7);
@@ -34,6 +42,7 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved, initi
                 while (paddedDef.length < len) paddedDef.push(OFF);
                 setDefinition(paddedDef);
             } else {
+                setDepartmentId('');
                 setName('');
                 setCode('');
                 setCycleLength(7);
@@ -68,6 +77,7 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved, initi
                     cycle_length_days: cycleLength,
                     definition: definition.map(d => (d === OFF ? null : Number(d))),
                     is_active: true,
+                    department_id: departmentId === '' ? null : Number(departmentId),
                 },
             });
             showToast.success(initial ? 'Pattern updated.' : 'Pattern created.');
@@ -87,6 +97,17 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved, initi
                 <Flex direction="column" gap="3">
                     <TextField.Root placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
                     <TextField.Root placeholder="Code" value={code} onChange={e => setCode(e.target.value)} />
+                    <DepartmentField
+                        label="Department"
+                        attendance
+                        value={departmentId}
+                        onChange={setDepartmentId}
+                        departments={departments}
+                        noneLabel="Company-wide (every department)"
+                        placeholder="Company-wide"
+                        disabled={Boolean(initial) && !canMoveOwner}
+                        helper="A department's pattern can use company-wide shifts and its own."
+                    />
                     <TextField.Root
                         type="number" min="1" max="60"
                         value={cycleLength}

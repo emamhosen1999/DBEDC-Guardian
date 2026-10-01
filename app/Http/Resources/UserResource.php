@@ -3,8 +3,10 @@
 namespace App\Http\Resources;
 
 use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
+use App\Services\Admin\UserManagementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Spatie\Permission\Models\Permission;
 
 class UserResource extends JsonResource
 {
@@ -29,6 +31,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'is_manager' => $this->isManagerUser($this->resource),
             'email' => $this->email,
+            // True while an admin-set password must be replaced: the mobile app routes to its change-password screen.
+            'must_change_password' => (bool) $this->must_change_password,
             'phone' => $this->phone,
             'employee_id' => $this->employee_id,
             'profile_image_url' => $this->profile_image_url,
@@ -52,7 +56,7 @@ class UserResource extends JsonResource
                 ];
             }),
             'salary_amount' => $this->when(
-                $request->user()?->can('view-salary', $this->resource),
+                $request->user()?->can('viewCompensation', $this->resource),
                 $this->salary_amount
             ),
 
@@ -86,7 +90,7 @@ class UserResource extends JsonResource
                 $request->user()
                     && (string) $request->user()->getKey() === (string) $this->resource->getKey(),
                 fn () => $request->user()->hasRole('Super Administrator')
-                    ? \Spatie\Permission\Models\Permission::query()->pluck('name')->unique()->values()->all()
+                    ? Permission::query()->pluck('name')->unique()->values()->all()
                     : $request->user()->getAllPermissions()->pluck('name')->values()->all()
             ),
 
@@ -115,7 +119,7 @@ class UserResource extends JsonResource
                     'delete' => $request->user()->can('delete', $this->resource),
                     'update_roles' => $request->user()->can('updateRoles', $this->resource),
                     'manage_devices' => $request->user()->can('manageDevices', $this->resource),
-                ];
+                ] + app(UserManagementService::class)->capabilitiesFor($request->user(), $this->resource);
             }),
         ];
     }

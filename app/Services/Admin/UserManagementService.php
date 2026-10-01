@@ -12,7 +12,9 @@ use App\Models\NotificationToken;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
@@ -94,6 +96,9 @@ class UserManagementService
 
             $user = User::create($validated);
 
+            // An admin-chosen password is known to the admin: force the employee to replace it.
+            $user->forceFill(['must_change_password' => true])->save();
+
             // Org placement is deliberately NOT mass-assignable on User; on create it
             // has already been authorized and scope-checked by the controller.
             $placement = array_intersect_key($validated, array_flip(['department_id', 'designation_id', 'report_to']));
@@ -106,7 +111,10 @@ class UserManagementService
             if ($roles) {
                 $user->syncRoles($roles);
             } else {
-                $user->assignRole('Employee');
+                // No roles given (an API call without them): the base roles every ordinary employee
+                // holds — Employee plus, where it exists, Daily Works Contributor (the field-reporting
+                // half Employee used to carry), so the old default is preserved.
+                $user->assignRole(array_filter(User::BASE_ROLES, fn (string $name) => Role::where('name', $name)->where('guard_name', 'web')->exists()) ?: ['Employee']);
             }
 
             if ($profileImage) {
@@ -165,6 +173,20 @@ class UserManagementService
             }
 
             $user->update($validated);
+            if (isset($validated['password']) && (string) $user->getKey() !== (string) auth()->id()) {
+                $user->forceFill(['must_change_password' => true])->save(); // someone else set it
+            }
+
+            // Org placement is deliberately NOT mass-assignable on User (so a stray request key can
+            // never move someone), which also made update() silently drop the department,
+            // designation and reports-to the edit form submits. They have already been authorized
+            // and scope-checked by the controller (field groups, transfer rule): write them explicitly,
+            // exactly as createUser() does.
+            $placement = array_intersect_key($validated, array_flip(['department_id', 'designation_id', 'report_to']));
+            if ($placement !== []) {
+                $user->forceFill($placement)->save();
+            }
+
             $this->applyAttendanceTypeOverride($user, $attendanceTypeIds, $biometricDeviceIds);
 
             if ($hasRoles) {
@@ -274,6 +296,27 @@ class UserManagementService
 
         if ($tooPowerful) {
             abort(403, 'You cannot grant a role equal to or more powerful than your own.');
+        }
+    }
+
+    /**
+     * Delegation rule for DIRECT permissions: nobody can hand out a permission they do not hold
+     * themselves (Super Administrator excepted). Roles are bounded by the role hierarchy; this is the
+     * equivalent bound for individual permissions, so a role manager can never mint authority
+     * beyond their own. Aborts 403 on violation.
+     *
+     * @param  array<int, string>  $permissionNames
+     */
+    public function assertCanDelegatePermissions(User $actor, array $permissionNames): void
+    {
+        if ($permissionNames === [] || $actor->hasRole('Super Administrator')) {
+            return;
+        }
+
+        foreach ($permissionNames as $name) {
+            if (! $actor->checkPermissionTo((string) $name)) {
+                abort(403, "You cannot grant a permission you do not hold ({$name}).");
+            }
         }
     }
 
@@ -499,19 +542,12 @@ class UserManagementService
      *
      * @return array{success: bool, message: string, biometric_device_id: int|null, biometric_device_name: string|null}
      *
-     * @throws \InvalidArgumentException when the device doesn't belong to the employee's attendance type.
+     * @throws \InvalidArgumentException when the device is not one the employee may be assigned (see assignableDevices()).
      */
     public function assignBiometricDevice(User $user, ?int $deviceId): array
     {
-        if ($deviceId && $user->attendance_type_id) {
-            $inPool = AttendanceType::find($user->attendance_type_id)
-                ?->biometricDevices()
-                ->where('biometric_devices.id', $deviceId)
-                ->exists();
-
-            if (! $inPool) {
-                throw new \InvalidArgumentException("Device does not belong to this employee's attendance type.");
-            }
+        if ($deviceId && ! $this->assignableDevices($user)->contains('id', $deviceId)) {
+            throw new \InvalidArgumentException('That terminal is not active or not available at this employee\'s work location.');
         }
 
         $eat = EmployeeAttendanceType::firstOrCreate(
@@ -529,6 +565,62 @@ class UserManagementService
             'biometric_device_id' => $deviceId,
             'biometric_device_name' => $device?->name,
         ];
+    }
+
+    /**
+     * What `$actor` may do to `$target`, one flag per row-menu / inline-edit action, evaluated by
+     * the very policy abilities the routes enforce — so the UI never offers a control the server
+     * would refuse (no dead buttons) and never hides one it would accept.
+     *
+     * @return array<string, bool>
+     */
+    public function capabilitiesFor(User $actor, User $target): array
+    {
+        $gate = Gate::forUser($actor);
+
+        return [
+            'is_self' => (string) $actor->getKey() === (string) $target->getKey(),
+            'update' => $gate->allows('update', $target),
+            'placement' => $gate->allows('updatePlacement', $target),
+            'transfer' => $gate->allows('transfer', [$target]),
+            'attendance_config' => $gate->allows('updateAttendanceConfig', $target),
+            'view_compensation' => $gate->allows('viewCompensation', $target),
+            'update_compensation' => $gate->allows('updateCompensation', $target),
+            'reset_password' => $gate->allows('resetPassword', $target),
+            'manage_devices' => $gate->allows('manageDevices', $target),
+            'manage_access' => $gate->allows('updateRoles', $target),
+            'delete' => $gate->allows('delete', $target),
+            'restore' => $gate->allows('restore', $target),
+        ];
+    }
+
+    /**
+     * Terminals an employee may be assigned: the ACTIVE ones linked to their work location
+     * (work_location_biometric_device), falling back to every active terminal when the
+     * location has none linked or the employee has no location. Devices are infrastructure
+     * reference data, so this never depends on who already works where. It is the same rule
+     * the employee form's device picker applies client-side, so the UI never offers a terminal
+     * the server then refuses.
+     *
+     * @return Collection<int, BiometricDevice>
+     */
+    public function assignableDevices(User $user): Collection
+    {
+        $active = BiometricDevice::query()->where('is_active', true);
+
+        if ($user->work_location_id) {
+            $linked = (clone $active)
+                ->whereIn('id', DB::table('work_location_biometric_device')
+                    ->where('work_location_id', $user->work_location_id)
+                    ->select('biometric_device_id'))
+                ->get();
+
+            if ($linked->isNotEmpty()) {
+                return $linked;
+            }
+        }
+
+        return $active->get();
     }
 
     // ──────────────────────────────────────────────
@@ -658,7 +750,9 @@ class UserManagementService
 
         $employees = $query->with('reportsTo.designation')->paginate($perPage, ['*'], 'page', $page);
 
-        $transformedEmployees = $employees->map(function ($employee) {
+        $capabilityActor = $this->resolveActor($actor);
+
+        $transformedEmployees = $employees->map(function ($employee) use ($capabilityActor) {
             return [
                 'id' => $employee->id,
                 'name' => $employee->name,
@@ -693,6 +787,9 @@ class UserManagementService
                 'single_device_login_enabled' => (bool) $employee->single_device_login_enabled,
                 'created_at' => $employee->created_at,
                 'updated_at' => $employee->updated_at,
+                // Per-row capabilities (the policy abilities the routes enforce) drive the row menu
+                // and the inline editors; null for trusted console callers with no actor.
+                'can' => $capabilityActor ? $this->capabilitiesFor($capabilityActor, $employee) : null,
             ];
         });
 

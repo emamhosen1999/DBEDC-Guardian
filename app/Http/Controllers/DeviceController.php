@@ -22,11 +22,11 @@ class DeviceController extends Controller
     }
 
     /**
-     * The admin device routes sit behind `users.update` / `users.view`, which
-     * department-scoped operators hold too. The TARGET must therefore be inside the
-     * actor's DepartmentScope and — for a non-global actor — outranked by them (a
-     * department admin must never reset the devices of an Administrator in their
-     * department). Global actors and the target themself always pass.
+     * The admin device routes sit behind `employees.devices.manage`, which department-scoped
+     * operators hold too. The TARGET must therefore be inside the actor's DepartmentScope and — for
+     * a non-global actor — outranked by them (a department admin must never reset the devices of an
+     * Administrator in their department). Global actors and the target themself always pass. (The
+     * permission itself is the route's gate; UserPolicy::manageDevices applies the same rule.)
      */
     private function assertMayManageDevicesOf(User $target): void
     {

@@ -27,7 +27,7 @@ class UserPolicyScopeTest extends TestCase
         foreach (['Super Administrator' => 1, 'Administrator' => 10, 'HR Manager' => 20, 'Department Manager' => 30, 'Employee' => 60] as $name => $level) {
             Role::create(['name' => $name, 'guard_name' => 'web', 'hierarchy_level' => $level]);
         }
-        foreach (['users.view', 'users.update', 'employees.view', 'employees.update'] as $permission) {
+        foreach (['users.view', 'users.update', 'employees.view', 'employees.update', 'employees.devices.manage'] as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
     }
@@ -36,7 +36,7 @@ class UserPolicyScopeTest extends TestCase
     {
         $user = User::factory()->create(['department_id' => $departmentId]);
         $user->assignRole($role);
-        $user->givePermissionTo(['users.view', 'users.update']);
+        $user->givePermissionTo(['users.view', 'users.update', 'employees.update', 'employees.devices.manage']);
 
         return $user;
     }

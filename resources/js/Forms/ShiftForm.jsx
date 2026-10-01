@@ -3,12 +3,15 @@ import { Dialog, AlertDialog, Flex, Box, TextField, Select, Switch, Button, Text
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import DateTimePicker from '@/Components/DateTimePicker';
+import DepartmentField from '@/Components/Access/DepartmentField';
+import { usePage } from '@inertiajs/react';
 
 const DEFAULT_FORM = {
     name: '', code: '', type: 'fixed', start_time: '09:00', end_time: '17:30',
     crosses_midnight: false, grace_in_minutes: 15, grace_out_minutes: 0,
     full_day_minutes: 480, half_day_minutes: 240, min_present_minutes: 0,
     break_minutes: 0, color: '#3b82f6', is_active: true,
+    department_id: '', // '' = company-wide
 };
 
 // DB returns TIME columns as "HH:mm:ss" but Laravel validates "HH:mm"
@@ -25,7 +28,14 @@ const TIME_BEHAVIOR_FIELDS = [
     'min_present_minutes', 'break_minutes',
 ];
 
-export default function ShiftForm({ open, onOpenChange, onSaved, initial = null }) {
+// '' (company-wide) travels as null; a department as its numeric id.
+const withOwner = (data) => ({ ...data, department_id: data.department_id === '' || data.department_id == null ? null : Number(data.department_id) });
+
+export default function ShiftForm({ open, onOpenChange, onSaved, initial = null, departments = [] }) {
+    const { auth } = usePage().props;
+    // Moving a template between departments (or making it company-wide) is for attendance administrators;
+    // a department admin keeps his templates in his department.
+    const canMoveOwner = Boolean(auth?.scope?.attendance);
     const [form, setForm] = useState(DEFAULT_FORM);
     const [baseline, setBaseline] = useState(null); // snapshot of the loaded shift, for change detection
     const [effectiveFrom, setEffectiveFrom] = useState(todayStr());
@@ -41,6 +51,7 @@ export default function ShiftForm({ open, onOpenChange, onSaved, initial = null 
                 normalized.end_time = normalizeTime(normalized.end_time);
                 normalized.core_start_time = normalizeTime(normalized.core_start_time);
                 normalized.core_end_time = normalizeTime(normalized.core_end_time);
+                normalized.department_id = initial.department_id ? String(initial.department_id) : '';
                 setForm(normalized);
                 setBaseline(normalized);
             } else {
@@ -70,14 +81,14 @@ export default function ShiftForm({ open, onOpenChange, onSaved, initial = null 
         setSaving(true);
         try {
             if (isEdit) {
-                const payload = hasTimeBehaviorChange ? { ...form, effective_from: effectiveFrom } : form;
+                const payload = withOwner(hasTimeBehaviorChange ? { ...form, effective_from: effectiveFrom } : form);
                 const res = await requestJson('put', `/attendance/shifts/${initial.id}`, { data: payload });
                 const versionNote = hasTimeBehaviorChange && res?.versions_count
                     ? ` New version ${res.versions_count} effective ${effectiveFrom}.`
                     : '';
                 showToast.success(`Shift updated.${versionNote}`);
             } else {
-                await requestJson('post', '/attendance/shifts', { data: form });
+                await requestJson('post', '/attendance/shifts', { data: withOwner(form) });
                 showToast.success('Shift created.');
             }
             onSaved?.();
@@ -107,6 +118,18 @@ export default function ShiftForm({ open, onOpenChange, onSaved, initial = null 
                 <Flex direction="column" gap="3">
                     <TextField.Root placeholder="Name" value={form.name} onChange={e => set('name', e.target.value)} />
                     <TextField.Root placeholder="Code" value={form.code} onChange={e => set('code', e.target.value)} />
+
+                    <DepartmentField
+                        label="Department"
+                        attendance
+                        value={form.department_id ?? ''}
+                        onChange={(v) => set('department_id', v)}
+                        departments={departments}
+                        noneLabel="Company-wide (every department)"
+                        placeholder="Company-wide"
+                        disabled={isEdit && !canMoveOwner}
+                        helper="A department-owned shift is managed by that department's admin and visible only to its schedulers."
+                    />
 
                     <Select.Root value={form.type} onValueChange={v => set('type', v)}>
                         <Select.Trigger placeholder="Type" />

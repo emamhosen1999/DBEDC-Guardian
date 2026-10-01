@@ -21,6 +21,7 @@ use App\Traits\HandlesApiExceptions;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -31,6 +32,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class LeaveController extends Controller
 {
@@ -96,7 +98,7 @@ class LeaveController extends Controller
             $response = [
                 'leaves' => new LeaveResourceCollection($leaveData['leaveRecords']),
                 'leavesData' => $leaveData['leavesData'],
-                'departments' => Department::all('id', 'name'),
+                'departments' => $this->scope()->applyToDepartments(Department::query(), $this->actor())->get(['id', 'name']),
                 'success' => true,
             ];
 
@@ -233,7 +235,7 @@ class LeaveController extends Controller
                 ),
                 'leaves' => new LeaveResourceCollection($leaveData['leaveRecords']),
                 'leavesData' => $leaveData['leavesData'],
-                'departments' => Department::all('id', 'name'),
+                'departments' => $this->scope()->applyToDepartments(Department::query(), $this->actor())->get(['id', 'name']),
             ], 201);
         } catch (\Throwable $e) {
             $status = ($e->getCode() >= 400 && $e->getCode() < 500) ? (int) $e->getCode() : 500;
@@ -321,8 +323,11 @@ class LeaveController extends Controller
                 ),
                 'leaves' => new LeaveResourceCollection($leaveData['leaveRecords']),
                 'leavesData' => $leaveData['leavesData'],
-                'departments' => Department::all('id', 'name'),
+                'departments' => $this->scope()->applyToDepartments(Department::query(), $this->actor())->get(['id', 'name']),
             ], 200);
+        } catch (ValidationException|ModelNotFoundException|\Illuminate\Auth\Access\AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
@@ -488,8 +493,11 @@ class LeaveController extends Controller
                 'message' => 'Leave application deleted successfully',
                 'leaves' => new LeaveResourceCollection($leaveData['leaveRecords']),
                 'leavesData' => $leaveData['leavesData'],
-                'departments' => Department::all('id', 'name'),
+                'departments' => $this->scope()->applyToDepartments(Department::query(), $this->actor())->get(['id', 'name']),
             ]);
+        } catch (ValidationException|ModelNotFoundException|\Illuminate\Auth\Access\AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
@@ -569,6 +577,9 @@ class LeaveController extends Controller
                 'updated_count' => $updatedCount,
                 'total_requested' => count($leaveIds),
             ]);
+        } catch (ValidationException|ModelNotFoundException|\Illuminate\Auth\Access\AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
@@ -616,6 +627,9 @@ class LeaveController extends Controller
                 'updated_count' => $updatedCount,
                 'total_requested' => count($leaveIds),
             ]);
+        } catch (ValidationException|ModelNotFoundException|\Illuminate\Auth\Access\AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
@@ -680,6 +694,9 @@ class LeaveController extends Controller
                 'total_requested' => count($leaveIds),
                 'target_status' => $targetStatus,
             ]);
+        } catch (ValidationException|ModelNotFoundException|\Illuminate\Auth\Access\AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 

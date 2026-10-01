@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\HRM\AttendanceType;
 use App\Models\User;
 use App\Models\WorkLocation;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,8 @@ class WorkLocationController extends Controller
             'title' => 'Work Locations',
             'workLocations' => $this->locationsWithMeta(),
             'attendanceTypes' => AttendanceType::all(),
-            'users' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            // People only within the actor's scope (work locations themselves are company reference data).
+            'users' => app(DepartmentScope::class)->applyToUsers(User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name'), auth()->user())->get(),
         ]);
     }
 
@@ -30,7 +32,8 @@ class WorkLocationController extends Controller
             'title' => 'Work Locations Management',
             'workLocations' => $this->locationsWithMeta(),
             'attendanceTypes' => AttendanceType::all(),
-            'users' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            // People only within the actor's scope (work locations themselves are company reference data).
+            'users' => app(DepartmentScope::class)->applyToUsers(User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name'), auth()->user())->get(),
         ]);
     }
 

@@ -128,8 +128,10 @@ describe('pages.jsx utility module', () => {
   });
 
   describe('Department Admin navigation', () => {
-    // Mirrors ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames() and migration
-    // 2026_09_30_000005 (tests/Feature/Access/DepartmentAdminRoleTest pins the PHP side).
+    // Mirrors ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames() and migrations
+    // 2026_09_30_000005 + 2026_10_01_000001 (tests/Feature/Access/DepartmentAdminRoleTest pins the PHP
+    // side): the DELEGATED department administrator — 52 permissions. Designations are tabs inside
+    // the Employees page (not menu entries), so the tree below is unchanged by the extra permissions.
     const DEPARTMENT_ADMIN_PERMISSIONS = [
       'department.admin',
       'core.dashboard.view', 'core.stats.view', 'core.updates.view',
@@ -138,7 +140,12 @@ describe('pages.jsx utility module', () => {
       'communications.own.view',
       'profile.own.view', 'profile.own.update', 'profile.password.change',
       'employees.view', 'employees.create', 'employees.update',
+      'employees.placement.update', 'employees.attendance-config.update',
+      'employees.compensation.view', 'employees.compensation.update',
+      'employees.password.reset', 'employees.devices.manage',
+      'employees.delete', 'employees.restore',
       'users.create', 'users.update',
+      'designations.view', 'designations.create', 'designations.update', 'designations.delete',
       'attendance.view', 'attendance.create', 'attendance.update', 'attendance.correct', 'attendance.export',
       'attendance.roster.manage',
       'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'leaves.delete',

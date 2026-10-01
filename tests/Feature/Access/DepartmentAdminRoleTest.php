@@ -6,6 +6,7 @@ use App\Jobs\ExportAttendanceReport;
 use App\Models\FeatureFlag;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\CoverageRequirement;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
@@ -23,6 +24,7 @@ use App\Services\FeatureFlagService;
 use Carbon\Carbon;
 use Database\Seeders\ComprehensiveRolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -46,10 +48,14 @@ class DepartmentAdminRoleTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const MIGRATION = 'database/migrations/2026_09_30_000005_seed_department_scope_permissions_and_role.php';
+    /** Migrations that define the role, in order: the original 40, then the delegated-administrator split. */
+    private const MIGRATIONS = [
+        'database/migrations/2026_09_30_000005_seed_department_scope_permissions_and_role.php',
+        'database/migrations/2026_10_01_000001_split_employee_permissions_and_extend_department_admin.php',
+    ];
 
-    /** The spec: the EXACT permission set of the role. */
-    private const SPEC = [
+    /** The 40 permissions the role held before the delegated-administrator split. */
+    private const PREVIOUS_SPEC = [
         'department.admin',
         'core.dashboard.view', 'core.stats.view', 'core.updates.view',
         'attendance.own.view', 'attendance.own.punch',
@@ -66,11 +72,23 @@ class DepartmentAdminRoleTest extends TestCase
         'hr.assets.view', 'hr.assets.manage',
     ];
 
+    /**
+     * What the delegated department administrator gained: delete/restore, designation CRUD for his own
+     * department and every granular employee permission EXCEPT access (roles) management.
+     */
+    private const ADDITIONS = [
+        'employees.delete', 'employees.restore',
+        'designations.view', 'designations.create', 'designations.update', 'designations.delete',
+        'employees.placement.update', 'employees.attendance-config.update',
+        'employees.compensation.view', 'employees.compensation.update',
+        'employees.password.reset', 'employees.devices.manage',
+    ];
+
     /** Real permissions the role must NOT hold (they exist in the DB, so a leak would show). */
     private const EXCLUDED = [
         'attendance.settings', 'attendance.delete', 'attendance.import',
-        'users.view', 'users.delete', 'employees.delete', 'employees.export',
-        'departments.view', 'departments.update', 'designations.update', 'jurisdiction.view',
+        'users.view', 'users.delete', 'employees.export', 'employees.import', 'employees.access.manage',
+        'departments.view', 'departments.create', 'departments.update', 'departments.delete', 'jurisdiction.view',
         'roles.view', 'roles.update', 'permissions.assign', 'department.scopes.manage',
         'daily-works.view', 'daily-works.own.view', 'quality.ncr.view',
         'holidays.view', 'holidays.create',
@@ -113,7 +131,7 @@ class DepartmentAdminRoleTest extends TestCase
         foreach (['Super Administrator' => 1, 'Administrator' => 10, 'HR Manager' => 20, 'Department Admin' => 25, 'Department Manager' => 30, 'Employee' => 60] as $name => $level) {
             Role::updateOrCreate(['name' => $name, 'guard_name' => 'web'], ['hierarchy_level' => $level]);
         }
-        foreach (array_merge(self::SPEC, self::EXCLUDED) as $permission) {
+        foreach (array_merge(self::PREVIOUS_SPEC, self::ADDITIONS, self::EXCLUDED) as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
         // Global roles hold everything, so any denial below is about SCOPE or a missing permission.
@@ -154,14 +172,22 @@ class DepartmentAdminRoleTest extends TestCase
 
     // ── fixtures ───────────────────────────────────────────────────────────────
 
-    /** Run migration 000005 again (idempotent) through the migrator's own path cache. */
+    /** Run the role migrations again (idempotent) through the migrator's own path cache. */
     private function runMigration(): void
     {
         $migrator = app('migrator');
         $resolve = new \ReflectionMethod($migrator, 'resolvePath');
         $resolve->setAccessible(true);
-        $resolve->invoke($migrator, base_path(self::MIGRATION))->up();
+        foreach (self::MIGRATIONS as $migration) {
+            $resolve->invoke($migrator, base_path($migration))->up();
+        }
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    /** The exact permission set of the role today. */
+    private function spec(): array
+    {
+        return array_merge(self::PREVIOUS_SPEC, self::ADDITIONS);
     }
 
     private function makeUser(string $role, ?Department $department, string $name): User
@@ -231,15 +257,17 @@ class DepartmentAdminRoleTest extends TestCase
 
     public function test_migration_leaves_the_role_with_exactly_the_spec_permissions(): void
     {
-        $this->assertCount(40, self::SPEC);
-        $this->assertPermissionSet(self::SPEC, Role::findByName('Department Admin'));
+        $this->assertCount(40, self::PREVIOUS_SPEC);
+        $this->assertCount(12, self::ADDITIONS);
+        $this->assertCount(52, $this->spec());
+        $this->assertPermissionSet($this->spec(), Role::findByName('Department Admin'));
     }
 
     public function test_the_seeder_definition_mirrors_the_migration(): void
     {
         $seeded = ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames();
         sort($seeded);
-        $spec = self::SPEC;
+        $spec = $this->spec();
         sort($spec);
 
         $this->assertSame($spec, $seeded);
@@ -256,14 +284,14 @@ class DepartmentAdminRoleTest extends TestCase
     public function test_rerunning_the_migration_narrows_a_broader_role_and_settings_holders_gain_roster_manage(): void
     {
         $role = Role::findByName('Department Admin');
-        $role->givePermissionTo(['attendance.settings', 'users.delete', 'roles.view']);
+        $role->givePermissionTo(['attendance.settings', 'users.delete', 'roles.view', 'employees.access.manage']);
         $officer = Role::create(['name' => 'Attendance Officer', 'guard_name' => 'web', 'hierarchy_level' => 40]);
         $officer->givePermissionTo('attendance.settings');
         $this->assertFalse($officer->hasPermissionTo('attendance.roster.manage'));
 
         $this->runMigration();
 
-        $this->assertPermissionSet(self::SPEC, $role->fresh());
+        $this->assertPermissionSet($this->spec(), $role->fresh());
         $this->assertTrue($officer->fresh()->hasPermissionTo('attendance.roster.manage'));
     }
 
@@ -303,6 +331,9 @@ class DepartmentAdminRoleTest extends TestCase
         $this->assertTrue($newAdmin->hasRole('Department Admin'));
         $this->assertSame(0, UserDepartmentScope::count(), 'role + department, no grant rows');
 
+        $this->assertTrue((bool) $newAdmin->must_change_password, 'an admin-set password must be replaced at first sign-in');
+        $newAdmin->forceFill(['must_change_password' => false])->save();
+
         $body = $this->as($newAdmin)->getJson(route('employees.paginate', ['perPage' => 50]))->assertOk()->getContent();
         $this->assertOnly($body, $this->e1, $this->e2, 'new department admin');
     }
@@ -326,20 +357,41 @@ class DepartmentAdminRoleTest extends TestCase
         $this->as($this->admin)->getJson(route('employees.show', $this->id($this->e2)))->assertNotFound();
     }
 
-    public function test_a_department_admin_creates_and_updates_but_never_deletes(): void
+    public function test_a_department_admin_creates_updates_and_deactivates_inside_his_department(): void
     {
-        // Asking for a privileged role is ignored: he creates plain employees only.
+        // Asking for a privileged role is ignored: every employee he creates is a plain base-role Employee.
         $created = $this->as($this->admin)->postJson(route('users.store'), $this->newUserPayload($this->d1->id, ['roles' => ['Department Admin']]))
             ->assertCreated();
-        $this->assertSame(['Employee'], User::where('employee_id', $created->json('user.employee_id'))->firstOrFail()->roles->pluck('name')->all());
+        $newcomer = User::where('employee_id', $created->json('user.employee_id'))->firstOrFail();
+        $this->assertSame(['Employee'], $newcomer->roles->pluck('name')->all());
+        $this->assertSame($this->d1->id, (int) $newcomer->department_id);
 
         $this->as($this->admin)->postJson(route('users.store'), $this->newUserPayload($this->d2->id))->assertStatus(422);
 
         $this->as($this->admin)->putJson(route('users.update', $this->id($this->e1)), ['name' => 'Renamed One'])->assertOk();
         $this->as($this->admin)->putJson(route('users.update', $this->id($this->e2)), ['name' => 'Renamed Two'])->assertForbidden();
 
-        $this->as($this->admin)->deleteJson(route('users.destroy', $this->id($this->e1)))->assertForbidden();
-        $this->assertNotNull(User::find($this->id($this->e1)), 'exit goes through Offboarding, not delete');
+        // Delete = deactivate (soft delete), restore reinstates; both stay inside his department.
+        $this->as($this->admin)->deleteJson(route('users.destroy', $this->id($this->e1)))->assertOk();
+        $this->assertSoftDeleted('users', ['employee_id' => $this->id($this->e1)]);
+        $this->as($this->admin)->postJson(route('users.restore', $this->id($this->e1)))->assertOk();
+        $this->assertNotNull(User::find($this->id($this->e1)));
+
+        $this->as($this->admin)->deleteJson(route('users.destroy', $this->id($this->e2)))->assertForbidden();
+        $this->assertNotNull(User::find($this->id($this->e2)), 'out of scope: untouched');
+        $this->as($this->admin)->deleteJson(route('users.destroy', $this->id($this->admin)))->assertForbidden();
+        $this->assertNotNull(User::find($this->id($this->admin)), 'never himself');
+    }
+
+    public function test_bulk_delete_is_all_or_nothing_inside_the_scope(): void
+    {
+        $this->as($this->admin)->postJson(route('users.bulk.delete'), ['user_ids' => [$this->id($this->e1), $this->id($this->e2)]])->assertForbidden();
+        $this->assertNotNull(User::find($this->id($this->e1)));
+        $this->assertNotNull(User::find($this->id($this->e2)));
+
+        $this->as($this->admin)->postJson(route('users.bulk.delete'), ['user_ids' => [$this->id($this->e1), $this->id($this->e1b)]])->assertOk()->assertJsonPath('deleted_count', 2);
+        $this->assertSoftDeleted('users', ['employee_id' => $this->id($this->e1)]);
+        $this->assertSoftDeleted('users', ['employee_id' => $this->id($this->e1b)]);
     }
 
     public function test_he_cannot_edit_anyone_who_outranks_him_or_ranks_equal(): void
@@ -397,13 +449,25 @@ class DepartmentAdminRoleTest extends TestCase
         ])->assertOk();
     }
 
-    public function test_restore_and_role_changes_stay_closed_even_inside_the_department(): void
+    public function test_restore_works_inside_the_department_and_role_changes_stay_closed(): void
     {
         $this->e1->delete();
-        $this->as($this->admin)->postJson(route('users.restore', $this->id($this->e1)))->assertForbidden();
-        $this->as($this->hr)->postJson(route('users.restore', $this->id($this->e1)))->assertOk();
+        $this->as($this->admin)->postJson(route('users.restore', $this->id($this->e1)))->assertOk();
+        $this->assertNotNull(User::find($this->id($this->e1)));
 
+        // A deactivated employee of ANOTHER department is out of his reach.
+        $this->e2->delete();
+        $this->as($this->admin)->postJson(route('users.restore', $this->id($this->e2)))->assertForbidden();
+        $this->as($this->hr)->postJson(route('users.restore', $this->id($this->e2)))->assertOk();
+
+        // No role management at all: the route itself is closed (employees.access.manage), and so are the
+        // role / direct-permission endpoints, readable or not.
         $this->as($this->admin)->postJson(route('users.updateRole', $this->id($this->e1b)), ['roles' => ['Department Manager']])->assertForbidden();
+        $this->as($this->admin)->postJson(route('users.bulk.role'), ['user_ids' => [$this->id($this->e1b)], 'role' => 'Department Manager'])->assertForbidden();
+        $this->as($this->admin)->getJson('/api/users/'.$this->id($this->e1b).'/roles')->assertForbidden();
+        $this->as($this->admin)->getJson('/api/users/'.$this->id($this->e1b).'/permissions')->assertForbidden();
+        $this->as($this->admin)->postJson('/api/users/'.$this->id($this->e1b).'/permissions/give', ['permission' => 'users.view'])->assertForbidden();
+        $this->assertSame(['Employee'], $this->e1b->fresh()->roles->pluck('name')->all());
     }
 
     public function test_fleet_wide_admin_surfaces_are_closed_although_he_holds_users_update(): void
@@ -524,7 +588,7 @@ class DepartmentAdminRoleTest extends TestCase
         $this->as($this->admin)->postJson(route('attendance.correct.update', $theirs->id), $payload)->assertForbidden();
         $this->as($this->admin)->patchJson(route('attendance.correct.status', $theirs->id), ['symbol' => '√'])->assertForbidden();
         $this->as($this->admin)->deleteJson(route('attendance.correct.delete', $theirs->id))->assertForbidden();
-        $this->as($this->admin)->getJson(route('attendance.audit.history', $theirs->id))->assertForbidden();
+        $this->as($this->admin)->getJson(route('attendance.audit.history', $theirs->id))->assertNotFound();
         $this->as($this->admin)->postJson(route('attendance.correct.add'), ['user_id' => $this->id($this->e2b), 'date' => self::DAY] + $payload)->assertForbidden();
         $this->as($this->admin)->postJson(route('attendance.mark-as-present'), ['user_id' => $this->id($this->e2b), 'date' => self::DAY])->assertForbidden();
         $this->as($this->admin)->postJson(route('attendance.bulk-mark-as-present'), ['user_ids' => [$this->id($this->e1b), $this->id($this->e2b)], 'date' => self::DAY])->assertForbidden();
@@ -596,7 +660,7 @@ class DepartmentAdminRoleTest extends TestCase
         $this->assertStringNotContainsString($this->id($this->e2), $listing);
     }
 
-    public function test_shift_definitions_and_patterns_stay_on_attendance_settings_but_the_catalogue_is_readable(): void
+    public function test_company_wide_shift_definitions_and_patterns_stay_on_attendance_settings_but_the_catalogue_is_readable(): void
     {
         $someoneElsesShift = Shift::factory()->create(['code' => 'ZZ9', 'created_by' => $this->id($this->hr)]);
 
@@ -605,7 +669,8 @@ class DepartmentAdminRoleTest extends TestCase
         $this->as($this->admin)->deleteJson(route('attendance.shifts.destroy', $someoneElsesShift->id))->assertForbidden();
         $this->as($this->admin)->postJson(route('attendance.patterns.store'), ['name' => 'P', 'code' => 'P1', 'cycle_length_days' => 2, 'definition' => [null, null]])->assertForbidden();
 
-        // He must see the catalogue to assign from it.
+        // He must see the (company-wide) catalogue to assign from it. Templates OWNED by his department are
+        // his to manage — tests/Feature/Attendance/ShiftOwnershipTest pins that delegated side.
         $this->as($this->admin)->getJson(route('attendance.shifts.index'))->assertOk()->assertJsonFragment(['code' => 'ZZ9']);
         $this->as($this->admin)->getJson(route('attendance.patterns.index'))->assertOk();
     }
@@ -809,5 +874,229 @@ class DepartmentAdminRoleTest extends TestCase
 
         $this->postJson("/api/v1/attendance/swaps/{$theirs->id}/approve")->assertForbidden();
         $this->assertSame('pending', $theirs->fresh()->status);
+    }
+
+    // ── 14. pickers: scope prop, work locations, devices ─────────────────────
+
+    /** @return array<string, mixed> the Inertia props of the Employees page for $actor */
+    private function employeesPageProps(User $actor): array
+    {
+        return $this->as($actor)->get(route('employees'))->assertOk()->viewData('page')['props'];
+    }
+
+    /** @return array{0: WorkLocation, 1: BiometricDevice, 2: BiometricDevice, 3: BiometricDevice} */
+    private function siteWithTerminals(): array
+    {
+        $site = WorkLocation::create(['name' => 'Plaza A', 'code' => 'PA', 'is_active' => true]);
+        $active = BiometricDevice::create(['name' => 'Gate A', 'serial_number' => 'SN-A', 'is_active' => true]);
+        $retired = BiometricDevice::create(['name' => 'Retired', 'serial_number' => 'SN-R', 'is_active' => false]);
+        $elsewhere = BiometricDevice::create(['name' => 'Gate Z', 'serial_number' => 'SN-Z', 'is_active' => true]);
+        foreach ([$active, $retired] as $device) {
+            DB::table('work_location_biometric_device')->insert(['work_location_id' => $site->id, 'biometric_device_id' => $device->id]);
+        }
+
+        return [$site, $active, $retired, $elsewhere];
+    }
+
+    public function test_the_shared_scope_prop_tells_the_ui_which_departments_to_offer(): void
+    {
+        $adminScope = $this->employeesPageProps($this->admin)['auth']['scope'];
+        $this->assertFalse($adminScope['global']);
+        $this->assertFalse($adminScope['attendance']);
+        $this->assertSame([['id' => $this->d1->id, 'name' => $this->d1->name]], $adminScope['departments']);
+
+        $hrScope = $this->employeesPageProps($this->hr)['auth']['scope'];
+        $this->assertTrue($hrScope['global']);
+        $this->assertSame([], $hrScope['departments'], 'a global actor falls back to each page\'s full list');
+
+        // A grant widens it to a limited list (the multi-scope picker).
+        UserDepartmentScope::create(['user_id' => $this->id($this->admin), 'department_id' => $this->d2->id, 'scope_type' => 'admin', 'granted_by' => $this->id($this->hr)]);
+        app(DepartmentScope::class)->forget();
+        $widened = collect($this->employeesPageProps($this->admin)['auth']['scope']['departments'])->pluck('id')->sort()->values()->all();
+        $this->assertSame(collect([$this->d1->id, $this->d2->id])->sort()->values()->all(), $widened);
+    }
+
+    public function test_work_locations_and_terminals_reach_a_department_admin_even_with_no_staff_at_the_site(): void
+    {
+        [$site, $active, $retired, $elsewhere] = $this->siteWithTerminals();
+        WorkLocation::create(['name' => 'Remote Yard', 'code' => 'RY', 'is_active' => true]);
+        // The ONLY person at the site is outside his department: the old device query (built from the
+        // work locations of in-scope staff) came back empty for him.
+        $this->e2->forceFill(['work_location_id' => $site->id])->save();
+
+        $props = $this->employeesPageProps($this->admin);
+
+        $this->assertCount(2, $props['workLocations'], 'every work location is offered');
+        $linked = collect($props['workLocations'])->firstWhere('id', $site->id)['biometric_devices'];
+        $this->assertEqualsCanonicalizing([$active->id, $retired->id], collect($linked)->pluck('id')->all());
+
+        // Reference data for the picker: every ACTIVE terminal, never a connection secret.
+        $this->assertArrayNotHasKey('devices', $props, 'the prop is named what the UI reads');
+        $offered = collect($props['biometricDevices']);
+        $this->assertEqualsCanonicalizing([$active->id, $elsewhere->id], $offered->pluck('id')->all());
+        foreach ($offered as $device) {
+            $this->assertEqualsCanonicalizing(['id', 'name', 'serial_number', 'location'], array_keys($device));
+        }
+    }
+
+    public function test_assigning_a_terminal_accepts_what_the_picker_offers_and_refuses_the_rest(): void
+    {
+        [$site, $active, $retired, $elsewhere] = $this->siteWithTerminals();
+        $assign = fn (User $employee, BiometricDevice $device) => $this->as($this->admin)
+            ->postJson(route('users.updateBiometricDevice', $this->id($employee)), ['biometric_device_id' => $device->id]);
+
+        // At a site with linked terminals: only the active linked ones.
+        $this->e1->forceFill(['work_location_id' => $site->id])->save();
+        $assign($this->e1, $active)->assertOk()->assertJsonPath('biometric_device_id', $active->id);
+        $assign($this->e1, $retired)->assertStatus(422);
+        $assign($this->e1, $elsewhere)->assertStatus(422);
+
+        // No location (or none linked): fall back to every active terminal.
+        $assign($this->e1b, $elsewhere)->assertOk();
+        $assign($this->e1b, $retired)->assertStatus(422);
+
+        // ...and out of scope stays closed whatever the terminal.
+        $assign($this->e2, $active)->assertForbidden();
+    }
+
+    // ── 15. delegated administration: row actions, compensation, placement ───
+
+    /** @return array<string, mixed> the directory row of $employee as seen by $actor */
+    private function directoryRow(User $actor, User $employee): array
+    {
+        $rows = $this->as($actor)->getJson(route('employees.paginate', ['perPage' => 100, 'showDeleted' => true]))->assertOk()->json('employees.data');
+
+        return collect($rows)->firstWhere('employee_id', $employee->employee_id) ?? [];
+    }
+
+    public function test_directory_rows_carry_exactly_the_actions_the_row_menu_may_offer(): void
+    {
+        $theirs = $this->directoryRow($this->admin, $this->e1)['can'];
+        $this->assertSame([
+            'is_self' => false, 'update' => true, 'placement' => true, 'transfer' => true, 'attendance_config' => true,
+            'view_compensation' => true, 'update_compensation' => true, 'reset_password' => true, 'manage_devices' => true,
+            'manage_access' => false, 'delete' => true, 'restore' => true,
+        ], $theirs, 'a department employee: everything except access management');
+
+        $own = $this->directoryRow($this->admin, $this->admin)['can'];
+        $this->assertTrue($own['is_self']);
+        foreach (['placement', 'transfer', 'update_compensation', 'reset_password', 'manage_access', 'delete'] as $never) {
+            $this->assertFalse($own[$never], "never on himself: {$never}");
+        }
+        $this->assertTrue($own['manage_devices'], 'his own devices and lock stay his to manage');
+
+        $peer = $this->directoryRow($this->admin, $this->peer)['can'];
+        $this->assertFalse($peer['update'], 'an equal rank cannot be edited');
+        $this->assertFalse($peer['delete']);
+        $this->assertFalse($peer['reset_password']);
+
+        $hrView = $this->directoryRow($this->hr, $this->e1)['can'];
+        $this->assertTrue($hrView['manage_access'], 'global HR keeps role management');
+    }
+
+    public function test_salary_is_editable_on_department_employees_but_never_on_himself(): void
+    {
+        $this->e1->forceFill(['salary_amount' => 1000])->save();
+        $this->admin->forceFill(['salary_amount' => 5000])->save();
+
+        $this->as($this->admin)->putJson(route('users.update', $this->id($this->e1)), ['salary_amount' => 1200])->assertOk();
+        $this->assertEquals(1200, $this->e1->fresh()->salary_amount);
+
+        // ...through the profile page's salary form as well
+        $salary = ['ruleSet' => 'salary', 'salary_basis' => 'monthly', 'payment_type' => 'Bank transfer'];
+        $this->as($this->admin)->postJson(route('profile.update'), $salary + ['id' => $this->id($this->e1), 'salary_amount' => 1300])->assertOk();
+        $this->assertEquals(1300, $this->e1->fresh()->salary_amount);
+
+        // never his own — however it is submitted
+        $this->as($this->admin)->putJson(route('users.update', $this->id($this->admin)), ['salary_amount' => 999999, 'name' => 'Still Me'])->assertOk();
+        $this->assertEquals(5000, $this->admin->fresh()->salary_amount);
+        $this->as($this->admin)->postJson(route('profile.update'), $salary + ['id' => $this->id($this->admin), 'salary_amount' => 999999])->assertForbidden();
+        $this->assertEquals(5000, $this->admin->fresh()->salary_amount);
+
+        // nor anyone outside his department, nor anyone who outranks him
+        $this->as($this->admin)->putJson(route('users.update', $this->id($this->e2)), ['salary_amount' => 1])->assertForbidden();
+        $this->as($this->admin)->postJson(route('profile.update'), $salary + ['id' => $this->id($this->e2), 'salary_amount' => 1])->assertForbidden();
+        $this->as($this->admin)->postJson(route('profile.update'), $salary + ['id' => $this->id($this->hrInD1), 'salary_amount' => 1])->assertForbidden();
+    }
+
+    public function test_the_profile_page_is_open_inside_the_department_only_and_hides_salary_from_people_without_the_permission(): void
+    {
+        $this->e1->forceFill(['salary_amount' => 1000])->save();
+
+        $props = $this->as($this->admin)->get(route('profile', $this->id($this->e1)))->assertOk()->viewData('page')['props'];
+        $this->assertEquals(1000, $props['user']['salary_amount']);
+        $this->assertTrue($props['can']['edit']);
+        $this->assertTrue($props['can']['manageEmployment']);
+        $this->assertTrue($props['can']['manageCompensation']);
+        // the pickers hold his department only
+        $this->assertSame([$this->d1->id], collect($props['departments'])->pluck('id')->all());
+        $this->assertNotContains($this->id($this->e2), collect($props['allUsers'])->pluck('id')->all());
+
+        $this->as($this->admin)->get(route('profile', $this->id($this->e2)))->assertNotFound();
+        $emergency = ['ruleSet' => 'emergency', 'emergency_contact_primary_name' => 'Ally', 'emergency_contact_primary_relationship' => 'Sibling', 'emergency_contact_primary_phone' => '01700000000'];
+        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->e2)] + $emergency)->assertForbidden();
+        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->e1)] + $emergency)->assertOk();
+
+        // employment: re-placing inside his department works, moving someone out (or placing himself) does not
+        $designation = Designation::factory()->create(['department_id' => $this->d1->id]);
+        $employment = ['ruleSet' => 'employment', 'designation' => $designation->id, 'report_to' => $this->id($this->admin)];
+        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->e1), 'department' => $this->d1->id] + $employment)->assertOk();
+        $this->assertSame($designation->id, (int) $this->e1->fresh()->designation_id);
+        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->e1), 'department' => $this->d2->id] + $employment)->assertForbidden();
+        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->admin), 'department' => $this->d1->id] + $employment)->assertForbidden();
+
+        // A colleague who can browse the directory but holds no compensation permission never receives it.
+        $viewer = $this->makeUser('Department Manager', $this->d1, 'Plain Viewer');
+        $viewer->givePermissionTo(['employees.view', 'profile.own.view']);
+        $viewerProps = $this->as($viewer)->get(route('profile', $this->id($this->e1)))->assertOk()->viewData('page')['props'];
+        $this->assertArrayNotHasKey('salary_amount', $viewerProps['user']);
+        $this->assertFalse($viewerProps['can']['viewCompensation']);
+    }
+
+    public function test_each_employee_action_needs_its_own_permission(): void
+    {
+        // A department manager who can edit profiles and re-place staff, nothing else.
+        $lead = $this->makeUser('Department Manager', $this->d1, 'Placement Lead');
+        $lead->givePermissionTo(['employees.view', 'employees.update', 'employees.placement.update']);
+        $designation = Designation::factory()->create(['department_id' => $this->d1->id]);
+
+        // allowed: profile + placement
+        $this->as($lead)->putJson(route('users.update', $this->id($this->e1)), ['name' => 'By Lead', 'designation_id' => $designation->id])->assertOk();
+        $this->assertSame($designation->id, (int) $this->e1->fresh()->designation_id);
+        $this->as($lead)->postJson(route('users.updateReportTo', $this->id($this->e1)), ['report_to' => $this->id($this->admin)])->assertOk();
+
+        // refused: every other group, with the unchanged echo of it tolerated
+        $this->as($lead)->putJson(route('users.update', $this->id($this->e1)), ['salary_amount' => 7])->assertForbidden();
+        $this->as($lead)->putJson(route('users.update', $this->id($this->e1)), ['password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026'])->assertForbidden();
+        $this->as($lead)->putJson(route('users.update', $this->id($this->e1)), ['single_device_login_enabled' => true])->assertForbidden();
+        $this->as($lead)->putJson(route('users.update', $this->id($this->e1)), ['attendance_type_ids' => [999]])->assertStatus(422);
+        $this->as($lead)->postJson(route('users.changePassword', $this->id($this->e1)), ['password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026'])->assertForbidden();
+        $this->as($lead)->postJson(route('users.updateAttendanceType', $this->id($this->e1)), [])->assertForbidden();
+        $this->as($lead)->postJson(route('admin.users.devices.toggle', $this->id($this->e1)))->assertForbidden();
+        $this->as($lead)->deleteJson(route('users.destroy', $this->id($this->e1)))->assertForbidden();
+        $this->as($lead)->putJson(route('users.update-department', $this->id($this->e1)), ['department' => $this->d1->id])->assertOk(); // employees.update covers a (here: no-op) transfer
+    }
+
+    public function test_transfers_stay_between_departments_he_manages_and_never_involve_himself(): void
+    {
+        $this->as($this->admin)->putJson(route('users.update-department', $this->id($this->e1)), ['department' => $this->d2->id])->assertForbidden();
+        $this->as($this->admin)->putJson(route('users.update', $this->id($this->e1)), ['department_id' => $this->d2->id])->assertForbidden();
+        $this->as($this->admin)->putJson(route('users.update-department', $this->id($this->e2)), ['department' => $this->d1->id])->assertForbidden();
+        $this->as($this->admin)->putJson(route('users.update-department', $this->id($this->admin)), ['department' => $this->d1->id])->assertForbidden();
+        $this->assertSame($this->d1->id, (int) $this->e1->fresh()->department_id);
+
+        // With a second department granted to him, a move between his two works.
+        UserDepartmentScope::create(['user_id' => $this->id($this->admin), 'department_id' => $this->d2->id, 'scope_type' => 'admin', 'granted_by' => $this->id($this->hr)]);
+        app(DepartmentScope::class)->forget();
+        $this->as($this->admin)->putJson(route('users.update-department', $this->id($this->e1)), ['department' => $this->d2->id])->assertOk();
+        $this->assertSame($this->d2->id, (int) $this->e1->fresh()->department_id);
+    }
+
+    public function test_he_never_resets_his_own_password_through_the_admin_route_but_resets_his_departments(): void
+    {
+        $payload = ['password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026'];
+        $this->as($this->admin)->postJson(route('users.changePassword', $this->id($this->admin)), $payload)->assertForbidden();
+        $this->as($this->admin)->postJson(route('users.changePassword', $this->id($this->e1)), $payload)->assertOk();
+        $this->as($this->admin)->postJson(route('users.changePassword', $this->id($this->e2)), $payload)->assertForbidden();
     }
 }

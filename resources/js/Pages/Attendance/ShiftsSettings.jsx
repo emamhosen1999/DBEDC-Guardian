@@ -13,11 +13,17 @@ import TablePagination from '@/Components/TablePagination.jsx';
 
 export default function ShiftsSettings() {
     const { auth, employees = [], departments = [], designations = [] } = usePage().props;
-    const isGlobalUser = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager') || auth?.permissions?.includes('attendance.settings');
+    /* Creator names are for company-wide viewers only: the server withholds them from everyone else. */
+    const isGlobalUser = Boolean(auth?.scope?.global);
     /* Shift DEFINITIONS and rotation PATTERNS are company-wide configuration (attendance.settings).
        Assigning shifts to employees is per-employee work (attendance.roster.manage) and lives in the
        Assignments sub-tab, so a roster manager sees the catalogue read-only. */
     const canConfigure = Boolean(auth?.isSuperAdmin || auth?.permissions?.includes('attendance.settings'));
+    /* A department admin (attendance.roster.manage) may create templates OWNED by his department: the
+       server decides per template which rows are his to edit (`can_manage`). */
+    const canAdd = canConfigure || Boolean(auth?.permissions?.includes('attendance.roster.manage'));
+    const canEditRow = (row) => (typeof row?.can_manage === 'boolean' ? row.can_manage : canConfigure);
+    const showActions = canAdd;
     const qc = useQueryClient();
     /* Sub-tab and both lists' pages live in the URL under an `s_` prefix
        (every Attendance tab stays mounted). */
@@ -127,7 +133,7 @@ export default function ShiftsSettings() {
                             <LayersIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
                             <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Manage Shifts</Text>
                         </Flex>
-                        {canConfigure && (
+                        {canAdd && (
                             <Button size="2" color="blue" onClick={() => { setEditing(null); setOpen(true); }} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                 <PlusIcon /> Add shift
                             </Button>
@@ -139,7 +145,7 @@ export default function ShiftsSettings() {
                     ) : shifts.length === 0 ? (
                         <Flex direction="column" align="center" py="5" gap="2">
                             <Text size="2" color="gray">No shifts yet.</Text>
-                            {canConfigure && <Text size="1" color="gray">Click Add shift above to create one.</Text>}
+                            {canAdd && <Text size="1" color="gray">Click Add shift above to create one.</Text>}
                         </Flex>
                     ) : (
                         <Box>
@@ -149,9 +155,10 @@ export default function ShiftsSettings() {
                                         <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Window</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Owner</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                                         {isGlobalUser && <Table.ColumnHeaderCell>Created By</Table.ColumnHeaderCell>}
-                                        {canConfigure && <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>}
+                                        {showActions && <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>}
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
@@ -171,6 +178,11 @@ export default function ShiftsSettings() {
                                                 </Text>
                                             </Table.Cell>
                                             <Table.Cell>
+                                                <Badge color={s.department ? 'blue' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>
+                                                    {s.department?.name || 'Company-wide'}
+                                                </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
                                                 <Badge color={s.is_active ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
                                                     {s.is_active ? 'Active' : 'Inactive'}
                                                 </Badge>
@@ -180,16 +192,18 @@ export default function ShiftsSettings() {
                                                     <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{s.creator?.name || 'System'}</Text>
                                                 </Table.Cell>
                                             )}
-                                            {canConfigure && (
+                                            {showActions && (
                                                 <Table.Cell>
-                                                    <Flex gap="1" justify="end">
-                                                        <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditing(s); setOpen(true); }}>
-                                                            <Pencil1Icon />
-                                                        </IconButton>
-                                                        <IconButton size="1" variant="ghost" color="red" onClick={() => remove(s)}>
-                                                            <TrashIcon />
-                                                        </IconButton>
-                                                    </Flex>
+                                                    {canEditRow(s) && (
+                                                        <Flex gap="1" justify="end">
+                                                            <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditing(s); setOpen(true); }} aria-label={`Edit shift ${s.name}`}>
+                                                                <Pencil1Icon />
+                                                            </IconButton>
+                                                            <IconButton size="1" variant="ghost" color="red" onClick={() => remove(s)} aria-label={`Delete shift ${s.name}`}>
+                                                                <TrashIcon />
+                                                            </IconButton>
+                                                        </Flex>
+                                                    )}
                                                 </Table.Cell>
                                             )}
                                         </Table.Row>
@@ -217,7 +231,7 @@ export default function ShiftsSettings() {
                             <SymbolIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
                             <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Rotation Patterns</Text>
                         </Flex>
-                        {canConfigure && (
+                        {canAdd && (
                             <Button size="2" color="blue" onClick={() => { setEditingPattern(null); setPatternOpen(true); }} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                 <PlusIcon /> Add pattern
                             </Button>
@@ -229,7 +243,7 @@ export default function ShiftsSettings() {
                     ) : patterns.length === 0 ? (
                         <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--dl-border-color, rgba(0,0,0,0.1))', borderRadius: 14 }}>
                             <Text size="2" color="gray">No rotation patterns yet.</Text>
-                            {canConfigure && <Text size="1" color="gray">Click Add pattern above to create one.</Text>}
+                            {canAdd && <Text size="1" color="gray">Click Add pattern above to create one.</Text>}
                         </Flex>
                     ) : (
                         <Box>
@@ -240,9 +254,10 @@ export default function ShiftsSettings() {
                                         <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Cycle Length</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Sequence Preview</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Owner</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                                         {isGlobalUser && <Table.ColumnHeaderCell>Created By</Table.ColumnHeaderCell>}
-                                        {canConfigure && <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>}
+                                        {showActions && <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>}
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
@@ -263,6 +278,11 @@ export default function ShiftsSettings() {
                                                 </Flex>
                                             </Table.Cell>
                                             <Table.Cell>
+                                                <Badge color={p.department ? 'blue' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>
+                                                    {p.department?.name || 'Company-wide'}
+                                                </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
                                                 <Badge color={p.is_active ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
                                                     {p.is_active ? 'Active' : 'Inactive'}
                                                 </Badge>
@@ -272,16 +292,18 @@ export default function ShiftsSettings() {
                                                     <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{p.creator?.name || 'System'}</Text>
                                                 </Table.Cell>
                                             )}
-                                            {canConfigure && (
+                                            {showActions && (
                                                 <Table.Cell>
-                                                    <Flex gap="1" justify="end">
-                                                        <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }}>
-                                                            <Pencil1Icon />
-                                                        </IconButton>
-                                                        <IconButton size="1" variant="ghost" color="red" onClick={() => removePattern(p)}>
-                                                            <TrashIcon />
-                                                        </IconButton>
-                                                    </Flex>
+                                                    {canEditRow(p) && (
+                                                        <Flex gap="1" justify="end">
+                                                            <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }} aria-label={`Edit pattern ${p.name}`}>
+                                                                <Pencil1Icon />
+                                                            </IconButton>
+                                                            <IconButton size="1" variant="ghost" color="red" onClick={() => removePattern(p)} aria-label={`Delete pattern ${p.name}`}>
+                                                                <TrashIcon />
+                                                            </IconButton>
+                                                        </Flex>
+                                                    )}
                                                 </Table.Cell>
                                             )}
                                         </Table.Row>
@@ -312,8 +334,8 @@ export default function ShiftsSettings() {
                 </Tabs.Content>
             </Tabs.Root>
 
-            <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} />
-            <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} initial={editingPattern} onSaved={refresh} />
+            <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} departments={departments} />
+            <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} initial={editingPattern} onSaved={refresh} departments={departments} />
         </Box>
     );
 }

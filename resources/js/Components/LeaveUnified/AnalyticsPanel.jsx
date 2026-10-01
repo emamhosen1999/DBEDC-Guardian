@@ -16,6 +16,7 @@ import {
     CheckCircledIcon, ClockIcon, CrossCircledIcon, ReloadIcon,
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 /* ── Stacked Bar Chart (Pure SVG) ── */
 function BarChart({ data, height = 180, loading = false }) {
@@ -261,17 +262,13 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                     </Select.Content>
                 </Select.Root>
 
-                {departments.length > 0 && (
-                    <Select.Root size="2" value={deptId || 'all'} onValueChange={v => setDeptId(v === 'all' ? '' : v)}>
-                        <Select.Trigger style={{ minWidth: 200 }} placeholder="All Departments" />
-                        <Select.Content>
-                            <Select.Item value="all">All Departments</Select.Item>
-                            {departments.map(d => (
-                                <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                            ))}
-                        </Select.Content>
-                    </Select.Root>
-                )}
+                <DepartmentFilter
+                    value={deptId || 'all'}
+                    onChange={v => setDeptId(v === 'all' ? '' : v)}
+                    departments={departments}
+                    width="auto"
+                    minWidth="200px"
+                />
             </Flex>
 
             {!loading && !analytics ? (

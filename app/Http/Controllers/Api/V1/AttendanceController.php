@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\AttendanceHistoryRequest;
 use App\Http\Requests\Api\V1\AttendanceMonthlySummaryRequest;
@@ -15,20 +16,23 @@ use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceValidatorFactory;
+use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\UpcomingShiftService;
+use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
-use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 
 class AttendanceController extends Controller
 {
-    use ResolvesTeamMembers;
     use ApiResponse;
+    use ResolvesTeamMembers;
 
     protected AttendanceRepository $attendanceRepository;
 
@@ -212,7 +216,9 @@ class AttendanceController extends Controller
             $totalUsers = $usersWithAttendance->count();
             $lastPage = max(1, (int) ceil($totalUsers / max($perPage, 1)));
 
+            // Absent list: the SAME team (scope) as the present list — never every Employee in the company.
             $allEmployeeUsersQuery = User::query()
+                ->whereIn('employee_id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -228,6 +234,7 @@ class AttendanceController extends Controller
             $allEmployeeUsers = $allEmployeeUsersQuery->get();
 
             $presentUserIds = User::query()
+                ->whereIn('employee_id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -927,7 +934,7 @@ class AttendanceController extends Controller
                 }
             }
 
-            $scheduleResolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+            $scheduleResolver = app(ScheduleResolver::class);
             $workingDays = 0;
             $workingCursor = $rangeStart->copy()->startOfDay();
 
@@ -1102,7 +1109,7 @@ class AttendanceController extends Controller
         }
 
         // Realtime: notify the live attendance dashboard that today's presence changed.
-        app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', now()->format('Y-m-d'), $user->employee_id ?? $user->getKey(), 'punch');
+        app(RealtimeSignal::class)->touch('attendance', now()->format('Y-m-d'), $user->employee_id ?? $user->getKey(), 'punch');
 
         return response()->json(array_merge(['success' => true], $result));
     }
@@ -1169,7 +1176,7 @@ class AttendanceController extends Controller
                 'attendance' => [
                     'id' => (int) $attendance->id,
                     'user_id' => (string) $attendance->user_id,
-                    'date' => $attendance->date instanceof \Carbon\CarbonInterface
+                    'date' => $attendance->date instanceof CarbonInterface
                         ? $attendance->date->toDateString()
                         : (string) $attendance->date,
                     'punch_in' => $attendance->punchin ? Carbon::parse($attendance->punchin)->format('H:i') : null,
@@ -1189,7 +1196,7 @@ class AttendanceController extends Controller
      * timesheet and team-day. Keys are kept back-compatible ('off' carries the
      * combined off + leave headcount).
      *
-     * @param  \Illuminate\Support\Collection<int, User>  $scopedUsers
+     * @param  Collection<int, User>  $scopedUsers
      * @return array{absent: int, off: int, upcoming: int}
      */
     private function sharedSummaryCounts(string $date, $scopedUsers): array

@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -429,7 +430,7 @@ class PettyCashController extends Controller
                 ], 403);
             }
 
-            $filename = 'petty_cash_transactions_'.now()->format('Y_m_d_H_i_s').'_'.time().'.csv';
+            $filename = 'petty_cash_transactions_'.now()->format('Y_m_d_H_i_s').'_'.time().'_'.Str::random(24).'.csv';
 
             ExportPettyCashTransactions::dispatch($loan->id, Auth::id(), $filename);
 
@@ -480,7 +481,7 @@ class PettyCashController extends Controller
                 'generated_at' => now(),
             ]);
 
-            $filename = 'petty_cash_report_'.($loan->fund_name ? str_replace(' ', '_', $loan->fund_name) : 'fund').'_'.now()->format('Y_m_d').'.pdf';
+            $filename = 'petty_cash_report_'.($loan->fund_name ? str_replace(' ', '_', $loan->fund_name) : 'fund').'_'.now()->format('Y_m_d').'_'.Str::random(24).'.pdf';
 
             return $pdf->download($filename);
         } catch (\Exception $e) {

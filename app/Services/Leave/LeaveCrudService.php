@@ -5,6 +5,7 @@ namespace App\Services\Leave;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -351,7 +352,9 @@ class LeaveCrudService
             $before = $leave->toArray();
 
             $isOwner = (string) $leave->user_id === (string) $actor->id;
-            $isManager = $actor->can('leaves.approve') || $actor->can('leaves.manage');
+            // An approver may cancel only the leaves of people inside their scope (never another department's).
+            $isManager = ($actor->can('leaves.approve') || $actor->can('leaves.manage'))
+                && app(DepartmentScope::class)->canActOn($actor, (string) $leave->user_id, allowSelf: true);
 
             if (! $isOwner && ! $isManager) {
                 throw new \RuntimeException('You are not authorized to cancel this leave request.', 403);

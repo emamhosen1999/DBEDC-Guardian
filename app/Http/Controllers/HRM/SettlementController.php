@@ -235,7 +235,7 @@ class SettlementController extends Controller
     public function printCertificate(Request $request, int $offboardingId, string $type = 'experience'): JsonResponse
     {
         $offboarding = Offboarding::with(['employee.department', 'employee.designation'])->findOrFail($offboardingId);
-        abort_unless($this->scope->canActOn($request->user(), $offboarding->employee_id, allowSelf: true), 403, 'This employee is outside your scope.');
+        abort_unless($this->scope->canActOn($request->user(), $offboarding->employee_id, allowSelf: true), 404);
         $employee = $offboarding->employee;
 
         if (! $employee) {

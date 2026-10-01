@@ -26,6 +26,7 @@ use App\Services\Attendance\RosterService;
 use App\Services\Attendance\UpcomingShiftService;
 use App\Traits\HandlesApiExceptions;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -34,10 +35,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class AttendanceController extends Controller
 {
@@ -61,6 +64,17 @@ class AttendanceController extends Controller
         $this->attendancePunchService = $attendancePunchService;
         $this->attendanceQueryService = $attendanceQueryService;
         $this->upcomingShiftService = $upcomingShiftService;
+    }
+
+    /**
+     * Narrow a users query to the people the actor may see: everyone for an attendance administrator,
+     * otherwise their department scope.
+     */
+    private function scopeEmployeeList($query)
+    {
+        $actor = auth()->user();
+
+        return $this->scope()->isAttendanceAdmin($actor) ? $query : $this->scope()->applyToUsers($query, $actor);
     }
 
     private function scope(): DepartmentScope
@@ -194,9 +208,10 @@ class AttendanceController extends Controller
             // Map to plain arrays so Inertia serialization does not invoke the models'
             // toArray() overrides/appended accessors (e.g. Designation appends department_name,
             // which lazy-loads `department` and 500s under preventLazyLoading in dev / N+1s in prod).
-            'employees' => User::role('Employee', 'web')
+            // Only the people the actor may see (attendance administrators are company-wide).
+            'employees' => $this->scopeEmployeeList(User::role('Employee', 'web')
                 ->select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
-                ->orderBy('name')
+                ->orderBy('name'))
                 ->get()
                 ->map(fn ($u) => [
                     'id' => $u->id,
@@ -1144,6 +1159,9 @@ class AttendanceController extends Controller
             ]);
         } catch (HttpException $e) {
             throw $e;
+        } catch (ValidationException|AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to mark user as present: '.$e->getMessage());
 
@@ -1179,6 +1197,9 @@ class AttendanceController extends Controller
                 'count' => count($attendances),
             ]);
         } catch (HttpException $e) {
+            throw $e;
+        } catch (ValidationException|AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
             throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to bulk mark as present: '.$e->getMessage());
@@ -1263,8 +1284,8 @@ class AttendanceController extends Controller
     public function exportExcel(Request $request)
     {
         try {
-            $date = $request->input('date');
-            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'.xlsx';
+            $date = (string) $request->input('date', now()->toDateString());
+            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'_'.Str::random(24).'.xlsx';
 
             ExportAttendanceReport::dispatch('daily_excel', $date, null, Auth::id(), $filename);
 
@@ -1286,8 +1307,8 @@ class AttendanceController extends Controller
     public function exportPdf(Request $request)
     {
         try {
-            $date = $request->input('date');
-            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'.pdf';
+            $date = (string) $request->input('date', now()->toDateString());
+            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'_'.Str::random(24).'.pdf';
 
             ExportAttendanceReport::dispatch('daily_pdf', $date, null, Auth::id(), $filename);
 
@@ -1310,7 +1331,7 @@ class AttendanceController extends Controller
     {
         try {
             $month = $request->get('month');
-            $filename = 'DBEDC_Attendance_'.$month.'_'.time().'.xlsx';
+            $filename = 'DBEDC_Attendance_'.$month.'_'.time().'_'.Str::random(24).'.xlsx';
 
             ExportAttendanceReport::dispatch('monthly_excel', null, $month, Auth::id(), $filename);
 
@@ -1335,7 +1356,7 @@ class AttendanceController extends Controller
             $month = $request->get('month');
             $from = Carbon::parse($month.'-01');
             $monthName = $from->format('F Y');
-            $filename = 'DBEDC_Attendance_'.$monthName.'_'.time().'.pdf';
+            $filename = 'DBEDC_Attendance_'.$monthName.'_'.time().'_'.Str::random(24).'.pdf';
 
             ExportAttendanceReport::dispatch('monthly_pdf', null, $month, Auth::id(), $filename);
 
@@ -1385,7 +1406,7 @@ class AttendanceController extends Controller
 
             $ext = $type === 'pdf' ? 'pdf' : 'xlsx';
             $jobType = $type === 'pdf' ? 'range_pdf' : 'range_excel';
-            $filename = 'Attendance_Log_'.$from->format('Ymd').'_'.$to->format('Ymd').'_'.time().'.'.$ext;
+            $filename = 'Attendance_Log_'.$from->format('Ymd').'_'.$to->format('Ymd').'_'.time().'_'.Str::random(24).'.'.$ext;
 
             ExportAttendanceReport::dispatch($jobType, null, null, Auth::id(), $filename, $filters);
 
@@ -1504,6 +1525,9 @@ class AttendanceController extends Controller
                 'attendance' => $attendance->fresh(['user']),
             ], 201);
         } catch (HttpException $e) {
+            throw $e;
+        } catch (ValidationException|AuthorizationException|HttpExceptionInterface $e) {
+            // A refused or invalid request answers 4xx — never a generic 500.
             throw $e;
         } catch (\Exception $e) {
             Log::error('Error adding attendance record', [
@@ -1641,8 +1665,9 @@ class AttendanceController extends Controller
     public function auditHistory(int $id): JsonResponse
     {
         $ownerId = Attendance::query()->whereKey($id)->value('user_id');
+        // An audit trail outside the actor's reach reads exactly like one that does not exist.
         if ($ownerId !== null) {
-            $this->assertMayActOn((string) $ownerId);
+            abort_unless($this->scope()->isGlobal(Auth::user()) || $this->scope()->canActOn(Auth::user(), (string) $ownerId), 404);
         } elseif (! $this->scope()->isGlobal(Auth::user())) {
             abort(404);
         }

@@ -17,6 +17,7 @@ import DesignationForm from '@/Forms/DesignationForm.jsx';
 import DeleteDesignationForm from '@/Forms/DeleteDesignationForm.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 const Designations = ({ title, initialDesignations, departments, allDesignations, stats: initialStats, filters: initialFilters }) => {
     const { auth } = usePage().props;
@@ -154,15 +155,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                             </Box>
                             
                             <Box style={{ minWidth: '180px' }}>
-                                <Select.Root value={f.values.department} onValueChange={(v) => f.set('department', v)}>
-                                    <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
-                                    <Select.Content>
-                                        <Select.Item value="all">All Departments</Select.Item>
-                                        {departments?.map(dept => (
-                                            <Select.Item key={dept.id} value={String(dept.id)}>{dept.name}</Select.Item>
-                                        ))}
-                                    </Select.Content>
-                                </Select.Root>
+                                <DepartmentFilter value={f.values.department} onChange={(v) => f.set('department', v)} departments={departments} />
                             </Box>
 
                             <Box style={{ minWidth: '150px' }}>

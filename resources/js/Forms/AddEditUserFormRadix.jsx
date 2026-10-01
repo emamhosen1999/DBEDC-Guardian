@@ -1,5 +1,5 @@
 import { Panel } from '@/Components/ui/Panel';
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Button, TextField, Select, Flex, Box, Text, Avatar, Switch, Grid, Badge, ScrollArea, IconButton, Checkbox, Spinner, Heading, Separator, Tooltip } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import {
@@ -14,23 +14,52 @@ import {
     CalendarIcon,
     HomeIcon,
     DesktopIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    PlusIcon
 } from '@radix-ui/react-icons';
 import { useForm } from 'laravel-precognition-react';
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
 import DepartmentScopeSection from '@/Components/Access/DepartmentScopeSection';
+import DepartmentField from '@/Components/Access/DepartmentField';
+import DesignationForm from '@/Pages/Organization/Components/DesignationForm.jsx';
+import { deviceOptionsForLocation } from '@/utils/deviceOptions';
+import { eligibleManagers } from '@/utils/reportingLine';
 import { showToast } from "@/utils/toastUtils";
 
-const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, workLocations = [], attendanceTypes = [], setUsers, open, closeModal, editMode = false, onSuccess, scope = 'full' }) => {
+const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, workLocations = [], attendanceTypes = [], biometricDevices = [], setUsers, open, closeModal, editMode = false, onSuccess, scope = 'full' }) => {
     // scope: 'full' (create — everything), 'profile' (identity/personal/org), 'access' (roles & security)
     const showProfile = scope !== 'access';
     const showAccess = scope !== 'profile';
     const { auth } = usePage().props;
+
+    /* ── what the actor may change ──
+       The server enforces every group independently (a group he may not change is refused when it
+       would change something); these flags only keep the form from offering controls that would be
+       refused. In the directory the row carries its own `can` (scope, outranking, never oneself). */
+    const holds = (permission) => Boolean(auth?.isSuperAdmin || auth?.permissions?.includes(permission));
+    const rowCan = editMode ? (user?.can ?? null) : null;
+    const isSelfEdit = editMode && !auth?.isSuperAdmin && String(user?.id ?? '') === String(auth?.user?.employee_id ?? '');
+    const canPlace = !isSelfEdit && (rowCan ? rowCan.placement : holds('employees.placement.update'));
+    const canConfigureAttendance = !isSelfEdit && (rowCan ? rowCan.attendance_config : holds('employees.attendance-config.update'));
+    const canTransfer = !isSelfEdit && (rowCan ? rowCan.transfer : holds('employees.update'));
+    const canLockDevices = rowCan ? rowCan.manage_devices : holds('employees.devices.manage');
+    // Roles: only someone who manages access sees (or sends) them. Everyone else creates plain
+    // Employees — the server forces the base role regardless of what is sent.
+    const canManageAccess = holds('employees.access.manage') && !isSelfEdit && (!rowCan || rowCan.manage_access);
+    // HR-created staff default to the base role plus the field-reporting role (Daily Works Contributor).
+    const defaultRoles = ['Employee', 'Daily Works Contributor'].filter(name => (roles || []).some(r => (typeof r === 'object' ? r.name : r) === name));
     const canManageScopes = editMode && !!user?.id && (auth?.permissions?.includes('department.scopes.manage') || false);
     const [showPassword, setShowPassword] = useState(false);
     const [selectedImage, setSelectedImage] = useState(user?.profile_image_url || user?.profile_image || null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
-    const [filteredDesignations, setFilteredDesignations] = useState(designations || []);
+    // Designations the actor creates from this form ("+ New designation") join the pool at once; the
+    // page props follow via a partial reload.
+    const [createdDesignations, setCreatedDesignations] = useState([]);
+    const [designationDialogOpen, setDesignationDialogOpen] = useState(false);
+    const designationPool = useMemo(() => {
+        const seen = new Set();
+        return [...(designations || []), ...createdDesignations].filter((d) => !seen.has(String(d.id)) && seen.add(String(d.id)));
+    }, [designations, createdDesignations]);
     const [filteredReportTo, setFilteredReportTo] = useState(allUsers || []);
     const [hasOverride, setHasOverride] = useState(user?.has_attendance_override || (user?.attendance_types?.length > 0) || false);
 
@@ -54,7 +83,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
             report_to: user?.report_to || '',
             password: '',
             password_confirmation: '',
-            roles: user?.roles?.map(r => typeof r === 'object' ? r.name : r) || [],
+            roles: user?.roles?.map(r => typeof r === 'object' ? r.name : r) || (holds('employees.access.manage') && !user ? defaultRoles : []),
             single_device_login_enabled: user?.single_device_login_enabled || user?.single_device_login || false,
             work_location_id: user?.work_location_id || '',
             attendance_type_ids: (user?.attendance_types?.map(t => Number(t.id))
@@ -64,81 +93,55 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
         }
     );
 
-    // Filter designations when department changes
+    // The department's ACTIVE designations (the one the employee already holds stays listed even when it
+    // has since been deactivated). Derived, not stored: a designation created from this form is selectable
+    // in the very same render.
+    const heldDesignationId = String(user?.designation_id ?? user?.designation?.id ?? '');
+    const filteredDesignations = useMemo(() => (form.data.department_id
+        ? designationPool.filter(
+            (designation) => String(designation.department_id) === String(form.data.department_id)
+                && (designation.is_active !== false || String(designation.id) === heldDesignationId),
+        )
+        : designationPool), [form.data.department_id, designationPool, heldDesignationId]);
+
+    // A department change invalidates a designation of the previous one.
     useEffect(() => {
-        if (form.data.department_id) {
-            const filtered = designations?.filter(
-                designation => String(designation.department_id) === String(form.data.department_id)
-            ) || [];
-            setFilteredDesignations(filtered);
-            
-            if (form.data.designation_id) {
-                const isValid = filtered.some(
-                    d => String(d.id) === String(form.data.designation_id)
-                );
-                if (!isValid) {
-                    handleChange('designation_id', '');
-                }
-            }
-        } else {
-            setFilteredDesignations(designations || []);
+        if (form.data.department_id && form.data.designation_id
+            && !filteredDesignations.some((d) => String(d.id) === String(form.data.designation_id))) {
+            handleChange('designation_id', '');
         }
-    }, [form.data.department_id, designations]);
+    }, [form.data.department_id, filteredDesignations]);
 
-    // Filter report to users when department and designation changes
+    // Reports-to: in-scope people of the chosen department, the person administering included
+    // (a department admin is the natural supervisor of staff he registers — even in a department
+    // that has no designations yet). Rank is only compared where both sides have a designation;
+    // a top-level designation needs no supervisor at all.
     useEffect(() => {
-        if (form.data.department_id && form.data.designation_id) {
-            const selectedDesignation = designations?.find(
-                d => String(d.id) === String(form.data.designation_id)
-            );
-            
-            if (!selectedDesignation) {
-                setFilteredReportTo([]);
-                handleChange('report_to', '');
-                return;
-            }
+        const selectedDesignation = form.data.designation_id
+            ? designationPool.find((d) => String(d.id) === String(form.data.designation_id))
+            : null;
 
-            if (selectedDesignation.hierarchy_level === 1) {
-                setFilteredReportTo([]);
+        if (!form.data.department_id || selectedDesignation?.hierarchy_level === 1) {
+            setFilteredReportTo([]);
+            if (selectedDesignation?.hierarchy_level === 1 && form.data.report_to) {
                 handleChange('report_to', '');
-                return;
             }
-
-            const filtered = allUsers?.filter(u => {
-                const userDeptId = u.department_id || u.department?.id;
-                const deptMatch = String(userDeptId) === String(form.data.department_id);
-                const userDesignation = designations?.find(
-                    d => String(d.id) === String(u.designation_id)
-                );
-                const isHigherLevel = userDesignation && 
-                    userDesignation.hierarchy_level < selectedDesignation.hierarchy_level;
-                const notSelf = !editMode || !form.data.id || u.id !== form.data.id;
-                return deptMatch && isHigherLevel && notSelf;
-            }) || [];
-            
-            setFilteredReportTo(filtered);
-            
-            if (form.data.report_to) {
-                const isValid = filtered.some(
-                    u => String(u.id) === String(form.data.report_to)
-                );
-                if (!isValid) {
-                    handleChange('report_to', '');
-                }
-            }
-        } else if (form.data.department_id) {
-            const filtered = allUsers?.filter(u => {
-                const userDeptId = u.department_id || u.department?.id;
-                const deptMatch = String(userDeptId) === String(form.data.department_id);
-                const notSelf = !editMode || !form.data.id || u.id !== form.data.id;
-                return deptMatch && notSelf;
-            }) || [];
-            setFilteredReportTo(filtered);
-        } else {
-            const allExceptSelf = allUsers?.filter(u => !editMode || !form.data.id || u.id !== form.data.id) || [];
-            setFilteredReportTo(allExceptSelf);
+            return;
         }
-    }, [form.data.department_id, form.data.designation_id, allUsers, form.data.id, editMode, designations]);
+
+        const filtered = eligibleManagers({
+            managers: allUsers || [],
+            subject: { id: editMode ? form.data.id : null, department_id: form.data.department_id },
+            subjectLevel: selectedDesignation?.hierarchy_level ?? null,
+            actorId: auth?.user?.employee_id ?? null,
+            currentManagerId: editMode ? user?.report_to : null,
+        });
+        setFilteredReportTo(filtered);
+
+        if (form.data.report_to && !filtered.some((u) => String(u.id) === String(form.data.report_to))) {
+            handleChange('report_to', '');
+        }
+    }, [form.data.department_id, form.data.designation_id, allUsers, form.data.id, editMode, designationPool]);
 
     useEffect(() => {
         if (user?.profile_image_url || user?.profile_image) {
@@ -146,6 +149,13 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
         }
         setHasOverride(user?.has_attendance_override || (user?.attendance_types?.length > 0) || false);
     }, [user]);
+
+    // Once the form has been saved, a late blur (the dialog closing) must not fire another precognitive
+    // validation: it would run against the record just created and answer 422 "already registered".
+    const settled = useRef(false);
+    const validateField = (key) => {
+        if (!settled.current) form.validate(key);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -163,8 +173,11 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
             await form.submit({
                 preserveScroll: true,
                 transform: (data) => {
+                    const { roles: submittedRoles, ...rest } = data;
                     return {
-                        ...data,
+                        ...rest,
+                        // Roles travel only from someone who manages access; the server enforces the same.
+                        ...(canManageAccess ? { roles: submittedRoles } : {}),
                         single_device_login_enabled: data.single_device_login_enabled ? 1 : 0,
                     };
                 },
@@ -180,6 +193,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             setUsers(prevUsers => [...prevUsers, response.data.user]);
                         }
                     }
+                    settled.current = true;
                     showToast.success(`User ${editMode ? 'updated' : 'created'} successfully`);
                     if (onSuccess) { onSuccess(response); } else { closeModal(); }
                 },
@@ -206,7 +220,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
     const handleChange = (key, value) => {
         form.setData(key, value);
         if (form.touched(key)) {
-            form.validate(key);
+            validateField(key);
         }
     };
 
@@ -311,7 +325,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                     <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Full Name <Text color="red">*</Text></Text>
-                                            <TextField.Root placeholder="Enter full name" value={form.data.name} onChange={(e) => handleChange('name', e.target.value)} onBlur={() => form.validate('name')} color={form.invalid('name') ? 'red' : undefined}>
+                                            <TextField.Root placeholder="Enter full name" value={form.data.name} onChange={(e) => handleChange('name', e.target.value)} onBlur={() => validateField('name')} color={form.invalid('name') ? 'red' : undefined}>
                                                 <TextField.Slot><PersonIcon /></TextField.Slot>
                                                 {form.errors.name && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.name}</Text></TextField.Slot>}
                                             </TextField.Root>
@@ -319,7 +333,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Username <Text color="red">*</Text></Text>
-                                            <TextField.Root placeholder="Enter username" value={form.data.user_name} onChange={(e) => handleChange('user_name', e.target.value)} onBlur={() => form.validate('user_name')} color={form.invalid('user_name') ? 'red' : undefined}>
+                                            <TextField.Root placeholder="Enter username" value={form.data.user_name} onChange={(e) => handleChange('user_name', e.target.value)} onBlur={() => validateField('user_name')} color={form.invalid('user_name') ? 'red' : undefined}>
                                                 <TextField.Slot><IdCardIcon /></TextField.Slot>
                                                 {form.errors.user_name && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.user_name}</Text></TextField.Slot>}
                                             </TextField.Root>
@@ -327,7 +341,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Email <Text color="red">*</Text></Text>
-                                            <TextField.Root type="email" placeholder="user@example.com" value={form.data.email} onChange={(e) => handleChange('email', e.target.value)} onBlur={() => form.validate('email')} color={form.invalid('email') ? 'red' : undefined}>
+                                            <TextField.Root type="email" placeholder="user@example.com" value={form.data.email} onChange={(e) => handleChange('email', e.target.value)} onBlur={() => validateField('email')} color={form.invalid('email') ? 'red' : undefined}>
                                                 <TextField.Slot><EnvelopeClosedIcon /></TextField.Slot>
                                                 {form.errors.email && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.email}</Text></TextField.Slot>}
                                             </TextField.Root>
@@ -335,7 +349,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Phone</Text>
-                                            <TextField.Root type="tel" placeholder="+1 (555) 000-0000" value={form.data.phone} onChange={(e) => handleChange('phone', e.target.value)} onBlur={() => form.validate('phone')} color={form.invalid('phone') ? 'red' : undefined}>
+                                            <TextField.Root type="tel" placeholder="+1 (555) 000-0000" value={form.data.phone} onChange={(e) => handleChange('phone', e.target.value)} onBlur={() => validateField('phone')} color={form.invalid('phone') ? 'red' : undefined}>
                                                 <TextField.Slot><MobileIcon /></TextField.Slot>
                                                 {form.errors.phone && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.phone}</Text></TextField.Slot>}
                                             </TextField.Root>
@@ -360,7 +374,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                 value={form.data.birthday}
                                                 onChange={(val) => {
                                                     handleChange('birthday', val);
-                                                    form.validate('birthday');
+                                                    validateField('birthday');
                                                 }}
                                                 error={form.errors.birthday}
                                             />
@@ -368,7 +382,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box gridColumn={{ initial: '1', sm: '1 / -1' }}>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Address</Text>
-                                            <TextField.Root placeholder="Enter full address" value={form.data.address} onChange={(e) => handleChange('address', e.target.value)} onBlur={() => form.validate('address')} color={form.invalid('address') ? 'red' : undefined}>
+                                            <TextField.Root placeholder="Enter full address" value={form.data.address} onChange={(e) => handleChange('address', e.target.value)} onBlur={() => validateField('address')} color={form.invalid('address') ? 'red' : undefined}>
                                                 <TextField.Slot><HomeIcon /></TextField.Slot>
                                                 {form.errors.address && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.address}</Text></TextField.Slot>}
                                             </TextField.Root>
@@ -386,7 +400,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                     <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Employee ID</Text>
-                                            <TextField.Root placeholder="e.g. EMP-1023" value={form.data.employee_id} onChange={(e) => handleChange('employee_id', e.target.value)} onBlur={() => form.validate('employee_id')} color={form.invalid('employee_id') ? 'red' : undefined}>
+                                            <TextField.Root placeholder="e.g. EMP-1023" value={form.data.employee_id} onChange={(e) => handleChange('employee_id', e.target.value)} onBlur={() => validateField('employee_id')} color={form.invalid('employee_id') ? 'red' : undefined}>
                                                 <TextField.Slot><BadgeIcon /></TextField.Slot>
                                                 {form.errors.employee_id && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.employee_id}</Text></TextField.Slot>}
                                             </TextField.Root>
@@ -399,31 +413,34 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                 value={form.data.date_of_joining}
                                                 onChange={(val) => {
                                                     handleChange('date_of_joining', val);
-                                                    form.validate('date_of_joining');
+                                                    validateField('date_of_joining');
                                                 }}
                                                 error={form.errors.date_of_joining}
                                             />
                                         </Box>
 
-                                        <Box>
-                                            <Text as="label" size="2" weight="medium" mb="1" display="block">Department</Text>
-                                            <Select.Root value={form.data.department_id ? String(form.data.department_id) : undefined} onValueChange={(value) => handleChange('department_id', value)}>
-                                                <Select.Trigger placeholder="Select department" style={{ width: '100%' }} />
-                                                <Select.Content>
-                                                    {departments?.map((department) => (
-                                                        <Select.Item key={department.id} value={String(department.id)}>
-                                                            {department.name}
-                                                        </Select.Item>
-                                                    ))}
-                                                </Select.Content>
-                                            </Select.Root>
-                                            {form.errors.department_id && <Text color="red" size="1" mt="1" display="block">{form.errors.department_id}</Text>}
-                                        </Box>
+                                        <DepartmentField
+                                            value={form.data.department_id}
+                                            onChange={(value) => handleChange('department_id', value)}
+                                            departments={departments}
+                                            disabled={editMode && !canTransfer}
+                                            error={form.errors.department_id}
+                                        />
 
                                         <Box>
-                                            <Text as="label" size="2" weight="medium" mb="1" display="block">Designation</Text>
-                                            <Select.Root value={form.data.designation_id ? String(form.data.designation_id) : undefined} onValueChange={(value) => handleChange('designation_id', value)} disabled={!form.data.department_id || filteredDesignations.length === 0}>
-                                                <Select.Trigger placeholder="Select designation" style={{ width: '100%' }} />
+                                            <Flex align="center" justify="between" mb="1">
+                                                <Text as="label" size="2" weight="medium">Designation</Text>
+                                                {holds('designations.create') && form.data.department_id && canPlace && (
+                                                    <Button type="button" size="1" variant="ghost" onClick={() => setDesignationDialogOpen(true)} data-testid="new-designation">
+                                                        <PlusIcon /> New designation
+                                                    </Button>
+                                                )}
+                                            </Flex>
+                                            <Select.Root value={form.data.designation_id ? String(form.data.designation_id) : undefined} onValueChange={(value) => { if (value) handleChange('designation_id', value); /* Radix emits '' while a just-added item registers: never treat that as a clear */ }} disabled={!form.data.department_id || filteredDesignations.length === 0 || !canPlace}>
+                                                <Select.Trigger
+                                                    placeholder={!form.data.department_id ? 'Select department first' : (filteredDesignations.length === 0 ? 'No designations in this department yet' : 'Select designation')}
+                                                    style={{ width: '100%' }}
+                                                />
                                                 <Select.Content>
                                                     {filteredDesignations?.map((designation) => (
                                                         <Select.Item key={designation.id} value={String(designation.id)}>
@@ -437,18 +454,16 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box gridColumn={{ initial: '1', sm: '1 / -1' }}>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Reports To</Text>
-                                            <Select.Root value={form.data.report_to ? String(form.data.report_to) : undefined} onValueChange={(value) => handleChange('report_to', value)} disabled={!form.data.department_id || !form.data.designation_id || filteredReportTo.length === 0}>
-                                                <Select.Trigger 
+                                            <Select.Root value={form.data.report_to ? String(form.data.report_to) : undefined} onValueChange={(value) => { if (value) handleChange('report_to', value); }} disabled={!form.data.department_id || filteredReportTo.length === 0 || !canPlace}>
+                                                <Select.Trigger
                                                     style={{ width: '100%' }}
                                                     placeholder={
-                                                        !form.data.department_id 
-                                                            ? "Select department first" 
-                                                            : !form.data.designation_id
-                                                            ? "Select designation first"
+                                                        !form.data.department_id
+                                                            ? "Select department first"
                                                             : filteredReportTo.length === 0
-                                                            ? "No supervisor needed for this level"
-                                                            : "Search for a supervisor..."
-                                                    } 
+                                                            ? "No supervisor available for this department"
+                                                            : "Select a supervisor"
+                                                    }
                                                 />
                                                 <Select.Content>
                                                     {filteredReportTo?.map((user) => (
@@ -463,7 +478,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                         {/* Work Location Selection */}
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Work Location</Text>
-                                            <Select.Root value={form.data.work_location_id ? String(form.data.work_location_id) : 'none'} onValueChange={(value) => handleChange('work_location_id', value === 'none' ? '' : value)}>
+                                            <Select.Root value={form.data.work_location_id ? String(form.data.work_location_id) : 'none'} onValueChange={(value) => handleChange('work_location_id', value === 'none' ? '' : value)} disabled={!canPlace}>
                                                 <Select.Trigger placeholder="Select work location" style={{ width: '100%' }} />
                                                 <Select.Content>
                                                     <Select.Item value="none">Unassigned / Remote</Select.Item>
@@ -482,6 +497,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                             <Flex align="center" justify="between" mb="2" mt="1">
                                                 <Text as="label" size="2" weight="medium">Custom Attendance Override</Text>
                                                 <Switch
+                                                    disabled={!canConfigureAttendance}
                                                     checked={hasOverride}
                                                     onCheckedChange={(checked) => {
                                                         setHasOverride(checked);
@@ -502,6 +518,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                         {attendanceTypes?.map((type) => (
                                                             <Text as="label" size="2" key={type.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                                                                 <Checkbox
+                                                                    disabled={!canConfigureAttendance}
                                                                     checked={form.data.attendance_type_ids.includes(type.id)}
                                                                     onCheckedChange={() => {
                                                                         const cur = form.data.attendance_type_ids;
@@ -514,30 +531,46 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                     </Flex>
 
                                                     {(() => {
-                                                        const devMap = new Map();
-                                                        attendanceTypes
-                                                            ?.filter(t => form.data.attendance_type_ids.includes(t.id) && /^biometric/.test(String(t.slug || '')))
-                                                            .forEach(t => (t.biometric_devices || []).forEach(d => devMap.set(d.id, d)));
-                                                        const devs = Array.from(devMap.values());
-                                                        if (!devs.length) return null;
+                                                        // Terminals only matter for a biometric method. Offer the active ones linked to
+                                                        // the chosen work location, else every active terminal (devices are
+                                                        // infrastructure reference data, not something a department owns).
+                                                        const usesBiometric = attendanceTypes
+                                                            ?.some(t => form.data.attendance_type_ids.includes(t.id) && /^biometric/.test(String(t.slug || '')));
+                                                        if (!usesBiometric) return null;
+                                                        const offered = deviceOptionsForLocation(form.data.work_location_id, workLocations, biometricDevices);
+                                                        // A terminal already assigned stays listed (so it can be unticked) even when the
+                                                        // chosen location does not offer it.
+                                                        const devs = [
+                                                            ...offered,
+                                                            ...(user?.override_biometric_devices ?? []).filter(d => !offered.some(o => o.id === d.id)),
+                                                        ];
+                                                        const linkedToLocation = form.data.work_location_id
+                                                            && (workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.biometric_devices ?? []).some(d => d.is_active !== false);
                                                         return (
                                                             <Box mt="3">
                                                                 <Text size="2" weight="medium" mb="1" as="div">Biometric Devices</Text>
-                                                                <Text size="1" color="gray" mb="2" as="div">Leave all unchecked to accept any device of the biometric type.</Text>
-                                                                <Flex direction="column" gap="2" style={{ border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-2)', padding: '10px' }}>
-                                                                    {devs.map(device => (
-                                                                        <Text as="label" size="2" key={device.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                                                                            <Checkbox
-                                                                                checked={form.data.biometric_device_ids.includes(device.id)}
-                                                                                onCheckedChange={() => {
-                                                                                    const cur = form.data.biometric_device_ids;
-                                                                                    handleChange('biometric_device_ids', cur.includes(device.id) ? cur.filter(x => x !== device.id) : [...cur, device.id]);
-                                                                                }}
-                                                                            />
-                                                                            {device.name}{device.serial_number ? ` (${device.serial_number})` : ''}
-                                                                        </Text>
-                                                                    ))}
-                                                                </Flex>
+                                                                <Text size="1" color="gray" mb="2" as="div">
+                                                                    {devs.length === 0
+                                                                        ? 'No active biometric terminals are configured yet.'
+                                                                        : `${linkedToLocation ? 'Terminals linked to the selected work location.' : 'All active terminals.'} Leave all unchecked to accept any device of the biometric type.`}
+                                                                </Text>
+                                                                {devs.length > 0 && (
+                                                                    <Flex direction="column" gap="2" style={{ border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-2)', padding: '10px' }}>
+                                                                        {devs.map(device => (
+                                                                            <Text as="label" size="2" key={device.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                                                                <Checkbox
+                                                                                    disabled={!canConfigureAttendance}
+                                                                                    checked={form.data.biometric_device_ids.includes(device.id)}
+                                                                                    onCheckedChange={() => {
+                                                                                        const cur = form.data.biometric_device_ids;
+                                                                                        handleChange('biometric_device_ids', cur.includes(device.id) ? cur.filter(x => x !== device.id) : [...cur, device.id]);
+                                                                                    }}
+                                                                                />
+                                                                                {device.name}{device.serial_number ? ` (${device.serial_number})` : ''}
+                                                                            </Text>
+                                                                        ))}
+                                                                    </Flex>
+                                                                )}
                                                             </Box>
                                                         );
                                                     })()}
@@ -573,7 +606,9 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                 <Panel variant="surface">
                                     <Flex direction="column" gap="5">
                                         
-                                        {/* Roles Grid */}
+                                        {/* Roles Grid — only for someone who manages access (employees.access.manage);
+                                            a department admin never sees it and the server gives his hires the base role. */}
+                                        {canManageAccess && (
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="2" display="block">Assigned Roles</Text>
                                             <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="3" p="3" style={{ border: '1px dashed var(--gray-6)', borderRadius: 'var(--radius-3)' }}>
@@ -598,6 +633,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                 </Flex>
                                             )}
                                         </Box>
+                                        )}
 
                                         {canManageScopes && (
                                             <DepartmentScopeSection userId={user.id} departments={departments} />
@@ -615,7 +651,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                         <Text size="1" color="gray">Restrict user session to one device at a time</Text>
                                                     </Box>
                                                 </Flex>
-                                                <Switch checked={form.data.single_device_login_enabled} onCheckedChange={(checked) => handleChange('single_device_login_enabled', checked)} size="2" />
+                                                <Switch checked={form.data.single_device_login_enabled} onCheckedChange={(checked) => handleChange('single_device_login_enabled', checked)} size="2" disabled={!canLockDevices} />
                                             </Flex>
                                         </Box>
 
@@ -625,7 +661,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                 <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                                     <Box>
                                                         <Text as="label" size="2" weight="medium" mb="1" display="block">Password <Text color="red">*</Text></Text>
-                                                        <TextField.Root type={showPassword ? 'text' : 'password'} placeholder="Create password" value={form.data.password} onChange={(e) => handleChange('password', e.target.value)} onBlur={() => form.validate('password')} color={form.invalid('password') ? 'red' : undefined}>
+                                                        <TextField.Root type={showPassword ? 'text' : 'password'} placeholder="Create password" value={form.data.password} onChange={(e) => handleChange('password', e.target.value)} onBlur={() => validateField('password')} color={form.invalid('password') ? 'red' : undefined}>
                                                             <TextField.Slot><LockClosedIcon /></TextField.Slot>
                                                             <TextField.Slot side="right">
                                                                 <IconButton size="1" variant="ghost" onClick={() => setShowPassword(!showPassword)} type="button">
@@ -638,7 +674,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                                     <Box>
                                                         <Text as="label" size="2" weight="medium" mb="1" display="block">Confirm Password <Text color="red">*</Text></Text>
-                                                        <TextField.Root type={showPassword ? 'text' : 'password'} placeholder="Confirm password" value={form.data.password_confirmation} onChange={(e) => handleChange('password_confirmation', e.target.value)} onBlur={() => form.validate('password_confirmation')} color={form.invalid('password_confirmation') || (form.data.password !== form.data.password_confirmation && form.data.password_confirmation) ? 'red' : undefined}>
+                                                        <TextField.Root type={showPassword ? 'text' : 'password'} placeholder="Confirm password" value={form.data.password_confirmation} onChange={(e) => handleChange('password_confirmation', e.target.value)} onBlur={() => validateField('password_confirmation')} color={form.invalid('password_confirmation') || (form.data.password !== form.data.password_confirmation && form.data.password_confirmation) ? 'red' : undefined}>
                                                             <TextField.Slot><LockClosedIcon /></TextField.Slot>
                                                             <TextField.Slot side="right">
                                                                 <IconButton size="1" variant="ghost" onClick={() => setShowPassword(!showPassword)} type="button">
@@ -674,6 +710,24 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                         </Button>
                     </Flex>
                 </Box>
+                {designationDialogOpen && (
+                    <DesignationForm
+                        open
+                        onClose={() => setDesignationDialogOpen(false)}
+                        departments={departments}
+                        designations={designationPool}
+                        defaultDepartmentId={form.data.department_id}
+                        onSuccess={(created) => {
+                            if (!created) return;
+                            setCreatedDesignations((prev) => [...prev, created]);
+                            handleChange('designation_id', String(created.id));
+                            router.reload({
+                                only: ['designations', 'allDesignations', 'initialDesignations', 'designationStats', 'overviewStats'],
+                                preserveScroll: true,
+                            });
+                        }}
+                    />
+                )}
             </Dialog.Content>
         </Dialog.Root>
     );

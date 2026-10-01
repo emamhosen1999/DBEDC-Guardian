@@ -564,7 +564,11 @@ class LeaveApprovalService
      */
     public function canOverride(User $actor, ?Leave $leave = null): bool
     {
+        // A delegated department administrator (department.admin) decides the leaves of the people he
+        // administers even where no approval chain reaches him (an employee without a manager has an empty
+        // chain): the scope check below confines him to his own departments.
         $privileged = $actor->can('leaves.manage')
+            || $actor->can(DepartmentScope::DEPARTMENT_ADMIN_PERMISSION)
             || $actor->hasAnyRole(['Super Administrator', 'Super Admin', 'Administrator', 'Admin', 'HR Manager']);
 
         if (! $privileged) {

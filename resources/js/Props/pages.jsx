@@ -62,7 +62,10 @@ export const getPages = (roles, permissions, auth = null, features = {}) => {
   const canAny = (perms) => isSuperAdmin || perms.some((p) => permissions?.includes(p));
 
   // 1. Define the condition
-  const isOnlyEmployee = !isSuperAdmin && roles?.length === 1 && roles[0] === 'Employee';
+  // "Just an employee": the Employee role, optionally next to Daily Works Contributor (field reporting) —
+  // mirrors App\Models\User::hasOnlyBaseRoles().
+  const BASE_ROLES = ['Employee', 'Daily Works Contributor'];
+  const isOnlyEmployee = !isSuperAdmin && Array.isArray(roles) && roles.includes('Employee') && roles.every((role) => BASE_ROLES.includes(role));
   const hasEmployeeRole = roles?.includes('Employee');
 
   // 2. Define the shared items list (so we don't write it twice)

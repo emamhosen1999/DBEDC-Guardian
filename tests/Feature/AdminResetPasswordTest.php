@@ -21,21 +21,21 @@ class AdminResetPasswordTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Super Administrator']);
         Role::firstOrCreate(['name' => 'Manager']);
-        Permission::firstOrCreate(['name' => 'users.update']);
+        Permission::firstOrCreate(['name' => 'employees.password.reset']);
     }
 
-    private function managerWithUsersUpdate(): User
+    private function managerWithPasswordReset(): User
     {
         $manager = User::factory()->create();
         $manager->assignRole('Manager');
-        $manager->givePermissionTo('users.update');
+        $manager->givePermissionTo('employees.password.reset');
 
         return $manager;
     }
 
-    public function test_admin_with_users_update_can_reset_a_user_password(): void
+    public function test_admin_with_password_reset_can_reset_a_user_password(): void
     {
-        $actor = $this->managerWithUsersUpdate();
+        $actor = $this->managerWithPasswordReset();
         // A non-global actor reaches only employees in a department they administer.
         $department = Department::factory()->create(['manager_id' => $actor->employee_id]);
         $target = User::factory()->create(['password' => Hash::make('old-password-1'), 'department_id' => $department->id]);
@@ -58,7 +58,7 @@ class AdminResetPasswordTest extends TestCase
 
     public function test_reset_requires_min_8_and_confirmation(): void
     {
-        $actor = $this->managerWithUsersUpdate();
+        $actor = $this->managerWithPasswordReset();
         $target = User::factory()->create();
 
         $this->actingAs($actor)->postJson(route('users.changePassword', ['id' => $target->id]), [
@@ -72,10 +72,10 @@ class AdminResetPasswordTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_user_without_users_update_cannot_reset_password(): void
+    public function test_user_without_password_reset_cannot_reset_password(): void
     {
         $actor = User::factory()->create();
-        $actor->assignRole('Manager'); // role but NO users.update permission
+        $actor->assignRole('Manager'); // role but NO employees.password.reset permission
         $target = User::factory()->create();
 
         $this->actingAs($actor)->postJson(route('users.changePassword', ['id' => $target->id]), [
@@ -86,7 +86,7 @@ class AdminResetPasswordTest extends TestCase
 
     public function test_non_super_admin_cannot_reset_a_super_admin_password(): void
     {
-        $actor = $this->managerWithUsersUpdate(); // has users.update but not Super Admin
+        $actor = $this->managerWithPasswordReset(); // has employees.password.reset but not Super Admin
         $superAdmin = User::factory()->create();
         $superAdmin->assignRole('Super Administrator');
 

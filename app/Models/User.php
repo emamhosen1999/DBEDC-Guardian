@@ -3,12 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\HRM\Asset;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
+use App\Models\HRM\FinalSettlement;
 use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
 use App\Observers\UserSyncEpochObserver;
@@ -53,6 +55,23 @@ class User extends Authenticatable implements HasMedia
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    /**
+     * The roles an ordinary employee holds: `Employee` (self-service) next to `Daily Works Contributor`
+     * (field reporting). Someone holding only these is "just an employee" — the employee dashboard,
+     * the employee menu — however the two are combined.
+     */
+    public const BASE_ROLES = ['Employee', 'Daily Works Contributor'];
+
+    /**
+     * Does this user hold the Employee role and nothing beyond the base roles?
+     */
+    public function hasOnlyBaseRoles(): bool
+    {
+        $names = $this->roles->pluck('name');
+
+        return $names->contains('Employee') && $names->diff(self::BASE_ROLES)->isEmpty();
+    }
 
     /**
      * Alias 'id' accessor to primary key 'employee_id'.
@@ -178,6 +197,7 @@ class User extends Authenticatable implements HasMedia
         'work_location_id' => 'integer',
         'preferences' => 'array',
         'single_device_login_enabled' => 'boolean',
+        'must_change_password' => 'boolean',
         'device_reset_at' => 'datetime',
         'sync_epoch' => 'integer',
         'probation_end_date' => 'date',
@@ -422,18 +442,18 @@ class User extends Authenticatable implements HasMedia
 
     public function assets(): HasMany
     {
-        return $this->hasMany(\App\Models\HRM\Asset::class, 'assignee_id', 'employee_id');
+        return $this->hasMany(Asset::class, 'assignee_id', 'employee_id');
     }
 
     public function activeAssets(): HasMany
     {
-        return $this->hasMany(\App\Models\HRM\Asset::class, 'assignee_id', 'employee_id')
-            ->where('status', \App\Models\HRM\Asset::STATUS_ASSIGNED);
+        return $this->hasMany(Asset::class, 'assignee_id', 'employee_id')
+            ->where('status', Asset::STATUS_ASSIGNED);
     }
 
     public function finalSettlement(): HasOne
     {
-        return $this->hasOne(\App\Models\HRM\FinalSettlement::class, 'employee_id', 'employee_id');
+        return $this->hasOne(FinalSettlement::class, 'employee_id', 'employee_id');
     }
 
     public function designation(): BelongsTo

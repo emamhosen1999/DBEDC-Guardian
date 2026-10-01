@@ -18,12 +18,20 @@ class Shift extends Model
         'name', 'code', 'type', 'start_time', 'end_time', 'crosses_midnight',
         'break_minutes', 'grace_in_minutes', 'grace_out_minutes',
         'full_day_minutes', 'half_day_minutes', 'min_present_minutes',
-        'core_start_time', 'core_end_time', 'color', 'is_active', 'created_by',
+        'core_start_time', 'core_end_time', 'color', 'is_active', 'created_by', 'department_id',
     ];
 
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The owning department; NULL = company-wide (managed with attendance.settings).
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function versions(): HasMany
@@ -55,6 +63,7 @@ class Shift extends Model
     }
 
     protected $casts = [
+        'department_id' => 'integer',
         'crosses_midnight' => 'boolean',
         'is_active' => 'boolean',
         'break_minutes' => 'integer',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Avatar, Badge, Box, Flex, Grid, Select, Text, TextField } from '@radix-ui/themes';
-import { MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons';
+import { LockClosedIcon, MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons';
+import { useDepartmentScope } from '@/Hooks/useDepartmentScope';
 
 const DepartmentEmployeeSelector = ({
     selectedDepartmentId,
@@ -24,22 +25,31 @@ const DepartmentEmployeeSelector = ({
     const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
     const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
 
-    // Auto-select first department
+    // A department-scoped actor is offered only the departments in scope: one department is not a
+    // choice (the field is locked to it and filled in), several are a limited list.
+    const deptScope = useDepartmentScope(departments);
+    const scopedDepartments = deptScope.departments;
+
+    // Auto-select first department (a single-scope actor's one department is always selected)
     useEffect(() => {
-        if (autoSelectFirstDepartment && departments.length > 0 && !selectedDepartmentId) {
-            const firstDepartment = departments[0];
+        if (deptScope.isSingle) {
+            if (String(selectedDepartmentId ?? '') !== String(deptScope.single.id)) onDepartmentChange(deptScope.single.id);
+            return;
+        }
+        if (autoSelectFirstDepartment && scopedDepartments.length > 0 && !selectedDepartmentId) {
+            const firstDepartment = scopedDepartments[0];
             if (firstDepartment) onDepartmentChange(firstDepartment.id);
         }
-    }, [departments, selectedDepartmentId, onDepartmentChange, autoSelectFirstDepartment]);
+    }, [scopedDepartments, deptScope.isSingle, selectedDepartmentId, onDepartmentChange, autoSelectFirstDepartment]);
 
     // Search filters
     const filteredDepartments = useMemo(() => {
-        if (!departmentSearchTerm.trim()) return departments;
+        if (!departmentSearchTerm.trim()) return scopedDepartments;
         const term = departmentSearchTerm.toLowerCase();
-        return departments.filter(dept =>
+        return scopedDepartments.filter(dept =>
             dept.name?.toLowerCase().includes(term) || String(dept.id).includes(term)
         );
-    }, [departments, departmentSearchTerm]);
+    }, [scopedDepartments, departmentSearchTerm]);
 
     // Only surface non-deleted users (soft delete)
     const activeUsers = useMemo(() => allUsers.filter(u => !u.deleted_at), [allUsers]);
@@ -91,44 +101,50 @@ const DepartmentEmployeeSelector = ({
                 <Text as="label" size="2" weight="medium" mb="1" display="block">
                     {label.department} {required && <Text as="span" color="red">*</Text>}
                 </Text>
+                {deptScope.isSingle ? (
+                    <TextField.Root size="2" readOnly value={deptScope.single.name} aria-label={`${label.department} (locked to your department)`} data-testid="department-field-locked">
+                        <TextField.Slot><LockClosedIcon /></TextField.Slot>
+                    </TextField.Root>
+                ) : (
                 <Select.Root
-                    size="2"
-                    value={deptValue}
-                    onValueChange={(val) => {
-                        const parsedId = (val === 'all' || val === '') ? null : parseInt(val);
-                        onDepartmentChange(parsedId);
-                        if (selectedEmployeeId) onEmployeeChange(null);
-                        setDepartmentSearchTerm('');
-                    }}
-                    disabled={disabled}
-                >
-                    <Select.Trigger placeholder="Select Department" style={{ width: '100%' }} />
-                    <Select.Content>
-                        {showSearch && departments.length > 5 && (
-                            <Box px="2" py="1" mb="1" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
-                                <TextField.Root size="1" placeholder="Search departments..." value={departmentSearchTerm} onChange={(e) => setDepartmentSearchTerm(e.target.value)} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
-                                    <TextField.Slot><MagnifyingGlassIcon style={{ width: 12, height: 12 }} /></TextField.Slot>
-                                </TextField.Root>
-                            </Box>
-                        )}
-                        {showAllOption && <Select.Item value="all">All Departments</Select.Item>}
-                        {filteredDepartments.length === 0 ? (
-                            <Select.Item value="__no_depts" disabled>No departments found</Select.Item>
-                        ) : (
-                            filteredDepartments.map((department) => {
-                                const count = activeUsers.filter(u => String(u.department_id || u.department?.id) === String(department.id)).length;
-                                return (
-                                    <Select.Item key={String(department.id)} value={String(department.id)} textValue={department.name}>
-                                        <Flex justify="between" align="center" gap="3" style={{ width: '100%' }}>
-                                            <Text size="2">{department.name}</Text>
-                                            <Badge color="gray" variant="soft" size="1">{count}</Badge>
-                                        </Flex>
-                                    </Select.Item>
-                                );
-                            })
-                        )}
-                    </Select.Content>
-                </Select.Root>
+                        size="2"
+                        value={deptValue}
+                        onValueChange={(val) => {
+                            const parsedId = (val === 'all' || val === '') ? null : parseInt(val);
+                            onDepartmentChange(parsedId);
+                            if (selectedEmployeeId) onEmployeeChange(null);
+                            setDepartmentSearchTerm('');
+                        }}
+                        disabled={disabled}
+                    >
+                        <Select.Trigger placeholder="Select Department" style={{ width: '100%' }} />
+                        <Select.Content>
+                            {showSearch && scopedDepartments.length > 5 && (
+                                <Box px="2" py="1" mb="1" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                                    <TextField.Root size="1" placeholder="Search departments..." value={departmentSearchTerm} onChange={(e) => setDepartmentSearchTerm(e.target.value)} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                                        <TextField.Slot><MagnifyingGlassIcon style={{ width: 12, height: 12 }} /></TextField.Slot>
+                                    </TextField.Root>
+                                </Box>
+                            )}
+                            {showAllOption && <Select.Item value="all">{deptScope.isMulti ? 'All my departments' : 'All Departments'}</Select.Item>}
+                            {filteredDepartments.length === 0 ? (
+                                <Select.Item value="__no_depts" disabled>No departments found</Select.Item>
+                            ) : (
+                                filteredDepartments.map((department) => {
+                                    const count = activeUsers.filter(u => String(u.department_id || u.department?.id) === String(department.id)).length;
+                                    return (
+                                        <Select.Item key={String(department.id)} value={String(department.id)} textValue={department.name}>
+                                            <Flex justify="between" align="center" gap="3" style={{ width: '100%' }}>
+                                                <Text size="2">{department.name}</Text>
+                                                <Badge color="gray" variant="soft" size="1">{count}</Badge>
+                                            </Flex>
+                                        </Select.Item>
+                                    );
+                                })
+                            )}
+                        </Select.Content>
+                    </Select.Root>
+                )}
                 {error.department_id && <Text size="1" color="red" mt="1" display="block">{error.department_id}</Text>}
             </Box>
 
@@ -141,8 +157,8 @@ const DepartmentEmployeeSelector = ({
                     size="2"
                     value={empValue}
                     onValueChange={(val) => {
-                        const parsedId = (val === 'all' || val === '') ? null : parseInt(val);
-                        onEmployeeChange(parsedId);
+                        // Employee ids are strings ('0123', 'EMP-9'): never coerce them to numbers.
+                        onEmployeeChange((val === 'all' || val === '') ? null : val);
                         setEmployeeSearchTerm('');
                     }}
                     disabled={isEmployeeDisabled}

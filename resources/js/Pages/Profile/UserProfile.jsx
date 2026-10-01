@@ -15,7 +15,7 @@ import EmploymentAndBankTab from '@/Components/Profile/EmploymentAndBankTab.jsx'
 import BackgroundTab from '@/Components/Profile/BackgroundTab.jsx';
 
 const UserProfile = ({ title, allUsers = [], departments = [], designations = [], can = {} }) => {
-    const { auth, user: initialUser } = usePage().props;
+    const { auth, user: initialUser, report_to: reportToUser } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     
     const [user, setUser] = useState(initialUser);
@@ -28,6 +28,8 @@ const UserProfile = ({ title, allUsers = [], departments = [], designations = []
 
     const canEditProfile = Boolean(can.edit);
     const canManageEmployment = Boolean(can.manageEmployment);
+    const canViewCompensation = can.viewCompensation !== false;
+    const canManageCompensation = Boolean(can.manageCompensation);
 
     const completionPercentage = 60;
 
@@ -101,7 +103,10 @@ const UserProfile = ({ title, allUsers = [], departments = [], designations = []
                                         departments={departments}
                                         designations={designations}
                                         allUsers={allUsers}
+                                        reportTo={reportToUser}
                                         canEdit={canManageEmployment}
+                                        canViewCompensation={canViewCompensation}
+                                        canEditCompensation={canManageCompensation}
                                     />
                                 </Tabs.Content>
 

@@ -24,6 +24,7 @@ import {
     ChartCard, DataTable, HBarList, StatTile, VizRoot, VizTooltip,
     axisProps, deltaOf, fmt, gridProps,
 } from '@/Components/Charts/VizKit';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 
 // Stack order matches the order the palette was validated in.
 const COMPOSITION = [
@@ -54,8 +55,6 @@ export default function AnalyticsTab({ month, onMonthChange, departments = [], c
         staleTime: 60_000,
     });
 
-    const locked = data?.meta?.departmentLocked;
-
     return (
         <VizRoot stale={isFetching && !isLoading}>
             {/* One filter row scopes every chart below. */}
@@ -80,19 +79,17 @@ export default function AnalyticsTab({ month, onMonthChange, departments = [], c
                         </SegmentedControl.Root>
                     </Box>
                 )}
-                {scope === 'team' && !locked && departments.length > 0 && (
-                    <Box style={{ minWidth: 200 }}>
-                        <Text as="div" size="1" color="gray">Department</Text>
-                        <Select.Root value={departmentId || 'all'} onValueChange={(v) => f.set('aa_dept', v === 'all' ? '' : v)}>
-                            <Select.Trigger style={{ width: '100%' }} aria-label="Department" />
-                            <Select.Content>
-                                <Select.Item value="all">All departments</Select.Item>
-                                {departments.map((d) => (
-                                    <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
-                    </Box>
+                {scope === 'team' && (
+                    <DepartmentFilter
+                        attendance
+                        label="Department"
+                        size="2"
+                        value={departmentId || 'all'}
+                        onChange={(v) => f.set('aa_dept', v === 'all' ? '' : v)}
+                        departments={departments}
+                        allLabel="All departments"
+                        minWidth="200px"
+                    />
                 )}
             </Flex>
 

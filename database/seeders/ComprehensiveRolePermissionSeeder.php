@@ -86,6 +86,14 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'employees.delete' => 'Delete employee records',
                 'employees.import' => 'Import employee data',
                 'employees.export' => 'Export employee data',
+                'employees.placement.update' => "Change employees' designation, reporting line and work location",
+                'employees.attendance-config.update' => "Change employees' attendance method and biometric device rules",
+                'employees.compensation.view' => "View employees' salary and statutory details",
+                'employees.compensation.update' => "Change employees' salary and statutory details",
+                'employees.password.reset' => "Reset employees' passwords",
+                'employees.devices.manage' => "Manage employees' device lock, registered devices and sessions",
+                'employees.access.manage' => "Manage employees' roles and direct permissions",
+                'employees.restore' => 'Restore deactivated employees',
                 'departments.view' => 'View departments',
                 'departments.create' => 'Create departments',
                 'departments.update' => 'Update departments',
@@ -661,6 +669,12 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'is_system_role' => false,
             ],
             [
+                'name' => 'Daily Works Contributor',
+                'description' => 'Field reporting: daily works and tasks. Held next to the base Employee role by staff who file daily works.',
+                'hierarchy_level' => 60,
+                'is_system_role' => false,
+            ],
+            [
                 'name' => 'Contractor',
                 'description' => 'Limited access for contractors and temporary staff',
                 'hierarchy_level' => 70,
@@ -741,6 +755,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 // Employee Management
                 'employees.view',
                 'employees.update',
+                'employees.placement.update', // was covered by employees.update (work location); mirrors the split migration
                 'departments.view',
                 'designations.view',
 
@@ -888,14 +903,12 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->get();
         $seniorEmployee->givePermissionTo($seniorPermissions);
 
-        // Employee - Basic self-service
+        // Employee - Basic self-service. Field reporting (daily works, tasks) is NOT self-service: it
+        // lives in the Daily Works Contributor role below, held next to this one by staff who file
+        // daily works (migration 2026_10_01_000002_split_daily_works_contributor_from_employee).
         $employee = Role::findByName('Employee');
         $employeePermissions = Permission::whereIn('module', ['core', 'self-service'])
             ->orWhereIn('name', [
-                'daily-works.view',
-                'daily-works.create',
-                'daily-works.export',
-                'tasks.view',
                 'performance-reviews.own.view',
                 'training-feedback.own.view',
                 'training-feedback.own.create',
@@ -914,6 +927,11 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ])
             ->get();
         $employee->givePermissionTo($employeePermissions);
+
+        // Daily Works Contributor - the functional (field reporting) half of what Employee used to carry.
+        Role::findByName('Daily Works Contributor')->syncPermissions(
+            Permission::query()->where('guard_name', 'web')->whereIn('name', self::dailyWorksContributorPermissionNames())->get()
+        );
 
         // Contractor - Limited access
         $contractor = Role::findByName('Contractor');
@@ -959,17 +977,32 @@ class ComprehensiveRolePermissionSeeder extends Seeder
     }
 
     /**
-     * Department Admin = a department-only HR operator: dashboard, own self-service and
-     * ONLY Employees, Attendance (+ roster / shift assignment inside it), Leave,
-     * Onboarding, Offboarding and Asset Management, confined by DepartmentScope to the
-     * holder's home department (grants in user_department_scopes stay optional, for
-     * exceptions). The list is EXACT, not derived from another role: never payroll /
-     * F&F, delete, roles, settings, feature flags, company-wide attendance settings,
-     * projects, quality, O&M, camera or analytics.
+     * The field-reporting permissions of the Daily Works Contributor role (mirrored by migration
+     * 2026_10_01_000002_split_daily_works_contributor_from_employee).
      *
-     * Mirrored verbatim by migration 2026_09_30_000005_seed_department_scope_permissions_and_role
+     * @return array<int, string>
+     */
+    public static function dailyWorksContributorPermissionNames(): array
+    {
+        return ['daily-works.view', 'daily-works.create', 'daily-works.export', 'tasks.view'];
+    }
+
+    /**
+     * Department Admin = a DELEGATED department administrator (the Microsoft Entra administrative
+     * unit / Google Workspace OU-admin model): dashboard, own self-service and full people
+     * administration inside his department(s) — Employees (create, edit, placement, attendance
+     * config, compensation, password reset, devices, delete/restore), Designations of his own
+     * department, Attendance (+ roster / shift assignment inside it), Leave, Onboarding,
+     * Offboarding and Asset Management — all confined by DepartmentScope to the holder's home
+     * department (grants in user_department_scopes stay optional, for exceptions). The list is
+     * EXACT, not derived from another role. Company-wide configuration stays global: never
+     * departments, roles / access management (employees.access.manage), payroll / F&F, settings,
+     * feature flags, company-wide attendance settings, projects, quality, O&M, camera or analytics.
+     *
+     * Mirrored verbatim by migrations 2026_09_30_000005_seed_department_scope_permissions_and_role
+     * (the first 40) and 2026_10_01_000001_split_employee_permissions_and_extend_department_admin
      * (production does not re-run seeders) — tests/Feature/Access/DepartmentAdminRoleTest
-     * fails if the two drift apart.
+     * fails if they drift apart.
      *
      * @return array<int, string>
      */
@@ -983,9 +1016,15 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             'leave.own.view', 'leave.own.create', 'leave.own.update', 'leave.own.delete',
             'communications.own.view',
             'profile.own.view', 'profile.own.update', 'profile.password.change',
-            // Workforce -> Employees (no delete: exit goes through Offboarding).
+            // Workforce -> Employees: the granular set, everything but access (roles) management.
             'employees.view', 'employees.create', 'employees.update',
+            'employees.placement.update', 'employees.attendance-config.update',
+            'employees.compensation.view', 'employees.compensation.update',
+            'employees.password.reset', 'employees.devices.manage',
+            'employees.delete', 'employees.restore',
             'users.create', 'users.update',
+            // Designations of his own department (scoped by DepartmentScope).
+            'designations.view', 'designations.create', 'designations.update', 'designations.delete',
             // Time/Attendance -> Attendances (+ roster / shift assignment / swaps), not settings.
             'attendance.view', 'attendance.create', 'attendance.update', 'attendance.correct', 'attendance.export',
             'attendance.roster.manage',

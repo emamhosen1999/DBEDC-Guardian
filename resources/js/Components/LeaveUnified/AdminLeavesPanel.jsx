@@ -28,6 +28,7 @@ import BulkLeaveModal           from '@/Components/BulkLeave/BulkLeaveModal.jsx'
 import BulkDeleteModal          from '@/Components/BulkDelete/BulkDeleteModal.jsx';
 import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdateModal.jsx';
 import StatsCards from '@/Components/StatsCards';
+import DepartmentFilter from '@/Components/Access/DepartmentFilter';
 import SearchFilterBar from '@/Components/SearchFilterBar';
 import PageToolbar from '@/Components/PageToolbar';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
@@ -340,20 +341,12 @@ export default function AdminLeavesPanel({
                                 </Select.Root>
                             </Box>
 
-                            <Box>
-                                <Text size="2" color="gray" weight="medium" as="div" mb="2">Department</Text>
-                                <Select.Root size="2"
-                                    value={filters.department[0] || 'all'}
-                                    onValueChange={v => handleFilterChange('department', v === 'all' ? [] : [v])}>
-                                    <Select.Trigger style={{ width: '100%' }} />
-                                    <Select.Content>
-                                        <Select.Item value="all">All Departments</Select.Item>
-                                        {departments.map(d => (
-                                            <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                        ))}
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
+                            <DepartmentFilter
+                                label="Department"
+                                value={filters.department[0] || 'all'}
+                                onChange={v => handleFilterChange('department', v === 'all' ? [] : [v])}
+                                departments={departments}
+                            />
                         </Grid>
                     </SearchFilterBar>
                 }

@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -382,7 +383,7 @@ class DailyWorkSummaryController extends Controller
     public function exportExcel(Request $request)
     {
         try {
-            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'_'.time().'.xlsx';
+            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'_'.time().'_'.Str::random(24).'.xlsx';
 
             ExportDailyWorkSummary::dispatch('excel', $request->all(), Auth::id(), $filename);
 
@@ -512,7 +513,7 @@ class DailyWorkSummaryController extends Controller
     public function exportPdf(Request $request)
     {
         try {
-            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'_'.time().'.pdf';
+            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'_'.time().'_'.Str::random(24).'.pdf';
 
             ExportDailyWorkSummary::dispatch('pdf', $request->all(), Auth::id(), $filename);
 
