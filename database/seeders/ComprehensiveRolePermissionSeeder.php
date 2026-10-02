@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Console\Command;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -932,6 +933,12 @@ class ComprehensiveRolePermissionSeeder extends Seeder
         Role::findByName('Daily Works Contributor')->syncPermissions(
             Permission::query()->where('guard_name', 'web')->whereIn('name', self::dailyWorksContributorPermissionNames())->get()
         );
+
+        // DWC is a DEPARTMENT default role: Quality Control employees receive it automatically (departments.default_roles).
+        // Only seeds an unconfigured Quality Control; never overwrites what an administrator set.
+        DB::table('departments')
+            ->where('name', 'Quality Control')->whereNull('default_roles')
+            ->update(['default_roles' => json_encode(['Daily Works Contributor'])]);
 
         // Contractor - Limited access
         $contractor = Role::findByName('Contractor');

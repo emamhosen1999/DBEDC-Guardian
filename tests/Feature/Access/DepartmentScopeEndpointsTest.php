@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Access;
 
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\User;
 use App\Models\UserDepartmentScope;
@@ -36,7 +37,7 @@ class DepartmentScopeEndpointsTest extends TestCase
     private const PERMISSIONS = [
         'users.view', 'users.create', 'users.update', 'users.delete',
         'employees.view', 'employees.create', 'employees.update',
-        'departments.update', 'department.admin', 'department.scopes.manage',
+        'departments.update', 'department.admin', 'department.scopes.manage', 'employees.attendance-config.update',
     ];
 
     protected function setUp(): void
@@ -62,7 +63,7 @@ class DepartmentScopeEndpointsTest extends TestCase
         Role::findByName('Department Admin')->syncPermissions([
             'users.view', 'users.create', 'users.update',
             'employees.view', 'employees.create', 'employees.update',
-            'departments.update', 'department.admin',
+            'departments.update', 'department.admin', 'employees.attendance-config.update',
         ]);
 
         [$this->d1, $this->d2, $this->d3] = [Department::factory()->create(), Department::factory()->create(), Department::factory()->create()];
@@ -141,6 +142,7 @@ class DepartmentScopeEndpointsTest extends TestCase
             'password' => 'Str0ng!Passw0rd#2026',
             'password_confirmation' => 'Str0ng!Passw0rd#2026',
             'department_id' => $departmentId,
+            'attendance_type_ids' => [AttendanceType::query()->where('is_active', true)->value('id') ?? AttendanceType::factory()->create(['is_active' => true])->id],
         ];
     }
 

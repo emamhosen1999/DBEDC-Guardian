@@ -284,6 +284,28 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         setSelectedCell(null);
     };
 
+    // "Reset to pattern": drop the manual override so the employee's pattern applies again for that day.
+    const handleReset = async () => {
+        if (!selectedCell) return;
+        const { userId, date } = selectedCell;
+        const expectedUpdatedAt = roster?.[userId]?.days?.[date]?.updated_at ?? null;
+        setPopoverOpen(false);
+        setCellViolations(null);
+        try {
+            await requestJson('put', '/attendance/roster/cell', {
+                data: { user_id: String(userId), date, reset_to_pattern: true, expected_updated_at: expectedUpdatedAt },
+            });
+            showToast.success('Reset to the pattern.');
+        } catch (err) {
+            if (!handleCellConflict(err, showToast)) {
+                showToast.error(err?.response?.data?.message || err?.message || 'Failed to reset the cell.');
+            }
+        } finally {
+            setSelectedCell(null);
+            refetch();
+        }
+    };
+
     const goMonth = (delta) => {
         const newMonth = dayjs(month + '-01').add(delta, 'month').format('YYYY-MM');
         onMonthChange?.(newMonth);
@@ -448,7 +470,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             violationsBlocked={cellViolations?.blocked}
                             workLocations={workLocations}
                             selectedLocationId={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.work_location_id ?? null) : null}
+                            leave={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.leave ?? null) : null}
+                            cellDate={selectedCell?.date ?? null}
                             onPick={handlePick}
+                            onReset={handleReset}
+                            finalized={Boolean(selectedCell && roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.locked)}
+                            canReset={Boolean(selectedCell && roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.source === 'manual')}
                         />
                     </>
                 )}

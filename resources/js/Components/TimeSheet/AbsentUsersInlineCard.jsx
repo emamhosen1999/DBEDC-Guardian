@@ -170,7 +170,7 @@ export const AbsentUsersInlineCard = React.memo(({ absentUsers, selectedDate, ge
                                                 </Badge>
                                             )}
                                         </Flex>
-                                        {onMarkAsPresent && !userLeave && (
+                                        {onMarkAsPresent && user.can_act === true && !userLeave && (
                                             <Flex justify="end">
                                                 <Button size="1" color="blue" variant="soft" onClick={() => onMarkAsPresent(user, selectedDate)}>
                                                     <PersonIcon /> Mark Present

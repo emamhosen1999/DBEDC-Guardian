@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { usePage } from '@inertiajs/react';
 import { 
     Dialog, Button, Flex, Grid, Text, TextField, 
-    Select, Switch, Box, Spinner 
+    Select, Switch, Box, Spinner, Checkbox 
 } from '@radix-ui/themes';
 import { HomeIcon, PersonIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
@@ -11,6 +12,13 @@ import DateTimePicker from '@/Components/DateTimePicker';
 const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers = [], parentDepartments = [], readOnly = false }) => {
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    const { auth } = usePage().props;
+    const canEditDefaultRoles = Boolean(auth?.roles?.some((r) => r === 'Super Administrator' || r === 'Administrator'));
+    const [roleOptions, setRoleOptions] = useState([]);
+    useEffect(() => {
+        if (!open || !canEditDefaultRoles) return;
+        axios.get(route('departments.default-role-options')).then((res) => setRoleOptions(res.data.roles || [])).catch(() => {});
+    }, [open, canEditDefaultRoles]);
 
     const initialFormState = {
         name: '',
@@ -21,6 +29,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
         location: '',
         is_active: true,
         established_date: '',
+        default_roles: [],
     };
 
     const [formData, setFormData] = useState(initialFormState);
@@ -36,6 +45,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                 location: department.location || '',
                 is_active: department.is_active ?? true,
                 established_date: department.established_date ? department.established_date.split('T')[0] : '',
+                default_roles: Array.isArray(department.default_roles) ? department.default_roles : [],
             });
         } else {
             setFormData(initialFormState);
@@ -55,6 +65,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
         const payload = { ...formData };
         if (payload.parent_id === 'none') payload.parent_id = null;
         if (payload.manager_id === 'none') payload.manager_id = null;
+        if (!canEditDefaultRoles) delete payload.default_roles;
 
         try {
             if (department) {
@@ -158,6 +169,27 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                                 disabled={readOnly || loading} 
                             />
                         </Box>
+
+                        {canEditDefaultRoles && (
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                <Text size="2" weight="medium" mb="1" as="div">Default roles</Text>
+                                <Text size="1" color="gray" as="div" mb="2">Every employee of this department receives these roles next to Employee (new hires and transfers in).</Text>
+                                <Flex gap="3" wrap="wrap">
+                                    {roleOptions.map((name) => (
+                                        <Text as="label" size="2" key={name}>
+                                            <Flex gap="2" align="center">
+                                                <Checkbox
+                                                    checked={(formData.default_roles || []).includes(name)}
+                                                    onCheckedChange={(on) => handleChange('default_roles', on ? [...(formData.default_roles || []), name] : (formData.default_roles || []).filter((n) => n !== name))}
+                                                    disabled={readOnly || loading}
+                                                />
+                                                {name}
+                                            </Flex>
+                                        </Text>
+                                    ))}
+                                </Flex>
+                            </Box>
+                        )}
 
                         <Box style={{ gridColumn: '1 / -1' }} mt="2">
                             <Flex align="center" justify="between" p="3" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-2)', backgroundColor: 'var(--gray-a2)' }}>

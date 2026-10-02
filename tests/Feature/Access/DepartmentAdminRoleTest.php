@@ -6,6 +6,7 @@ use App\Jobs\ExportAttendanceReport;
 use App\Models\FeatureFlag;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\CoverageRequirement;
 use App\Models\HRM\Department;
@@ -249,7 +250,7 @@ class DepartmentAdminRoleTest extends TestCase
         return array_merge([
             'name' => "New Hire {$n}", 'user_name' => "newhire{$n}", 'email' => "new.hire{$n}@example.com",
             'employee_id' => "NEW-{$n}", 'password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026',
-            'department_id' => $departmentId,
+            'department_id' => $departmentId, 'attendance_type_ids' => [AttendanceType::query()->where('is_active', true)->value('id') ?? AttendanceType::factory()->create(['is_active' => true])->id],
         ], $extra);
     }
 

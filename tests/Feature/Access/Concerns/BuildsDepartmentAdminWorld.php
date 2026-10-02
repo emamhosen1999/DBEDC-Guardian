@@ -4,6 +4,7 @@ namespace Tests\Feature\Access\Concerns;
 
 use App\Models\HRM\Asset;
 use App\Models\HRM\Attendance;
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\Leave;
@@ -87,6 +88,13 @@ trait BuildsDepartmentAdminWorld
         $this->d2Admin = $this->canary('90003', 'Dee Two Admin '.self::MARKER, ['Department Admin']);
 
         $this->canaryRecords();
+    }
+
+    /** One active attendance method for the whole test: every created employee must be able to check in. */
+    protected function attendanceMethodId(): int
+    {
+        return AttendanceType::query()->where('is_active', true)->value('id')
+            ?? AttendanceType::factory()->create(['is_active' => true])->id;
     }
 
     protected function person(string $name, ?Department $department, array $roles, ?string $employeeId = null): User

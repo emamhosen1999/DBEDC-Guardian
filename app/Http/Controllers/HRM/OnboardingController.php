@@ -111,6 +111,14 @@ class OnboardingController extends Controller
 
         abort_unless($this->scope->canManage($request->user(), $employee), 403, 'You cannot onboard this employee.');
 
+        // Onboarding must leave the employee able to check in.
+        if (! $employee->hasResolvableAttendanceMethod()) {
+            return response()->json([
+                'message' => User::NO_ATTENDANCE_METHOD_MESSAGE,
+                'errors' => ['employee_id' => [User::NO_ATTENDANCE_METHOD_MESSAGE]],
+            ], 422);
+        }
+
         // Check for duplicate active onboarding
         $existing = Onboarding::where('employee_id', $employee->employee_id)
             ->whereNotIn('status', [Onboarding::STATUS_COMPLETED, Onboarding::STATUS_CANCELLED])

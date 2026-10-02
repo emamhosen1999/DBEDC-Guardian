@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\HRM\Department;
 use App\Models\User;
+use App\Services\Access\DepartmentDefaultRoles;
 use App\Traits\HandlesApiExceptions;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DepartmentController extends Controller
@@ -89,19 +91,25 @@ class DepartmentController extends Controller
                 'location' => 'nullable|string|max:255',
                 'is_active' => 'boolean',
                 'established_date' => 'nullable|date',
+                'default_roles' => 'sometimes|nullable|array',
+                'default_roles.*' => ['string', Rule::exists('roles', 'name')->where('guard_name', 'web'), Rule::notIn(DepartmentDefaultRoles::FORBIDDEN)],
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
+            $data = $this->withDefaultRolesForGlobalAdmin($request, $validator->validated(), null);
+
             // Create new department
-            $department = Department::create($validator->validated());
+            $department = Department::create($data);
 
             return response()->json([
                 'message' => 'Department created successfully',
                 'department' => $department,
             ], 201);
+        } catch (HttpException $e) {
+            throw $e; // a deliberate 403/404 stays one, never a generic 500
         } catch (\Exception $e) {
             Log::error('Failed to create department: '.$e->getMessage());
 
@@ -171,19 +179,25 @@ class DepartmentController extends Controller
                 'location' => 'nullable|string|max:255',
                 'is_active' => 'boolean',
                 'established_date' => 'nullable|date',
+                'default_roles' => 'sometimes|nullable|array',
+                'default_roles.*' => ['string', Rule::exists('roles', 'name')->where('guard_name', 'web'), Rule::notIn(DepartmentDefaultRoles::FORBIDDEN)],
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
+            $data = $this->withDefaultRolesForGlobalAdmin($request, $validator->validated(), $department);
+
             // Update department
-            $department->update($validator->validated());
+            $department->update($data);
 
             return response()->json([
                 'message' => 'Department updated successfully',
                 'department' => $department,
             ]);
+        } catch (HttpException $e) {
+            throw $e; // a deliberate 403/404 stays one, never a generic 500
         } catch (\Exception $e) {
             Log::error('Failed to update department: '.$e->getMessage());
 
@@ -284,7 +298,16 @@ class DepartmentController extends Controller
                 $user->designation_id = null; // Reset designation when department changes
             }
 
+            $previousDepartmentId = $user->getOriginal('department_id');
             $user->save();
+
+            if ($departmentChanged) {
+                app(DepartmentDefaultRoles::class)->syncOnTransfer(
+                    $user,
+                    $previousDepartmentId ? (int) $previousDepartmentId : null,
+                    (int) $newDepartmentId
+                );
+            }
 
             return response()->json([
                 'messages' => ['Department updated successfully'],
@@ -381,5 +404,43 @@ class DepartmentController extends Controller
         return response()->json([
             'departments' => $departments,
         ]);
+    }
+
+    /** Roles an Administrator may list as a department default (global admins only). */
+    public function defaultRoleOptions(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->hasRole(['Super Administrator', 'Administrator']), 403);
+
+        return response()->json([
+            'roles' => Role::query()->where('guard_name', 'web')
+                ->whereNotIn('name', DepartmentDefaultRoles::FORBIDDEN)->orderBy('name')->pluck('name'),
+        ]);
+    }
+
+    /**
+     * default_roles decides which functional roles every employee of the department receives, so
+     * only Super Administrators / Administrators may set it; anyone else's value is refused when it
+     * would change it and otherwise dropped.
+     */
+    private function withDefaultRolesForGlobalAdmin(Request $request, array $data, ?Department $existing): array
+    {
+        if (! array_key_exists('default_roles', $data)) {
+            return $data;
+        }
+        $requested = $data['default_roles'] === null ? null : array_values(array_unique($data['default_roles']));
+        if ($request->user()->hasRole(['Super Administrator', 'Administrator'])) {
+            $data['default_roles'] = $requested ?: null;
+
+            return $data;
+        }
+
+        // The edit form echoes the current value back: unchanged is a no-op, a change is refused.
+        $current = collect($existing?->default_roles ?? [])->sort()->values()->all();
+        if (collect($requested ?? [])->sort()->values()->all() !== $current) {
+            abort(403, 'Only an Administrator may change a department\'s default roles.');
+        }
+        unset($data['default_roles']);
+
+        return $data;
     }
 }

@@ -42,6 +42,7 @@ class Department extends Model
         'location',
         'is_active',
         'established_date',
+        'default_roles',
     ];
 
     protected $casts = [
@@ -49,6 +50,7 @@ class Department extends Model
         'parent_id' => 'integer',
         'is_active' => 'boolean',
         'established_date' => 'date',
+        'default_roles' => 'array',
     ];
 
     /**

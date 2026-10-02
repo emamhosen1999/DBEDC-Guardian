@@ -6,6 +6,7 @@ use App\Console\Commands\ProcessAbsenceStreak;
 use App\Models\FeatureFlag;
 use App\Models\HRM\AbsenceCase;
 use App\Models\HRM\Asset;
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDeviceCommand;
 use App\Models\HRM\Department;
@@ -161,6 +162,8 @@ class HrModuleScopeTest extends TestCase
     {
         $user = User::factory()->create(['department_id' => $department?->id, 'name' => $name]);
         $user->assignRole($role);
+        // Onboarding requires a way to check in: an explicit (non-biometric) attendance method.
+        $user->attendanceTypes()->attach(AttendanceType::factory()->create(['is_active' => true])->id);
 
         return $user;
     }
@@ -485,8 +488,10 @@ class HrModuleScopeTest extends TestCase
     {
         $mapped = $this->device('SN-1');
         $this->device('SN-2');
-        $location = WorkLocation::create(['name' => 'Plaza A', 'code' => 'PA', 'is_active' => true]);
+        // The check-in method comes from the location's default (no personal override on e1).
+        $location = WorkLocation::create(['name' => 'Plaza A', 'code' => 'PA', 'is_active' => true, 'attendance_type_id' => AttendanceType::factory()->create(['is_active' => true])->id]);
         DB::table('work_location_biometric_device')->insert(['work_location_id' => $location->id, 'biometric_device_id' => $mapped->id]);
+        $this->u['e1']->attendanceTypes()->detach();
         $this->u['e1']->forceFill(['work_location_id' => $location->id])->save();
 
         $this->actingAs($this->u['hr'])->postJson('/hr/onboarding', [

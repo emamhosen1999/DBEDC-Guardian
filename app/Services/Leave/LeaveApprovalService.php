@@ -108,6 +108,33 @@ class LeaveApprovalService
             }
         }
 
+        // No manager and no department head (e.g. a department admin created without a reporting
+        // line): the request must never fall through to auto-approval, and never reach the requester
+        // himself. It routes to HR / global admins instead (separation of duties).
+        if ($approvalChain === []) {
+            $fallback = User::query()
+                ->where('employee_id', '!=', $user->employee_id)
+                ->whereHas('roles', fn ($q) => $q->where('name', 'HR Manager'))
+                ->orderBy('employee_id')
+                ->first()
+                ?? User::query()
+                    ->where('employee_id', '!=', $user->employee_id)
+                    ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Administrator', 'Super Administrator']))
+                    ->orderBy('employee_id')
+                    ->first();
+
+            if ($fallback) {
+                $approvalChain[] = [
+                    'level' => 1,
+                    'approver_id' => $fallback->employee_id,
+                    'approver_name' => $fallback->name,
+                    'status' => 'pending',
+                    'approved_at' => null,
+                    'comments' => 'Routed to HR: the requester has no reporting manager.',
+                ];
+            }
+        }
+
         return $approvalChain;
     }
 

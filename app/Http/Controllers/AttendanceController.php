@@ -105,10 +105,33 @@ class AttendanceController extends Controller
      */
     private function assertMayActOn(string $employeeId): void
     {
-        $actor = Auth::user();
-        if (! $actor || (! $this->scope()->isGlobal($actor) && ! $this->scope()->canActOn($actor, $employeeId))) {
+        if (! $this->mayActOnAttendanceOf($employeeId)) {
             abort(403, 'You do not have access to this employee.');
         }
+    }
+
+    /**
+     * The ONE rule behind both the write guards and the per-row `can_act` flag the attendance UI
+     * renders, so a button is never offered that the server would refuse: global attendance admins
+     * act on anyone; everyone else only on an in-scope employee they OUTRANK - never on themselves
+     * (separation of duties), never out of scope, never on a peer or superior.
+     */
+    private function mayActOnAttendanceOf(string $employeeId): bool
+    {
+        $actor = Auth::user();
+        if (! $actor) {
+            return false;
+        }
+
+        return $this->scope()->isGlobal($actor) || $this->scope()->canManage($actor, $employeeId);
+    }
+
+    /** Add `can_act` to a serialized user/row array keyed by employee id. */
+    private function withCanAct(array $row, ?string $employeeId): array
+    {
+        $row['can_act'] = $employeeId !== null && $employeeId !== '' && $this->mayActOnAttendanceOf($employeeId);
+
+        return $row;
     }
 
     public function indexUnified(): Response
@@ -358,7 +381,7 @@ class AttendanceController extends Controller
         if ($attendanceTypes->isEmpty()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'No active attendance type assigned to user.',
+                'message' => User::CHECKIN_NOT_SET_UP_MESSAGE,
             ], 422);
         }
 
@@ -400,7 +423,7 @@ class AttendanceController extends Controller
         }
 
         if (empty($errors)) {
-            return ['status' => 'error', 'message' => 'No active attendance type assigned to user.', 'code' => 422];
+            return ['status' => 'error', 'message' => User::CHECKIN_NOT_SET_UP_MESSAGE, 'code' => 422];
         }
 
         // Prefer a meaningful failure (e.g. 403 device/location) over a generic 422.
@@ -580,6 +603,7 @@ class AttendanceController extends Controller
 
                 return [
                     'id' => 'user-'.($user?->id ?? 'unknown'),
+                    'can_act' => $this->mayActOnAttendanceOf((string) ($user?->employee_id ?? '')),
                     'user_id' => (int) ($user?->id ?? 0),
                     'user' => [
                         'id' => (int) ($user?->id ?? 0),
@@ -810,6 +834,7 @@ class AttendanceController extends Controller
 
                 return [
                     'id' => (string) $user->id,
+                    'can_act' => $this->mayActOnAttendanceOf((string) $user->employee_id),
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -830,6 +855,7 @@ class AttendanceController extends Controller
             $serializedOffUsers = $offUsers->map(function (User $user) {
                 return [
                     'id' => (string) $user->id,
+                    'can_act' => $this->mayActOnAttendanceOf((string) $user->employee_id),
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -842,6 +868,7 @@ class AttendanceController extends Controller
             $serializedUpcomingUsers = $upcomingUsers->map(function (User $user) {
                 return [
                     'id' => (string) $user->id,
+                    'can_act' => $this->mayActOnAttendanceOf((string) $user->employee_id),
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -1126,6 +1153,17 @@ class AttendanceController extends Controller
 
             $data = app(AttendanceDayPartitionService::class)
                 ->partition($date, $departmentId, $this->visibleEmployeeIds(Auth::user()), $designationId);
+
+            // Per-row action flag (same rule the write routes enforce): no dead buttons.
+            foreach (['present', 'absent', 'upcoming', 'off_leave'] as $bucket) {
+                if (isset($data[$bucket]) && is_iterable($data[$bucket])) {
+                    $data[$bucket] = collect($data[$bucket])->map(function ($row) {
+                        $row['user'] = $this->withCanAct((array) ($row['user'] ?? []), (string) ($row['user']['employee_id'] ?? $row['user']['id'] ?? ''));
+
+                        return $row;
+                    })->values()->all();
+                }
+            }
 
             return response()->json($data);
         } catch (ValidationException $e) {

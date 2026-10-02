@@ -14,6 +14,7 @@ use App\Models\HRM\FinalSettlement;
 use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
 use App\Observers\UserSyncEpochObserver;
+use App\Services\Access\DepartmentDefaultRoles;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,21 +57,29 @@ class User extends Authenticatable implements HasMedia
 
     protected $keyType = 'string';
 
-    /**
-     * The roles an ordinary employee holds: `Employee` (self-service) next to `Daily Works Contributor`
-     * (field reporting). Someone holding only these is "just an employee" — the employee dashboard,
-     * the employee menu — however the two are combined.
-     */
-    public const BASE_ROLES = ['Employee', 'Daily Works Contributor'];
+    /** The base self-service role every employee holds. */
+    public const BASE_ROLE = 'Employee';
 
     /**
-     * Does this user hold the Employee role and nothing beyond the base roles?
+     * The base roles. Functional roles such as Daily Works Contributor are NOT base roles any more:
+     * they come from the department's `default_roles` (see DepartmentDefaultRoles).
+     */
+    public const BASE_ROLES = [self::BASE_ROLE];
+
+    /**
+     * Does this user hold the Employee role and nothing beyond it plus department default roles?
+     * Such a user is "just an employee": employee dashboard, employee menu.
      */
     public function hasOnlyBaseRoles(): bool
     {
         $names = $this->roles->pluck('name');
+        if (! $names->contains(self::BASE_ROLE)) {
+            return false;
+        }
 
-        return $names->contains('Employee') && $names->diff(self::BASE_ROLES)->isEmpty();
+        $allowed = array_merge(self::BASE_ROLES, app(DepartmentDefaultRoles::class)->allManaged());
+
+        return $names->diff($allowed)->isEmpty();
     }
 
     /**
@@ -418,6 +427,18 @@ class User extends Authenticatable implements HasMedia
         }
 
         return collect();
+    }
+
+    /** Shown to the employee when a punch is refused because no check-in method resolves for them. */
+    public const CHECKIN_NOT_SET_UP_MESSAGE = "Your check-in method isn't set up yet. Ask your department admin or HR to assign one.";
+
+    /** Shown to whoever creates/onboards an employee that would have no check-in method. */
+    public const NO_ATTENDANCE_METHOD_MESSAGE = 'Assign at least one attendance method to this employee, or pick a work location that has a default attendance method.';
+
+    /** Does at least one ACTIVE attendance method resolve for this employee (override or work-location default)? */
+    public function hasResolvableAttendanceMethod(): bool
+    {
+        return $this->resolvedAttendanceTypes()->isNotEmpty();
     }
 
     /**

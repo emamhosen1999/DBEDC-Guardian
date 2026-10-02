@@ -56,8 +56,10 @@ const STICKY_HEAD = {
 
 /* ── table cell renderer ─────────────────────────────────────── */
 
-const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStartEdit, onCancelEdit, onSaveTime, onDelete, onHistory }) => {
+const Cell = ({ attendance, colUid, isAdminView, canCorrect: canCorrectPermission, editingCell, onStartEdit, onCancelEdit, onSaveTime, onDelete, onHistory }) => {
     const isToday = dayjs(attendance.date).isSame(dayjs(), 'day');
+    // Permission AND the server's per-row verdict (never oneself, never out of scope / outranking).
+    const canCorrect = canCorrectPermission && attendance.can_act === true;
 
     switch (colUid) {
         case 'date':
@@ -259,6 +261,7 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
             );
 
         case 'actions':
+            if (!canCorrect) return <Table.Cell />;
             return (
                 <Table.Cell>
                     <Flex gap="2" align="center">
@@ -418,7 +421,7 @@ const PartitionRow = ({ row, variant, onMarkAsPresent, markingId, canManage }) =
                 </Flex>
 
                 {/* Mark present — absent tab only */}
-                {variant === 'absent' && canManage && onMarkAsPresent && (
+                {variant === 'absent' && canManage && user.can_act === true && onMarkAsPresent && (
                     <Button
                         size="2"
                         variant="solid"

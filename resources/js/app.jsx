@@ -11,7 +11,7 @@ import { RadixThemeProvider } from './Contexts/RadixThemeContext';
 import { RadixThemeShell } from './Components/RadixThemeShell';
 import { initializeDeviceAuth } from './utils/deviceAuth';
 import queryClient from './api/reactQueryClient';
-import { showToast } from './utils/toastUtils';
+import { showToast, showForbiddenToastUnlessHandled } from './utils/toastUtils';
 import { initInstantNavigation } from './utils/instant-navigation';
 import { subscribeDesktopNavigation } from './utils/desktop-bridge';
 
@@ -90,7 +90,8 @@ axios.interceptors.response.use(
             const message = error.response.data?.message || 'An unexpected error occurred';
             
             if (status === 403) {
-                showToast.error('Access Denied: You do not have permission for this action.');
+                // Deferred + de-duplicated: a caller that toasts the server's specific reason suppresses this generic one.
+                showForbiddenToastUnlessHandled(error.response.data?.message || 'Access Denied: You do not have permission for this action.');
             } else if (status >= 500) {
                 showToast.error(`Server Error (${status}): ${message}`);
             }

@@ -280,7 +280,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                             display: 'flex', alignItems: 'stretch'
                                         }}
                                     >
-                                        <Tooltip content={`${disp.tooltip}${workedSuffix}`}>
+                                        <Tooltip content={`${disp.tooltip}${workedSuffix}${cell?.locked ? ' — Finalized by HR' : ''}`}>
                                             <Box style={{
                                                 width: '100%',
                                                 height: '100%',

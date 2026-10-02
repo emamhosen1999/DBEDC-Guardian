@@ -226,7 +226,7 @@ class MobileAttendanceApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('status', 'error')
-            ->assertJsonPath('message', 'No active attendance type assigned to user.');
+            ->assertJsonPath('message', User::CHECKIN_NOT_SET_UP_MESSAGE);
     }
 
     public function test_authenticated_user_can_fetch_monthly_mobile_attendance_history(): void
@@ -600,10 +600,10 @@ class MobileAttendanceApiTest extends TestCase
         $response = $this->getJson('/api/v1/attendance/absent-users?date=2026-04-07');
 
         $response->assertOk()
-            ->assertJsonPath('total_absent', 1)
-            ->assertJsonPath('absent_users.0.id', $absentEmployee->id)
-            ->assertJsonPath('leaves.0.user_id', $absentEmployee->id)
-            ->assertJsonPath('leaves.0.leave_type_name', 'DailyTimesheet');
+            // An APPROVED leave beats the roster/default working day: on leave, not absent.
+            ->assertJsonPath('total_absent', 0)
+            ->assertJsonPath('absent_users', [])
+            ->assertJsonPath('off_users.0.id', $absentEmployee->id);
     }
 
     public function test_manager_can_fetch_mobile_locations_today_payload(): void

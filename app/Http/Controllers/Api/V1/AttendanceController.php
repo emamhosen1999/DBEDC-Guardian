@@ -1092,7 +1092,7 @@ class AttendanceController extends Controller
         if ($attendanceTypes->isEmpty()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'No active attendance type assigned to user.',
+                'message' => User::CHECKIN_NOT_SET_UP_MESSAGE,
             ], 422);
         }
 
@@ -1352,7 +1352,7 @@ class AttendanceController extends Controller
         }
 
         if (empty($errors)) {
-            return ['status' => 'error', 'message' => 'No active attendance type assigned to user.', 'code' => 422];
+            return ['status' => 'error', 'message' => User::CHECKIN_NOT_SET_UP_MESSAGE, 'code' => 422];
         }
 
         usort($errors, fn ($a, $b) => ($b['code'] ?? 0) <=> ($a['code'] ?? 0));

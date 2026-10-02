@@ -426,7 +426,7 @@ class DepartmentAdminRouteMatrixTest extends TestCase
         $created = $this->as($this->admin)->postJson(route('users.store'), [
             'name' => 'Mass Assigned', 'user_name' => 'massassigned', 'email' => 'mass@example.com', 'employee_id' => 'MASS-1',
             'password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026',
-            'department_id' => $this->d1->id, 'roles' => ['Super Administrator', 'Administrator'], 'permissions' => ['roles.update'],
+            'department_id' => $this->d1->id, 'attendance_type_ids' => [$this->attendanceMethodId()], 'roles' => ['Super Administrator', 'Administrator'], 'permissions' => ['roles.update'],
             'is_admin' => true, 'hierarchy_level' => 1, 'salary_amount' => 123456, 'sync_epoch' => 99, 'must_change_password' => false,
         ])->assertCreated();
         $new = User::find('MASS-1');

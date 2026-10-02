@@ -18,6 +18,7 @@ import {
     PlusIcon
 } from '@radix-ui/react-icons';
 import { useForm } from 'laravel-precognition-react';
+import LockedFieldHint from '@/Components/Common/LockedFieldHint';
 import { usePage, router } from '@inertiajs/react';
 import DepartmentScopeSection from '@/Components/Access/DepartmentScopeSection';
 import DepartmentField from '@/Components/Access/DepartmentField';
@@ -46,8 +47,19 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
     // Roles: only someone who manages access sees (or sends) them. Everyone else creates plain
     // Employees — the server forces the base role regardless of what is sent.
     const canManageAccess = holds('employees.access.manage') && !isSelfEdit && (!rowCan || rowCan.manage_access);
-    // HR-created staff default to the base role plus the field-reporting role (Daily Works Contributor).
-    const defaultRoles = ['Employee', 'Daily Works Contributor'].filter(name => (roles || []).some(r => (typeof r === 'object' ? r.name : r) === name));
+    // HR-created staff default to the base role plus the functional roles of the SELECTED department
+    // (departments.default_roles, e.g. Quality Control -> Daily Works Contributor).
+    const roleNameOf = (r) => (typeof r === 'object' ? r.name : r);
+    const roleExists = (name) => (roles || []).some((r) => roleNameOf(r) === name);
+    const departmentDefaultRoles = (departmentId) => {
+        const dept = (departments || []).find((d) => String(d.id) === String(departmentId));
+        return Array.isArray(dept?.default_roles) ? dept.default_roles.filter(roleExists) : [];
+    };
+    const managedRoleNames = [...new Set((departments || []).flatMap((d) => (Array.isArray(d.default_roles) ? d.default_roles : [])))];
+    const defaultRoles = ['Employee', ...departmentDefaultRoles(user?.department_id)].filter(roleExists);
+    // Read-only because of who is looking (self, rank or scope): say so instead of silently disabling.
+    const lockedRow = { can: { is_self: isSelfEdit } };
+    const lockHint = (locked, field) => (editMode && locked ? <LockedFieldHint row={lockedRow} field={field} /> : null);
     const canManageScopes = editMode && !!user?.id && (auth?.permissions?.includes('department.scopes.manage') || false);
     const [showPassword, setShowPassword] = useState(false);
     const [selectedImage, setSelectedImage] = useState(user?.profile_image_url || user?.profile_image || null);
@@ -103,6 +115,16 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                 && (designation.is_active !== false || String(designation.id) === heldDesignationId),
         )
         : designationPool), [form.data.department_id, designationPool, heldDesignationId]);
+
+    // Create mode: the pre-ticked roles follow the selected department (managed defaults swap, hand-picked roles stay).
+    useEffect(() => {
+        if (editMode || !holds('employees.access.manage')) return;
+        const current = Array.isArray(form.data.roles) ? form.data.roles : [];
+        const kept = current.filter((name) => !managedRoleNames.includes(name));
+        const next = [...new Set([...kept, ...(kept.includes('Employee') || !roleExists('Employee') ? [] : ['Employee']), ...departmentDefaultRoles(form.data.department_id)])];
+        if (next.length !== current.length || next.some((n) => !current.includes(n))) handleChange('roles', next);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.data.department_id]);
 
     // A department change invalidates a designation of the previous one.
     useEffect(() => {
@@ -429,7 +451,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box>
                                             <Flex align="center" justify="between" mb="1">
-                                                <Text as="label" size="2" weight="medium">Designation</Text>
+                                                <Flex align="center" gap="1"><Text as="label" size="2" weight="medium">Designation</Text>{lockHint(!canPlace, 'designation')}</Flex>
                                                 {holds('designations.create') && form.data.department_id && canPlace && (
                                                     <Button type="button" size="1" variant="ghost" onClick={() => setDesignationDialogOpen(true)} data-testid="new-designation">
                                                         <PlusIcon /> New designation
@@ -453,7 +475,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                         </Box>
 
                                         <Box gridColumn={{ initial: '1', sm: '1 / -1' }}>
-                                            <Text as="label" size="2" weight="medium" mb="1" display="block">Reports To</Text>
+                                            <Flex align="center" gap="1" mb="1"><Text as="label" size="2" weight="medium">Reports To</Text>{lockHint(!canPlace, 'reporting line')}</Flex>
                                             <Select.Root value={form.data.report_to ? String(form.data.report_to) : undefined} onValueChange={(value) => { if (value) handleChange('report_to', value); }} disabled={!form.data.department_id || filteredReportTo.length === 0 || !canPlace}>
                                                 <Select.Trigger
                                                     style={{ width: '100%' }}
@@ -477,7 +499,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         {/* Work Location Selection */}
                                         <Box>
-                                            <Text as="label" size="2" weight="medium" mb="1" display="block">Work Location</Text>
+                                            <Flex align="center" gap="1" mb="1"><Text as="label" size="2" weight="medium">Work Location</Text>{lockHint(!canPlace, 'work location')}</Flex>
                                             <Select.Root value={form.data.work_location_id ? String(form.data.work_location_id) : 'none'} onValueChange={(value) => handleChange('work_location_id', value === 'none' ? '' : value)} disabled={!canPlace}>
                                                 <Select.Trigger placeholder="Select work location" style={{ width: '100%' }} />
                                                 <Select.Content>
@@ -495,7 +517,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                         {/* Attendance Method Override (multi-method, OR-validated) */}
                                         <Box>
                                             <Flex align="center" justify="between" mb="2" mt="1">
-                                                <Text as="label" size="2" weight="medium">Custom Attendance Override</Text>
+                                                <Flex align="center" gap="1"><Text as="label" size="2" weight="medium">Custom Attendance Override</Text>{lockHint(!canConfigureAttendance, 'attendance method')}</Flex>
                                                 <Switch
                                                     disabled={!canConfigureAttendance}
                                                     checked={hasOverride}
@@ -632,6 +654,22 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                     ))}
                                                 </Flex>
                                             )}
+                                        </Box>
+                                        )}
+
+                                        {/* No role management (a department admin): the target's roles stay visible, read-only. */}
+                                        {!canManageAccess && editMode && (user?.roles || []).length > 0 && (
+                                        <Box data-testid="roles-readonly">
+                                            <Flex align="center" gap="1" mb="2">
+                                                <Text as="label" size="2" weight="medium">Roles</Text>
+                                                <LockedFieldHint row={lockedRow} field="role" />
+                                            </Flex>
+                                            <Flex gap="2" wrap="wrap">
+                                                {(user.roles || []).map((role) => {
+                                                    const name = typeof role === 'object' ? role.name : role;
+                                                    return <Badge key={name} size="1" variant="soft" color="gray">{name}</Badge>;
+                                                })}
+                                            </Flex>
                                         </Box>
                                         )}
 

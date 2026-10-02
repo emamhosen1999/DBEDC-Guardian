@@ -571,7 +571,7 @@ class DataSyncService
         if (! $attendanceType || ! $attendanceType->is_active) {
             return [
                 'status' => 'failed',
-                'message' => 'No active attendance type assigned to user.',
+                'message' => User::CHECKIN_NOT_SET_UP_MESSAGE,
             ];
         }
 

@@ -6,6 +6,7 @@ use App\Models\HRM\Attendance;
 use App\Models\User;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\ShiftSchedule;
+use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
@@ -48,10 +49,10 @@ class AttendanceDayPartitionService
     /**
      * Partition a single day's attendance for every in-scope member.
      *
-     * @param  string    $date          Y-m-d
+     * @param  string  $date  Y-m-d
      * @param  int|null  $departmentId  restrict to a department (null = all)
-     * @param  int|null[] $memberIds    restrict to an explicit member set (e.g. a
-     *                                  manager's team). null = no member filter.
+     * @param  int|null[]  $memberIds  restrict to an explicit member set (e.g. a
+     *                                 manager's team). null = no member filter.
      * @return array the frozen response shape
      */
     public function partition(string $date, ?int $departmentId = null, ?array $memberIds = null, ?int $designationId = null): array
@@ -174,7 +175,7 @@ class AttendanceDayPartitionService
         });
 
         // Notify the live attendance dashboard that this date's presence changed.
-        app(\App\Services\Realtime\RealtimeSignal::class)
+        app(RealtimeSignal::class)
             ->touch('attendance', $day->format('Y-m-d'), $request?->user()?->id, 'mark_present');
 
         return $attendance;
@@ -269,7 +270,7 @@ class AttendanceDayPartitionService
 
         $map = [];
         foreach ($rows as $row) {
-            $map[(int) $row->uid] = $row->label ?? null;
+            $map[(string) $row->uid] = $row->label ?? null; // ids can be non-numeric (EMP-1042): never cast
         }
 
         return $map;

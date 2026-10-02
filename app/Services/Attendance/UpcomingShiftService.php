@@ -8,6 +8,8 @@ use App\Services\Attendance\DTO\ShiftSchedule;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * The single definition of "upcoming shift", shared by the web attendance page
@@ -37,12 +39,18 @@ class UpcomingShiftService
 
     /**
      * @param  Collection<int, User>  $users
-     * @return Collection<int, User>  decorated + sorted by shift start
+     * @return Collection<int, User> decorated + sorted by shift start
      */
     public function forDate(CarbonInterface $date, Collection $users): Collection
     {
         if (! $this->isVisibleFor($date)) {
             return collect();
+        }
+
+        // An APPROVED leave overrides a rostered shift: nobody on leave is "upcoming".
+        $onLeave = $this->onApprovedLeave($users, $date);
+        if ($onLeave !== []) {
+            $users = $users->reject(fn (User $user) => isset($onLeave[(string) $user->id]))->values();
         }
 
         return $date->copy()->startOfDay()->isToday()
@@ -51,12 +59,41 @@ class UpcomingShiftService
     }
 
     /**
+     * Employees with an APPROVED leave covering the date, keyed by employee id. An approved leave
+     * always beats a rostered (even manually locked) working shift: such a person is on leave, never
+     * absent and never upcoming. Pending / rejected / cancelled leaves do not count.
+     *
+     * @param  Collection<int, User>  $users
+     * @return array<string, true>
+     */
+    public function onApprovedLeave(Collection $users, CarbonInterface $date): array
+    {
+        $ids = $users->map(fn (User $u) => (string) $u->id)->filter()->values()->all();
+        if ($ids === [] || ! Schema::hasTable('leaves')) {
+            return [];
+        }
+        $column = collect(['user_id', 'user', 'employee_id'])->first(fn ($c) => Schema::hasColumn('leaves', $c));
+        if ($column === null) {
+            return [];
+        }
+
+        return DB::table('leaves')
+            ->whereIn($column, $ids)
+            ->whereRaw('LOWER(status) = ?', ['approved'])
+            ->whereDate('from_date', '<=', $date->toDateString())
+            ->whereDate('to_date', '>=', $date->toDateString())
+            ->pluck($column)
+            ->mapWithKeys(fn ($id) => [(string) $id => true])
+            ->all();
+    }
+
+    /**
      * The whole upcoming / absent / off split, in one place. Both the web
      * attendance page and the mobile team-attendance screen call this — the
      * logic used to live twice and drifted.
      *
-     * @param  Collection<int, User>  $allUsers      every employee in scope
-     * @param  Collection<int, User>  $absentUsers   those in scope with no punch-in for the date
+     * @param  Collection<int, User>  $allUsers  every employee in scope
+     * @param  Collection<int, User>  $absentUsers  those in scope with no punch-in for the date
      * @return array{upcoming: Collection<int, User>, absent: Collection<int, User>, off: Collection<int, User>}
      */
     public function partition(CarbonInterface $date, Collection $allUsers, Collection $absentUsers): array
@@ -66,10 +103,18 @@ class UpcomingShiftService
 
         $absent = collect();
         $off = collect();
+        $onLeave = $this->onApprovedLeave($absentUsers, $date);
 
         foreach ($absentUsers as $user) {
             // A user whose shift has not started yet belongs to Upcoming, not Absent.
             if (in_array($user->id, $upcomingIds, true)) {
+                continue;
+            }
+
+            // Approved leave beats the roster: off the absent list.
+            if (isset($onLeave[(string) $user->id])) {
+                $off->push($user);
+
                 continue;
             }
 
@@ -109,11 +154,12 @@ class UpcomingShiftService
         $absent = collect();
         $off = collect();
         $upcoming = collect();
+        $onLeave = $this->onApprovedLeave($nonPresentUsers, $date);
 
         foreach ($nonPresentUsers as $user) {
             $schedule = $this->schedules->resolve($user->id, $date);
 
-            if (! $schedule->isWorkingDay) {
+            if (! $schedule->isWorkingDay || isset($onLeave[(string) $user->id])) {
                 $off->push($user);
 
                 continue;

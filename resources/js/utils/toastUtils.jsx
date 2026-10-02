@@ -80,6 +80,20 @@ const normOpts = ({ autoClose, style: _s, icon: _i, position: _p, ...rest } = {}
 
 // ── Main utility ──────────────────────────────────────────────────────────────
 
+let lastErrorToastAt = 0;
+
+/**
+ * Fallback toast for a 403 the calling code did not explain itself. The global axios interceptor
+ * runs BEFORE the caller's own catch, so it waits a beat: when the caller shows its own error toast
+ * (usually the server's specific message), this generic one is dropped instead of stacking on top.
+ */
+export const showForbiddenToastUnlessHandled = (message, delayMs = 250) => {
+  const requestedAt = Date.now();
+  setTimeout(() => {
+    if (lastErrorToastAt < requestedAt) showToast.error(message);
+  }, delayMs);
+};
+
 export const showToast = {
   /**
    * Promise toast: loading → success / error
@@ -169,6 +183,7 @@ export const showToast = {
   },
 
   error: (message, options = {}) => {
+    lastErrorToastAt = Date.now();
     const toastId = crypto.randomUUID();
     useToastStore.getState().addToast({
       id: toastId,

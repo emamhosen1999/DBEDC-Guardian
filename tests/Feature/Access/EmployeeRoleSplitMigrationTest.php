@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Access;
 
+use App\Models\HRM\Department;
 use App\Models\User;
 use App\Services\Admin\UserManagementService;
 use Database\Seeders\ComprehensiveRolePermissionSeeder;
@@ -192,6 +193,9 @@ class EmployeeRoleSplitMigrationTest extends TestCase
     public function test_base_role_helpers_and_the_create_default_keep_working(): void
     {
         $this->runMigration();
+        // DWC is a DEPARTMENT default role (Quality Control), no longer a base role of its own.
+        $qc = Department::factory()->create(['name' => 'Quality Control']);
+        $qc->forceFill(['default_roles' => ['Daily Works Contributor']])->save();
         $both = User::factory()->create();
         $both->assignRole('Employee', 'Daily Works Contributor');
         $this->assertTrue($both->fresh()->hasOnlyBaseRoles(), 'Employee + Daily Works Contributor is still "just an employee"');
@@ -209,10 +213,15 @@ class EmployeeRoleSplitMigrationTest extends TestCase
         $both->givePermissionTo('core.dashboard.view');
         $this->actingAs($both)->get(route('dashboard'))->assertRedirect(route('employee-dashboard'));
 
-        // An API-style creation with no roles keeps the old default: Employee + the field-reporting role.
+        // An API-style creation with no roles: Employee + the department's default roles (never DWC for everyone).
         $created = app(UserManagementService::class)->createUser([
             'name' => 'Defaulted', 'email' => 'defaulted@example.com', 'employee_id' => 'DEF-1', 'user_name' => 'defaulted', 'password' => 'Str0ng!Passw0rd#2026',
         ], null);
-        $this->assertEqualsCanonicalizing(['Employee', 'Daily Works Contributor'], $created->roles->pluck('name')->all());
+        $this->assertEqualsCanonicalizing(['Employee'], $created->roles->pluck('name')->all());
+
+        $inQc = app(UserManagementService::class)->createUser([
+            'name' => 'Qc Hire', 'email' => 'qchire@example.com', 'employee_id' => 'DEF-2', 'user_name' => 'qchire', 'password' => 'Str0ng!Passw0rd#2026', 'department_id' => $qc->id,
+        ], null);
+        $this->assertEqualsCanonicalizing(['Employee', 'Daily Works Contributor'], $inQc->roles->pluck('name')->all());
     }
 }

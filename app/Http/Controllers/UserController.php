@@ -47,12 +47,6 @@ class UserController extends Controller
     ];
 
     /**
-     * The role every employee created without role-management rights receives. Server-enforced:
-     * whoever lacks employees.access.manage can never mint anything else, whatever the client sends.
-     */
-    private const BASE_ROLE = 'Employee';
-
-    /**
      * Fields on the employee edit/create form, grouped by the permission that governs them. A
      * group the actor may not change is dropped when unchanged (the form echoes every field back)
      * and refused (403) when it would change something.
@@ -85,7 +79,7 @@ class UserController extends Controller
         // their own (so their own record still renders with its department).
         $visibleDeptIds = $this->scope()->visibleDepartmentIds($authUser);
 
-        $departmentsQuery = Department::select('id', 'name', 'code', 'parent_id', 'is_active');
+        $departmentsQuery = Department::select('id', 'name', 'code', 'parent_id', 'is_active', 'default_roles');
         $designationsQuery = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
             ->with('department:id,name') // department_name is appended in Designation::toArray(); avoid lazy-load violation
             ->orderBy('hierarchy_level', 'asc');
@@ -237,8 +231,9 @@ class UserController extends Controller
 
             if (! $authUser->can('employees.access.manage')) {
                 // No role-management right: every employee he creates is a plain base-role Employee,
-                // whatever the client sent. Nothing else can be minted from here.
-                $roles = [self::BASE_ROLE];
+                // whatever the client sent. Nothing else can be minted from here. Null roles makes the
+                // service assign Employee + the department's default functional roles (server-enforced).
+                $roles = null;
             } elseif ($roles) {
                 // Role managers may create staff, but never a role equal to or more powerful
                 // than their own (an HR Manager must not mint an Administrator) — the same
@@ -247,6 +242,9 @@ class UserController extends Controller
             }
 
             $validated = $this->stripUnpermittedCreateFields($authUser, $validated);
+
+            // No employee without a way to check in: an explicit method or the work location's default.
+            $this->userService->assertAttendanceMethodResolvable($validated);
 
             $user = $this->userService->createUser($validated, $roles, $profileImage);
 

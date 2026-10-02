@@ -15,6 +15,7 @@ import {
 import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
 import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
 import ConfirmDialog from '@/Components/Common/ConfirmDialog';
+import LockedFieldHint from '@/Components/Common/LockedFieldHint';
 import { useDepartmentScope } from '@/Hooks/useDepartmentScope';
 import { deviceOptionsForLocation } from '@/utils/deviceOptions';
 import { eligibleManagers } from '@/utils/reportingLine';
@@ -24,6 +25,11 @@ import TablePagination from '../../../Components/TablePagination.jsx';
 import DeleteEmployeeModal from '../../../Components/DeleteEmployeeModal.jsx';
 import ProfilePictureModal from '../../../Components/ProfilePictureModal.jsx';
 import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
+
+/* Read-only value with the lock hint, only when the server's per-row `can` says it is locked for this viewer. */
+function LockedCell({ show, row, field, children }) {
+    return show ? <LockedFieldHint row={row} field={field}>{children}</LockedFieldHint> : children;
+}
 
 /* ─── helpers ─── */
 function getBaseSlug(slug) {
@@ -395,9 +401,11 @@ const EmployeeTable = ({
                                             {(deptScope.isSingle || !canOn(user, 'transfer', 'employees.update')) ? (
                                                 // One department only (or no transfer right over this person): nothing to choose,
                                                 // so no dropdown that would offer a move the server would refuse.
+                                                <LockedCell show={!canOn(user, 'transfer', 'employees.update') && !!user.can} row={user} field="department">
                                                 <Badge color="blue" variant="soft" size="1" data-testid="department-cell-locked" style={{ borderRadius: 8, padding: '4px 8px' }}>
                                                     <HomeIcon style={{ width: 13, height: 13 }} /> {user.department_name || deptScope.single?.name || '—'}
                                                 </Badge>
+                                                </LockedCell>
                                             ) : (
                                             <DropdownMenu.Root>
                                                 <DropdownMenu.Trigger>
@@ -419,9 +427,11 @@ const EmployeeTable = ({
                                     <Table.Cell>
                                         <Box style={{ minWidth: 155, maxWidth: 190 }}>
                                             {!canOn(user, 'placement', 'employees.placement.update') ? (
+                                                <LockedCell show={!!user.can} row={user} field="designation">
                                                 <Badge color="violet" variant="soft" size="1" style={{ borderRadius: 8, padding: '4px 8px' }}>
                                                     <BackpackIcon style={{ width: 13, height: 13 }} /> {user.designation_name || '—'}
                                                 </Badge>
+                                                </LockedCell>
                                             ) : (
                                             <DropdownMenu.Root>
                                                 <DropdownMenu.Trigger>
@@ -451,6 +461,7 @@ const EmployeeTable = ({
                                             {(!user.roles || user.roles.length === 0) && (
                                                 <Text size="1" color="gray">—</Text>
                                             )}
+                                            {user.can && !user.can.manage_access && <LockedFieldHint row={user} field="role" />}
                                         </Flex>
                                     </Table.Cell>
                                     <Table.Cell>
@@ -462,7 +473,7 @@ const EmployeeTable = ({
                                         <Table.Cell>
                                             <Box style={{ minWidth: 160, maxWidth: 190 }}>
                                                 {!canOn(user, 'placement', 'employees.placement.update') ? (
-                                                    <Text size="1" color="gray">{user.work_location_name || 'Unassigned'}</Text>
+                                                    <LockedCell show={!!user.can} row={user} field="work location"><Text size="1" color="gray">{user.work_location_name || 'Unassigned'}</Text></LockedCell>
                                                 ) : (
                                                 <Select.Root size="1" value={user.work_location_id ? String(user.work_location_id) : 'none'} onValueChange={(v) => handleWorkLocationChange(user.id, v === 'none' ? null : parseInt(v))}>
                                                     <Select.Trigger style={{ width: '100%', borderRadius: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} placeholder="Unassigned" />
@@ -484,9 +495,11 @@ const EmployeeTable = ({
                                         <Table.Cell>
                                             <Box style={{ minWidth: 170, maxWidth: 200 }}>
                                                 {!canOn(user, 'attendance_config', 'employees.attendance-config.update') ? (
+                                                    <LockedCell show={!!user.can} row={user} field="attendance method">
                                                     <Text size="1" color="gray">
                                                         {user.attendance_type_name || (user.work_location_attendance_type_name ? `${user.work_location_attendance_type_name} (inherited)` : '—')}
                                                     </Text>
+                                                    </LockedCell>
                                                 ) : (<>
                                                 <DropdownMenu.Root>
                                                     <DropdownMenu.Trigger>
@@ -528,6 +541,11 @@ const EmployeeTable = ({
                                                     </Box>
                                                 )}
                                                 </>)}
+                                                {user.attendance_method_missing && !user.has_attendance_override && !user.attendance_type_name && !user.work_location_attendance_type_name && !user.deleted_at && (
+                                                    <Badge color="amber" variant="soft" size="1" mt="1" data-testid="no-attendance-method-badge" title="This employee cannot check in until a method is assigned">
+                                                        No check-in method
+                                                    </Badge>
+                                                )}
                                             </Box>
                                         </Table.Cell>
                                     )}
@@ -535,7 +553,7 @@ const EmployeeTable = ({
                                         <Table.Cell>
                                             <Box style={{ minWidth: 145, maxWidth: 175 }}>
                                                 {!canOn(user, 'placement', 'employees.placement.update') ? (
-                                                    <Text size="1" color="gray">{user.reports_to?.name || '—'}</Text>
+                                                    <LockedCell show={!!user.can} row={user} field="reporting line"><Text size="1" color="gray">{user.reports_to?.name || '—'}</Text></LockedCell>
                                                 ) : (
                                                 <Select.Root size="1" value={user.report_to ? String(user.report_to) : ''} onValueChange={(v) => debouncedUpdateReportTo(user.id, v || null)}>
                                                     <Select.Trigger style={{ width: '100%', borderRadius: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} placeholder={user.reports_to?.name || 'Select manager…'} />

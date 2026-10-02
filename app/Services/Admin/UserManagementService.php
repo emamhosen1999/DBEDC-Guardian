@@ -10,6 +10,8 @@ use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\NotificationToken;
 use App\Models\User;
+use App\Models\WorkLocation;
+use App\Services\Access\DepartmentDefaultRoles;
 use App\Services\Access\DepartmentScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -111,10 +114,9 @@ class UserManagementService
             if ($roles) {
                 $user->syncRoles($roles);
             } else {
-                // No roles given (an API call without them): the base roles every ordinary employee
-                // holds — Employee plus, where it exists, Daily Works Contributor (the field-reporting
-                // half Employee used to carry), so the old default is preserved.
-                $user->assignRole(array_filter(User::BASE_ROLES, fn (string $name) => Role::where('name', $name)->where('guard_name', 'web')->exists()) ?: ['Employee']);
+                // No roles given (an API call, or a department admin's hire): the base Employee role
+                // plus the functional roles the user's department lists as defaults.
+                $user->assignRole(app(DepartmentDefaultRoles::class)->rolesForNewUser($user->department_id ? (int) $user->department_id : null));
             }
 
             if ($profileImage) {
@@ -129,6 +131,40 @@ class UserManagementService
     }
 
     /**
+     * A new employee must end up with at least one ACTIVE attendance method: an explicit override
+     * or the work location's default. Throws a 422 naming the attendance field otherwise.
+     *
+     * @param  array  $validated  The data about to be persisted (after field stripping).
+     */
+    public function assertAttendanceMethodResolvable(array $validated): void
+    {
+        $ids = array_filter(array_merge(
+            (array) ($validated['attendance_type_ids'] ?? []),
+            [$validated['attendance_type_id'] ?? null],
+        ), fn ($id) => $id !== null && $id !== '');
+
+        if ($ids !== [] && AttendanceType::whereIn('id', $ids)->where('is_active', true)->exists()) {
+            return;
+        }
+
+        if (! empty($validated['work_location_id'])) {
+            $location = WorkLocation::with('attendanceTypes')->find($validated['work_location_id']);
+            if ($location) {
+                $types = $location->attendanceTypes->isNotEmpty()
+                    ? $location->attendanceTypes
+                    : collect([$location->attendance_type_id ? AttendanceType::find($location->attendance_type_id) : null]);
+                if ($types->contains(fn ($t) => $t && $t->is_active)) {
+                    return;
+                }
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'attendance_type_ids' => [User::NO_ATTENDANCE_METHOD_MESSAGE],
+        ]);
+    }
+
+    /**
      * Update an existing user from validated data.
      *
      * @return User The freshly loaded user.
@@ -137,6 +173,7 @@ class UserManagementService
     {
         return DB::transaction(function () use ($id, $validated, $roles, $hasRoles, $profileImage) {
             $user = User::findOrFail($id);
+            $previousDepartmentId = $user->department_id;
 
             unset($validated['profile_image']);
             $attendanceTypeIds = array_key_exists('attendance_type_ids', $validated) ? $validated['attendance_type_ids'] : null;
@@ -188,6 +225,11 @@ class UserManagementService
             }
 
             $this->applyAttendanceTypeOverride($user, $attendanceTypeIds, $biometricDeviceIds);
+
+            if (array_key_exists('department_id', $placement) && (int) $placement['department_id'] !== (int) $previousDepartmentId) {
+                // Transfer: the old department's functional defaults leave, the new one's arrive.
+                app(DepartmentDefaultRoles::class)->syncOnTransfer($user, $previousDepartmentId ? (int) $previousDepartmentId : null, $placement['department_id'] ? (int) $placement['department_id'] : null);
+            }
 
             if ($hasRoles) {
                 $user->syncRoles($roles);
@@ -708,7 +750,7 @@ class UserManagementService
         // Scope is enforced by the query itself (fail closed); the department filter
         // may only narrow within it.
         $query = $this->scopedUsers($actor, withTrashed: true)
-            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'employeeAttendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number']);
+            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'workLocation.attendanceTypes', 'employeeAttendanceType', 'attendanceTypes', 'biometricDevices:id,name,serial_number']);
 
         // Status / soft-delete filtering
         if ($status && $status !== 'all') {
@@ -772,6 +814,8 @@ class UserManagementService
                 'work_location_name' => $employee->workLocation?->name,
                 'work_location_attendance_type_name' => $employee->workLocation?->attendanceType?->name,
                 'biometric_device_id' => $employee->employeeAttendanceType?->biometric_device_id,
+                // Active employee that could not check in: no override and no work-location default.
+                'attendance_method_missing' => $employee->deleted_at === null && ! $employee->hasResolvableAttendanceMethod(),
                 'has_attendance_override' => $employee->getRawOriginal('attendance_type_id') !== null || $employee->attendanceTypes->isNotEmpty(),
                 // Multi-method override sets (for the Edit form prefill)
                 'attendance_types' => $employee->attendanceTypes->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'slug' => $t->slug])->values(),

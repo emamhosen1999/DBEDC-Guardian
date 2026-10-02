@@ -563,7 +563,7 @@ class MobileSyncApiTest extends TestCase
             ->assertJsonPath('data.summary.duplicate', 0)
             ->assertJsonPath('data.summary.failed', 1)
             ->assertJsonPath('data.results.0.status', 'failed')
-            ->assertJsonPath('data.results.0.message', 'No active attendance type assigned to user.');
+            ->assertJsonPath('data.results.0.message', User::CHECKIN_NOT_SET_UP_MESSAGE);
     }
 
     public function test_sync_push_requires_mutations_payload(): void

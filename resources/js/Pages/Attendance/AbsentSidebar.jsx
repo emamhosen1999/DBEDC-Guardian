@@ -266,7 +266,7 @@ const AbsentSidebar = ({
                                                             </Flex>
                                                         )}
 
-                                                        {canManage && onMarkAsPresent && (
+                                                        {canManage && user.can_act === true && onMarkAsPresent && (
                                                             <Button
                                                                 size="2"
                                                                 variant="solid"

@@ -146,6 +146,8 @@ class RosterController extends Controller
             'off' => $primary->shift_id === null,
             'work_location_id' => $primary->work_location_id,
             'updated_at' => $primary->updated_at?->toIso8601String(),
+            'source' => $primary->source,   // manual = pinned (generator skips it)
+            'locked' => (bool) $primary->locked, // finalized (e.g. by an approved swap)
             'shifts' => $shifts,
             'worked' => $worked,
         ];
@@ -297,6 +299,7 @@ class RosterController extends Controller
             'work_location_id' => 'nullable|integer|exists:work_locations,id',
             'note' => 'nullable|string|max:255',
             'expected_updated_at' => 'nullable|date',
+            'reset_to_pattern' => 'nullable|boolean',
         ]);
 
         $user = $request->user();
@@ -324,12 +327,10 @@ class RosterController extends Controller
             ->orderBy('id')
             ->first();
 
-        // Enforce locked: Locked cells cannot be manually modified unless authorized administrator
-        if ($existing && $existing->locked && ! $user->hasRole(['Super Administrator', 'Administrator'])) {
-            return response()->json([
-                'error' => 'This roster day is locked and cannot be edited.',
-            ], 403);
-        }
+        // A manual adjustment is PINNED (source = manual: the generator never overwrites it) but stays editable by
+        // anyone who may roster this employee - the route's roster permission plus the scope check above - including
+        // setting it back to Off or to the pattern. It used to be saved locked and then editable only by two
+        // role NAMES, so a roster manager could never undo his own change.
 
         if (
             $existing
@@ -340,6 +341,10 @@ class RosterController extends Controller
                 'message' => 'This cell was changed by someone else. Showing the latest version.',
                 'cell' => $existing->load('shift'),
             ], 409);
+        }
+
+        if (! empty($data['reset_to_pattern'])) {
+            return $this->resetCellToPattern($request, $data, $existing);
         }
 
         $shiftIds = $this->resolveShiftIds($data);
@@ -376,8 +381,8 @@ class RosterController extends Controller
                 'date' => $data['date'],
                 'shift_id' => $shiftId,
                 'work_location_id' => $data['work_location_id'] ?? null,
-                'source' => 'manual',
-                'locked' => true,
+                'source' => 'manual', // pinned: generate() skips manual rows
+                'locked' => false,
                 'note' => $note,
             ]))->values();
 
@@ -432,6 +437,43 @@ class RosterController extends Controller
             'cells' => $cells->map(fn (RosterDay $c) => $c->load('shift'))->values(),
             'compliance_violations' => $complianceViolations,
             'coverage_warning' => $coverageWarning,
+        ]);
+    }
+
+    /**
+     * "Reset to pattern": drop the manual override of one cell and let the employee's pattern / assignment
+     * apply again for that day. Same authorization and concurrency checks as a normal cell edit.
+     */
+    private function resetCellToPattern(Request $request, array $data, ?RosterDay $existing): JsonResponse
+    {
+        DB::transaction(function () use ($data, $existing, $request) {
+            RosterDay::where('user_id', $data['user_id'])->whereDate('date', $data['date'])->delete();
+            $this->roster->generateRoster([(string) $data['user_id']], $data['date'], $data['date']);
+
+            if (Schema::hasTable('roster_day_changes')) {
+                $fresh = RosterDay::where('user_id', $data['user_id'])->whereDate('date', $data['date'])->orderBy('id')->first();
+                if ($fresh) {
+                    RosterDayChange::create([
+                        'roster_day_id' => $fresh->id,
+                        'actor_id' => (string) ($request->user()->employee_id ?? $request->user()->id),
+                        'field' => 'shift_id',
+                        'old_value' => (string) ($existing?->shift_id),
+                        'new_value' => (string) $fresh->shift_id,
+                        'reason' => 'Reset to pattern',
+                    ]);
+                }
+            }
+        });
+
+        $this->signals->touch('roster', substr($data['date'], 0, 7), $request->user()?->id);
+
+        $cells = RosterDay::with('shift')->where('user_id', $data['user_id'])->whereDate('date', $data['date'])->orderBy('id')->get();
+
+        return response()->json([
+            'message' => 'Roster reset to the pattern.',
+            'cell' => $cells->first(),
+            'cells' => $cells->values(),
+            'compliance_violations' => [],
         ]);
     }
 

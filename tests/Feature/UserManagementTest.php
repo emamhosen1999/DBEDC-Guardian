@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
@@ -65,6 +66,7 @@ class UserManagementTest extends TestCase
             'gender' => 'male',
             'employee_id' => 'EMP001',
             'roles' => ['Employee'],
+            'attendance_type_ids' => [AttendanceType::factory()->create(['is_active' => true])->id],
         ];
 
         $response = $this->post(route('users.store'), $userData);
@@ -227,6 +229,7 @@ class UserManagementTest extends TestCase
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
             'employee_id' => 'EMP999',
+            'attendance_type_ids' => [AttendanceType::factory()->create(['is_active' => true])->id],
             'profile_image' => UploadedFile::fake()->image('profile.jpg'),
         ];
 
