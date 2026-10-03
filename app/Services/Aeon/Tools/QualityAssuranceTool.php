@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class QualityAssuranceTool implements AeonToolContract
 {
+    public function __construct(private ToolGate $gate) {}
+
     public function name(): string
     {
         return 'quality_assurance';
@@ -44,6 +46,12 @@ class QualityAssuranceTool implements AeonToolContract
     {
         $action = (string) ($args['action'] ?? 'ncr_summary');
 
+        // NCRs sit behind quality.ncr.view; RFIs, objections and site instructions behind daily-works.view.
+        $required = in_array($action, ['rfi_status', 'objections_breakdown', 'site_instructions'], true) ? ['daily-works.view'] : ['quality.ncr.view'];
+        if ($denied = $this->gate->deny($userId, $required)) {
+            return $denied;
+        }
+
         return match ($action) {
             'rfi_status' => $this->getRfiStatus($args),
             'objections_breakdown' => $this->getObjectionsBreakdown($args),
@@ -55,7 +63,9 @@ class QualityAssuranceTool implements AeonToolContract
     private function getNcrSummary(array $args): array
     {
         $table = null;
-        if (Schema::hasTable('ncrs')) {
+        if (Schema::hasTable('quality_ncrs')) {
+            $table = 'quality_ncrs';
+        } elseif (Schema::hasTable('ncrs')) {
             $table = 'ncrs';
         } elseif (Schema::hasTable('ncr_registers')) {
             $table = 'ncr_registers';

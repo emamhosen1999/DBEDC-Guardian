@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Data;
 
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -32,6 +31,18 @@ class SchemaCatalog
         'card_number',
         'cvv',
     ];
+
+    /**
+     * Identity-document and bank columns (matched on whole underscore-separated words): NEVER returned
+     * through Aeon, whatever the actor's permissions.
+     */
+    private const IDENTITY_PATTERN = '/(^|_)(nid|passport|bank|account|ifsc|pan|pf|esi|tin|ssn|iban|swift|routing|national|nationality)(_|$)/';
+
+    /**
+     * Compensation columns: returned (and aggregated, grouped, filtered on) only for an actor holding
+     * employees.compensation.view with scope over the row.
+     */
+    private const COMPENSATION_PATTERN = '/(^|_)(salary|wages?|payroll|gross|compensation|bonus|gratuity|earnings?|deductions?|ctc|payable|encashment)(_|$)|^(daily_rate|net_pay|basic_pay)$/';
 
     /** System/framework tables hidden from AI querying */
     public const IGNORED_TABLES = [
@@ -62,7 +73,7 @@ class SchemaCatalog
             return $this->catalog;
         }
 
-        return $this->catalog = Cache::remember('aeon_schema_catalog_v2', 3600, function () {
+        return $this->catalog = Cache::remember('aeon_schema_catalog_v3', 3600, function () {
             $tables = [];
             try {
                 $dbTables = Schema::getTableListing();
@@ -113,6 +124,9 @@ class SchemaCatalog
 
     /**
      * Resolve a table name from user input or entity alias.
+     *
+     * UNGATED: knows every table. Used only by the write-form builders, whose routes are
+     * permission-checked separately. Data reads MUST go through AeonAccess instead.
      */
     public function resolveTable(string $name): ?string
     {
@@ -162,6 +176,9 @@ class SchemaCatalog
     public function isSensitive(string $column): bool
     {
         $col = strtolower(trim($column));
+        if (preg_match(self::IDENTITY_PATTERN, $col) === 1) {
+            return true;
+        }
         foreach (self::SENSITIVE_COLUMNS as $sensitive) {
             if ($col === $sensitive || str_contains($col, $sensitive)) {
                 return true;
@@ -169,5 +186,13 @@ class SchemaCatalog
         }
 
         return false;
+    }
+
+    /**
+     * Is this a salary / pay / statutory-deduction column (gated on employees.compensation.view)?
+     */
+    public function isCompensation(string $column): bool
+    {
+        return preg_match(self::COMPENSATION_PATTERN, strtolower(trim($column))) === 1;
     }
 }

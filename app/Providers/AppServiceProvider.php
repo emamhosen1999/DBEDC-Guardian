@@ -29,8 +29,8 @@ use App\Observers\OperationsRealtimeObserver;
 use App\Observers\PettyCashRealtimeObserver;
 use App\Services\Access\DepartmentScope;
 use App\Services\Aeon\AeonService;
+use App\Services\Aeon\Data\AeonAccess;
 use App\Services\Aeon\Data\QueryTool;
-use App\Services\Aeon\Data\RowScope;
 use App\Services\Aeon\Data\SchemaCatalog;
 use App\Services\Aeon\IndexingService;
 use App\Services\Aeon\Operations\FormSpecBuilder;
@@ -80,8 +80,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(SchemaCatalog::class);
-        $this->app->singleton(RowScope::class);
-        $this->app->singleton(QueryTool::class);
+        $this->app->scoped(AeonAccess::class);
+        $this->app->scoped(QueryTool::class);
         $this->app->singleton(OperationResolver::class);
         $this->app->singleton(RulesIntrospector::class);
         $this->app->singleton(FormSpecBuilder::class);

@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Specialized Petty Cash & Expense tool for DBEDC Guardian.
@@ -14,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class PettyCashTool implements AeonToolContract
 {
+    public function __construct(private ToolGate $gate) {}
+
     public function name(): string
     {
         return 'petty_cash';
@@ -38,6 +38,11 @@ class PettyCashTool implements AeonToolContract
     public function run(array $args, int|string|null $userId): array
     {
         $action = (string) ($args['action'] ?? 'summary');
+
+        // These are company-wide ledgers: approvers only. Everyone else reads their own loans via query_data.
+        if ($denied = $this->gate->deny($userId, ['petty-cash.approve'])) {
+            return $denied;
+        }
 
         return match ($action) {
             'category_breakdown' => $this->getCategoryBreakdown(),

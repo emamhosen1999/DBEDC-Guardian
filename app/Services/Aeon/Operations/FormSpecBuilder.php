@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Aeon\Operations;
 
-use App\Services\Aeon\Data\SchemaCatalog;
+use App\Models\User;
+use App\Services\Aeon\Data\AeonAccess;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -17,7 +17,7 @@ class FormSpecBuilder
 {
     private const LONGTEXT = ['reason', 'description', 'notes', 'note', 'body', 'message', 'content', 'address', 'comment', 'comments', 'remarks', 'summary', 'defect_description'];
 
-    public function __construct(private SchemaCatalog $schema) {}
+    public function __construct(private AeonAccess $access) {}
 
     /**
      * Build an interactive form specification.
@@ -27,11 +27,11 @@ class FormSpecBuilder
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    public function build(array $rules, array $op, array $values = []): array
+    public function build(array $rules, array $op, array $values = [], ?User $actor = null): array
     {
         $fields = [];
         foreach ($rules as $name => $spec) {
-            $field = $this->field($name, $spec);
+            $field = $this->field($name, $spec, $actor);
             if ($field === null) {
                 continue;
             }
@@ -57,7 +57,7 @@ class FormSpecBuilder
         ];
     }
 
-    private function field(string $name, array $spec): ?array
+    private function field(string $name, array $spec, ?User $actor): ?array
     {
         $rules = $spec['rules'];
         $has = fn (string $r) => in_array($r, $rules, true);
@@ -80,7 +80,7 @@ class FormSpecBuilder
         if ($existsRule = $ruleWith('exists:')) {
             [$table, $col] = $this->parseExists($existsRule, $name);
             $field['type'] = 'select';
-            $field['options'] = $this->optionsForTable($table, $col);
+            $field['options'] = $this->optionsForTable($table, $col, $actor);
 
             return $field;
         }
@@ -135,15 +135,24 @@ class FormSpecBuilder
         return $field;
     }
 
-    private function optionsForTable(string $table, string $valueCol): array
+    /**
+     * Select options come only from tables the actor may query, narrowed to their rows and columns;
+     * anything else yields no options (the submit endpoint still validates the value).
+     */
+    private function optionsForTable(string $table, string $valueCol, ?User $actor): array
     {
         try {
-            if (! $this->schema->entity($table)) {
+            $resolved = $actor ? $this->access->resolveTable($actor, $table) : null;
+            if ($resolved === null) {
                 return [];
             }
-            $cols = Schema::getColumnListing($table);
-            $labelCol = null;
 
+            $cols = $this->access->columns($actor, $resolved);
+            if (! in_array($valueCol, $cols, true)) {
+                return [];
+            }
+
+            $labelCol = null;
             foreach (['name', 'title', 'display_name', 'label', 'code', 'reference', 'number', 'subject'] as $c) {
                 if (in_array($c, $cols, true)) {
                     $labelCol = $c;
@@ -151,21 +160,16 @@ class FormSpecBuilder
                 }
             }
 
-            $q = DB::table($table);
+            $q = $this->access->scoped(DB::table($resolved), $actor, $resolved);
             if (in_array('deleted_at', $cols, true)) {
-                $q->whereNull($table.'.deleted_at');
+                $q->whereNull($resolved.'.deleted_at');
             }
 
+            $select = [$resolved.'.'.$valueCol.' as v'];
             if ($labelCol) {
-                $rows = $q->select($table.'.'.$valueCol.' as v', $table.'.'.$labelCol.' as l')
-                    ->orderBy($table.'.'.$labelCol)->limit(200)->get();
-            } elseif (in_array('user_id', $cols, true) && Schema::hasColumn('users', 'name')) {
-                $rows = $q->join('users', 'users.employee_id', '=', $table.'.user_id')
-                    ->select($table.'.'.$valueCol.' as v', 'users.name as l')
-                    ->orderBy('users.name')->limit(200)->get();
-            } else {
-                $rows = $q->select($table.'.'.$valueCol.' as v')->orderBy($table.'.'.$valueCol)->limit(200)->get();
+                $select[] = $resolved.'.'.$labelCol.' as l';
             }
+            $rows = $q->select($select)->orderBy($resolved.'.'.($labelCol ?? $valueCol))->limit(200)->get();
 
             $out = [];
             foreach ($rows as $r) {

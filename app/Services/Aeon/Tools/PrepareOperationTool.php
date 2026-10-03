@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
+use App\Services\Aeon\Data\AeonAccess;
 use App\Services\Aeon\Operations\FormSpecBuilder;
 use App\Services\Aeon\Operations\OperationResolver;
 use App\Services\Aeon\Operations\RulesIntrospector;
@@ -18,7 +19,8 @@ class PrepareOperationTool implements AeonToolContract
     public function __construct(
         private OperationResolver $resolver,
         private RulesIntrospector $introspector,
-        private FormSpecBuilder $builder
+        private FormSpecBuilder $builder,
+        private AeonAccess $access
     ) {}
 
     public function name(): string
@@ -56,7 +58,7 @@ class PrepareOperationTool implements AeonToolContract
         $operation = (string) ($args['operation'] ?? 'create');
         $values = (array) ($args['values'] ?? []);
 
-        $resolution = $this->resolver->resolve($entity, $operation);
+        $resolution = $this->resolver->resolve($entity, $operation, $this->access->actor($userId));
         $op = $resolution['best'];
 
         if (! $op) {
@@ -74,7 +76,7 @@ class PrepareOperationTool implements AeonToolContract
             $op['table'] ?? null
         );
 
-        $formBlock = $this->builder->build($rules, $op, $values);
+        $formBlock = $this->builder->build($rules, $op, $values, $this->access->actor($userId));
 
         return [
             'text' => "I've prepared the {$op['label']} form for you. Please review the prefilled values below and submit.",

@@ -8,6 +8,8 @@ namespace App\Services\Aeon;
 
 use App\Contracts\Ai\AiProvider;
 use App\Models\Aeon\Embedding;
+use App\Models\User;
+use App\Services\Aeon\Data\RouteAccess;
 use Illuminate\Support\Collection;
 
 /**
@@ -23,9 +25,10 @@ class RagService
      *
      * @return array<int, array{source_type: string, source_ref: string, title: string, chunk_text: string, score: float}>
      */
-    public function search(string $query, int $limit = 6, float $minScore = 0.40): array
+    public function search(string $query, int $limit = 6, ?User $actor = null, float $minScore = 0.40): array
     {
-        if (trim($query) === '') {
+        // Fail closed: retrieval is always per user.
+        if ($actor === null || trim($query) === '') {
             return [];
         }
 
@@ -44,6 +47,10 @@ class RagService
 
             $scored = [];
             foreach ($rows as $row) {
+                if (! $this->visibleTo($row, $actor)) {
+                    continue;
+                }
+
                 $vector = $row->vector;
                 if (! is_array($vector) || empty($vector)) {
                     continue;
@@ -67,6 +74,22 @@ class RagService
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Retrieval filter. Only module chunks are indexed (schema chunks are never retrieved: the model
+     * gets a per-user schema from AeonAccess instead), and a module chunk is visible only if the user may
+     * open the module's page. Any other source type is excluded.
+     */
+    private function visibleTo(Embedding $row, User $actor): bool
+    {
+        if ($row->source_type !== 'module') {
+            return false;
+        }
+
+        $module = config('modules.'.$row->source_ref);
+
+        return is_array($module) && RouteAccess::canOpen((string) ($module['route'] ?? '/'), $actor);
     }
 
     /**

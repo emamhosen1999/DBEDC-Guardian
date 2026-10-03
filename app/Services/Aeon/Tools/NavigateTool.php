@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
+use App\Services\Aeon\Data\AeonAccess;
+use App\Services\Aeon\Data\RouteAccess;
 use Illuminate\Support\Str;
 
 /**
@@ -12,6 +14,8 @@ use Illuminate\Support\Str;
  */
 class NavigateTool implements AeonToolContract
 {
+    public function __construct(private AeonAccess $access) {}
+
     public function name(): string
     {
         return 'navigate';
@@ -27,7 +31,7 @@ class NavigateTool implements AeonToolContract
         return [
             'destination' => [
                 'type' => 'string',
-                'description' => 'Target module or page (e.g. "attendance", "objections", "ncrs", "daily_works", "leaves", "petty_cash", "om_dashboard", "roles", "biometrics")',
+                'description' => 'Target module or page (a module or page name, e.g. "attendance" or "leaves"); only pages the user may open are available',
             ],
             'reason' => [
                 'type' => 'string',
@@ -41,22 +45,27 @@ class NavigateTool implements AeonToolContract
         $dest = strtolower(trim((string) ($args['destination'] ?? '')));
         $modules = (array) config('modules', []);
 
-        $target = null;
+        $actor = $this->access->actor($userId);
+
+        // Candidates in priority order; the first page this user may actually open wins.
+        $candidates = [];
         if (isset($modules[$dest])) {
-            $target = $modules[$dest];
-        } else {
-            foreach ($modules as $key => $mod) {
-                if (str_contains($key, $dest) || in_array($dest, $mod['keywords'] ?? [], true)) {
-                    $target = $mod;
-                    break;
-                }
+            $candidates[] = $modules[$dest];
+        }
+        foreach ($modules as $key => $mod) {
+            if ($dest !== '' && (str_contains((string) $key, $dest) || in_array($dest, $mod['keywords'] ?? [], true))) {
+                $candidates[] = $mod;
             }
         }
+        if (str_starts_with($dest, '/')) {
+            $candidates[] = ['name' => Str::headline(trim($dest, '/')), 'route' => $dest];
+        }
 
-        if (! $target) {
-            // Direct URL path check
-            if (str_starts_with($dest, '/')) {
-                $target = ['name' => Str::headline(trim($dest, '/')), 'route' => $dest];
+        $target = null;
+        foreach ($candidates as $candidate) {
+            if (RouteAccess::canOpen((string) ($candidate['route'] ?? '/'), $actor)) {
+                $target = $candidate;
+                break;
             }
         }
 

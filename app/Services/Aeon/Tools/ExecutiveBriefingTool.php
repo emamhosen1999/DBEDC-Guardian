@@ -6,8 +6,7 @@ namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Access\DepartmentScope;
 
 /**
  * Executive Briefing & Intelligence Digest Generator for DBEDC Leadership.
@@ -16,6 +15,11 @@ use Illuminate\Support\Facades\Schema;
  */
 class ExecutiveBriefingTool implements AeonToolContract
 {
+    /** @var array<int, string> */
+    public const REQUIRES = ['attendance.view', 'quality.ncr.view', 'om.dashboard.view', 'petty-cash.approve'];
+
+    public function __construct(private ToolGate $gate, private DepartmentScope $scope) {}
+
     public function name(): string
     {
         return 'executive_briefing';
@@ -44,13 +48,16 @@ class ExecutiveBriefingTool implements AeonToolContract
     public function run(array $args, int|string|null $userId): array
     {
         $period = (string) ($args['period'] ?? 'today');
+
+        // The briefing spans HR, QA, O&M and finance, so it needs the permission of each of those pages.
+        if ($denied = $this->gate->denyUnlessAll($userId, self::REQUIRES)) {
+            return $denied;
+        }
         $date = date('d M Y');
 
         // Dynamic stats
-        $workforceCount = (int) User::count();
-        if ($workforceCount === 0) {
-            $workforceCount = 54;
-        }
+        $visible = $this->scope->visibleEmployeeIds($this->gate->actor($userId));
+        $workforceCount = max(1, $visible === null ? (int) User::count() : count($visible));
 
         $presentCount = (int) round($workforceCount * 0.88);
         $attendanceRate = sprintf('%.1f%%', ($presentCount / $workforceCount) * 100);

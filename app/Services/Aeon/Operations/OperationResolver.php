@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Aeon\Operations;
 
+use App\Models\User;
+use App\Services\Aeon\Data\RouteAccess;
 use App\Services\Aeon\Data\SchemaCatalog;
 use Illuminate\Support\Str;
 
@@ -20,11 +22,11 @@ class OperationResolver
     public function __construct(private SchemaCatalog $schema) {}
 
     /**
-     * Resolve an intent to the best operation.
+     * Resolve an intent to the best operation the actor is allowed to call (none without an actor).
      *
      * @return array{best: ?array<string, mixed>, alternates: array<int, array<string, mixed>>}
      */
-    public function resolve(string $entity, string $operation = 'create'): array
+    public function resolve(string $entity, string $operation = 'create', ?User $actor = null): array
     {
         $kind = $this->normaliseKind($operation);
         $wanted = $this->tokens($entity);
@@ -35,6 +37,11 @@ class OperationResolver
 
         $scored = [];
         foreach ($this->catalog() as $op) {
+            // Fail closed: only routes the actor's permissions would let them call are ever offered.
+            if (! RouteAccess::allows($op['middleware'], $actor)) {
+                continue;
+            }
+
             $overlap = count(array_intersect($wanted, $op['keywords']));
             if ($overlap === 0) {
                 continue;
@@ -106,6 +113,7 @@ class OperationResolver
                     'entity' => $entity,
                     'label' => $this->opLabel($kind, $entity),
                     'table' => $table,
+                    'middleware' => RouteAccess::middlewareOf($route),
                     'params' => $this->routeParams($uri),
                     'keywords' => $this->keywords($name, $uri, $entity, $table),
                 ];

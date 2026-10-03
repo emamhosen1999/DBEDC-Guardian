@@ -6,17 +6,21 @@ namespace App\Services\Aeon\Data;
 
 use App\Contracts\Ai\AeonToolContract;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
  * Dynamic, schema-aware data querying tool for DBEDC Guardian.
  * Produces deterministic numbers and generative-UI blocks (stats, charts, donuts, tables, entity cards).
+ *
+ * Every read is authorised by AeonAccess: only registered tables, only with the module's permission,
+ * only the rows and columns the signed-in user may see. Anything else is reported as unknown.
  */
 class QueryTool implements AeonToolContract
 {
     public function __construct(
         private SchemaCatalog $schema,
-        private RowScope $scope
+        private AeonAccess $access
     ) {}
 
     public function name(): string
@@ -34,7 +38,7 @@ class QueryTool implements AeonToolContract
         return [
             'entity' => [
                 'type' => 'string',
-                'description' => 'Target table name or entity (e.g. "ncrs", "daily_works", "attendances", "leaves", "petty_cash_transactions", "om_incidents", "users")',
+                'description' => 'Target table, exactly as named in the QUERYABLE DATA list of the system prompt',
             ],
             'operation' => [
                 'type' => 'string',
@@ -43,7 +47,7 @@ class QueryTool implements AeonToolContract
             ],
             'filters' => [
                 'type' => 'object',
-                'description' => 'Key-value filter criteria (e.g. {"status": "pending", "severity": "major", "department_id": 2})',
+                'description' => 'Key-value filter criteria on columns of that table (e.g. {"status": "pending"})',
             ],
             'group_by' => [
                 'type' => 'string',
@@ -81,9 +85,12 @@ class QueryTool implements AeonToolContract
     public function run(array $args, int|string|null $userId): array
     {
         $entity = (string) ($args['entity'] ?? '');
-        $table = $this->schema->resolveTable($entity);
+        $actor = $this->access->actor($userId);
+        $table = $actor ? $this->access->resolveTable($actor, $entity) : null;
+        $meta = $table ? $this->access->entity($actor, $table) : null;
 
-        if (! $table) {
+        if (! $table || ! $meta) {
+            // Identical answer for "does not exist" and "not yours to see": never confirm a table exists.
             return [
                 'text' => "Table or entity '{$entity}' was not found in Guardian schema.",
                 'blocks' => [],
@@ -91,15 +98,14 @@ class QueryTool implements AeonToolContract
             ];
         }
 
-        $meta = $this->schema->entity($table);
         $op = (string) ($args['operation'] ?? 'count');
         $filters = (array) ($args['filters'] ?? []);
         $limit = min(50, max(1, (int) ($args['limit'] ?? 10)));
 
         try {
             $qb = DB::table($table);
-            $qb = $this->scope->apply($qb, $table, $userId);
-            $this->applyFilters($qb, $table, $filters, $meta['columns'] ?? []);
+            $qb = $this->access->scoped($qb, $actor, $table);
+            $this->applyFilters($qb, $table, $filters, $meta['columns']);
 
             return match ($op) {
                 'count' => $this->handleCount($qb, $table, $meta['label'] ?? $table),
@@ -110,10 +116,12 @@ class QueryTool implements AeonToolContract
                 default => $this->handleList($qb, $table, $args, $meta, $limit),
             };
         } catch (\Throwable $e) {
+            Log::warning('Aeon data query failed', ['table' => $table, 'op' => $op, 'error' => $e->getMessage()]);
+
             return [
-                'text' => "Data query failed: {$e->getMessage()}",
+                'text' => 'Data query failed.',
                 'blocks' => [],
-                'data' => ['error' => $e->getMessage()],
+                'data' => ['error' => 'query_failed'],
             ];
         }
     }
@@ -142,7 +150,7 @@ class QueryTool implements AeonToolContract
     private function handleAggregate($qb, string $table, array $args, array $meta): array
     {
         $col = (string) ($args['aggregate_column'] ?? 'amount');
-        if (! in_array($col, $meta['columns'] ?? [], true) || $this->schema->isSensitive($col)) {
+        if (! in_array($col, $meta['columns'], true)) {
             return $this->handleCount($qb, $table, $meta['label']);
         }
 
@@ -176,8 +184,8 @@ class QueryTool implements AeonToolContract
     private function handleGroup($qb, string $table, array $args, array $meta): array
     {
         $groupCol = (string) ($args['group_by'] ?? 'status');
-        if (! in_array($groupCol, $meta['columns'] ?? [], true) || $this->schema->isSensitive($groupCol)) {
-            $groupCol = in_array('status', $meta['columns'], true) ? 'status' : 'id';
+        if (! in_array($groupCol, $meta['columns'], true)) {
+            $groupCol = in_array('status', $meta['columns'], true) ? 'status' : $meta['columns'][0];
         }
 
         $rows = $qb->select($groupCol, DB::raw('count(*) as count'))
@@ -213,8 +221,8 @@ class QueryTool implements AeonToolContract
 
     private function handleTrend($qb, string $table, array $meta): array
     {
-        $dateCol = $meta['date_columns'][0] ?? 'created_at';
-        if (! in_array($dateCol, $meta['columns'], true)) {
+        $dateCol = $meta['date_columns'][0] ?? null;
+        if ($dateCol === null) {
             return $this->handleCount($qb, $table, $meta['label']);
         }
 
@@ -254,7 +262,8 @@ class QueryTool implements AeonToolContract
             return ['text' => 'Entity ID required for find operation.', 'blocks' => [], 'data' => []];
         }
 
-        $row = $qb->where('id', $id)->first();
+        $keyCol = in_array('id', $meta['columns'], true) ? 'id' : ($meta['columns'][0] ?? 'id');
+        $row = $qb->select($meta['columns'])->where($table.'.'.$keyCol, $id)->first();
         if (! $row) {
             return ['text' => "Record #{$id} not found in {$meta['label']}.", 'blocks' => [], 'data' => []];
         }
@@ -264,7 +273,7 @@ class QueryTool implements AeonToolContract
 
         $fields = [];
         foreach ((array) $row as $k => $v) {
-            if ($this->schema->isSensitive($k) || in_array($k, ['id', 'name', 'title'], true) || $v === null) {
+            if (in_array($k, ['id', 'name', 'title'], true) || $v === null) {
                 continue;
             }
             $fields[] = [
@@ -294,7 +303,7 @@ class QueryTool implements AeonToolContract
     {
         $orderCol = (string) ($args['order_by'] ?? 'id');
         if (! in_array($orderCol, $meta['columns'], true)) {
-            $orderCol = 'id';
+            $orderCol = in_array('id', $meta['columns'], true) ? 'id' : $meta['columns'][0];
         }
         $orderDir = strtolower((string) ($args['order_dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
 
@@ -327,7 +336,7 @@ class QueryTool implements AeonToolContract
     private function applyFilters($qb, string $table, array $filters, array $allowedCols): void
     {
         foreach ($filters as $col => $val) {
-            if (! in_array($col, $allowedCols, true) || $this->schema->isSensitive($col) || $val === null || $val === '') {
+            if (! in_array($col, $allowedCols, true) || $val === null || $val === '') {
                 continue;
             }
 

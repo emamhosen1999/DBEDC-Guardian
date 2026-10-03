@@ -7,7 +7,7 @@ namespace App\Services\Aeon;
 use App\Contracts\Ai\AiProvider;
 use App\Models\Aeon\Conversation;
 use App\Models\Aeon\Message;
-use App\Services\Aeon\Data\SchemaCatalog;
+use App\Services\Aeon\Data\AeonAccess;
 use App\Services\Aeon\Tools\ToolRegistry;
 use Closure;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +24,7 @@ class AeonService
         private AiProvider $provider,
         private RagService $rag,
         private ToolRegistry $tools,
-        private SchemaCatalog $schema
+        private AeonAccess $access
     ) {}
 
     /**
@@ -78,11 +78,11 @@ class AeonService
         $chunks = [];
         if ((bool) config('aeon.rag.enabled', true)) {
             $emit('Consulting Guardian knowledge base…');
-            $chunks = $this->rag->search($prompt, (int) config('aeon.rag.max_chunks', 6));
+            $chunks = $this->rag->search($prompt, (int) config('aeon.rag.max_chunks', 6), $this->access->actor($userId));
         }
 
-        $transcript = $this->buildHistory($conversation, $context, $chunks);
-        $declarations = $this->tools->declarations();
+        $transcript = $this->buildHistory($conversation, $context, $chunks, $userId);
+        $declarations = $this->tools->declarationsFor($userId);
         $maxLoops = max(1, (int) config('aeon.agent.max_loops', 25));
 
         $blocks = [];
@@ -200,7 +200,7 @@ class AeonService
      */
     private function executeToolCall(string $name, array $args, int|string|null $userId, Closure $emit): array
     {
-        $tool = $this->tools->find($name);
+        $tool = $this->tools->isAvailableTo($name, $userId) ? $this->tools->find($name) : null;
         if (! $tool) {
             return [
                 'response' => ['error' => "Unknown tool: {$name}"],
@@ -245,9 +245,14 @@ class AeonService
      * @param  array<int, array<string, mixed>>  $chunks
      * @return array<int, array<string, mixed>>
      */
-    private function buildHistory(Conversation $conversation, array $context, array $chunks): array
+    private function buildHistory(Conversation $conversation, array $context, array $chunks, int|string|null $userId): array
     {
         $system = (string) config('aeon.system_prompt');
+
+        // Schema the model may use: only the tables and columns THIS user may query.
+        if ($actor = $this->access->actor($userId)) {
+            $system .= "\n\n".$this->access->promptSchema($actor);
+        }
 
         if (! empty($context['page'])) {
             $system .= "\nUser's Current Page: ".(string) $context['page'];

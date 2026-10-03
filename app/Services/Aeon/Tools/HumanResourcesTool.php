@@ -6,6 +6,7 @@ namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class HumanResourcesTool implements AeonToolContract
 {
+    public function __construct(private ToolGate $gate, private DepartmentScope $scope) {}
+
     public function name(): string
     {
         return 'hrm_attendance';
@@ -45,54 +48,58 @@ class HumanResourcesTool implements AeonToolContract
         $action = (string) ($args['action'] ?? 'daily_summary');
         $date = (string) ($args['date'] ?? date('Y-m-d'));
 
+        // Each action needs the permission of the page that shows the same data.
+        $required = match ($action) {
+            'my_attendance' => ['attendance.own.view', 'attendance.view'],
+            'leave_balance' => ['leave.own.view', 'leaves.own.view', 'leaves.view'],
+            'biometric_devices' => ['attendance.settings'],
+            'shift_roster' => ['attendance.view', 'attendance.settings', 'attendance.roster.manage'],
+            default => ['attendance.view'],
+        };
+        if ($denied = $this->gate->deny($userId, $required)) {
+            return $denied;
+        }
+
         return match ($action) {
             'my_attendance' => $this->getMyAttendance($userId, $date),
             'leave_balance' => $this->getLeaveBalance($userId),
             'biometric_devices' => $this->getBiometricDeviceStatus(),
             'shift_roster' => $this->getShiftRoster($date),
-            default => $this->getDailySummary($date),
+            default => $this->getDailySummary($userId, $date),
         };
     }
 
-    private function getDailySummary(string $date): array
+    private function getDailySummary(int|string|null $userId, string $date): array
     {
-        $totalEmployees = (int) User::count();
-        if ($totalEmployees === 0) {
-            $totalEmployees = 54;
-        }
+        // Only employees the actor may see (NULL = company-wide for global actors).
+        $visible = $this->scope->visibleEmployeeIds($this->gate->actor($userId));
 
+        $totalEmployees = $visible === null ? (int) User::count() : count($visible);
         $present = 0;
-        $late = 0;
         $onLeave = 0;
 
         if (Schema::hasTable('attendances')) {
-            $present = (int) DB::table('attendances')->whereDate('date', $date)->whereIn('status', ['present', 'late', 'early_out'])->count();
-            $late = (int) DB::table('attendances')->whereDate('date', $date)->where('status', 'late')->count();
+            $attendances = fn () => DB::table('attendances')->whereDate('date', $date)
+                ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible));
+            $present = (int) $attendances()->where(fn ($q) => $q->whereNotNull('punchin'))->count();
         }
 
-        if (Schema::hasTable('leaves') || Schema::hasTable('leave_requests')) {
-            $lTable = Schema::hasTable('leave_requests') ? 'leave_requests' : 'leaves';
-            $onLeave = (int) DB::table($lTable)->whereDate('start_date', '<=', $date)->whereDate('end_date', '>=', $date)->where('status', 'approved')->count();
-        }
-
-        if ($present === 0) {
-            $present = (int) round($totalEmployees * 0.88);
-            $late = (int) round($totalEmployees * 0.08);
-            $onLeave = (int) round($totalEmployees * 0.04);
+        if (Schema::hasTable('leaves')) {
+            $onLeave = (int) DB::table('leaves')->whereDate('from_date', '<=', $date)->whereDate('to_date', '>=', $date)
+                ->whereRaw('LOWER(status) = ?', ['approved'])
+                ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible))->count();
         }
 
         $absent = max(0, $totalEmployees - $present - $onLeave);
-        $onTime = max(0, $present - $late);
 
         return [
-            'text' => "Daily attendance for {$date}: {$present}/{$totalEmployees} present ({$onTime} on-time, {$late} late), {$onLeave} on approved leave, {$absent} absent.",
+            'text' => "Daily attendance for {$date}: {$present}/{$totalEmployees} present, {$onLeave} on approved leave, {$absent} absent.",
             'blocks' => [
                 [
                     'type' => 'stats',
                     'items' => [
                         ['k' => 'Total Workforce', 'v' => "{$totalEmployees} Staff"],
-                        ['k' => 'Present on Site', 'v' => (string) $present, 'dir' => 'up', 'd' => sprintf('%.1f%% attendance', ($present / $totalEmployees) * 100)],
-                        ['k' => 'Late In Punches', 'v' => (string) $late, 'dir' => $late > 5 ? 'down' : 'up', 'd' => 'Grace period exceeded'],
+                        ['k' => 'Present on Site', 'v' => (string) $present, 'dir' => 'up', 'd' => sprintf('%.1f%% attendance', $totalEmployees > 0 ? ($present / $totalEmployees) * 100 : 0)],
                         ['k' => 'On Approved Leave', 'v' => (string) $onLeave, 'd' => 'Scheduled'],
                     ],
                 ],
@@ -100,8 +107,7 @@ class HumanResourcesTool implements AeonToolContract
                     'type' => 'donut',
                     'title' => "Workforce Distribution ({$date})",
                     'items' => [
-                        ['label' => 'On-Time Present', 'value' => $onTime],
-                        ['label' => 'Late In', 'value' => $late],
+                        ['label' => 'Present', 'value' => $present],
                         ['label' => 'Approved Leave', 'value' => $onLeave],
                         ['label' => 'Absent / Off-Duty', 'value' => $absent],
                     ],
@@ -111,8 +117,6 @@ class HumanResourcesTool implements AeonToolContract
                 'date' => $date,
                 'total' => $totalEmployees,
                 'present' => $present,
-                'on_time' => $onTime,
-                'late' => $late,
                 'on_leave' => $onLeave,
                 'absent' => $absent,
             ],
@@ -121,43 +125,60 @@ class HumanResourcesTool implements AeonToolContract
 
     private function getMyAttendance(int|string|null $userId, string $date): array
     {
-        $user = $userId ? User::find($userId) : null;
+        $user = $this->gate->actor($userId);
         $name = $user?->name ?? 'You';
+        $row = $user && Schema::hasTable('attendances')
+            ? DB::table('attendances')->where('user_id', (string) $user->getKey())->whereDate('date', $date)->orderBy('punchin')->first()
+            : null;
+
+        if (! $row) {
+            return [
+                'text' => "No attendance record for {$name} on {$date}.",
+                'blocks' => [],
+                'data' => ['status' => 'none', 'date' => $date],
+            ];
+        }
+
+        $in = $row->punchin ? date('h:i:s A', strtotime((string) $row->punchin)) : '-';
+        $out = $row->punchout ? date('h:i:s A', strtotime((string) $row->punchout)) : '-';
 
         return [
-            'text' => "Biometric attendance record for {$name} on {$date}.",
+            'text' => "Attendance record for {$name} on {$date}.",
             'blocks' => [
                 [
                     'type' => 'entityCard',
-                    'title' => "Attendance Status: Present",
+                    'title' => 'Attendance Status: '.($row->punchin ? 'Present' : 'No punch'),
                     'subtitle' => "Employee: {$name} ({$date})",
                     'fields' => [
-                        ['k' => 'First In Punch', 'v' => '08:52:14 AM (On Time)'],
-                        ['k' => 'Last Out Punch', 'v' => '05:31:02 PM'],
-                        ['k' => 'Biometric Device', 'v' => 'AF6P231260266 (HQ Main Gate)'],
-                        ['k' => 'Total Working Hours', 'v' => '8h 38m'],
+                        ['k' => 'First In Punch', 'v' => $in],
+                        ['k' => 'Last Out Punch', 'v' => $out],
                     ],
                 ],
             ],
-            'data' => ['status' => 'present', 'check_in' => '08:52:14', 'hours' => 8.63],
+            'data' => ['status' => $row->punchin ? 'present' : 'none', 'check_in' => $row->punchin, 'check_out' => $row->punchout],
         ];
     }
 
     private function getLeaveBalance(int|string|null $userId): array
     {
+        $user = $this->gate->actor($userId);
+        $items = [];
+        $data = [];
+
+        if ($user && Schema::hasTable('leave_ledger')) {
+            $latest = DB::table('leave_ledger')->where('user_id', (string) $user->getKey())
+                ->orderByDesc('id')->get()->unique('leave_type');
+            foreach ($latest as $entry) {
+                $type = DB::table('leave_settings')->where('id', $entry->leave_type)->value('type') ?? "Type {$entry->leave_type}";
+                $items[] = ['k' => (string) $type, 'v' => rtrim(rtrim(number_format((float) $entry->balance_after, 2), '0'), '.').' Days Remaining'];
+                $data[(string) $type] = (float) $entry->balance_after;
+            }
+        }
+
         return [
-            'text' => 'Annual Leave Balance overview.',
-            'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Casual Leave (CL)', 'v' => '8 / 14 Days Remaining', 'dir' => 'up', 'd' => '6 Taken'],
-                        ['k' => 'Earned Leave (EL)', 'v' => '12 / 18 Days Remaining', 'dir' => 'up', 'd' => '6 Taken'],
-                        ['k' => 'Medical Leave (ML)', 'v' => '10 / 10 Days Remaining', 'dir' => 'up', 'd' => '0 Taken'],
-                    ],
-                ],
-            ],
-            'data' => ['cl_remaining' => 8, 'el_remaining' => 12, 'ml_remaining' => 10],
+            'text' => $items === [] ? 'No leave balance entries found for you.' : 'Your leave balance overview.',
+            'blocks' => $items === [] ? [] : [['type' => 'stats', 'items' => $items]],
+            'data' => $data,
         ];
     }
 

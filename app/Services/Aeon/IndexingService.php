@@ -6,18 +6,16 @@ namespace App\Services\Aeon;
 
 use App\Contracts\Ai\AiProvider;
 use App\Models\Aeon\Embedding;
-use App\Services\Aeon\Data\SchemaCatalog;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Builds and updates the vector knowledge index for DBEDC Guardian.
- * Embeds registered modules, live table schemas, and curated documentation.
+ * Embeds registered modules and curated documentation (never live data or schema).
  */
 class IndexingService
 {
     public function __construct(
-        private AiProvider $provider,
-        private SchemaCatalog $schema
+        private AiProvider $provider
     ) {}
 
     /**
@@ -43,6 +41,7 @@ class IndexingService
 
             if ($existing && $existing->checksum === $checksum) {
                 $skipped++;
+
                 continue;
             }
 
@@ -51,6 +50,7 @@ class IndexingService
 
             if (empty($vector)) {
                 Log::warning('Aeon Indexing failed to embed chunk', ['ref' => $chunk['ref']]);
+
                 continue;
             }
 
@@ -79,7 +79,7 @@ class IndexingService
     }
 
     /**
-     * Gather knowledge chunks across modules, schema catalog, and domain guidance.
+     * Gather knowledge chunks (module registry). Chunks are shared across users, so nothing user-specific or data-bearing may be indexed here.
      *
      * @return array<int, array{type: string, ref: string, title: string, text: string}>
      */
@@ -104,18 +104,8 @@ class IndexingService
             ];
         }
 
-        // 2. Live Database Schema
-        $tables = $this->schema->all();
-        foreach ($tables as $name => $meta) {
-            $cols = implode(', ', $meta['columns'] ?? []);
-            $text = "Database Table: {$name} ({$meta['label']})\nAvailable Columns: {$cols}";
-            $chunks[] = [
-                'type' => 'schema',
-                'ref' => $name,
-                'title' => "Schema: {$meta['label']}",
-                'text' => $text,
-            ];
-        }
+        // The live database schema is deliberately NOT indexed: the embedding store is shared by
+        // every user, and the schema the model sees is built per user by AeonAccess::promptSchema().
 
         return $chunks;
     }

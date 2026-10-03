@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class ExpresswayIntelligenceTool implements AeonToolContract
 {
+    public function __construct(private ToolGate $gate) {}
+
     /** @var array<string, array{start: float, end: float, name: string, landmarks: array<string>}> */
     private const SECTIONS = [
         'sec_1' => [
@@ -75,6 +77,17 @@ class ExpresswayIntelligenceTool implements AeonToolContract
     {
         $action = (string) ($args['action'] ?? 'overview');
 
+        // Chainage lookup is static alignment data; the rest mirror the O&M pages' permissions.
+        $required = match ($action) {
+            'chainage_lookup' => null,
+            'active_incidents' => ['om.incidents.view'],
+            'toll_summary' => ['om.toll.manage', 'om.dashboard.view'],
+            default => ['om.dashboard.view'],
+        };
+        if ($required !== null && ($denied = $this->gate->deny($userId, $required))) {
+            return $denied;
+        }
+
         return match ($action) {
             'chainage_lookup' => $this->lookupChainage($args),
             'active_incidents' => $this->getActiveIncidents(),
@@ -131,8 +144,8 @@ class ExpresswayIntelligenceTool implements AeonToolContract
     private function getActiveIncidents(): array
     {
         $rows = [];
-        if (Schema::hasTable('incidents') || Schema::hasTable('tmc_incidents')) {
-            $table = Schema::hasTable('tmc_incidents') ? 'tmc_incidents' : 'incidents';
+        if (Schema::hasTable('om_incidents')) {
+            $table = 'om_incidents';
             $records = DB::table($table)->orderByDesc('id')->limit(5)->get();
             foreach ($records as $r) {
                 $rows[] = [

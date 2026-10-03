@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Expressway Equipment, Facilities & Maintenance Intelligence for DBEDC Guardian.
@@ -15,6 +13,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class AssetMaintenanceTool implements AeonToolContract
 {
+    public function __construct(private ToolGate $gate) {}
+
     public function name(): string
     {
         return 'asset_maintenance';
@@ -43,6 +43,10 @@ class AssetMaintenanceTool implements AeonToolContract
     public function run(array $args, int|string|null $userId): array
     {
         $action = (string) ($args['action'] ?? 'equipment_health');
+
+        if ($denied = $this->gate->deny($userId, $action === 'work_orders' ? ['om.maintenance.view'] : ['om.equipment.view'])) {
+            return $denied;
+        }
 
         return match ($action) {
             'work_orders' => $this->getWorkOrders(),
