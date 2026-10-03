@@ -22,6 +22,11 @@ class AttendanceApprovalService
         // old heuristic (first colleague by designation_id) picked an arbitrary employee
         // with no authority and no UI access, which stranded every request.
         $managerId = $requester->report_to ?? $requester->report_to_id ?? null;
+        // A report_to pointing at the requester himself (a data error) is no manager: nobody approves
+        // their own request, so it routes to HR like a request from someone without a manager.
+        if ($managerId !== null && (string) $managerId === (string) $requester->employee_id) {
+            $managerId = null;
+        }
         // find() honours SoftDeletes: a manager who was offboarded (or a dangling
         // report_to) must not become a ghost approver nobody can act as.
         $manager = $managerId ? User::find($managerId) : null;

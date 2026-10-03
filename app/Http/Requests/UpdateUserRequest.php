@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\ReportingManager;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -50,7 +51,7 @@ class UpdateUserRequest extends FormRequest
             'salary_amount' => ['nullable', 'numeric', 'min:0'],
             'profile_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png', 'max:2048'],
             'user_name' => ['nullable', 'string', 'max:255'],
-            'report_to' => ['nullable', 'exists:users,employee_id'],
+            'report_to' => ['nullable', 'exists:users,employee_id', new ReportingManager($userId instanceof User ? (string) $userId->getKey() : ($userId !== null ? (string) $userId : null))],
             'single_device_login_enabled' => ['nullable'],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'about' => ['nullable', 'string', 'max:1000'],

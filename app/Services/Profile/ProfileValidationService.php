@@ -2,6 +2,7 @@
 
 namespace App\Services\Profile;
 
+use App\Rules\ReportingManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,7 @@ class ProfileValidationService
     /**
      * Get validation rules for user creation
      */
-    public function getUserCreationRules(): array
+    public function getUserCreationRules(?string $employeeId = null): array
     {
         return [
             'name' => 'required|string|max:255',
@@ -31,7 +32,7 @@ class ProfileValidationService
             'email' => 'required|email|unique:users,email',
             'department' => 'nullable|string',
             'designation' => 'nullable|string',
-            'report_to' => 'nullable|string',
+            'report_to' => ['nullable', 'string', 'exists:users,employee_id', new ReportingManager($employeeId)],
         ];
     }
 
@@ -65,7 +66,7 @@ class ProfileValidationService
                     'email' => ['required', 'string', 'email', Rule::unique('users', 'email')->ignore($userId, 'employee_id')],
                     'department' => 'required|exists:departments,id',
                     'designation' => 'nullable',
-                    'report_to' => 'nullable',
+                    'report_to' => ['nullable', 'exists:users,employee_id', new ReportingManager($userId)],
                 ];
 
             case 'personal':
@@ -84,7 +85,7 @@ class ProfileValidationService
                 return $baseRules + [
                     'department' => 'required|exists:departments,id',
                     'designation' => 'nullable|exists:designations,id',
-                    'report_to' => 'nullable|exists:users,employee_id',
+                    'report_to' => ['nullable', 'exists:users,employee_id', new ReportingManager($userId)],
                 ];
 
             case 'emergency':
@@ -234,7 +235,7 @@ class ProfileValidationService
      */
     public function validateUserCreation(Request $request): \Illuminate\Contracts\Validation\Validator
     {
-        return Validator::make($request->all(), $this->getUserCreationRules());
+        return Validator::make($request->all(), $this->getUserCreationRules($request->filled('employee_id') ? (string) $request->input('employee_id') : null));
     }
 
     /**

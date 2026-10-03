@@ -45,14 +45,18 @@ class LeaveApprovalService
 
         $approvalChain = [];
 
-        // Level 1: Direct Manager (report_to)
-        $directManagerId = $user->report_to ?? $user->report_to_id ?? null;
+        // Level 1: Direct Manager (report_to) - a live manager other than the requester. A self-referencing
+        // report_to (a data error) or an offboarded/dangling one would leave the request with an approver
+        // who cannot act on it.
+        $reportTo = $user->report_to ?? $user->report_to_id ?? null;
+        $directManager = $reportTo !== null && (string) $reportTo !== (string) $user->employee_id ? User::find($reportTo) : null;
+        $directManagerId = $directManager?->employee_id;
 
-        if ($directManagerId) {
+        if ($directManager) {
             $approvalChain[] = [
                 'level' => 1,
-                'approver_id' => $directManagerId,
-                'approver_name' => $user->reportsTo->name ?? 'Unknown',
+                'approver_id' => $directManager->employee_id,
+                'approver_name' => $directManager->name ?? 'Unknown',
                 'status' => 'pending',
                 'approved_at' => null,
                 'comments' => null,
@@ -135,6 +139,12 @@ class LeaveApprovalService
                     'comments' => 'Routed to HR: the requester has no reporting manager.',
                 ];
             }
+        }
+
+        // Approval advances one level at a time (current_approval_level + 1, starting at 1), so levels
+        // must be contiguous: a skipped one (no manager, no department head) would strand the request.
+        foreach (array_keys($approvalChain) as $index) {
+            $approvalChain[$index]['level'] = $index + 1;
         }
 
         return $approvalChain;
@@ -328,6 +338,10 @@ class LeaveApprovalService
             $this->notifyEmployeeApproved($leave->fresh());
             app(LeaveLedgerService::class)->consume($leave->fresh());
             app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
+
+            // The final approval must commit like every other branch: left open, the transaction is rolled
+            // back when the connection closes, silently dropping the ledger, audit and notification writes.
+            DB::commit();
 
             $coverageWarning = null;
             try {

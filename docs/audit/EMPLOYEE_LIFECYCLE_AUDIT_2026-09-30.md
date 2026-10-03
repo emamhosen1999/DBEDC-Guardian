@@ -359,3 +359,23 @@ Full findings: [NOTIFICATIONS_AUDIT_2026-09-30.md](NOTIFICATIONS_AUDIT_2026-09-3
   Most are stale integer-ID assertions left over from the `employee_id` primary-key switch. The swap validation, the mobile leave-approval transaction errors and the must-change-password 422 may be real bugs. Triage them in the attendance-module audit.
 - **P-12: Any user can manage their own device lock and sessions** (`UserPolicy::manageDevices`, existing behavior). Review this against the attendance single-device policy, because a self-reset defeats device binding.
 - **P-13: Quality Control's recorded head (`departments.manager_id`) is Md. Fahim Hossain (169).** But his line manager, Md. Abul Bashar (123), and the O&M Director, Wang Fu (896), also sit in Quality Control. The owner should confirm the intended head. The head gets department-wide scope; the new reporting-line guard already stops a head from managing their own managers.
+
+## 9. Deploy #5: approval routing integrity (2026-10-03)
+
+Found while checking who approves Fahim Hossain's requests.
+
+- **The final leave approval never committed its transaction.** In `LeaveApprovalService::performApprove`, the final-level branch began a transaction and returned success without `DB::commit()`. PDO rolls an open transaction back when the connection closes.
+  - In production, `leaves` is MyISAM, so approved statuses persisted. `leave_ledger`, `leave_audit_logs`, `notifications` and `self_administration_logs` are InnoDB, so their writes in that branch were exposed.
+  - **Fixed:** the branch now commits like every other branch.
+  - This was also the root cause of the 9 failing `MobileLeaveApprovalApiTest` tests (P-11), which now pass.
+- **Approval chains could route a request to its own requester.**
+  - Md. Abul Bashar (123) reports to himself in production. His OT and regularization requests would name him as their only approver, and the self-approval guard would strand them.
+  - **Fixed:** a self-referencing, dangling or offboarded `report_to` counts as no manager, so the request falls back to HR.
+  - **Data fix pending (owner decision):** set Abul Bashar's real manager.
+- **Leave approval levels could have gaps that strand requests.** Levels were fixed at 1 (manager), 2 (department head) and 3 (HR), while approval advances by +1 from 1. A missing manager or head left a request between approvers. **Fixed:** levels are renumbered contiguously.
+- **`report_to` integrity is now validated.** The new `App\Rules\ReportingManager` rejects the employee themself and anyone already below them (a loop). It applies to user create and update and to the profile editor. The profile editor's `profile` rule set previously accepted any value, including unknown IDs.
+- **Profile update now authorizes before validating.** Validation feedback (such as the loop check) can no longer reveal another department's reporting structure.
+- **Still open:**
+  - Leave #1951 failed to approve three times on 2026-09-19 (`foreach() argument must be of type array|object, null given`, approver 151). Check it in the leave audit.
+  - The department-head heuristic (a root-designation holder, not `departments.manager_id`) can pick a subordinate as approver.
+  - Count-based scans of manual `DB::beginTransaction()` use (7 files) found no other leak. Prefer `DB::transaction(fn () => …)` going forward.

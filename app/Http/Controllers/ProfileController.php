@@ -121,12 +121,15 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         try {
+            // Authorize before validating: validation feedback (e.g. the reporting-loop check) must never
+            // reveal anything about an employee the actor may not edit.
+            $request->validate(['id' => ['required', 'string']]);
+            $user = $this->crudService->findUser((string) $request->input('id'));
+            abort_if(! $user, 404);
+            $this->authorizeProfileUpdate($request, $user);
+
             // Validate the request (excluding profile image handling)
             $validated = $this->validationService->validateUserUpdate($request);
-            $user = $this->crudService->findUser((string) $validated['id']);
-            abort_if(! $user, 404);
-
-            $this->authorizeProfileUpdate($request, $user);
             $this->guardEmploymentFields($request, $user, $validated);
 
             $selfAdmin = app(SelfAdministration::class);

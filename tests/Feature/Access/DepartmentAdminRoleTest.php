@@ -1072,7 +1072,8 @@ class DepartmentAdminRoleTest extends TestCase
         $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->e1), 'department' => $this->d1->id] + $employment)->assertOk();
         $this->assertSame($designation->id, (int) $this->e1->fresh()->designation_id);
         $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->e1), 'department' => $this->d2->id] + $employment)->assertForbidden();
-        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->admin), 'department' => $this->d1->id] + $employment)->assertForbidden();
+        // (valid data, so the refusal is the authorization rule - reporting to oneself is invalid input anyway)
+        $this->as($this->admin)->postJson(route('profile.update'), ['id' => $this->id($this->admin), 'department' => $this->d1->id, 'report_to' => null] + $employment)->assertForbidden();
 
         // A colleague who can browse the directory but holds no compensation permission never receives it.
         $viewer = $this->makeUser('Department Manager', $this->d1, 'Plain Viewer');
