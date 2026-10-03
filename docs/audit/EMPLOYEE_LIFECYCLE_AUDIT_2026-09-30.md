@@ -368,6 +368,7 @@ Found while checking who approves Fahim Hossain's requests.
   - In production, `leaves` is MyISAM, so approved statuses persisted. `leave_ledger`, `leave_audit_logs`, `notifications` and `self_administration_logs` are InnoDB, so their writes in that branch were exposed.
   - **Fixed:** the branch now commits like every other branch.
   - This was also the root cause of the 9 failing `MobileLeaveApprovalApiTest` tests (P-11), which now pass.
+  - **Verified after deploy #5: no production data was lost.** All 14 chain-approved leaves since 2026-07-10 were decided through the admin-override path, which always committed (their audit rows are `admin_override`). The leaking branch had not run in production.
 - **Approval chains could route a request to its own requester.**
   - Md. Abul Bashar (123) reports to himself in production. His OT and regularization requests would name him as their only approver, and the self-approval guard would strand them.
   - **Fixed:** a self-referencing, dangling or offboarded `report_to` counts as no manager, so the request falls back to HR.
