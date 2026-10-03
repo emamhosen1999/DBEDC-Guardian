@@ -18,6 +18,7 @@ use App\Models\HRM\ShiftRotationPattern;
 use App\Models\PettyCashLoan;
 use App\Models\PettyCashTransaction;
 use App\Models\User;
+use App\Services\Access\SelfAdministration;
 use Carbon\Carbon;
 use Database\Seeders\ComprehensiveRolePermissionSeeder;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +78,7 @@ trait BuildsDepartmentAdminWorld
         $this->d2->forceFill(['id' => 90001, 'is_active' => true])->save();
 
         $this->admin = $this->person('Dee One Admin', $this->d1, ['Department Admin', 'Employee'], '1537');
+        $this->admin->givePermissionTo(SelfAdministration::PERMISSION); // the owner's per-person exception (production: Mahdi)
         $this->peer = $this->person('Peer Admin', $this->d1, ['Department Admin']);
         $this->hrInD1 = $this->person('Hr Inside D1', $this->d1, ['HR Manager']);
         $this->hr = $this->person('Global Hr', null, ['HR Manager', 'Employee']);

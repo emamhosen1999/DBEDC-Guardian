@@ -44,7 +44,10 @@ class OffboardingPolicy
      */
     public function update(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.update') && $this->scope->canManage($user, $offboarding->employee_id);
+        return $user->can('hr.offboarding.update') && $this->scope->canManage($user, $offboarding->employee_id)
+            // Never one's own exit, even with access.self-administration (cancelling one's own
+            // offboarding is the classic segregation-of-duties abuse).
+            && (string) $offboarding->employee_id !== (string) $user->getKey();
     }
 
     /**
@@ -52,7 +55,10 @@ class OffboardingPolicy
      */
     public function delete(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id);
+        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id)
+            // Never one's own exit, even with access.self-administration (cancelling one's own
+            // offboarding is the classic segregation-of-duties abuse).
+            && (string) $offboarding->employee_id !== (string) $user->getKey();
     }
 
     /**
@@ -60,7 +66,10 @@ class OffboardingPolicy
      */
     public function restore(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id);
+        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id)
+            // Never one's own exit, even with access.self-administration (cancelling one's own
+            // offboarding is the classic segregation-of-duties abuse).
+            && (string) $offboarding->employee_id !== (string) $user->getKey();
     }
 
     /**
@@ -68,6 +77,9 @@ class OffboardingPolicy
      */
     public function forceDelete(User $user, Offboarding $offboarding): bool
     {
-        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id);
+        return $user->can('hr.offboarding.delete') && $this->scope->canManage($user, $offboarding->employee_id)
+            // Never one's own exit, even with access.self-administration (cancelling one's own
+            // offboarding is the classic segregation-of-duties abuse).
+            && (string) $offboarding->employee_id !== (string) $user->getKey();
     }
 }

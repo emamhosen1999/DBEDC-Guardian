@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -34,6 +35,12 @@ class PunchExceptionService
         }
         if (! $this->scope->canActOn($actor, (string) $att->user_id)) {
             abort(403, 'You do not have access to this employee.');
+        }
+
+        // Own punch exception: only the governed exception gets here (canActOn is false for oneself otherwise);
+        // it runs inside the caller's transaction, so a failed decision rolls the log and the notification back.
+        if ((string) $actor->getKey() === (string) $att->user_id) {
+            app(SelfAdministration::class)->record($actor, 'punch_exception.decide', 'decided his own punch exception', 'attendance', $att->id);
         }
     }
 

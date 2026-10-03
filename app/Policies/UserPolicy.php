@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 
 /**
  * Employee administration, one ability per action and one named permission per ability
@@ -29,6 +30,12 @@ class UserPolicy
     private function holds(User $user, string $permission): bool
     {
         return $user->checkPermissionTo($permission);
+    }
+
+    /** Governed exception: the holder of access.self-administration acting on himself. */
+    private function selfAdmin(User $user, User $model): bool
+    {
+        return app(SelfAdministration::class)->allows($user, $model);
     }
 
     private function isSelf(User $user, User $model): bool
@@ -124,7 +131,7 @@ class UserPolicy
     public function updatePlacement(User $user, User $model): bool
     {
         if ($this->isSelf($user, $model)) {
-            return false;
+            return $this->selfAdmin($user, $model) && $this->holds($user, 'employees.placement.update');
         }
 
         return $this->holds($user, 'employees.placement.update') && $this->scope()->canManage($user, $model);
@@ -137,7 +144,12 @@ class UserPolicy
     public function transfer(User $user, User $model, ?int $toDepartmentId = null): bool
     {
         if ($this->isSelf($user, $model)) {
-            return false;
+            // Self-administration may only move within departments he manages (never a scope escape).
+            $managed = $this->scope()->managedDepartmentIds($user);
+
+            return $this->selfAdmin($user, $model) && $this->holds($user, 'employees.update')
+                && in_array((int) $model->department_id, $managed, true)
+                && $toDepartmentId !== null && in_array($toDepartmentId, $managed, true);
         }
 
         if (! ($this->holds($user, 'employees.update') && $this->scope()->canManage($user, $model))) {
@@ -164,6 +176,10 @@ class UserPolicy
             return false;
         }
 
+        if ($this->isSelf($user, $model)) {
+            return $this->selfAdmin($user, $model) || $this->scope()->isGlobal($user);
+        }
+
         return $this->scope()->isGlobal($user) || $this->scope()->canManage($user, $model);
     }
 
@@ -187,7 +203,7 @@ class UserPolicy
     public function updateCompensation(User $user, User $model): bool
     {
         if ($this->isSelf($user, $model)) {
-            return false;
+            return $this->selfAdmin($user, $model) && $this->holds($user, 'employees.compensation.update');
         }
 
         return $this->holds($user, 'employees.compensation.update') && $this->scope()->canManage($user, $model);
@@ -227,6 +243,11 @@ class UserPolicy
      */
     public function restore(User $user, User $model): bool
     {
+        // Never one's own account, not even under self-administration (self-lockout / reinstatement guard).
+        if ($this->isSelf($user, $model)) {
+            return false;
+        }
+
         return $this->holds($user, 'employees.restore') && $this->scope()->canManage($user, $model);
     }
 

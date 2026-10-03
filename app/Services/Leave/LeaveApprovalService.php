@@ -10,8 +10,10 @@ use App\Notifications\LeaveApprovedNotification;
 use App\Notifications\LeaveOverrideNoticeNotification;
 use App\Notifications\LeaveRejectedNotification;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Attendance\CoverageService;
 use App\Services\Realtime\RealtimeSignal;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -217,9 +219,11 @@ class LeaveApprovalService
      */
     public function approve(Leave $leave, User $approver, ?string $comments = null, array $opts = []): array
     {
-        if ($this->isOwnLeave($leave, $approver)) {
-            return $this->selfApprovalDenied();
-        }
+        return $this->guardSelf($leave, $approver, 'approved', fn () => $this->performApprove($leave, $approver, $comments, $opts));
+    }
+
+    protected function performApprove(Leave $leave, User $approver, ?string $comments = null, array $opts = []): array
+    {
 
         DB::beginTransaction();
         try {
@@ -363,9 +367,11 @@ class LeaveApprovalService
      */
     public function reject(Leave $leave, User $approver, string $reason, array $opts = []): array
     {
-        if ($this->isOwnLeave($leave, $approver)) {
-            return $this->selfApprovalDenied();
-        }
+        return $this->guardSelf($leave, $approver, 'rejected', fn () => $this->performReject($leave, $approver, $reason, $opts));
+    }
+
+    protected function performReject(Leave $leave, User $approver, string $reason, array $opts = []): array
+    {
 
         DB::beginTransaction();
         try {
@@ -461,9 +467,11 @@ class LeaveApprovalService
      */
     public function overrideStatus(Leave $leave, User $actor, string $targetStatus, ?string $reason = null): array
     {
-        if ($this->isOwnLeave($leave, $actor)) {
-            return $this->selfApprovalDenied() + ['updated' => false];
-        }
+        return $this->guardSelf($leave, $actor, strtolower(trim($targetStatus)), fn () => $this->performOverrideStatus($leave, $actor, $targetStatus, $reason), ['updated' => false]);
+    }
+
+    protected function performOverrideStatus(Leave $leave, User $actor, string $targetStatus, ?string $reason = null): array
+    {
 
         $target = strtolower(trim($targetStatus));
         $canOverride = $this->canOverride($actor, $leave);
@@ -606,6 +614,33 @@ class LeaveApprovalService
         // (a department admin holding leaves.manage must not finalize another department's leave).
         return $leave === null
             || app(DepartmentScope::class)->canActOn($actor, (string) $leave->user_id);
+    }
+
+    /**
+     * Nobody decides their own leave - except the governed exception (access.self-administration), whose
+     * every use is logged and announced to the global admins.
+     *
+     * @param  array<string, mixed>  $deniedExtra
+     */
+    protected function guardSelf(Leave $leave, User $actor, string $what, \Closure $decide, array $deniedExtra = []): array
+    {
+        if (! $this->isOwnLeave($leave, $actor)) {
+            return $decide();
+        }
+
+        $selfAdmin = app(SelfAdministration::class);
+        if (! $selfAdmin->allows($actor, $actor)) {
+            return $this->selfApprovalDenied() + $deniedExtra;
+        }
+
+        $before = $leave->status; // the decision may update this same instance
+        $result = $decide();
+        if (($result['success'] ?? false) || ($result['updated'] ?? false)) {
+            $when = Carbon::parse($leave->from_date)->format('j M');
+            $selfAdmin->record($actor, 'leave.'.$what, "{$what} his own leave ({$when})", 'leave', $leave->id, ['status' => [$before, $what]]);
+        }
+
+        return $result;
     }
 
     /**

@@ -20,6 +20,7 @@ use App\Models\UserDepartmentScope;
 use App\Models\UserDevice;
 use App\Models\WorkLocation;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\FeatureFlagService;
 use Carbon\Carbon;
@@ -35,6 +36,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\Feature\Access\Concerns\TogglesSelfAdministration;
 use Tests\TestCase;
 
 /**
@@ -48,11 +50,13 @@ use Tests\TestCase;
 class DepartmentAdminRoleTest extends TestCase
 {
     use RefreshDatabase;
+    use TogglesSelfAdministration;
 
     /** Migrations that define the role, in order: the original 40, then the delegated-administrator split. */
     private const MIGRATIONS = [
         'database/migrations/2026_09_30_000005_seed_department_scope_permissions_and_role.php',
         'database/migrations/2026_10_01_000001_split_employee_permissions_and_extend_department_admin.php',
+        'database/migrations/2026_10_02_000003_add_self_administration_permission_and_log.php',
     ];
 
     /** The 40 permissions the role held before the delegated-administrator split. */
@@ -153,6 +157,7 @@ class DepartmentAdminRoleTest extends TestCase
         [$this->d1, $this->d2] = [Department::factory()->create(), Department::factory()->create()];
 
         $this->admin = $this->makeUser('Department Admin', $this->d1, 'Dee One Admin');
+        $this->admin->givePermissionTo(SelfAdministration::PERMISSION); // the owner's per-person exception (production: Mahdi)
         $this->peer = $this->makeUser('Department Admin', $this->d1, 'Peer Admin');
         $this->hrInD1 = $this->makeUser('HR Manager', $this->d1, 'Hr Inside DeptOne');
         $this->hr = $this->makeUser('HR Manager', null, 'Global Hr');
@@ -262,6 +267,8 @@ class DepartmentAdminRoleTest extends TestCase
         $this->assertCount(12, self::ADDITIONS);
         $this->assertCount(52, $this->spec());
         $this->assertPermissionSet($this->spec(), Role::findByName('Department Admin'));
+        $this->assertNotContains(SelfAdministration::PERMISSION, Role::findByName('Department Admin')->permissions->pluck('name')->all(),
+            'self-administration is a per-person exception, never part of the role');
     }
 
     public function test_the_seeder_definition_mirrors_the_migration(): void
@@ -399,6 +406,10 @@ class DepartmentAdminRoleTest extends TestCase
     {
         $password = ['password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026'];
 
+        // An equal-rank peer holding anything administrative he lacks stays protected (delegation subset
+        // rule); an identical peer is manageable (PeerManagementTest covers that side).
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         foreach ([$this->hrInD1, $this->peer] as $senior) {
             $this->as($this->admin)->putJson(route('users.update', $this->id($senior)), ['name' => 'Hijacked'])->assertForbidden();
             $this->as($this->admin)->postJson(route('users.changePassword', $this->id($senior)), $password)->assertForbidden();
@@ -702,6 +713,7 @@ class DepartmentAdminRoleTest extends TestCase
 
     public function test_punch_exceptions_are_confined_and_never_decided_on_ones_own_punch(): void
     {
+        $this->withoutSelfAdministration(); // proves the plain rule; SelfAdministrationTest covers the governed exception
         [$mine, $theirs, $own] = [$this->provisionalPunch($this->e1), $this->provisionalPunch($this->e2), $this->provisionalPunch($this->admin)];
 
         $pending = $this->as($this->admin)->getJson(route('attendance.punch-exceptions.pending'))->assertOk();
@@ -728,6 +740,7 @@ class DepartmentAdminRoleTest extends TestCase
 
     public function test_the_swap_queue_and_decisions_are_confined(): void
     {
+        $this->withoutSelfAdministration(); // proves the plain rule; SelfAdministrationTest covers the governed exception
         [$mine, $theirs, $own] = [$this->makeSwap($this->e1, $this->e1b), $this->makeSwap($this->e2, $this->e2b), $this->makeSwap($this->admin, $this->e1)];
 
         $listing = $this->as($this->admin)->getJson(route('attendance.swaps.index'))->assertOk();
@@ -981,13 +994,26 @@ class DepartmentAdminRoleTest extends TestCase
 
         $own = $this->directoryRow($this->admin, $this->admin)['can'];
         $this->assertTrue($own['is_self']);
-        foreach (['placement', 'transfer', 'update_compensation', 'reset_password', 'manage_access', 'delete'] as $never) {
+        // With the governed exception (access.self-administration) his own job fields open up...
+        foreach (['placement', 'update_compensation', 'attendance_config'] as $allowed) {
+            $this->assertTrue($own[$allowed], "self-administration allows: {$allowed}");
+        }
+        // ...but never role management or removing himself.
+        foreach (['manage_access', 'delete'] as $never) {
             $this->assertFalse($own[$never], "never on himself: {$never}");
+        }
+        // Without the exception, the plain segregation-of-duties rule applies.
+        $this->withoutSelfAdministration();
+        $ownPlain = $this->directoryRow($this->admin, $this->admin)['can'];
+        foreach (['placement', 'transfer', 'update_compensation', 'reset_password', 'manage_access', 'delete'] as $never) {
+            $this->assertFalse($ownPlain[$never], "never on himself without the exception: {$never}");
         }
         $this->assertTrue($own['manage_devices'], 'his own devices and lock stay his to manage');
 
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         $peer = $this->directoryRow($this->admin, $this->peer)['can'];
-        $this->assertFalse($peer['update'], 'an equal rank cannot be edited');
+        $this->assertFalse($peer['update'], 'an equal rank holding more than him cannot be edited');
         $this->assertFalse($peer['delete']);
         $this->assertFalse($peer['reset_password']);
 
@@ -997,6 +1023,7 @@ class DepartmentAdminRoleTest extends TestCase
 
     public function test_salary_is_editable_on_department_employees_but_never_on_himself(): void
     {
+        $this->withoutSelfAdministration(); // proves the plain rule; SelfAdministrationTest covers the governed exception
         $this->e1->forceFill(['salary_amount' => 1000])->save();
         $this->admin->forceFill(['salary_amount' => 5000])->save();
 
@@ -1022,6 +1049,7 @@ class DepartmentAdminRoleTest extends TestCase
 
     public function test_the_profile_page_is_open_inside_the_department_only_and_hides_salary_from_people_without_the_permission(): void
     {
+        $this->withoutSelfAdministration(); // proves the plain rule; SelfAdministrationTest covers the governed exception
         $this->e1->forceFill(['salary_amount' => 1000])->save();
 
         $props = $this->as($this->admin)->get(route('profile', $this->id($this->e1)))->assertOk()->viewData('page')['props'];
@@ -1080,6 +1108,7 @@ class DepartmentAdminRoleTest extends TestCase
 
     public function test_transfers_stay_between_departments_he_manages_and_never_involve_himself(): void
     {
+        $this->withoutSelfAdministration(); // proves the plain rule; SelfAdministrationTest covers the governed exception
         $this->as($this->admin)->putJson(route('users.update-department', $this->id($this->e1)), ['department' => $this->d2->id])->assertForbidden();
         $this->as($this->admin)->putJson(route('users.update', $this->id($this->e1)), ['department_id' => $this->d2->id])->assertForbidden();
         $this->as($this->admin)->putJson(route('users.update-department', $this->id($this->e2)), ['department' => $this->d1->id])->assertForbidden();

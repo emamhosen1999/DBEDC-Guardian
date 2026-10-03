@@ -3,8 +3,11 @@
 namespace Tests\Feature\Attendance;
 
 use App\Models\HRM\Attendance;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\Feature\Access\Concerns\BuildsDepartmentAdminWorld;
+use Tests\Feature\Access\Concerns\TogglesSelfAdministration;
 use Tests\TestCase;
 
 /**
@@ -16,6 +19,7 @@ class AttendanceRowActionsTest extends TestCase
 {
     use BuildsDepartmentAdminWorld;
     use RefreshDatabase;
+    use TogglesSelfAdministration;
 
     protected function setUp(): void
     {
@@ -33,6 +37,10 @@ class AttendanceRowActionsTest extends TestCase
 
     public function test_absent_rows_flag_only_subordinates_as_actionable(): void
     {
+        $this->withoutSelfAdministration();
+        // The equal-rank peer holds something administrative the actor lacks: protected (subset rule).
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         $absent = $this->bucket('absent');
 
         $this->assertTrue($absent[$this->e1b->employee_id]['can_act'], 'in-scope subordinate');
@@ -44,6 +52,10 @@ class AttendanceRowActionsTest extends TestCase
 
     public function test_absent_users_endpoint_carries_the_same_flag(): void
     {
+        $this->withoutSelfAdministration();
+        // The equal-rank peer holds something administrative the actor lacks: protected (subset rule).
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         $rows = collect($this->actingAs($this->admin)->getJson(route('admin.getAbsentUsersForDate', ['date' => self::DAY]))->assertOk()->json('absent_users'))
             ->keyBy('employee_id');
 
@@ -56,6 +68,10 @@ class AttendanceRowActionsTest extends TestCase
 
     public function test_daily_timesheet_rows_flag_correctable_records(): void
     {
+        $this->withoutSelfAdministration();
+        // The equal-rank peer holds something administrative the actor lacks: protected (subset rule).
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         Attendance::factory()->for($this->admin)->create(['date' => self::DAY, 'punchin' => self::DAY.' 09:05:00', 'punchout' => self::DAY.' 17:00:00']);
 
         $rows = collect($this->actingAs($this->admin)->getJson(route('admin.daily-timesheet', ['date' => self::DAY, 'perPage' => 100]))->assertOk()->json('attendances'))
@@ -67,6 +83,10 @@ class AttendanceRowActionsTest extends TestCase
 
     public function test_marking_present_works_for_a_subordinate_and_is_refused_everywhere_else(): void
     {
+        $this->withoutSelfAdministration();
+        // The equal-rank peer holds something administrative the actor lacks: protected (subset rule).
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         $this->actingAs($this->admin);
 
         $this->postJson(route('attendance.mark-as-present'), ['user_id' => $this->e1b->employee_id, 'date' => self::DAY])->assertOk();
@@ -81,6 +101,10 @@ class AttendanceRowActionsTest extends TestCase
 
     public function test_global_hr_is_never_flagged_out(): void
     {
+        $this->withoutSelfAdministration();
+        // The equal-rank peer holds something administrative the actor lacks: protected (subset rule).
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         $rows = collect($this->actingAs($this->hr)->getJson(route('attendance.dayPartition', ['date' => self::DAY]))->assertOk()->json('absent'))
             ->pluck('user.can_act');
 

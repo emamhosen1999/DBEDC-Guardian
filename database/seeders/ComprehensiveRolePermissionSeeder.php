@@ -436,6 +436,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'users.impersonate' => 'Impersonate other users',
                 'department.scopes.manage' => 'Grant and revoke department admin / acting scopes',
                 'department.admin' => 'Administer own department (employees, attendance, leave, lifecycle)',
+                'access.self-administration' => 'Self-administration: act on oneself like on department employees (audited, global admins notified)',
                 'roles.view' => 'View roles and permissions',
                 'roles.create' => 'Create roles',
                 'roles.update' => 'Update roles',

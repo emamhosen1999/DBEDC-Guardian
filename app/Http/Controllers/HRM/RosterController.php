@@ -10,6 +10,7 @@ use App\Models\HRM\Shift;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Access\ShiftTemplateScope;
 use App\Services\Attendance\CoverageService;
 use App\Services\Attendance\RosterOverlayService;
@@ -227,13 +228,16 @@ class RosterController extends Controller
         $user = $request->user();
         if (! $this->scope->isAttendanceAdmin($user)) {
             foreach ($data['user_ids'] as $targetId) {
-                if (! $this->scope->canActOn($user, (string) $targetId, allowSelf: true)) {
+                if (! $this->scope->canActOn($user, (string) $targetId)) {
                     return response()->json(['error' => 'You can only generate rosters for your own department.'], 403);
                 }
             }
         }
 
         $count = $this->roster->generateRoster($data['user_ids'], $data['from'], $data['to']);
+        foreach ($data['user_ids'] as $targetId) {
+            $this->auditSelfRoster($user, (string) $targetId, 'generated his own roster');
+        }
 
         $cursor = Carbon::parse($data['from'])->startOfMonth();
         $end = Carbon::parse($data['to'])->startOfMonth();
@@ -303,9 +307,10 @@ class RosterController extends Controller
         ]);
 
         $user = $request->user();
-        if (! $this->scope->isAttendanceAdmin($user) && ! $this->scope->canActOn($user, (string) $data['user_id'], allowSelf: true)) {
+        if (! $this->scope->isAttendanceAdmin($user) && ! $this->scope->canActOn($user, (string) $data['user_id'])) {
             return response()->json(['error' => 'You can only update roster cells for your own department.'], 403);
         }
+        $this->auditSelfRoster($user, (string) $data['user_id'], 'edited his own roster cell ('.$data['date'].')');
 
         // A non-company-wide scheduler rosters only the shifts he can see: company-wide ones and those
         // of the departments he administers — never another department's template.
@@ -438,6 +443,14 @@ class RosterController extends Controller
             'compliance_violations' => $complianceViolations,
             'coverage_warning' => $coverageWarning,
         ]);
+    }
+
+    /** Own roster: reachable only through the governed exception (access.self-administration) - logged and announced. */
+    private function auditSelfRoster(User $actor, string $targetId, string $summary): void
+    {
+        if ((string) $actor->getKey() === $targetId && ! $this->scope->isAttendanceAdmin($actor)) {
+            app(SelfAdministration::class)->record($actor, 'roster.self_edit', $summary, 'roster', $targetId);
+        }
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Access;
 
+use App\Services\Access\SelfAdministration;
 use Database\Seeders\ComprehensiveRolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -20,6 +21,8 @@ class EmployeePermissionSplitMigrationTest extends TestCase
     use RefreshDatabase;
 
     private const MIGRATION = 'database/migrations/2026_10_01_000001_split_employee_permissions_and_extend_department_admin.php';
+
+    private const SELF_ADMINISTRATION_MIGRATION = 'database/migrations/2026_10_02_000003_add_self_administration_permission_and_log.php';
 
     private const GRANULAR = [
         'employees.placement.update', 'employees.attendance-config.update', 'employees.compensation.view',
@@ -40,12 +43,12 @@ class EmployeePermissionSplitMigrationTest extends TestCase
         }
     }
 
-    private function run_(): void
+    private function run_(string $migration = self::MIGRATION): void
     {
         $migrator = app('migrator');
         $resolve = new \ReflectionMethod($migrator, 'resolvePath');
         $resolve->setAccessible(true);
-        $resolve->invoke($migrator, base_path(self::MIGRATION))->up();
+        $resolve->invoke($migrator, base_path($migration))->up();
     }
 
     private function role(string $name, array $permissions, int $level = 50): Role
@@ -133,6 +136,11 @@ class EmployeePermissionSplitMigrationTest extends TestCase
         $this->assertSame($expected, $this->held('Department Admin'));
         $this->assertNotContains('employees.access.manage', $this->held('Department Admin'));
         $this->assertNotContains('roles.view', $this->held('Department Admin'));
+
+        // Later migrations keep it there: self-administration is a per-person exception, never a role grant.
+        $this->run_(self::SELF_ADMINISTRATION_MIGRATION);
+        $this->assertSame($expected, $this->held('Department Admin'));
+        $this->assertNotContains(SelfAdministration::PERMISSION, $this->held('Department Admin'));
     }
 
     public function test_the_seeder_creates_the_same_permissions_the_migration_does(): void

@@ -11,6 +11,7 @@ use App\Models\HRM\Onboarding;
 use App\Models\HRM\OnboardingTask;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -147,6 +148,11 @@ class OnboardingController extends Controller
 
         // Automatically queue biometric hardware provisioning
         $devicesQueued = $this->queueBiometricEnrollment($employee);
+
+        $actor = $request->user();
+        if ($actor && (string) $employee->employee_id === (string) $actor->getKey() && ! app(DepartmentScope::class)->isGlobal($actor)) {
+            app(SelfAdministration::class)->record($actor, 'onboarding.create', 'started his own onboarding', 'onboarding', $onboarding->id);
+        }
 
         return response()->json(array_filter([
             'message' => 'Onboarding process initiated successfully.',

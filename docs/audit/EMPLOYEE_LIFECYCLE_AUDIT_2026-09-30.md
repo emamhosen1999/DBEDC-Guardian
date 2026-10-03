@@ -336,3 +336,26 @@ Full findings: [NOTIFICATIONS_AUDIT_2026-09-30.md](NOTIFICATIONS_AUDIT_2026-09-3
   2. Discard stale notification jobs; don't replay months-old pushes or emails.
   3. Replay only idempotent, still-relevant work.
   4. Run a scheduled `queue:work --stop-when-empty` cron for the queues actually used (see Notif F-1).
+
+## 8. Deploy #4: governed self-administration and peer delegation (2026-10-03)
+
+**What ships**
+- **Self-administration is a per-person exception, never a role permission.** The permission is `access.self-administration`, a documented segregation-of-duties exception under ISO 27001 A.5.3.
+  - Grant or revoke it only with `php artisan access:self-administration grant|revoke|list <employee_id> --reason="…"`. A grant without a reason is refused.
+  - The holder may act on themselves as on their department staff: attendance (including mark present), leave, OT, regularization and swap decisions, punch exceptions, roster cells, shift assignments, placement, compensation and attendance configuration.
+  - Every grant, revocation and self-action writes a `self_administration_logs` row (actor, action, subject, before/after, IP, user agent). Super Administrators, Administrators and HR Managers are notified.
+  - First holder: Mahadi Hasan (1537), the sole administrator of Inspection.
+- **Still closed on oneself, even with the exception:** roles, employee ID, delete/restore/status, password reset through the admin path, moving to an unmanaged department, one's own offboarding and one's own final settlement.
+- **Peer delegation (subset rule) inside managed departments.** A target is manageable when the actor outranks them, or when the target's elevated permissions and administered departments are a subset of the actor's. Global and HR Manager targets stay protected.
+- **Authority never runs up the actor's own reporting line.** `DepartmentScope::ancestorIds` blocks it, so a department head can't manage their own manager, however equal their roles.
+- **Mobile mark-present leak closed.** `POST /api/v1/attendance/mark-present` used to accept **any** employee from any manager. It now enforces the same department and delegation scope as the web action.
+
+**New findings**
+- **P-11: 13 test files already fail at the deployed HEAD.** They aren't caused by this deploy (verified against a clean HEAD export). The files:
+  - `Api/MobileAttendanceApiTest`, `Api/MobileLeaveApprovalApiTest` (9 tests, "There is already an active transaction"), `Api/MobileProfileApiTest`, `Api/MobileSwapPickupTest` (a range validation returns 200 instead of 422);
+  - `Attendance/AbsentUsersTest`, `AbsentUsersUpcomingTest`, `AuditHistoryApiTest`, `DailyOverviewStatsTest`, `LeaveStatusGridTest`, `MonthlyCalendarOtBucketsTest`, `MonthlyGridEngineCollapseTest`, `UnifiedPagePropsTest`;
+  - `Auth/MustChangePasswordTest` (422 on an admin create).
+
+  Most are stale integer-ID assertions left over from the `employee_id` primary-key switch. The swap validation, the mobile leave-approval transaction errors and the must-change-password 422 may be real bugs. Triage them in the attendance-module audit.
+- **P-12: Any user can manage their own device lock and sessions** (`UserPolicy::manageDevices`, existing behavior). Review this against the attendance single-device policy, because a self-reset defeats device binding.
+- **P-13: Quality Control's recorded head (`departments.manager_id`) is Md. Fahim Hossain (169).** But his line manager, Md. Abul Bashar (123), and the O&M Director, Wang Fu (896), also sit in Quality Control. The owner should confirm the intended head. The head gets department-wide scope; the new reporting-line guard already stops a head from managing their own managers.

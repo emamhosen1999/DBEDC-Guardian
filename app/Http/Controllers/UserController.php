@@ -14,6 +14,7 @@ use App\Models\HRM\Designation;
 use App\Models\User;
 use App\Models\WorkLocation;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Admin\UserManagementService;
 use App\Traits\HandlesApiExceptions;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -291,7 +292,10 @@ class UserController extends Controller
             $targetUser = User::findOrFail($id);
             $isSelf = (string) $authUser->employee_id === (string) $targetUser->employee_id;
 
-            if ($isSelf) {
+            $selfAdmin = $isSelf && app(SelfAdministration::class)->allows($authUser, $targetUser);
+            $selfAdminBefore = [];
+
+            if ($isSelf && ! $selfAdmin) {
                 // Self-service edits must never touch role, pay, org placement or identity
                 // fields. A Super Administrator is exempt for non-role fields only.
                 $roles = null;
@@ -300,7 +304,17 @@ class UserController extends Controller
                     $validated = Arr::except($validated, self::SELF_PROTECTED_FIELDS);
                 }
             } else {
-                // UpdateUserRequest already proved employees.update AND scope over the target AND
+                if ($selfAdmin) {
+                    // Governed exception: job fields follow the same per-group gates as for his staff; identity
+                    // and escalation fields stay closed (roles are nulled below, employee_id is Administrator-only).
+                    $validated = Arr::except($validated, ['date_of_joining']);
+                    foreach (Arr::except($validated, ['roles']) as $field => $value) {
+                        if ($this->fieldChanged($targetUser, $field, $value)) {
+                            $selfAdminBefore[$field] = [$field === 'password' ? '***' : $targetUser->{$field} ?? null, $field === 'password' ? '***' : $value];
+                        }
+                    }
+                }
+                // UpdateUserRequest already proved employees.update AND scope over the target AND AND
                 // (for a non-global actor) that he outranks it. Each field group below needs its
                 // own permission on top: a group he may not change is dropped when unchanged (the
                 // form echoes every field back) and refused when it would change something.
@@ -352,6 +366,13 @@ class UserController extends Controller
             }
 
             $user = $this->userService->updateUser($id, $validated, $roles, $hasRoles, $profileImage);
+
+            if ($selfAdmin) {
+                $changed = array_intersect_key($selfAdminBefore, $validated);
+                if ($changed !== []) {
+                    app(SelfAdministration::class)->record($authUser, 'employee.update', 'updated his own '.implode(', ', array_keys($changed)), 'user', $targetUser->employee_id, $changed);
+                }
+            }
 
             Log::info('User updated', [
                 'user_id' => $user->id,
@@ -1170,7 +1191,9 @@ class UserController extends Controller
             'single_device_login_enabled' => filter_var($value, FILTER_VALIDATE_BOOLEAN) !== (bool) $target->single_device_login_enabled,
             'salary_amount' => (float) ($value ?? 0) !== (float) ($target->salary_amount ?? 0),
             'password' => $value !== null && $value !== '',
-            default => (string) ($value ?? '') !== (string) ($target->{$field} ?? ''),
+            default => is_array($value)
+                ? json_encode($value) !== json_encode($target->{$field} ?? null)
+                : (string) ($value ?? '') !== (string) ($target->{$field} ?? ''),
         };
     }
 

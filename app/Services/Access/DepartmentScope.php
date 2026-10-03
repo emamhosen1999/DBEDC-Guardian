@@ -51,7 +51,16 @@ class DepartmentScope
     private array $departmentMemo = [];
 
     /** @var array<string, array<int, string>> */
+    private array $permissionMemo = [];
+
+    /** @var array<string, array<int, string>> */
+    private array $elevatedMemo = [];
+
+    /** @var array<string, array<int, string>> */
     private array $subtreeMemo = [];
+
+    /** @var array<string, array<int, string>> */
+    private array $ancestorMemo = [];
 
     private ?bool $scopesTableExists = null;
 
@@ -161,6 +170,33 @@ class DepartmentScope
         $key = $this->key($user);
 
         return $this->subtreeMemo[$key] ??= $this->descendantIds($key);
+    }
+
+    /**
+     * Everyone above the user in the report_to chain (manager, manager's manager, ...), nearest
+     * first; stops at a circular chain or MAX_TREE_DEPTH.
+     *
+     * @return array<int, string>
+     */
+    public function ancestorIds(User $user): array
+    {
+        $key = $this->key($user);
+        if (isset($this->ancestorMemo[$key])) {
+            return $this->ancestorMemo[$key];
+        }
+
+        $chain = [];
+        $next = $user->report_to;
+        for ($depth = 0; $next !== null && $next !== '' && $depth < self::MAX_TREE_DEPTH; $depth++) {
+            $id = (string) $next;
+            if ($id === $key || in_array($id, $chain, true)) {
+                break;
+            }
+            $chain[] = $id;
+            $next = User::withTrashed()->whereKey($id)->value('report_to');
+        }
+
+        return $this->ancestorMemo[$key] = $chain;
     }
 
     /**
@@ -310,7 +346,8 @@ class DepartmentScope
         }
 
         if ($this->key($actor) === $this->key($targetUser)) {
-            return $allowSelf;
+            // Governed exception: a holder of access.self-administration acts on himself like on his staff.
+            return $allowSelf || app(SelfAdministration::class)->allows($actor, $targetUser);
         }
 
         if ($this->isGlobal($actor)) {
@@ -341,7 +378,82 @@ class DepartmentScope
             return true;
         }
 
+        // Authority never runs up one's own reporting line (supervisory-organization model): a
+        // department head does not manage his own manager, however equal their roles.
+        if (in_array($this->key($targetUser), $this->ancestorIds($actor), true)) {
+            return false;
+        }
+
+        // A target inside the actor's managed departments is judged by the delegation SUBSET rule
+        // (Entra delegated-admin model): peers and everyone below are manageable, anyone holding more
+        // than the actor stays protected. Outside them (reporting-subtree only) strict outranking applies.
+        if ($targetUser->department_id !== null
+            && in_array((int) $targetUser->department_id, $this->managedDepartmentIds($actor), true)) {
+            return $this->withinDelegation($actor, $targetUser);
+        }
+
         return $this->outranks($actor, $targetUser);
+    }
+
+    /**
+     * (b) the target's ELEVATED permissions (everything beyond the base and department-default roles
+     * every employee may carry) are a subset of the actor's effective permissions, and (c) the
+     * departments the target administers are a subset of the actor's. A global-role target is never
+     * delegable. Comparing elevated rather than all permissions keeps ordinary staff manageable even
+     * when the admin does not hold their self-service/functional roles, while a peer holding anything
+     * administrative the actor lacks stays protected.
+     */
+    public function withinDelegation(User $actor, User $target): bool
+    {
+        if ($this->isGlobal($target)) {
+            return false;
+        }
+
+        // (c) never reach beyond the actor's own departments through the target's grants.
+        if (array_diff($this->managedDepartmentIds($target), $this->managedDepartmentIds($actor)) !== []) {
+            return false;
+        }
+
+        // Lower-ranked staff (role hierarchy) are manageable as before; a peer at the same or a higher
+        // level is manageable only when everything elevated it holds, the actor already holds.
+        return $this->outranks($actor, $target)
+            || array_diff($this->elevatedPermissions($target), $this->effectivePermissions($actor)) === [];
+    }
+
+    /** @return array<int, string> */
+    private function effectivePermissions(User $user): array
+    {
+        $key = $this->key($user);
+
+        return $this->permissionMemo[$key] ??= $this->withAccessLoaded($user)->getAllPermissions()->pluck('name')->unique()->values()->all();
+    }
+
+    /** Eager-load roles, their permissions and direct permissions once (no lazy loading / N+1). */
+    private function withAccessLoaded(User $user): User
+    {
+        return $user->loadMissing(['roles.permissions', 'permissions']);
+    }
+
+    /**
+     * Permissions granted by any role other than the base role and the department default roles
+     * (the ordinary roles every employee may carry), plus direct permissions.
+     *
+     * @return array<int, string>
+     */
+    private function elevatedPermissions(User $user): array
+    {
+        $key = $this->key($user);
+
+        return $this->elevatedMemo[$key] ??= (function () use ($user): array {
+            $ordinary = array_merge(User::BASE_ROLES, app(DepartmentDefaultRoles::class)->allManaged());
+            $user = $this->withAccessLoaded($user);
+
+            return $user->roles
+                ->reject(fn ($role) => in_array($role->name, $ordinary, true))
+                ->flatMap(fn ($role) => $role->permissions->pluck('name'))
+                ->merge($user->getDirectPermissions()->pluck('name'))
+                ->unique()->values()->all();
+        })();
     }
 
     /**
@@ -381,15 +493,19 @@ class DepartmentScope
      */
     public function forget(User|string|null $user = null): void
     {
+        $this->ancestorMemo = []; // one report_to change re-shapes every chain below it
+
         if ($user === null) {
             $this->departmentMemo = [];
             $this->subtreeMemo = [];
+            $this->permissionMemo = [];
+            $this->elevatedMemo = [];
 
             return;
         }
 
         $key = $user instanceof User ? $this->key($user) : (string) $user;
-        unset($this->departmentMemo[$key], $this->subtreeMemo[$key]);
+        unset($this->departmentMemo[$key], $this->subtreeMemo[$key], $this->permissionMemo[$key], $this->elevatedMemo[$key]);
     }
 
     private function resolveUser(User|string $target): ?User

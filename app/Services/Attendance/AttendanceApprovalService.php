@@ -4,6 +4,7 @@ namespace App\Services\Attendance;
 
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -56,9 +57,10 @@ class AttendanceApprovalService
         if ($m->status !== 'pending') {
             return false;
         }
-        // Nobody approves their own OT / regularization request.
+        // Nobody approves their own OT / regularization request - except the governed exception
+        // (access.self-administration; every use is logged and announced to the global admins).
         if ((string) $m->user_id === (string) $u->employee_id) {
-            return false;
+            return app(SelfAdministration::class)->allows($u, $u);
         }
         if (empty($m->approval_chain)) {
             return $u->hasAnyRole(self::GLOBAL_APPROVER_ROLES) || $this->scopeApproves($m, $u);
@@ -87,7 +89,23 @@ class AttendanceApprovalService
 
     public function approve(Model $m, User $approver, ?string $comments = null): array
     {
-        if ((string) $m->user_id === (string) $approver->employee_id) {
+        $result = $this->performApprove($m, $approver, $comments);
+        $this->auditSelf($m, $approver, 'approved', $result);
+
+        return $result;
+    }
+
+    /** Log + announce a decided request of one's own (only reachable with access.self-administration). */
+    private function auditSelf(Model $m, User $actor, string $what, array $result): void
+    {
+        if ((string) $m->user_id === (string) $actor->employee_id && ($result['success'] ?? false)) {
+            app(SelfAdministration::class)->record($actor, class_basename($m).'.'.$what, "{$what} his own ".strtolower(class_basename($m)).' request', class_basename($m), $m->getKey(), ['status' => ['pending', $what]]);
+        }
+    }
+
+    private function performApprove(Model $m, User $approver, ?string $comments = null): array
+    {
+        if ((string) $m->user_id === (string) $approver->employee_id && ! app(SelfAdministration::class)->allows($approver, $approver)) {
             return ['success' => false, 'message' => 'You cannot approve or reject your own request.', 'status' => $m->status];
         }
         if (! $this->canApprove($m, $approver)) {
@@ -121,7 +139,15 @@ class AttendanceApprovalService
 
     public function reject(Model $m, User $approver, string $reason): array
     {
-        if ((string) $m->user_id === (string) $approver->employee_id) {
+        $result = $this->performReject($m, $approver, $reason);
+        $this->auditSelf($m, $approver, 'rejected', $result);
+
+        return $result;
+    }
+
+    private function performReject(Model $m, User $approver, string $reason): array
+    {
+        if ((string) $m->user_id === (string) $approver->employee_id && ! app(SelfAdministration::class)->allows($approver, $approver)) {
             return ['success' => false, 'message' => 'You cannot approve or reject your own request.', 'status' => $m->status];
         }
         if (! $this->canApprove($m, $approver)) {

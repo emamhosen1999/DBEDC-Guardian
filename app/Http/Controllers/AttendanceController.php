@@ -14,6 +14,7 @@ use App\Models\HRM\Designation;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Attendance\AttendanceAuditService;
 use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
@@ -107,6 +108,19 @@ class AttendanceController extends Controller
     {
         if (! $this->mayActOnAttendanceOf($employeeId)) {
             abort(403, 'You do not have access to this employee.');
+        }
+
+        // Own attendance: reachable only through the governed exception (access.self-administration) or as a
+        // global attendance admin - the former is logged and announced to the global admins.
+        $actor = Auth::user();
+        if ($actor && (string) $actor->getKey() === $employeeId && ! $this->scope()->isGlobal($actor)) {
+            app(SelfAdministration::class)->record(
+                $actor,
+                'attendance.'.(request()->route()?->getName() ?? 'action'),
+                'acted on his own attendance ('.(request()->input('date') ?? 'record').')',
+                'attendance',
+                $employeeId,
+            );
         }
     }
 

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\Attendance\ShiftSwapDecidedNotification;
 use App\Notifications\Attendance\ShiftSwapRequestedNotification;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -219,6 +220,23 @@ class ShiftSwapService
      */
     public function approve(ShiftSwapRequest $swap, User $actor): array
     {
+        return $this->auditedSelf($swap, $actor, 'approved', fn () => $this->performApprove($swap, $actor));
+    }
+
+    private function auditedSelf(ShiftSwapRequest $swap, User $actor, string $what, \Closure $run): array
+    {
+        $result = $run();
+        $key = (string) $actor->getKey();
+        $party = $key === (string) $swap->requester_id || $key === (string) $swap->counterparty_id;
+        if ($party && ($result['ok'] ?? false) && ! $this->scope->isAttendanceAdmin($actor)) {
+            app(SelfAdministration::class)->record($actor, 'swap.'.$what, "{$what} a shift swap he is part of", 'shift_swap', $swap->getKey(), ['status' => ['pending', $what]]);
+        }
+
+        return $result;
+    }
+
+    private function performApprove(ShiftSwapRequest $swap, User $actor): array
+    {
         if (! $this->actorMayDecide($swap, $actor)) {
             return $this->fail('forbidden', 'You are not authorized to decide this swap request.');
         }
@@ -328,6 +346,11 @@ class ShiftSwapService
      */
     public function reject(ShiftSwapRequest $swap, User $actor): array
     {
+        return $this->auditedSelf($swap, $actor, 'rejected', fn () => $this->performReject($swap, $actor));
+    }
+
+    private function performReject(ShiftSwapRequest $swap, User $actor): array
+    {
         if (! $this->actorMayDecide($swap, $actor)) {
             return $this->fail('forbidden', 'You are not authorized to decide this swap request.');
         }
@@ -433,7 +456,8 @@ class ShiftSwapService
 
         $key = (string) $actor->getKey();
         if ($key === (string) $swap->requester_id || $key === (string) $swap->counterparty_id) {
-            return false;
+            // Nobody approves a swap they are part of - except the governed exception (logged + announced).
+            return app(SelfAdministration::class)->allows($actor, $actor);
         }
 
         return $this->scope->canActOn($actor, (string) $swap->requester_id);

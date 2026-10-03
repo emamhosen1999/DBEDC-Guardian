@@ -12,6 +12,8 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
 use App\Models\User;
 use App\Repositories\AttendanceRepository;
+use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
@@ -1168,9 +1170,27 @@ class AttendanceController extends Controller
             'date' => ['required', 'date_format:Y-m-d'],
         ]);
 
+        // Being "a manager of someone" is not authority over every employee: the target must be one
+        // this actor may manage (department scope + delegation subset rule). Self only through the
+        // governed exception (access.self-administration), which is logged and announced.
+        $scope = app(DepartmentScope::class);
+        if (! $scope->isGlobal($currentUser) && ! $scope->canManage($currentUser, (string) $validated['user_id'])) {
+            return $this->errorResponse('You do not have access to this employee.', 'FORBIDDEN', 403);
+        }
+
         try {
             $attendance = app(AttendanceDayPartitionService::class)
                 ->markPresent((string) $validated['user_id'], (string) $validated['date'], $request);
+
+            if ((string) $validated['user_id'] === (string) $currentUser->getKey() && ! $scope->isGlobal($currentUser)) {
+                app(SelfAdministration::class)->record(
+                    $currentUser,
+                    'attendance.mark-present',
+                    'marked himself present ('.$validated['date'].') from the mobile app',
+                    'attendance',
+                    (string) $currentUser->getKey(),
+                );
+            }
 
             return $this->successResponse([
                 'attendance' => [

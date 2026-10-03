@@ -23,6 +23,7 @@ class SettlementController extends Controller
     {
         $offboarding = Offboarding::with(['employee.department', 'employee.designation'])->findOrFail($offboardingId);
         abort_unless($this->scope->canActOn($request->user(), $offboarding->employee_id), 403, 'This employee is outside your scope.');
+        abort_if((string) $offboarding->employee_id === (string) $request->user()->getKey(), 403, 'You cannot handle your own final settlement.');
         $employee = $offboarding->employee;
 
         if (! $employee) {
@@ -136,6 +137,7 @@ class SettlementController extends Controller
 
         $offboarding = Offboarding::findOrFail($validated['offboarding_id']);
         abort_unless($this->scope->canManage($request->user(), $offboarding->employee_id), 403, 'This employee is outside your scope.');
+        abort_if((string) $offboarding->employee_id === (string) $request->user()->getKey(), 403, 'You cannot handle your own final settlement.');
 
         $current = FinalSettlement::where('offboarding_id', $offboarding->id)->first();
         if ($current && $current->status !== FinalSettlement::STATUS_DRAFT) {
@@ -167,6 +169,7 @@ class SettlementController extends Controller
         $actorId = (string) $request->user()->employee_id;
 
         abort_unless($this->scope->canManage($request->user(), $settlement->employee_id), 403, 'This employee is outside your scope.');
+        abort_if((string) $settlement->employee_id === (string) $request->user()->getKey(), 403, 'You cannot handle your own final settlement.');
 
         // Four-eyes: the preparer and the employee being paid can never approve.
         abort_if($actorId === (string) $settlement->prepared_by || $actorId === (string) $settlement->employee_id, 403, 'You cannot approve a settlement you prepared or that is payable to you.');
@@ -194,6 +197,7 @@ class SettlementController extends Controller
         $settlement = FinalSettlement::findOrFail($id);
 
         abort_unless($this->scope->canManage($request->user(), $settlement->employee_id), 403, 'This employee is outside your scope.');
+        abort_if((string) $settlement->employee_id === (string) $request->user()->getKey(), 403, 'You cannot handle your own final settlement.');
 
         if ($settlement->status !== FinalSettlement::STATUS_APPROVED) {
             return response()->json(['message' => 'Only an approved settlement can be disbursed.'], 422);

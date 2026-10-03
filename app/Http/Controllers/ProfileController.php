@@ -6,6 +6,7 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use App\Services\Profile\ProfileCrudService;
 use App\Services\Profile\ProfileUpdateService;
 use App\Services\Profile\ProfileValidationService;
@@ -128,11 +129,27 @@ class ProfileController extends Controller
             $this->authorizeProfileUpdate($request, $user);
             $this->guardEmploymentFields($request, $user, $validated);
 
+            $selfAdmin = app(SelfAdministration::class);
+            $audited = ['department', 'designation', 'report_to', 'salary_amount', 'salary_basis', 'payment_type'];
+            $selfChanges = [];
+            if ($selfAdmin->allows($request->user(), $user)) {
+                foreach (array_intersect($audited, array_keys($validated)) as $input) {
+                    $attribute = ['department' => 'department_id', 'designation' => 'designation_id'][$input] ?? $input;
+                    if ((string) ($validated[$input] ?? '') !== (string) ($user->{$attribute} ?? '')) {
+                        $selfChanges[$input] = [$user->{$attribute}, $validated[$input]];
+                    }
+                }
+            }
+
             // Update user profile
             $messages = $this->updateService->updateUserProfile($user, $validated);
 
             // Save the user
             $this->crudService->saveUser($user);
+
+            if ($selfChanges !== []) {
+                $selfAdmin->record($request->user(), 'profile.update', 'updated his own '.implode(', ', array_keys($selfChanges)), 'user', $user->employee_id, $selfChanges);
+            }
 
             // Get fresh user data with profile image URL
             $freshUser = $user->fresh();

@@ -14,7 +14,6 @@ use App\Services\Leave\LeaveEncashmentService;
 use App\Services\Leave\LeaveLedgerService;
 use App\Services\Leave\LeaveOverlapService;
 use App\Services\Leave\LeaveValidationService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Tests\TestCase;
@@ -207,7 +206,7 @@ class LeavePolicyHardeningTest extends TestCase
         $cancelled = app(LeaveCrudService::class)->cancelLeave($leave->id, $u);
 
         $this->assertSame('cancelled', $cancelled->status);
-        $this->assertSame($u->id, (int) $cancelled->cancelled_by);
+        $this->assertSame((string) $u->getKey(), (string) $cancelled->cancelled_by);
         $this->assertNotNull($cancelled->cancelled_at);
     }
 

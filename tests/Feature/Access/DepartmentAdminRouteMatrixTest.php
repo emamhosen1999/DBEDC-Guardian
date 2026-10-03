@@ -7,6 +7,7 @@ use App\Models\HRM\LeaveSetting;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\User;
 use App\Models\UserDepartmentScope;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\Route as RoutingRoute;
@@ -14,8 +15,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Permission;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Tests\Feature\Access\Concerns\BuildsDepartmentAdminWorld;
+use Tests\Feature\Access\Concerns\TogglesSelfAdministration;
 use Tests\TestCase;
 
 /**
@@ -38,6 +41,7 @@ class DepartmentAdminRouteMatrixTest extends TestCase
 {
     use BuildsDepartmentAdminWorld;
     use RefreshDatabase;
+    use TogglesSelfAdministration;
 
     /** Routes never driven: device protocols, websocket auth, framework/health, session mutators. */
     private const SKIP = ['#^iclock/#', '#^broadcasting/#', '#^sanctum/#', '#^_ignition#', '#^up$#', '#^horizon#', '#^telescope#', '#^pulse#', '#^logout$#'];
@@ -321,6 +325,7 @@ class DepartmentAdminRouteMatrixTest extends TestCase
 
     public function test_he_cannot_change_his_own_role_salary_department_or_employee_id(): void
     {
+        $this->withoutSelfAdministration();
         $this->admin->forceFill(['salary_amount' => 5000])->save();
         $before = $this->mutable($this->admin);
 
@@ -338,6 +343,9 @@ class DepartmentAdminRouteMatrixTest extends TestCase
 
     public function test_he_cannot_touch_people_who_outrank_him_or_sit_outside_his_department(): void
     {
+        // The equal-rank peer holds something administrative he lacks, so the delegation subset rule protects it.
+        $this->peer->givePermissionTo(Permission::findOrCreate('hr.payroll.view', 'web'));
+        app(DepartmentScope::class)->forget();
         $password = ['password' => 'Str0ng!Passw0rd#2026', 'password_confirmation' => 'Str0ng!Passw0rd#2026'];
         foreach ([$this->hrInD1, $this->peer, $this->hr, $this->c1, $this->d2Admin] as $target) {
             $before = $this->mutable($target);
@@ -370,6 +378,7 @@ class DepartmentAdminRouteMatrixTest extends TestCase
 
     public function test_he_cannot_approve_his_own_leave_overtime_or_regularization(): void
     {
+        $this->withoutSelfAdministration();
         $type = LeaveSetting::first();
         $own = Leave::create(['user_id' => $this->admin->employee_id, 'leave_type' => $type->id, 'from_date' => '2026-06-20', 'to_date' => '2026-06-20', 'no_of_days' => 1, 'status' => 'Pending', 'reason' => 'mine']);
         $this->as($this->admin)->postJson(route('leaves.approve', $own->id))->assertForbidden();

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\HRM\Asset;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\SelfAdministration;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -154,6 +155,8 @@ class AssetController extends Controller
             'notes' => $validated['notes'] ?? $asset->notes,
         ]);
 
+        $this->recordSelfAdministration($request, (string) $validated['employee_id'], 'asset.assign', "assigned asset {$asset->asset_code} to himself", $asset->id);
+
         return response()->json([
             'message' => "Asset {$asset->asset_code} assigned to employee.",
             'asset' => $asset->fresh('assignee'),
@@ -173,6 +176,8 @@ class AssetController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $previousAssignee = (string) $asset->assignee_id;
+
         $asset->update([
             'return_date' => now(),
             'status' => $validated['condition_on_return'] === 'damaged' ? Asset::STATUS_DAMAGED : Asset::STATUS_AVAILABLE,
@@ -180,6 +185,8 @@ class AssetController extends Controller
             'assignee_id' => null,
             'notes' => ! empty($validated['notes']) ? ($asset->notes."\nReturn Note: ".$validated['notes']) : $asset->notes,
         ]);
+
+        $this->recordSelfAdministration($request, $previousAssignee, 'asset.return', "returned asset {$asset->asset_code} from himself", $asset->id);
 
         return response()->json([
             'message' => "Asset {$asset->asset_code} marked as returned.",
@@ -211,5 +218,15 @@ class AssetController extends Controller
         $asset->delete();
 
         return response()->json(['message' => 'Asset deleted successfully.']);
+    }
+
+    /** Compensating control: a non-global actor acting on his OWN asset custody is logged and announced. */
+    private function recordSelfAdministration(Request $request, string $employeeId, string $action, string $summary, int $assetId): void
+    {
+        $actor = $request->user();
+        $scope = app(DepartmentScope::class);
+        if ($actor && $employeeId !== '' && $employeeId === (string) $actor->getKey() && ! $scope->isGlobal($actor)) {
+            app(SelfAdministration::class)->record($actor, $action, $summary, 'asset', $assetId);
+        }
     }
 }

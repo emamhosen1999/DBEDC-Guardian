@@ -22,9 +22,10 @@ class AttendanceTeamDayEndpointTest extends TestCase
     {
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Role::firstOrCreate(['name' => 'Employee']);
-        Role::firstOrCreate(['name' => 'Project Manager']);
-        Role::firstOrCreate(['name' => 'Administrator']);
+        // The production hierarchy (ComprehensiveRolePermissionSeeder): acting on someone needs a stronger role.
+        Role::updateOrCreate(['name' => 'Employee', 'guard_name' => 'web'], ['hierarchy_level' => 60]);
+        Role::updateOrCreate(['name' => 'Project Manager', 'guard_name' => 'web'], ['hierarchy_level' => 20]);
+        Role::updateOrCreate(['name' => 'Administrator', 'guard_name' => 'web'], ['hierarchy_level' => 10]);
         Permission::firstOrCreate(['name' => 'attendance.view']);
         Permission::firstOrCreate(['name' => 'attendance.correct']);
     }
@@ -108,6 +109,13 @@ class AttendanceTeamDayEndpointTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.counts.present', 2)
             ->assertJsonPath('data.counts.absent', 0);
+
+        // Not on his team: the parity endpoint refuses, exactly like the web action.
+        $outsider = User::factory()->create(['employee_id' => 'EMP-1003']);
+        $outsider->assignRole('Employee');
+        $this->postJson('/api/v1/attendance/mark-present', ['user_id' => $outsider->id, 'date' => $date])
+            ->assertForbidden();
+        $this->assertFalse(Attendance::where('user_id', $outsider->id)->whereDate('date', $date)->exists());
 
         Carbon::setTestNow();
     }

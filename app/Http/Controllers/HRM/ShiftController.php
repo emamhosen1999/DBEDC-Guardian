@@ -468,7 +468,7 @@ class ShiftController extends Controller
 
         if ($scopeType === 'user') {
             foreach ($scopeIds as $id) {
-                if (! $this->scope->canActOn($actor, (string) $id, allowSelf: true)) {
+                if (! $this->scope->canActOn($actor, (string) $id)) {
                     abort(403, 'Unauthorized to assign shifts to employees outside your department.');
                 }
             }
@@ -481,7 +481,7 @@ class ShiftController extends Controller
         $managed = $this->scope->managedDepartmentIds($actor);
 
         return match ($assignment->scope_type) {
-            'user' => $this->scope->canActOn($actor, (string) $assignment->scope_id, allowSelf: true),
+            'user' => $this->scope->canActOn($actor, (string) $assignment->scope_id),
             'department' => in_array((int) $assignment->scope_id, $managed, true),
             'designation' => Designation::whereKey($assignment->scope_id)
                 ->whereIn('department_id', $managed)
