@@ -37,9 +37,6 @@ class CombinedSeeder extends Seeder
         // Seed departments
         $this->call(DepartmentSeeder::class);
 
-        // Seed monitoring roles
-        $this->call(MonitoringRoleSeeder::class);
-
         // Seed HRM module data
         $this->createDocumentCategories();
         $this->seedSkillsAndCompetencies();

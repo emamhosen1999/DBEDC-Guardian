@@ -126,6 +126,13 @@ return [
     'teams' => false,
 
     /*
+     * Dispatch RoleAttached / RoleDetached / PermissionAttached / PermissionDetached. On: they feed
+     * the access audit ledger (App\Listeners\RecordAccessAudit -> access_audit_logs).
+     */
+
+    'events_enabled' => env('PERMISSION_EVENTS_ENABLED', true),
+
+    /*
      * Passport Client Credentials Grant
      * When set to true the package will use Passports Client to check permissions
      */

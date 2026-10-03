@@ -412,6 +412,35 @@ class UserManagementService
     }
 
     /**
+     * Bring a user to exactly $target roles WITHOUT the detach-everything-first step of syncRoles():
+     * attach what is missing, then detach what is extra. The RBAC pivots are MyISAM in production (no
+     * transaction protects them), so a run that dies halfway must leave the user with a superset of
+     * the old or the new roles, never with none. Idempotent; the sync epoch moves only on a real change.
+     *
+     * @param  array<int, string>  $target
+     * @return array{added: array<int, string>, removed: array<int, string>}
+     */
+    public function reconcileRoles(User $user, array $target): array
+    {
+        $current = $user->roles()->pluck('name')->all();
+        $add = array_values(array_diff($target, $current));
+        $remove = array_values(array_diff($current, $target));
+
+        if ($add !== []) {
+            $user->assignRole($add);
+        }
+        if ($remove !== []) {
+            $user->removeRole($remove);
+        }
+        if ($add !== [] || $remove !== []) {
+            $this->bumpSyncEpochSafely($user);
+            $user->unsetRelation('roles');
+        }
+
+        return ['added' => $add, 'removed' => $remove];
+    }
+
+    /**
      * Bulk-assign a role to multiple users.
      *
      * @return int Number of users processed.

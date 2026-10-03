@@ -12,7 +12,7 @@ import DateTimePicker from '@/Components/DateTimePicker';
 const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers = [], parentDepartments = [], readOnly = false }) => {
     const [errors, setErrors] = useState({});
     const { auth } = usePage().props;
-    const canEditDefaultRoles = Boolean(auth?.roles?.some((r) => r === 'Super Administrator' || r === 'Administrator'));
+    const canEditDefaultRoles = Boolean(auth?.roles?.includes('Super Administrator'));
     const [roleOptions, setRoleOptions] = useState([]);
     useEffect(() => {
         if (!open || !canEditDefaultRoles) return;

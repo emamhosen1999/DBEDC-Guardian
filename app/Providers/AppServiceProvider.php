@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\Ai\AiProvider;
+use App\Listeners\RecordAccessAudit;
 use App\Models\Jurisdiction;
 use App\Models\OmAsset;
 use App\Models\OmAssetConditionSurvey;
@@ -27,6 +28,7 @@ use App\Models\PettyCashLoan;
 use App\Models\PettyCashTransaction;
 use App\Observers\OperationsRealtimeObserver;
 use App\Observers\PettyCashRealtimeObserver;
+use App\Services\Access\AccessAudit;
 use App\Services\Access\DepartmentScope;
 use App\Services\Aeon\AeonService;
 use App\Services\Aeon\Data\AeonAccess;
@@ -69,6 +71,10 @@ class AppServiceProvider extends ServiceProvider
         // dropped after every handled HTTP request (see boot()).
         $this->app->scoped(DepartmentScope::class);
 
+        // The access audit ledger carries its actor / plan-hash context while a command runs. A singleton, not scoped:
+        // the Spatie-event subscriber is resolved once at boot and must share the instance the command writes its context to.
+        $this->app->singleton(AccessAudit::class);
+
         // --- Aeon AI Assistant Engine Bindings ---
         $this->app->bind(AiProvider::class, function ($app) {
             $driver = (string) config('aeon.provider', 'gemini');
@@ -101,6 +107,9 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
 
         Event::listen(RequestHandled::class, fn () => $this->app->forgetInstance(DepartmentScope::class));
+
+        // Every role / permission attach and detach lands in access_audit_logs (needs permission.events_enabled).
+        Event::subscribe(RecordAccessAudit::class);
 
         Model::preventLazyLoading(! $this->app->isProduction());
 

@@ -64,7 +64,7 @@ export const getPages = (roles, permissions, auth = null, features = {}) => {
   // 1. Define the condition
   // "Just an employee": the Employee role, optionally next to Daily Works Contributor (field reporting) —
   // mirrors App\Models\User::hasOnlyBaseRoles().
-  const BASE_ROLES = ['Employee', 'Daily Works Contributor'];
+  const BASE_ROLES = ['Employee', 'Daily Works Contributor', 'Quality Contributor'];
   const isOnlyEmployee = !isSuperAdmin && Array.isArray(roles) && roles.includes('Employee') && roles.every((role) => BASE_ROLES.includes(role));
   const hasEmployeeRole = roles?.includes('Employee');
 

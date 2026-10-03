@@ -90,7 +90,7 @@ class PeerManagementTest extends TestCase
 
     public function test_lower_ranked_staff_with_functional_roles_remain_manageable(): void
     {
-        $lead = $this->person('Team Lead One', $this->d1, ['Team Lead', 'Employee']);
+        $lead = $this->person('Line Manager One', $this->d1, ['Line Manager', 'Employee']);
 
         $this->actingAs($this->admin)
             ->putJson(route('users.update', $lead->employee_id), ['name' => 'Lead Renamed'])

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\Access\RoleCatalog;
 use Illuminate\Console\Command;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -611,90 +612,17 @@ class ComprehensiveRolePermissionSeeder extends Seeder
     }
 
     /**
-     * Create roles with hierarchy levels
+     * Create the catalog's roles with their hierarchy levels. Retired roles (Admin, Project Manager,
+     * Senior Employee, Contractor, Intern) are NOT recreated, and neither is the old name of a renamed one.
      */
     private function createRoles(): void
     {
-        $roles = [
-            [
-                'name' => 'Super Administrator',
-                'description' => 'Full system access with all privileges',
-                'hierarchy_level' => 1,
-                'is_system_role' => true,
-            ],
-            [
-                'name' => 'Administrator',
-                'description' => 'Administrative access to most system functions',
-                'hierarchy_level' => 10,
-                'is_system_role' => true,
-            ],
-            [
-                'name' => 'HR Manager',
-                'description' => 'Human resources management and employee operations',
-                'hierarchy_level' => 20,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Project Manager',
-                'description' => 'Project and portfolio management capabilities',
-                'hierarchy_level' => 20,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Department Admin',
-                'description' => 'Department-scoped administrator: full operations within assigned department(s)',
-                'hierarchy_level' => 25,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Department Manager',
-                'description' => 'Departmental management and team oversight',
-                'hierarchy_level' => 30,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Team Lead',
-                'description' => 'Team leadership and basic management functions',
-                'hierarchy_level' => 40,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Senior Employee',
-                'description' => 'Senior level employee with extended access',
-                'hierarchy_level' => 50,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Employee',
-                'description' => 'Standard employee access to self-service functions',
-                'hierarchy_level' => 60,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Daily Works Contributor',
-                'description' => 'Field reporting: daily works and tasks. Held next to the base Employee role by staff who file daily works.',
-                'hierarchy_level' => 60,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Contractor',
-                'description' => 'Limited access for contractors and temporary staff',
-                'hierarchy_level' => 70,
-                'is_system_role' => false,
-            ],
-            [
-                'name' => 'Intern',
-                'description' => 'Basic access for interns and trainees',
-                'hierarchy_level' => 80,
-                'is_system_role' => false,
-            ],
-        ];
-
-        foreach ($roles as $roleData) {
-            Role::firstOrCreate([
-                'name' => $roleData['name'],
-                'guard_name' => 'web',
-            ], $roleData);
+        foreach (RoleCatalog::definitions() as $name => $definition) {
+            Role::firstOrCreate(['name' => $name, 'guard_name' => 'web'], [
+                'description' => $definition['description'],
+                'hierarchy_level' => $definition['level'],
+                'is_system_role' => $definition['system'],
+            ]);
         }
 
         if ($this->command) {
@@ -703,281 +631,23 @@ class ComprehensiveRolePermissionSeeder extends Seeder
     }
 
     /**
-     * Assign permissions to roles based on hierarchy and responsibility
+     * Every role gets its EXACT permission set from the one RoleCatalog definition (docs/audit/ROLE_CATALOG_2026-10-03.md,
+     * section 4.2): synced, never additive, no LIKE wildcards - so re-seeding repairs drift instead of adding to it.
      */
     private function assignPermissionsToRoles(): void
     {
-        // Super Administrator - All permissions
-        $superAdmin = Role::findByName('Super Administrator');
-        $superAdmin->givePermissionTo(Permission::all());
+        RoleCatalog::seed();
 
-        // Administrator - Most permissions except super admin functions
-        $admin = Role::findByName('Administrator');
-        $adminPermissions = Permission::whereNotIn('name', [
-            'users.impersonate',
-            'backup.create',
-            'backup.restore',
-        ])->get();
-        $admin->givePermissionTo($adminPermissions);
-
-        // Finance roles (not seeded everywhere — grant only where they exist)
+        // Finance roles (not seeded everywhere - grant only where they exist)
         Role::whereIn('name', ['Finance Manager', 'Accountant'])->where('guard_name', 'web')->get()
             ->each->givePermissionTo(['petty-cash.view-all', 'petty-cash.approve', 'petty-cash.manage']);
 
-        // HR Manager - HR and employee management
-        $hrManager = Role::findByName('HR Manager');
-        $hrPermissions = Permission::whereIn('module', ['core', 'self-service', 'hrm', 'dms', 'performance', 'training', 'recruitment'])
-            ->orWhere('name', 'like', 'users.%')
-            ->orWhere('name', 'like', 'settings.%')
-            ->orWhere('name', 'like', 'company.%')
-            ->orWhere('name', 'like', 'attendance.%')
-            ->orWhere('name', 'like', 'leave-%')
-            ->orWhere('name', 'like', 'performance-%')
-            ->orWhere('name', 'like', 'training-%')
-            ->orWhere('name', 'like', 'jobs.%')
-            ->orWhere('name', 'like', 'job-%')
-            ->orWhere('name', 'like', 'recruitment-%')
-            ->orWhere('name', 'like', 'hr.%') // Include all new HR permissions
-            ->get();
-        $hrManager->givePermissionTo($hrPermissions);
-
-        // Project Manager - Project and portfolio management
-        $projectManager = Role::findByName('Project Manager');
-        $projectPermissions = Permission::whereIn('module', ['core', 'self-service', 'ppm', 'dms'])
-            ->orWhere('name', 'like', 'employees.view')
-            ->orWhere('name', 'like', 'departments.view')
-            ->orWhere('name', 'like', 'designations.view')
-            ->get();
-        $projectManager->givePermissionTo($projectPermissions);
-
-        // Department Manager - Full departmental oversight & operations
-        $deptManager = Role::findByName('Department Manager');
-        $deptPermissions = Permission::whereIn('module', ['core', 'self-service', 'ppm'])
-            ->orWhereIn('name', [
-                // Employee Management
-                'employees.view',
-                'employees.update',
-                'employees.placement.update', // was covered by employees.update (work location); mirrors the split migration
-                'departments.view',
-                'designations.view',
-
-                // Attendance Management (full dept operations)
-                'attendance.view',
-                'attendance.create',
-                'attendance.update',
-                'attendance.correct',
-                'attendance.export',
-                'holidays.view',
-
-                // Leave Management (full dept operations)
-                'leaves.view',
-                'leaves.create',
-                'leaves.update',
-                'leaves.approve',
-
-                // Quality Management (Quality Control dept operations)
-                'quality.view',
-                'quality.ncr.view',
-                'quality.ncr.create',
-                'quality.ncr.update',
-
-                // Daily Works (full dept operations)
-                'daily-works.delete',
-                'daily-works.import',
-                'daily-works.export',
-
-                // Performance Management
-                'performance-reviews.view',
-                'performance-reviews.create',
-                'performance-reviews.update',
-                'performance-reviews.approve',
-                'performance-analytics.view',
-
-                // Onboarding & Offboarding (view + create/update)
-                'hr.onboarding.view',
-                'hr.onboarding.create',
-                'hr.onboarding.update',
-                'hr.offboarding.view',
-                'hr.offboarding.create',
-                'hr.offboarding.update',
-
-                // Skills & Competency (full dept operations)
-                'hr.skills.view',
-                'hr.competencies.view',
-                'hr.employee.skills.view',
-                'hr.employee.skills.create',
-                'hr.employee.skills.update',
-                'hr.employee.skills.delete',
-
-                // Employee Benefits
-                'hr.employee.benefits.view',
-
-                // Time-off Management (full dept operations)
-                'hr.timeoff.view',
-                'hr.timeoff.approve',
-                'hr.timeoff.reject',
-                'hr.timeoff.calendar.view',
-                'hr.timeoff.reports.view',
-
-                // Safety & Incidents
-                'hr.safety.view',
-                'hr.safety.incidents.view',
-                'hr.safety.incidents.create',
-                'hr.safety.inspections.view',
-
-                // HR Analytics
-                'hr.analytics.view',
-                'hr.analytics.attendance',
-                'hr.analytics.performance',
-
-                // HR Documents
-                'hr.documents.view',
-                'hr.employee.documents.view',
-                'hr.employee.documents.create',
-            ])
-            ->get();
-        $deptManager->givePermissionTo($deptPermissions);
-
-        // Department Admin - a department-only HR operator. The role defines WHAT the
-        // holder may do; their home department (App\Services\Access\DepartmentScope)
-        // defines ON WHOM. Synced, never additive: re-seeding narrows a role that was
-        // created from an earlier, broader definition.
-        Role::findByName('Department Admin')->syncPermissions(
-            Permission::query()
-                ->where('guard_name', 'web')
-                ->whereIn('name', self::departmentAdminPermissionNames())
-                ->get()
-        );
-
-        // Department scope grants are managed by the company-wide HR roles.
-        $hrManager->givePermissionTo('department.scopes.manage');
-
-        // Team Lead - Team management
-        $teamLead = Role::findByName('Team Lead');
-        $teamPermissions = Permission::whereIn('module', ['core', 'self-service'])
-            ->orWhereIn('name', [
-                'employees.view',
-                'attendance.view',
-                'leaves.view',
-                'daily-works.view',
-                'daily-works.create',
-                'daily-works.update',
-                'tasks.view',
-                'tasks.create',
-                'tasks.update',
-                'tasks.assign',
-                'performance-reviews.view',
-                'performance-reviews.create',
-                'performance-reviews.update',
-                'training-sessions.view',
-                'training-enrollments.view',
-                'training-enrollments.create',
-                'training-assignment-submissions.view',
-                'training-assignment-submissions.grade',
-                'hr.employee.skills.view',
-                'hr.timeoff.view',
-                'hr.timeoff.approve',
-                'hr.timeoff.calendar.view',
-                'hr.safety.view',
-                'hr.safety.incidents.view',
-            ])
-            ->get();
-        $teamLead->givePermissionTo($teamPermissions);
-
-        // Senior Employee - Extended self-service
-        $seniorEmployee = Role::findByName('Senior Employee');
-        $seniorPermissions = Permission::whereIn('module', ['core', 'self-service'])
-            ->orWhereIn('name', [
-                'daily-works.view',
-                'daily-works.create',
-                'daily-works.update',
-                'tasks.view',
-                'tasks.create',
-                'tasks.update',
-                'performance-reviews.own.view',
-                'performance-reviews.own.create',
-                'performance-reviews.own.update',
-                'training-feedback.own.view',
-                'training-feedback.own.create',
-                'training-assignment-submissions.create',
-                'training-assignment-submissions.update',
-            ])
-            ->get();
-        $seniorEmployee->givePermissionTo($seniorPermissions);
-
-        // Employee - Basic self-service. Field reporting (daily works, tasks) is NOT self-service: it
-        // lives in the Daily Works Contributor role below, held next to this one by staff who file
-        // daily works (migration 2026_10_01_000002_split_daily_works_contributor_from_employee).
-        $employee = Role::findByName('Employee');
-        $employeePermissions = Permission::whereIn('module', ['core', 'self-service'])
-            ->orWhereIn('name', [
-                'performance-reviews.own.view',
-                'training-feedback.own.view',
-                'training-feedback.own.create',
-                'training-assignment-submissions.create',
-                'hr.selfservice.view',
-                'hr.selfservice.profile.view',
-                'hr.selfservice.profile.update',
-                'hr.selfservice.documents.view',
-                'hr.selfservice.benefits.view',
-                'hr.selfservice.timeoff.view',
-                'hr.selfservice.timeoff.request',
-                'hr.selfservice.trainings.view',
-                'hr.selfservice.payslips.view',
-                'hr.selfservice.performance.view',
-                'hr.safety.incidents.create',
-            ])
-            ->get();
-        $employee->givePermissionTo($employeePermissions);
-
-        // Daily Works Contributor - the functional (field reporting) half of what Employee used to carry.
-        Role::findByName('Daily Works Contributor')->syncPermissions(
-            Permission::query()->where('guard_name', 'web')->whereIn('name', self::dailyWorksContributorPermissionNames())->get()
-        );
-
-        // DWC is a DEPARTMENT default role: Quality Control employees receive it automatically (departments.default_roles).
-        // Only seeds an unconfigured Quality Control; never overwrites what an administrator set.
+        // DWC and Quality Contributor are DEPARTMENT default roles: Quality Control employees receive them
+        // automatically (departments.default_roles). Only seeds an unconfigured Quality Control; never
+        // overwrites what a Super Administrator set.
         DB::table('departments')
             ->where('name', 'Quality Control')->whereNull('default_roles')
-            ->update(['default_roles' => json_encode(['Daily Works Contributor'])]);
-
-        // Contractor - Limited access
-        $contractor = Role::findByName('Contractor');
-        $contractorPermissions = Permission::whereIn('name', [
-            'dashboard.view',
-            'attendance.own.view',
-            'attendance.own.punch',
-            'profile.own.view',
-            'profile.own.update',
-            'profile.password.change',
-            'daily-works.view',
-            'daily-works.create',
-            'tasks.view',
-        ])
-            ->get();
-        $contractor->givePermissionTo($contractorPermissions);
-
-        // Intern - Minimal access
-        $intern = Role::findByName('Intern');
-        $internPermissions = Permission::whereIn('name', [
-            'dashboard.view',
-            'attendance.own.view',
-            'attendance.own.punch',
-            'profile.own.view',
-            'profile.password.change',
-            'tasks.view',
-        ])
-            ->get();
-        $intern->givePermissionTo($internPermissions);
-
-        // Whoever can configure attendance keeps the per-employee roster / shift-assignment
-        // abilities that used to ride on the same permission (custom roles included).
-        Role::query()
-            ->where('guard_name', 'web')
-            ->whereHas('permissions', fn ($query) => $query->where('name', 'attendance.settings'))
-            ->with('permissions')
-            ->get()
-            ->each->givePermissionTo('attendance.roster.manage');
+            ->update(['default_roles' => json_encode(['Daily Works Contributor', 'Quality Contributor'])]);
 
         if ($this->command) {
             $this->command->info('✅ Permissions assigned to all roles');

@@ -406,10 +406,10 @@ class DepartmentController extends Controller
         ]);
     }
 
-    /** Roles an Administrator may list as a department default (global admins only). */
+    /** Roles a Super Administrator may list as a department default. */
     public function defaultRoleOptions(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasRole(['Super Administrator', 'Administrator']), 403);
+        abort_unless($request->user()->hasRole('Super Administrator'), 403);
 
         return response()->json([
             'roles' => Role::query()->where('guard_name', 'web')
@@ -419,8 +419,8 @@ class DepartmentController extends Controller
 
     /**
      * default_roles decides which functional roles every employee of the department receives, so
-     * only Super Administrators / Administrators may set it; anyone else's value is refused when it
-     * would change it and otherwise dropped.
+     * only a Super Administrator may set it (owner decision O-15); anyone else's value is refused when
+     * it would change it and otherwise dropped.
      */
     private function withDefaultRolesForGlobalAdmin(Request $request, array $data, ?Department $existing): array
     {
@@ -428,7 +428,7 @@ class DepartmentController extends Controller
             return $data;
         }
         $requested = $data['default_roles'] === null ? null : array_values(array_unique($data['default_roles']));
-        if ($request->user()->hasRole(['Super Administrator', 'Administrator'])) {
+        if ($request->user()->hasRole('Super Administrator')) {
             $data['default_roles'] = $requested ?: null;
 
             return $data;
@@ -437,7 +437,7 @@ class DepartmentController extends Controller
         // The edit form echoes the current value back: unchanged is a no-op, a change is refused.
         $current = collect($existing?->default_roles ?? [])->sort()->values()->all();
         if (collect($requested ?? [])->sort()->values()->all() !== $current) {
-            abort(403, 'Only an Administrator may change a department\'s default roles.');
+            abort(403, 'Only a Super Administrator may change a department\'s default roles.');
         }
         unset($data['default_roles']);
 

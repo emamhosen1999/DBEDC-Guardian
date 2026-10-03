@@ -64,12 +64,16 @@ class DepartmentDefaultRolesTest extends TestCase
         $this->assertSame(['Employee'], $this->rolesOf('7002'));
     }
 
-    public function test_hr_form_roles_are_honoured_as_sent(): void
+    public function test_only_a_role_manager_can_choose_roles_at_creation(): void
     {
-        // The form pre-ticks the department's defaults; whatever the HR user finally ticked is what is saved.
+        // Owner decision O-15: HR no longer administers access, so an HR hire is Employee + the department's defaults
+        // whatever the form sent. A Super Administrator's choice is honoured as sent.
         $this->actingAs($this->hr)->postJson(route('users.store'), $this->payload('7003', $this->qc, ['roles' => ['Employee']]))->assertCreated();
+        $this->assertSame([self::DWC, 'Employee'], $this->rolesOf('7003'));
 
-        $this->assertSame(['Employee'], $this->rolesOf('7003'));
+        $superAdmin = $this->person('Super Admin', null, ['Super Administrator', 'Employee']);
+        $this->actingAs($superAdmin)->postJson(route('users.store'), $this->payload('7006', $this->qc, ['roles' => ['Employee']]))->assertCreated();
+        $this->assertSame(['Employee'], $this->rolesOf('7006'));
     }
 
     public function test_department_admin_hire_gets_employee_plus_his_departments_defaults_server_side(): void
@@ -86,13 +90,13 @@ class DepartmentDefaultRolesTest extends TestCase
 
     public function test_transfer_into_qc_adds_dwc_and_out_removes_it_but_keeps_other_roles(): void
     {
-        $user = $this->person('Mover', $this->d1, ['Employee', 'Team Lead']);
+        $user = $this->person('Mover', $this->d1, ['Employee', 'Line Manager']);
 
         $this->actingAs($this->hr)->putJson(route('users.update-department', $user->employee_id), ['department' => $this->qc->id])->assertOk();
-        $this->assertSame([self::DWC, 'Employee', 'Team Lead'], $this->rolesOf($user->employee_id));
+        $this->assertSame([self::DWC, 'Employee', 'Line Manager'], $this->rolesOf($user->employee_id));
 
         $this->actingAs($this->hr)->putJson(route('users.update-department', $user->employee_id), ['department' => $this->d1->id])->assertOk();
-        $this->assertSame(['Employee', 'Team Lead'], $this->rolesOf($user->employee_id));
+        $this->assertSame(['Employee', 'Line Manager'], $this->rolesOf($user->employee_id));
     }
 
     public function test_transfer_never_removes_a_role_no_department_manages_or_privileged_ones(): void
@@ -139,7 +143,7 @@ class DepartmentDefaultRolesTest extends TestCase
 
     public function test_a_department_admin_cannot_change_roles_his_edits_preserve_them(): void
     {
-        $target = $this->person('Keeps Roles', $this->d1, ['Employee', 'Team Lead']);
+        $target = $this->person('Keeps Roles', $this->d1, ['Employee', 'Line Manager']);
         $before = $this->rolesOf($target->employee_id);
 
         // Profile edit with a hostile roles payload: ignored, roles untouched.

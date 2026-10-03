@@ -1,0 +1,1670 @@
+{
+    "version": 1,
+    "catalog": "docs/audit/ROLE_CATALOG_2026-10-03.md",
+    "baseline": "production RBAC snapshot of 2026-10-03 14:56:08, plus: 169 holds Department Admin, QC head manager_id = 123",
+    "decisions": [
+        "O-2",
+        "O-3",
+        "O-4",
+        "O-5",
+        "O-6",
+        "O-12",
+        "O-15",
+        "Q3"
+    ],
+    "notes": [
+        "target.roles and target.direct_permissions are ABSOLUTE: re-running converges.",
+        "expected_losses is what each user loses once the A4 migration trims the role sets; access:apply-catalog itself loses nothing.",
+        "tasks.* stays on every role that holds it today (Q3); it is in no expected_losses.",
+        "1537 keeps the documented access.self-administration exception; 151 is left unchanged (O-11 is undecided).",
+        "role_sets_before is the production role -> permission snapshot the losses were computed against."
+    ],
+    "department_default_roles": {
+        "11": [
+            "Daily Works Contributor",
+            "Quality Contributor"
+        ]
+    },
+    "detach_roles_from_inactive_users": true,
+    "delete_roles_when_unheld": [
+        "Admin"
+    ],
+    "users": {
+        "7": {
+            "name": "MD. Munirujjaman",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "97": {
+            "name": "Md. Nazmul Hasan",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "120": {
+            "name": "Debashis Jha",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Line Manager",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "122": {
+            "name": "Subrata Kumar Chaki",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "123": {
+            "name": "Md. Abul Bashar",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Department Manager",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Department Manager",
+                    "Quality Manager",
+                    "Daily Works Manager",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "hr.analytics.attendance",
+                "hr.analytics.performance",
+                "hr.analytics.view",
+                "hr.competencies.view",
+                "hr.documents.view",
+                "hr.employee.benefits.view",
+                "hr.employee.documents.create",
+                "hr.employee.documents.view",
+                "hr.employee.skills.create",
+                "hr.employee.skills.delete",
+                "hr.employee.skills.update",
+                "hr.employee.skills.view",
+                "hr.safety.incidents.view",
+                "hr.safety.inspections.view",
+                "hr.safety.view",
+                "hr.skills.view",
+                "hr.timeoff.approve",
+                "hr.timeoff.calendar.view",
+                "hr.timeoff.reject",
+                "hr.timeoff.reports.view",
+                "hr.timeoff.view",
+                "performance-analytics.view",
+                "performance-reviews.approve",
+                "performance-reviews.create",
+                "performance-reviews.update",
+                "performance-reviews.view",
+                "projects.analytics",
+                "reports.create",
+                "reports.delete",
+                "reports.update",
+                "reports.view"
+            ]
+        },
+        "126": {
+            "name": "Prodip Kumar Saha",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Line Manager",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "127": {
+            "name": "Md. Habibur Rahman",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Maintenance Inspector / QC Specialist",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Line Manager",
+                    "Quality Manager",
+                    "Daily Works Manager",
+                    "Maintenance Inspector",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "130": {
+            "name": "Kazi Rayhan",
+            "department_id": 12,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Line Manager",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "131": {
+            "name": "Md. Fuad Amin",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "leave.own.view"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "142": {
+            "name": "Md. Sobuj",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "143": {
+            "name": "Md. Uzzal Mia",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "145": {
+            "name": "Md. Babar Sardar",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "149": {
+            "name": "Muhammad Rajibul Hoque Molla",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "151": {
+            "name": "Emam Hosen",
+            "department_id": 22,
+            "current": {
+                "roles": [
+                    "Super Administrator",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Super Administrator",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "152": {
+            "name": "Md. Emamul Hasan Jasim",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "154": {
+            "name": "Shajahan Ali",
+            "department_id": 12,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "155": {
+            "name": "Razib Mia",
+            "department_id": 12,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "159": {
+            "name": "A. K. M Shifur Rahaman",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "169": {
+            "name": "Md. Fahim Hossain",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Department Manager",
+                    "Employee",
+                    "Department Admin",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": [
+                    "attendance.export"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Department Admin",
+                    "Department Manager",
+                    "Quality Manager",
+                    "Daily Works Manager",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "hr.analytics.attendance",
+                "hr.analytics.performance",
+                "hr.analytics.view",
+                "hr.competencies.view",
+                "hr.documents.view",
+                "hr.employee.benefits.view",
+                "hr.employee.documents.create",
+                "hr.employee.documents.view",
+                "hr.employee.skills.create",
+                "hr.employee.skills.delete",
+                "hr.employee.skills.update",
+                "hr.employee.skills.view",
+                "hr.safety.incidents.view",
+                "hr.safety.inspections.view",
+                "hr.safety.view",
+                "hr.skills.view",
+                "hr.timeoff.approve",
+                "hr.timeoff.calendar.view",
+                "hr.timeoff.reject",
+                "hr.timeoff.reports.view",
+                "hr.timeoff.view",
+                "performance-analytics.view",
+                "performance-reviews.approve",
+                "performance-reviews.create",
+                "performance-reviews.update",
+                "performance-reviews.view",
+                "projects.analytics",
+                "reports.create",
+                "reports.delete",
+                "reports.update",
+                "reports.view"
+            ]
+        },
+        "272": {
+            "name": "Md. Main Uddin Sarker",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "301": {
+            "name": "Suza Ud Doula",
+            "department_id": 12,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "302": {
+            "name": "Sudip Dhar Sharma",
+            "department_id": 12,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "304": {
+            "name": "Md. Mazed Mia",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "306": {
+            "name": "Tanvir Mahmud Saif",
+            "department_id": 22,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "TMC Operator"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "TMC Operator",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "daily-works.create",
+                "daily-works.delete",
+                "daily-works.export",
+                "daily-works.import",
+                "daily-works.update",
+                "daily-works.view"
+            ]
+        },
+        "307": {
+            "name": "Md. Abdul Hannan",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "308": {
+            "name": "Zidan Ul Azim",
+            "department_id": 22,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "TMC Operator"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "TMC Operator",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "daily-works.create",
+                "daily-works.delete",
+                "daily-works.export",
+                "daily-works.import",
+                "daily-works.update",
+                "daily-works.view"
+            ]
+        },
+        "309": {
+            "name": "Md. Ali Amzad",
+            "department_id": 22,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "TMC Operator"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "TMC Operator",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "daily-works.create",
+                "daily-works.delete",
+                "daily-works.export",
+                "daily-works.import",
+                "daily-works.update",
+                "daily-works.view"
+            ]
+        },
+        "310": {
+            "name": "Md. Razon Miah",
+            "department_id": 22,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "356": {
+            "name": "Nymul Islam",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "397": {
+            "name": "Keshab Lal Kundu",
+            "department_id": 22,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "TMC Operator"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "TMC Operator",
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "daily-works.create",
+                "daily-works.delete",
+                "daily-works.export",
+                "daily-works.import",
+                "daily-works.update",
+                "daily-works.view"
+            ]
+        },
+        "538": {
+            "name": "A.S.M Oli Ahammed",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "896": {
+            "name": "Wang Fu",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Department Manager",
+                    "O&M Director",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "O&M Director",
+                    "Department Manager",
+                    "Quality Manager",
+                    "Daily Works Manager",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": [
+                "compliance.audits.create",
+                "compliance.audits.delete",
+                "compliance.audits.update",
+                "compliance.audits.view",
+                "compliance.dashboard.view",
+                "compliance.documents.create",
+                "compliance.documents.delete",
+                "compliance.documents.update",
+                "compliance.documents.view",
+                "compliance.requirements.create",
+                "compliance.requirements.delete",
+                "compliance.requirements.update",
+                "compliance.requirements.view",
+                "compliance.settings",
+                "compliance.view",
+                "hr.analytics.attendance",
+                "hr.analytics.performance",
+                "hr.analytics.view",
+                "hr.competencies.view",
+                "hr.documents.view",
+                "hr.employee.benefits.view",
+                "hr.employee.documents.create",
+                "hr.employee.documents.view",
+                "hr.employee.skills.create",
+                "hr.employee.skills.delete",
+                "hr.employee.skills.update",
+                "hr.employee.skills.view",
+                "hr.safety.incidents.view",
+                "hr.safety.inspections.view",
+                "hr.safety.view",
+                "hr.skills.view",
+                "hr.timeoff.approve",
+                "hr.timeoff.calendar.view",
+                "hr.timeoff.reject",
+                "hr.timeoff.reports.view",
+                "hr.timeoff.view",
+                "performance-analytics.view",
+                "performance-reviews.approve",
+                "performance-reviews.create",
+                "performance-reviews.update",
+                "performance-reviews.view",
+                "projects.analytics",
+                "reports.create",
+                "reports.delete",
+                "reports.update",
+                "reports.view"
+            ]
+        },
+        "1536": {
+            "name": "Md. Raisul Islam Rahat",
+            "department_id": 11,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Line Manager",
+                    "Quality Contributor",
+                    "Employee",
+                    "Daily Works Contributor"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        },
+        "1537": {
+            "name": "Mahadi Hasan",
+            "department_id": 30,
+            "current": {
+                "roles": [
+                    "Employee",
+                    "Department Admin"
+                ],
+                "direct_permissions": [
+                    "access.self-administration"
+                ]
+            },
+            "target": {
+                "roles": [
+                    "Department Admin",
+                    "Employee"
+                ],
+                "direct_permissions": [
+                    "access.self-administration"
+                ]
+            },
+            "expected_losses": []
+        },
+        "160002": {
+            "name": "MD HAIDAR HOSSAIN",
+            "department_id": 30,
+            "current": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "target": {
+                "roles": [
+                    "Employee"
+                ],
+                "direct_permissions": []
+            },
+            "expected_losses": []
+        }
+    },
+    "role_sets_before": {
+        "Daily Works Contributor": [
+            "daily-works.create",
+            "daily-works.export",
+            "daily-works.view",
+            "tasks.view"
+        ],
+        "Department Admin": [
+            "attendance.correct",
+            "attendance.create",
+            "attendance.export",
+            "attendance.own.punch",
+            "attendance.own.view",
+            "attendance.roster.manage",
+            "attendance.update",
+            "attendance.view",
+            "communications.own.view",
+            "core.dashboard.view",
+            "core.stats.view",
+            "core.updates.view",
+            "department.admin",
+            "designations.create",
+            "designations.delete",
+            "designations.update",
+            "designations.view",
+            "employees.attendance-config.update",
+            "employees.compensation.update",
+            "employees.compensation.view",
+            "employees.create",
+            "employees.delete",
+            "employees.devices.manage",
+            "employees.password.reset",
+            "employees.placement.update",
+            "employees.restore",
+            "employees.update",
+            "employees.view",
+            "hr.assets.manage",
+            "hr.assets.view",
+            "hr.offboarding.create",
+            "hr.offboarding.delete",
+            "hr.offboarding.update",
+            "hr.offboarding.view",
+            "hr.onboarding.create",
+            "hr.onboarding.delete",
+            "hr.onboarding.update",
+            "hr.onboarding.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "leaves.approve",
+            "leaves.create",
+            "leaves.delete",
+            "leaves.update",
+            "leaves.view",
+            "profile.own.update",
+            "profile.own.view",
+            "profile.password.change",
+            "users.create",
+            "users.update"
+        ],
+        "Department Manager": [
+            "attendance.correct",
+            "attendance.create",
+            "attendance.delete",
+            "attendance.export",
+            "attendance.manage",
+            "attendance.own.punch",
+            "attendance.own.view",
+            "attendance.update",
+            "attendance.view",
+            "communications.own.view",
+            "core.dashboard.view",
+            "core.stats.view",
+            "core.updates.view",
+            "daily-works.create",
+            "daily-works.delete",
+            "daily-works.export",
+            "daily-works.import",
+            "daily-works.update",
+            "daily-works.view",
+            "departments.view",
+            "designations.view",
+            "employees.create",
+            "employees.delete",
+            "employees.placement.update",
+            "employees.restore",
+            "employees.update",
+            "employees.view",
+            "holidays.view",
+            "hr.analytics.attendance",
+            "hr.analytics.performance",
+            "hr.analytics.view",
+            "hr.competencies.view",
+            "hr.documents.view",
+            "hr.employee.benefits.view",
+            "hr.employee.documents.create",
+            "hr.employee.documents.view",
+            "hr.employee.skills.create",
+            "hr.employee.skills.delete",
+            "hr.employee.skills.update",
+            "hr.employee.skills.view",
+            "hr.offboarding.create",
+            "hr.offboarding.update",
+            "hr.offboarding.view",
+            "hr.onboarding.create",
+            "hr.onboarding.update",
+            "hr.onboarding.view",
+            "hr.safety.incidents.create",
+            "hr.safety.incidents.view",
+            "hr.safety.inspections.view",
+            "hr.safety.view",
+            "hr.skills.view",
+            "hr.timeoff.approve",
+            "hr.timeoff.calendar.view",
+            "hr.timeoff.reject",
+            "hr.timeoff.reports.view",
+            "hr.timeoff.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "leaves.approve",
+            "leaves.create",
+            "leaves.update",
+            "leaves.view",
+            "performance-analytics.view",
+            "performance-reviews.approve",
+            "performance-reviews.create",
+            "performance-reviews.update",
+            "performance-reviews.view",
+            "profile.own.update",
+            "profile.own.view",
+            "profile.password.change",
+            "projects.analytics",
+            "quality.ncr.create",
+            "quality.ncr.update",
+            "quality.ncr.view",
+            "quality.view",
+            "reports.create",
+            "reports.delete",
+            "reports.update",
+            "reports.view",
+            "tasks.assign",
+            "tasks.create",
+            "tasks.delete",
+            "tasks.update",
+            "tasks.view"
+        ],
+        "Employee": [
+            "attendance.own.punch",
+            "attendance.own.view",
+            "communications.own.view",
+            "core.dashboard.view",
+            "core.stats.view",
+            "core.updates.view",
+            "hr.safety.incidents.create",
+            "hr.selfservice.benefits.view",
+            "hr.selfservice.documents.view",
+            "hr.selfservice.payslips.view",
+            "hr.selfservice.performance.view",
+            "hr.selfservice.profile.update",
+            "hr.selfservice.profile.view",
+            "hr.selfservice.timeoff.request",
+            "hr.selfservice.timeoff.view",
+            "hr.selfservice.trainings.view",
+            "hr.selfservice.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "performance-reviews.own.view",
+            "profile.own.update",
+            "profile.own.view",
+            "profile.password.change",
+            "training-assignment-submissions.create",
+            "training-feedback.own.create",
+            "training-feedback.own.view"
+        ],
+        "Maintenance Inspector / QC Specialist": [
+            "attendance.own.punch",
+            "attendance.own.view",
+            "core.dashboard.view",
+            "daily-works.create",
+            "daily-works.delete",
+            "daily-works.export",
+            "daily-works.import",
+            "daily-works.update",
+            "daily-works.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "om.ai.manage",
+            "om.dashboard.view",
+            "om.equipment.manage",
+            "om.equipment.view",
+            "om.inspections.manage",
+            "om.inventory.manage",
+            "om.maintenance.manage",
+            "om.maintenance.view",
+            "om.pm.manage",
+            "om.research.view",
+            "om.safety.manage",
+            "om.safety.view",
+            "om.sla.view",
+            "profile.own.update",
+            "profile.own.view",
+            "quality.calibrations.create",
+            "quality.calibrations.delete",
+            "quality.calibrations.update",
+            "quality.calibrations.view",
+            "quality.dashboard.view",
+            "quality.inspections.create",
+            "quality.inspections.delete",
+            "quality.inspections.update",
+            "quality.inspections.view",
+            "quality.ncr.create",
+            "quality.ncr.delete",
+            "quality.ncr.update",
+            "quality.ncr.view",
+            "quality.settings",
+            "quality.view"
+        ],
+        "O&M Director": [
+            "attendance.own.punch",
+            "attendance.own.view",
+            "attendance.view",
+            "compliance.audits.create",
+            "compliance.audits.delete",
+            "compliance.audits.update",
+            "compliance.audits.view",
+            "compliance.dashboard.view",
+            "compliance.documents.create",
+            "compliance.documents.delete",
+            "compliance.documents.update",
+            "compliance.documents.view",
+            "compliance.requirements.create",
+            "compliance.requirements.delete",
+            "compliance.requirements.update",
+            "compliance.requirements.view",
+            "compliance.settings",
+            "compliance.view",
+            "core.dashboard.view",
+            "core.stats.view",
+            "daily-works.create",
+            "daily-works.delete",
+            "daily-works.export",
+            "daily-works.import",
+            "daily-works.update",
+            "daily-works.view",
+            "departments.view",
+            "designations.view",
+            "employees.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "leaves.view",
+            "om.ai.manage",
+            "om.analytics.view",
+            "om.contractors.manage",
+            "om.contractors.view",
+            "om.dashboard.view",
+            "om.equipment.manage",
+            "om.equipment.view",
+            "om.incidents.manage",
+            "om.incidents.view",
+            "om.inspections.manage",
+            "om.inventory.manage",
+            "om.maintenance.manage",
+            "om.maintenance.view",
+            "om.patrol.manage",
+            "om.pm.manage",
+            "om.research.view",
+            "om.safety.manage",
+            "om.safety.view",
+            "om.shift.manage",
+            "om.sla.view",
+            "om.toll.manage",
+            "om.toll.view",
+            "om.tppd.manage",
+            "om.tppd.view",
+            "om.traffic.manage",
+            "om.traffic.view",
+            "profile.own.update",
+            "profile.own.view",
+            "quality.calibrations.create",
+            "quality.calibrations.delete",
+            "quality.calibrations.update",
+            "quality.calibrations.view",
+            "quality.dashboard.view",
+            "quality.inspections.create",
+            "quality.inspections.delete",
+            "quality.inspections.update",
+            "quality.inspections.view",
+            "quality.ncr.create",
+            "quality.ncr.delete",
+            "quality.ncr.update",
+            "quality.ncr.view",
+            "quality.settings",
+            "quality.view"
+        ],
+        "Super Administrator": [
+            "accounts-payable.manage",
+            "accounts-payable.view",
+            "accounts-receivable.manage",
+            "accounts-receivable.view",
+            "analytics.dashboards.create",
+            "analytics.dashboards.delete",
+            "analytics.dashboards.update",
+            "analytics.dashboards.view",
+            "analytics.kpi.create",
+            "analytics.kpi.delete",
+            "analytics.kpi.log",
+            "analytics.kpi.update",
+            "analytics.kpi.view",
+            "analytics.reports.create",
+            "analytics.reports.delete",
+            "analytics.reports.schedule",
+            "analytics.reports.update",
+            "analytics.reports.view",
+            "analytics.settings",
+            "analytics.view",
+            "approval.settings",
+            "attendance.correct",
+            "attendance.create",
+            "attendance.delete",
+            "attendance.export",
+            "attendance.import",
+            "attendance.manage",
+            "attendance.own.punch",
+            "attendance.own.view",
+            "attendance.roster.manage",
+            "attendance.settings",
+            "attendance.update",
+            "attendance.view",
+            "audit.export",
+            "audit.view",
+            "backup.create",
+            "backup.restore",
+            "communications.own.view",
+            "company.settings",
+            "compliance.audits.create",
+            "compliance.audits.delete",
+            "compliance.audits.update",
+            "compliance.audits.view",
+            "compliance.dashboard.view",
+            "compliance.documents.create",
+            "compliance.documents.delete",
+            "compliance.documents.update",
+            "compliance.documents.view",
+            "compliance.requirements.create",
+            "compliance.requirements.delete",
+            "compliance.requirements.update",
+            "compliance.requirements.view",
+            "compliance.settings",
+            "compliance.view",
+            "core.dashboard.view",
+            "core.stats.view",
+            "core.updates.view",
+            "customers.create",
+            "customers.delete",
+            "customers.update",
+            "customers.view",
+            "daily-works.create",
+            "daily-works.delete",
+            "daily-works.export",
+            "daily-works.import",
+            "daily-works.update",
+            "daily-works.view",
+            "department.scopes.manage",
+            "departments.create",
+            "departments.delete",
+            "departments.update",
+            "departments.view",
+            "designations.create",
+            "designations.delete",
+            "designations.update",
+            "designations.view",
+            "documents.create",
+            "documents.delete",
+            "documents.update",
+            "documents.view",
+            "email.settings",
+            "employees.access.manage",
+            "employees.attendance-config.update",
+            "employees.compensation.update",
+            "employees.compensation.view",
+            "employees.create",
+            "employees.delete",
+            "employees.devices.manage",
+            "employees.export",
+            "employees.import",
+            "employees.password.reset",
+            "employees.placement.update",
+            "employees.restore",
+            "employees.update",
+            "employees.view",
+            "event.create",
+            "event.delete",
+            "event.registration.manage",
+            "event.update",
+            "event.view",
+            "feedback.create",
+            "feedback.delete",
+            "feedback.update",
+            "feedback.view",
+            "financial-reports.create",
+            "financial-reports.view",
+            "holidays.create",
+            "holidays.delete",
+            "holidays.update",
+            "holidays.view",
+            "hr.analytics.attendance",
+            "hr.analytics.performance",
+            "hr.analytics.recruitment",
+            "hr.analytics.reports.generate",
+            "hr.analytics.reports.view",
+            "hr.analytics.training",
+            "hr.analytics.turnover",
+            "hr.analytics.view",
+            "hr.assets.manage",
+            "hr.assets.view",
+            "hr.benefits.create",
+            "hr.benefits.delete",
+            "hr.benefits.update",
+            "hr.benefits.view",
+            "hr.checklists.create",
+            "hr.checklists.delete",
+            "hr.checklists.update",
+            "hr.checklists.view",
+            "hr.competencies.create",
+            "hr.competencies.delete",
+            "hr.competencies.update",
+            "hr.competencies.view",
+            "hr.documents.categories.create",
+            "hr.documents.categories.delete",
+            "hr.documents.categories.update",
+            "hr.documents.categories.view",
+            "hr.documents.create",
+            "hr.documents.delete",
+            "hr.documents.update",
+            "hr.documents.view",
+            "hr.employee.benefits.assign",
+            "hr.employee.benefits.remove",
+            "hr.employee.benefits.update",
+            "hr.employee.benefits.view",
+            "hr.employee.documents.create",
+            "hr.employee.documents.delete",
+            "hr.employee.documents.view",
+            "hr.employee.skills.create",
+            "hr.employee.skills.delete",
+            "hr.employee.skills.update",
+            "hr.employee.skills.view",
+            "hr.offboarding.create",
+            "hr.offboarding.delete",
+            "hr.offboarding.update",
+            "hr.offboarding.view",
+            "hr.onboarding.create",
+            "hr.onboarding.delete",
+            "hr.onboarding.update",
+            "hr.onboarding.view",
+            "hr.payroll.analytics",
+            "hr.payroll.bulk",
+            "hr.payroll.create",
+            "hr.payroll.delete",
+            "hr.payroll.process",
+            "hr.payroll.reports",
+            "hr.payroll.update",
+            "hr.payroll.view",
+            "hr.payslips.download",
+            "hr.payslips.email",
+            "hr.payslips.view",
+            "hr.probation.manage",
+            "hr.safety.incidents.create",
+            "hr.safety.incidents.update",
+            "hr.safety.incidents.view",
+            "hr.safety.inspections.create",
+            "hr.safety.inspections.update",
+            "hr.safety.inspections.view",
+            "hr.safety.training.create",
+            "hr.safety.training.update",
+            "hr.safety.training.view",
+            "hr.safety.view",
+            "hr.selfservice.benefits.view",
+            "hr.selfservice.documents.view",
+            "hr.selfservice.payslips.view",
+            "hr.selfservice.performance.view",
+            "hr.selfservice.profile.update",
+            "hr.selfservice.profile.view",
+            "hr.selfservice.timeoff.request",
+            "hr.selfservice.timeoff.view",
+            "hr.selfservice.trainings.view",
+            "hr.selfservice.view",
+            "hr.settlement.approve",
+            "hr.settlement.disburse",
+            "hr.settlement.manage",
+            "hr.skills.create",
+            "hr.skills.delete",
+            "hr.skills.update",
+            "hr.skills.view",
+            "hr.timeoff.approve",
+            "hr.timeoff.calendar.view",
+            "hr.timeoff.reject",
+            "hr.timeoff.reports.view",
+            "hr.timeoff.settings.update",
+            "hr.timeoff.settings.view",
+            "hr.timeoff.view",
+            "inventory.create",
+            "inventory.delete",
+            "inventory.update",
+            "inventory.view",
+            "invoice.settings",
+            "job-applications.create",
+            "job-applications.delete",
+            "job-applications.update",
+            "job-applications.view",
+            "job-hiring-stages.create",
+            "job-hiring-stages.delete",
+            "job-hiring-stages.update",
+            "job-hiring-stages.view",
+            "job-interview-feedback.create",
+            "job-interview-feedback.update",
+            "job-interview-feedback.view",
+            "job-interviews.create",
+            "job-interviews.delete",
+            "job-interviews.update",
+            "job-interviews.view",
+            "job-offers.approve",
+            "job-offers.create",
+            "job-offers.delete",
+            "job-offers.update",
+            "job-offers.view",
+            "jobs.create",
+            "jobs.delete",
+            "jobs.update",
+            "jobs.view",
+            "jurisdiction.create",
+            "jurisdiction.delete",
+            "jurisdiction.update",
+            "jurisdiction.view",
+            "leads.create",
+            "leads.delete",
+            "leads.update",
+            "leads.view",
+            "leave-settings.update",
+            "leave-settings.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "leaves.analytics",
+            "leaves.approve",
+            "leaves.create",
+            "leaves.delete",
+            "leaves.update",
+            "leaves.view",
+            "ledger.manage",
+            "ledger.view",
+            "letters.create",
+            "letters.delete",
+            "letters.update",
+            "letters.view",
+            "lms.assessments.create",
+            "lms.assessments.delete",
+            "lms.assessments.update",
+            "lms.assessments.view",
+            "lms.certificates.create",
+            "lms.certificates.delete",
+            "lms.certificates.update",
+            "lms.certificates.view",
+            "lms.courses.create",
+            "lms.courses.delete",
+            "lms.courses.update",
+            "lms.courses.view",
+            "lms.instructors.create",
+            "lms.instructors.delete",
+            "lms.instructors.update",
+            "lms.instructors.view",
+            "lms.reports.view",
+            "lms.settings.manage",
+            "lms.students.create",
+            "lms.students.delete",
+            "lms.students.update",
+            "lms.students.view",
+            "lms.view",
+            "localization.settings",
+            "modules.create",
+            "modules.delete",
+            "modules.update",
+            "modules.view",
+            "notification.settings",
+            "notifications.settings",
+            "om.ai.manage",
+            "om.analytics.view",
+            "om.contractors.manage",
+            "om.contractors.view",
+            "om.dashboard.view",
+            "om.equipment.manage",
+            "om.equipment.view",
+            "om.incidents.manage",
+            "om.incidents.view",
+            "om.inspections.manage",
+            "om.inventory.manage",
+            "om.maintenance.manage",
+            "om.maintenance.view",
+            "om.patrol.manage",
+            "om.pm.manage",
+            "om.research.view",
+            "om.safety.manage",
+            "om.safety.view",
+            "om.shift.manage",
+            "om.sla.view",
+            "om.toll.manage",
+            "om.toll.view",
+            "om.tppd.manage",
+            "om.tppd.view",
+            "om.traffic.manage",
+            "om.traffic.view",
+            "performance-analytics.view",
+            "performance-reviews.approve",
+            "performance-reviews.create",
+            "performance-reviews.delete",
+            "performance-reviews.own.create",
+            "performance-reviews.own.update",
+            "performance-reviews.own.view",
+            "performance-reviews.update",
+            "performance-reviews.view",
+            "performance-templates.create",
+            "performance-templates.delete",
+            "performance-templates.update",
+            "performance-templates.view",
+            "performance.settings",
+            "permissions.assign",
+            "petty-cash.approve",
+            "petty-cash.manage",
+            "petty-cash.view-all",
+            "pos.operate",
+            "pos.view",
+            "profile.own.update",
+            "profile.own.view",
+            "profile.password.change",
+            "project-management.dashboard.view",
+            "project-management.issues.create",
+            "project-management.issues.delete",
+            "project-management.issues.update",
+            "project-management.issues.view",
+            "project-management.milestones.create",
+            "project-management.milestones.delete",
+            "project-management.milestones.update",
+            "project-management.milestones.view",
+            "project-management.projects.create",
+            "project-management.projects.delete",
+            "project-management.projects.update",
+            "project-management.projects.view",
+            "project-management.reports.view",
+            "project-management.resources.assign",
+            "project-management.resources.view",
+            "project-management.settings",
+            "project-management.tasks.assign",
+            "project-management.tasks.create",
+            "project-management.tasks.delete",
+            "project-management.tasks.update",
+            "project-management.tasks.view",
+            "project-management.view",
+            "projects.analytics",
+            "purchase-orders.create",
+            "purchase-orders.delete",
+            "purchase-orders.update",
+            "purchase-orders.view",
+            "quality.calibrations.create",
+            "quality.calibrations.delete",
+            "quality.calibrations.update",
+            "quality.calibrations.view",
+            "quality.dashboard.view",
+            "quality.inspections.create",
+            "quality.inspections.delete",
+            "quality.inspections.update",
+            "quality.inspections.view",
+            "quality.ncr.create",
+            "quality.ncr.delete",
+            "quality.ncr.update",
+            "quality.ncr.view",
+            "quality.settings",
+            "quality.view",
+            "recruitment-analytics.view",
+            "reports.create",
+            "reports.delete",
+            "reports.update",
+            "reports.view",
+            "request_logs.clear_all",
+            "request_logs.delete",
+            "request_logs.view",
+            "roles.create",
+            "roles.delete",
+            "roles.update",
+            "roles.view",
+            "salary.settings",
+            "sales.analytics",
+            "sales.create",
+            "sales.view",
+            "settings.update",
+            "settings.view",
+            "suppliers.create",
+            "suppliers.delete",
+            "suppliers.update",
+            "suppliers.view",
+            "system.settings",
+            "tasks.assign",
+            "tasks.create",
+            "tasks.delete",
+            "tasks.update",
+            "tasks.view",
+            "theme.settings",
+            "training-analytics.view",
+            "training-assignment-submissions.create",
+            "training-assignment-submissions.grade",
+            "training-assignment-submissions.update",
+            "training-assignment-submissions.view",
+            "training-assignments.create",
+            "training-assignments.delete",
+            "training-assignments.update",
+            "training-assignments.view",
+            "training-categories.create",
+            "training-categories.delete",
+            "training-categories.update",
+            "training-categories.view",
+            "training-enrollments.create",
+            "training-enrollments.delete",
+            "training-enrollments.update",
+            "training-enrollments.view",
+            "training-feedback.create",
+            "training-feedback.own.create",
+            "training-feedback.own.view",
+            "training-feedback.view",
+            "training-materials.create",
+            "training-materials.delete",
+            "training-materials.update",
+            "training-materials.view",
+            "training-sessions.create",
+            "training-sessions.delete",
+            "training-sessions.update",
+            "training-sessions.view",
+            "users.create",
+            "users.delete",
+            "users.impersonate",
+            "users.update",
+            "users.view",
+            "warehousing.manage",
+            "warehousing.view"
+        ],
+        "TMC Operator": [
+            "attendance.own.punch",
+            "attendance.own.view",
+            "core.dashboard.view",
+            "daily-works.create",
+            "daily-works.delete",
+            "daily-works.export",
+            "daily-works.import",
+            "daily-works.update",
+            "daily-works.view",
+            "leave.own.create",
+            "leave.own.delete",
+            "leave.own.update",
+            "leave.own.view",
+            "om.dashboard.view",
+            "om.equipment.view",
+            "om.incidents.manage",
+            "om.incidents.view",
+            "om.safety.view",
+            "om.shift.manage",
+            "om.sla.view",
+            "om.toll.manage",
+            "om.toll.view",
+            "om.traffic.manage",
+            "om.traffic.view",
+            "profile.own.update",
+            "profile.own.view"
+        ]
+    }
+}

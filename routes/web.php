@@ -1059,6 +1059,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     'Project Manager',
                     'Department Admin',
                     'Department Manager',
+                    'Line Manager',
                     'Team Lead',
                 ]);
             })

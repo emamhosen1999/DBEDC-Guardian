@@ -154,7 +154,8 @@ class EmployeePermissionSplitMigrationTest extends TestCase
         $expected = ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames();
         sort($expected);
         $this->assertSame($expected, $seeded);
-        $this->assertContains('employees.access.manage', $this->held('HR Manager'), 'global HR holds access management');
+        // Owner decision O-15 (role catalog v1): access administration belongs to the Super Administrator alone.
+        $this->assertNotContains('employees.access.manage', $this->held('HR Manager'), 'HR no longer administers access');
     }
 
     public function test_it_is_idempotent_and_clears_the_permission_cache(): void

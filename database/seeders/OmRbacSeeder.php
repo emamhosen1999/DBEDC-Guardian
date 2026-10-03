@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Services\Access\RoleCatalog;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class OmRbacSeeder extends Seeder
@@ -64,165 +64,18 @@ class OmRbacSeeder extends Seeder
             );
         }
 
-        // 3. Define Standard O&M Roles
-        $rolesConfig = [
-            'Super Administrator' => [
-                'description' => 'Unrestricted access to all system functions and modules',
-                'hierarchy_level' => 1,
-                'is_system_role' => true,
-            ],
-            'Administrator' => [
-                'description' => 'Administrative access to most system functions',
-                'hierarchy_level' => 10,
-                'is_system_role' => true,
-            ],
-            'O&M Director' => [
-                'description' => 'Executive director of operations, maintenance, traffic management, and expressway concessions',
-                'hierarchy_level' => 15,
-                'is_system_role' => false,
-            ],
-            'Maintenance Inspector / QC Specialist' => [
-                'description' => 'Field maintenance inspector, quality assurance engineer, and defect verification specialist',
-                'hierarchy_level' => 35,
-                'is_system_role' => false,
-            ],
-            'TMC Operator' => [
-                'description' => 'Traffic Management Center control room operator, CCTV/VMS controller, and shift logger',
-                'hierarchy_level' => 45,
-                'is_system_role' => false,
-            ],
-            'Highway Patrol Officer' => [
-                'description' => 'Highway patrol officer, emergency responder, and crash damage assessor',
-                'hierarchy_level' => 55,
-                'is_system_role' => false,
-            ],
-        ];
-
-        $roles = [];
-        foreach ($rolesConfig as $roleName => $meta) {
-            $roles[$roleName] = Role::firstOrCreate(
-                ['name' => $roleName, 'guard_name' => 'web'],
-                $meta
-            );
-        }
-
-        // 4. Assign Permissions to Roles
-
-        // Super Administrator -> ALWAYS receives ALL permissions in the database unconditionally
-        $allPermissions = Permission::all();
-        $roles['Super Administrator']->syncPermissions($allPermissions);
-
-        // Administrator -> All permissions except destructive backups
-        $adminPermissions = Permission::whereNotIn('name', [
-            'users.impersonate',
-            'backup.create',
-            'backup.restore',
-        ])->get();
-        $roles['Administrator']->syncPermissions($adminPermissions);
-
-        // O&M Director -> Complete O&M, Quality, Assets, Safety, PPM, and Management Permissions
-        $omDirectorPermissions = Permission::where(function ($q) {
-            $q->where('name', 'like', 'om.%')
-              ->orWhere('name', 'like', 'quality.%')
-              ->orWhere('name', 'like', 'assets.%')
-              ->orWhere('name', 'like', 'daily-works.%')
-              ->orWhere('name', 'like', 'compliance.%')
-              ->orWhere('name', 'like', 'attendance.own.%')
-              ->orWhere('name', 'like', 'leave.own.%')
-              ->orWhere('name', 'like', 'profile.own.%')
-              ->orWhereIn('name', [
-                  'core.dashboard.view',
-                  'core.stats.view',
-                  'employees.view',
-                  'departments.view',
-                  'designations.view',
-                  'attendance.view',
-                  'leaves.view',
-              ]);
-        })->get();
-        $roles['O&M Director']->syncPermissions($omDirectorPermissions);
-
-        // Maintenance Inspector / QC Specialist (Md. Habibur Rahman)
-        $qcInspectorPermissions = Permission::where(function ($q) {
-            $q->where('name', 'like', 'quality.%')
-              ->orWhere('name', 'like', 'attendance.own.%')
-              ->orWhere('name', 'like', 'leave.own.%')
-              ->orWhere('name', 'like', 'profile.own.%')
-              ->orWhere('name', 'like', 'daily-works.%')
-              ->orWhereIn('name', [
-                  'core.dashboard.view',
-                  'om.dashboard.view',
-                  'om.maintenance.view',
-                  'om.maintenance.manage',
-                  'om.pm.manage',
-                  'om.inspections.manage',
-                  'om.inventory.manage',
-                  'om.equipment.view',
-                  'om.equipment.manage',
-                  'om.safety.view',
-                  'om.safety.manage',
-                  'om.sla.view',
-                  'om.research.view',
-                  'om.ai.manage',
-              ]);
-        })->get();
-        $roles['Maintenance Inspector / QC Specialist']->syncPermissions($qcInspectorPermissions);
-
-        // TMC Operator (Control Room)
-        $tmcPermissions = Permission::where(function ($q) {
-            $q->where('name', 'like', 'attendance.own.%')
-              ->orWhere('name', 'like', 'leave.own.%')
-              ->orWhere('name', 'like', 'profile.own.%')
-              ->orWhere('name', 'like', 'daily-works.%')
-              ->orWhereIn('name', [
-                  'core.dashboard.view',
-                  'om.dashboard.view',
-                  'om.traffic.view',
-                  'om.traffic.manage',
-                  'om.toll.view',
-                  'om.toll.manage',
-                  'om.incidents.view',
-                  'om.incidents.manage',
-                  'om.equipment.view',
-                  'om.shift.manage',
-                  'om.sla.view',
-                  'om.safety.view',
-              ]);
-        })->get();
-        $roles['TMC Operator']->syncPermissions($tmcPermissions);
-
-        // Highway Patrol Officer (Field Patrol & Emergency)
-        $patrolPermissions = Permission::where(function ($q) {
-            $q->where('name', 'like', 'attendance.own.%')
-              ->orWhere('name', 'like', 'leave.own.%')
-              ->orWhere('name', 'like', 'profile.own.%')
-              ->orWhere('name', 'like', 'daily-works.%')
-              ->orWhereIn('name', [
-                  'core.dashboard.view',
-                  'om.dashboard.view',
-                  'om.incidents.view',
-                  'om.incidents.manage',
-                  'om.patrol.manage',
-                  'om.maintenance.view',
-                  'om.maintenance.manage',
-                  'om.safety.view',
-                  'om.safety.manage',
-                  'om.tppd.view',
-                  'om.tppd.manage',
-                  'om.research.view',
-                  'om.shift.manage',
-              ]);
-        })->get();
-        $roles['Highway Patrol Officer']->syncPermissions($patrolPermissions);
+        // 3. Roles and their EXACT permission sets come from the one catalog definition (App\Services\Access\RoleCatalog):
+        //    O&M Director, Maintenance Inspector, TMC Operator and Highway Patrol Officer are catalog roles.
+        RoleCatalog::seed();
 
         // 5. Assign Roles to Targeted Staff
 
-        // Habib (Md. Habibur Rahman, ID: 127) -> Maintenance Inspector / QC Specialist
+        // Habib (Md. Habibur Rahman, ID: 127) -> Maintenance Inspector
         $habib = User::where('employee_id', '127')->first();
         if ($habib) {
             $currentRoleNames = $habib->roles->pluck('name')->toArray();
-            if (!in_array('Maintenance Inspector / QC Specialist', $currentRoleNames)) {
-                $habib->assignRole('Maintenance Inspector / QC Specialist');
+            if (! in_array('Maintenance Inspector', $currentRoleNames)) {
+                $habib->assignRole('Maintenance Inspector');
             }
         }
 
@@ -230,7 +83,7 @@ class OmRbacSeeder extends Seeder
         $wangfu = User::where('employee_id', '896')->first();
         if ($wangfu) {
             $currentRoleNames = $wangfu->roles->pluck('name')->toArray();
-            if (!in_array('O&M Director', $currentRoleNames)) {
+            if (! in_array('O&M Director', $currentRoleNames)) {
                 $wangfu->assignRole('O&M Director');
             }
         }
@@ -241,7 +94,7 @@ class OmRbacSeeder extends Seeder
             $operator = User::where('employee_id', $opId)->first();
             if ($operator) {
                 $currentRoleNames = $operator->roles->pluck('name')->toArray();
-                if (!in_array('TMC Operator', $currentRoleNames)) {
+                if (! in_array('TMC Operator', $currentRoleNames)) {
                     $operator->assignRole('TMC Operator');
                 }
             }
@@ -249,7 +102,7 @@ class OmRbacSeeder extends Seeder
 
         // Emam Hosen (ID: 151) -> Super Administrator
         $emam = User::where('employee_id', '151')->first();
-        if ($emam && !$emam->hasRole('Super Administrator')) {
+        if ($emam && ! $emam->hasRole('Super Administrator')) {
             $emam->assignRole('Super Administrator');
         }
 
