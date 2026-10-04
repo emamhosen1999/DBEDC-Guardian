@@ -343,7 +343,7 @@ class SendShiftLifecycleAlerts extends Command
         try {
             $notifiable->notify($notification);
         } catch (\Throwable $exception) {
-            Log::warning("Shift lifecycle alert [{$phase}] failed for user {$notifiable->id}", [
+            Log::error("Shift lifecycle alert [{$phase}] failed for user {$notifiable->id}", [
                 'error' => $exception->getMessage(),
             ]);
         }

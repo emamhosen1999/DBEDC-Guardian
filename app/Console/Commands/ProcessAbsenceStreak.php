@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\Attendance\AbsenceStreakEscalationNotification;
 use App\Services\Attendance\ShiftLifecycleAlertService;
 use App\Services\HR\OffboardingInitiationNotifier;
+use App\Services\Notification\NotificationRecipients;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -277,38 +278,36 @@ class ProcessAbsenceStreak extends Command
             $case->first_absent_date->toDateString(),
         );
 
-        $recipients = collect();
+        $directory = app(NotificationRecipients::class);
+        $managerIds = [];
 
         // Manager always gets notified
         $manager = $alertService->resolveManager($employee);
         if ($manager) {
-            $recipients->push($manager);
+            $managerIds[] = $manager->employee_id;
         }
+
+        $recipients = $directory->forEmployees($managerIds, null, $employee);
 
         // HR + dept head for higher stages
         if (in_array($stage, [AbsenceCase::STAGE_NOTICE_SENT, AbsenceCase::STAGE_SHOW_CAUSE, AbsenceCase::STAGE_ABSCONDED], true)) {
-            $hrManagers = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['HR Manager', 'Super Administrator']))
-                ->whereNull('deleted_at')
-                ->where('id', '!=', $employee->id)
-                ->get();
-            $recipients = $recipients->merge($hrManagers);
+            // HR by permission, and only those whose DepartmentScope reaches this employee (no company-wide ping).
+            $recipients = $recipients->merge($directory->forPermission('hr.offboarding.view', $employee, $employee));
 
             // Department head
             if ($employee->department && $employee->department->manager_id) {
-                $deptHead = User::find($employee->department->manager_id);
-                if ($deptHead && $deptHead->id !== $employee->id) {
-                    $recipients->push($deptHead);
-                }
+                $recipients = $recipients->merge($directory->forEmployees([$employee->department->manager_id], null, $employee));
             }
         }
 
-        $recipients = $recipients->unique('id');
+        $recipients = $recipients->unique('employee_id');
 
         foreach ($recipients as $recipient) {
             try {
                 $recipient->notify($notification);
             } catch (\Throwable $e) {
-                Log::warning("Absence streak notification failed for user {$recipient->id}", [
+                Log::error("Absence streak notification failed for user {$recipient->employee_id}", [
+                    'exception' => $e::class,
                     'error' => $e->getMessage(),
                 ]);
             }

@@ -473,7 +473,7 @@ class ShiftSwapService
         try {
             $user->notify($notification);
         } catch (\Throwable $exception) {
-            Log::warning("{$context} failed", ['error' => $exception->getMessage()]);
+            Log::error("{$context} failed", ['error' => $exception->getMessage()]);
         }
     }
 }

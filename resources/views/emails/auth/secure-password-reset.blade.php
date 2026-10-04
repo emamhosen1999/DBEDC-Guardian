@@ -15,7 +15,7 @@ We received a request to reset your password for your {{ config('app.name') }} a
 
 Your secure OTP is: **{{ $otp }}**
 
-This OTP will expire in **15 minutes** and can only be used once.
+This OTP will expire in **1 hour** and can only be used once.
 
 @component('mail::button', ['url' => $resetUrl])
 Reset Password
@@ -31,7 +31,7 @@ If you did not request this password reset:
 @component('mail::panel')
 **Important Security Information:**
 - This OTP is single-use only
-- The link expires in 15 minutes
+- The link expires in 1 hour
 - Never share your OTP with anyone
 - We will never ask for your password via email
 @endcomponent

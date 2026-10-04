@@ -21,6 +21,7 @@ use Database\Seeders\NotificationTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -157,6 +158,11 @@ class AttendanceTriggerWiringTest extends TestCase
         Notification::fake();
 
         $employee = User::factory()->create();
+        // attendance.settings makes the actor an attendance administrator (company-wide roster scope).
+        $actor = User::factory()->create();
+        Permission::findOrCreate('attendance.settings', 'web');
+        $actor->givePermissionTo('attendance.settings');
+        $this->actingAs($actor);
 
         // Exercise the real controller path so the wiring (not just the notification) is guarded.
         // RosterController gained a 4th WorkTimeComplianceService dependency in commit 0e749ad01
@@ -169,6 +175,7 @@ class AttendanceTriggerWiringTest extends TestCase
             app(DepartmentScope::class),
         );
         $request = Request::create('/attendance/roster/cell', 'PUT');
+        $request->setUserResolver(fn () => $actor);
         $request->merge([
             'user_id' => $employee->id,
             'date' => now()->addDays(2)->toDateString(),

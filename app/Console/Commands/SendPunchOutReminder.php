@@ -36,7 +36,7 @@ class SendPunchOutReminder extends Command
             try {
                 $user->notify(new MissedPunchNotification('out', $date));
             } catch (\Throwable $exception) {
-                Log::warning("MissedPunchNotification(out) failed for user {$user->id}", [
+                Log::error("MissedPunchNotification(out) failed for user {$user->id}", [
                     'error' => $exception->getMessage(),
                 ]);
             }

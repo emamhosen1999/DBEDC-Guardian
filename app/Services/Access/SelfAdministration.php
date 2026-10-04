@@ -5,6 +5,7 @@ namespace App\Services\Access;
 use App\Models\SelfAdministrationLog;
 use App\Models\User;
 use App\Notifications\SelfAdministrationNotification;
+use App\Services\Notification\NotificationRecipients;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -49,8 +50,9 @@ class SelfAdministration
         Log::notice('Self-administration', ['actor' => $actor->getKey(), 'action' => $action, 'summary' => $summary]);
 
         DB::afterCommit(function () use ($actor, $summary, $log) {
-            $admins = User::query()->whereHas('roles', fn ($q) => $q->whereIn('name', ['Super Administrator', 'Administrator', 'HR Manager']))
-                ->where('employee_id', '!=', $actor->getKey())->get();
+            // Announced to every global admin (owner rule) - DepartmentScope's own definition, so an HR Manager or
+            // Administrator is told even though access administration is Super Administrator only.
+            $admins = app(NotificationRecipients::class)->globalAdmins($actor);
             if ($admins->isNotEmpty()) {
                 Notification::send($admins, new SelfAdministrationNotification((string) $actor->name, (string) $actor->getKey(), $summary, $log->id));
             }

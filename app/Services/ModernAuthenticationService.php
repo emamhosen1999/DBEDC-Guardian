@@ -50,7 +50,6 @@ class ModernAuthenticationService
 
             Log::channel('auth')->info("Authentication Event: {$eventType}", [
                 'user_id' => $user?->id,
-                'email' => $user?->email ?? $metadata['email'] ?? null,
                 'status' => $status,
                 'risk_level' => $riskLevel,
                 'ip' => $request->ip(),

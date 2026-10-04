@@ -97,8 +97,12 @@ long tasks (already set in `routes/console.php`) prevents pile-ups.
 
 ### 2b. Queue worker — every minute, self-terminating (recommended for shared cPanel)
 
+> **Production status (2026-10-04): no ERP worker runs. `QUEUE_CONNECTION=sync`, so jobs run inline.**
+> The `jobs` table still holds about 3,500 stale jobs, the oldest from 2025-11-25 (audit P-10). Don't add a worker or switch to the
+> `database` connection until they are triaged: a worker would replay months-old notifications.
+
 ```cron
-* * * * * cd /home/dhakabyp/erp.dhakabypass.com && flock -n /tmp/dbedc-queue.lock /usr/local/bin/ea-php83 artisan queue:work --stop-when-empty --max-time=55 --sleep=3 --tries=3 >> storage/logs/queue-worker.log 2>&1
+* * * * * cd /home/dhakabyp/erp.dhakabypass.com && flock -n /tmp/dbedc-queue.lock /usr/local/bin/ea-php83 artisan queue:work --queue=default,notifications,security --stop-when-empty --max-time=55 --sleep=3 --tries=3 >> storage/logs/queue-worker.log 2>&1
 ```
 
 - `--stop-when-empty` — process all pending jobs, then exit (does not idle-spin).
@@ -106,6 +110,10 @@ long tasks (already set in `routes/console.php`) prevents pile-ups.
 - `flock -n /tmp/dbedc-queue.lock` — if the previous run is still going, skip this
   tick instead of starting a second overlapping worker. (If `flock` is unavailable on
   the host, drop it — `--max-time=55` already bounds each run to under a minute.)
+- `--queue=default,notifications,security` — **required.** Without it `queue:work` drains only
+  `default`, and anything pinned elsewhere (notification jobs on `notifications`, the password-reset
+  and password-changed mails on `security`) sits in `jobs` forever. Order is priority: `default`
+  first, then `notifications`, then `security`. Any new `onQueue('x')` must be added to this list.
 - `--tries=3` — retry a failing job up to 3 times before it lands in `failed_jobs`.
 - `--sleep=3` — only relevant if not `--stop-when-empty`; harmless here.
 
@@ -122,11 +130,19 @@ long-runner is more responsive:
 
 ```cron
 # keep exactly one long worker alive; relaunch if it died. Still bounded by --max-time.
-* * * * * cd /home/dhakabyp/erp.dhakabypass.com && flock -n /tmp/dbedc-queue.lock /usr/local/bin/ea-php83 artisan queue:work --max-time=3600 --sleep=1 --tries=3 >> storage/logs/queue-worker.log 2>&1
+* * * * * cd /home/dhakabyp/erp.dhakabypass.com && flock -n /tmp/dbedc-queue.lock /usr/local/bin/ea-php83 artisan queue:work --queue=default,notifications,security --max-time=3600 --sleep=1 --tries=3 >> storage/logs/queue-worker.log 2>&1
 ```
 
 `--max-time=3600` recycles the process hourly (frees leaked memory); `flock` ensures
 only one is ever running. Do **not** run this in addition to 2b — pick one.
+
+---
+
+### 2d. Failed-job retention
+
+`routes/console.php` schedules `queue:prune-failed --hours=168` daily (runs through the scheduler cron in
+section 1, no extra cron line): failed jobs are kept for 7 days, then pruned. Look at `php artisan queue:failed`
+at least weekly, and retry (`queue:retry all`) before the week is out.
 
 ---
 
@@ -156,18 +172,20 @@ php artisan schedule:list
 php artisan schedule:run
 
 # Queue: drain once by hand and watch it work
-php artisan queue:work --stop-when-empty --max-time=30 -v
+php artisan queue:work --queue=default,notifications,security --stop-when-empty --max-time=30 -v
 
 # Are jobs accumulating unprocessed? (should trend toward 0 with the worker running)
 php artisan tinker --execute="echo DB::table('jobs')->count();"   # pending
 php artisan queue:failed                                           # anything dead-lettered
+# Jobs stuck on a queue the worker does not drain (every row should be default/notifications/security)
+php artisan tinker --execute="print_r(DB::table('jobs')->select('queue')->selectRaw('count(*) c')->groupBy('queue')->get()->toArray());"
 
 # Confirm the crons exist at the OS level
 crontab -l
 ```
 
 Healthy signs: `jobs` table count stays low / returns to 0, per-task logs under
-`storage/logs/` (e.g. `attendance-reminders.log`, `biometric-log-download.log`,
+`storage/logs/` (e.g. `shift-alerts.log`, `biometric-log-download.log`,
 `queue-worker.log`) get fresh timestamps, and `failed_jobs` is empty.
 
 ---

@@ -156,20 +156,15 @@ class OmWorkOrderService
 
             // Dispatch Push & In-App Notification for High/Emergency Work Orders
             if (in_array($workOrder->priority, ['emergency', 'high'], true)) {
-                try {
-                    $techs = \App\Models\User::permission('om.maintenance.manage')->get();
-                    if ($techs->isNotEmpty()) {
-                        \Illuminate\Support\Facades\Notification::send($techs, new \App\Notifications\OmAlertNotification(
-                            "Work Order: {$workOrder->work_order_number}",
-                            "{$workOrder->title} at {$workOrder->location}. Priority: {$workOrder->priority}.",
-                            'work_order_assigned',
-                            $workOrder->work_order_number,
-                            '/om/work-orders'
-                        ));
-                    }
-                } catch (\Throwable) {
-                    // Fail-safe
-                }
+                app(OmAlertDispatcher::class)->send(
+                    'om.maintenance.manage',
+                    $userId,
+                    "Work Order: {$workOrder->work_order_number}",
+                    "{$workOrder->title} at {$workOrder->location}. Priority: {$workOrder->priority}.",
+                    'work_order_assigned',
+                    $workOrder->work_order_number,
+                    '/om/work-orders'
+                );
             }
 
             return $workOrder->fresh(['materials', 'laneClosurePermit']);

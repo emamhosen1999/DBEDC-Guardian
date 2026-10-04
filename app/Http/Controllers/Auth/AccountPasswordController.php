@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Auth\Concerns\SendsPasswordChangedMail;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,8 @@ use Inertia\Response;
  */
 class AccountPasswordController extends Controller
 {
+    use SendsPasswordChangedMail;
+
     public function edit(Request $request): Response
     {
         return Inertia::render('Auth/ChangePassword', [
@@ -39,6 +42,8 @@ class AccountPasswordController extends Controller
         }
 
         $user->forceFill(['password' => $validated['password'], 'must_change_password' => false])->save();
+
+        $this->sendPasswordChangedMail($user, $request);
 
         return redirect()->intended(route('dashboard'))->with('status', 'Password changed.');
     }

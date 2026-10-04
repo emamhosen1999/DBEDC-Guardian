@@ -52,20 +52,15 @@ class OmSlaService
             $breached[] = $breach;
 
             // Dispatch Push & In-App Notification to Maintenance Managers
-            try {
-                $managers = \App\Models\User::permission('om.maintenance.manage')->get();
-                if ($managers->isNotEmpty()) {
-                    \Illuminate\Support\Facades\Notification::send($managers, new \App\Notifications\OmAlertNotification(
-                        "SLA Breach: Defect {$defect->defect_number}",
-                        "Defect at {$defect->chainage} exceeded its {$defect->sla_hours}h SLA limit.",
-                        'sla_breach',
-                        $defect->defect_number,
-                        '/om/sla-compliance'
-                    ));
-                }
-            } catch (\Throwable) {
-                // Fail-safe: don't break SLA check if notification fails
-            }
+            app(OmAlertDispatcher::class)->send(
+                'om.maintenance.manage',
+                null,
+                "SLA Breach: Defect {$defect->defect_number}",
+                "Defect at {$defect->chainage} exceeded its {$defect->sla_hours}h SLA limit.",
+                'sla_breach',
+                $defect->defect_number,
+                '/om/sla-compliance'
+            );
         }
 
         return $breached;

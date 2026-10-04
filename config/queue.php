@@ -30,8 +30,12 @@ return [
 
     'connections' => [
 
+        // after_commit on sync AND database (verified in vendor: SyncQueue::push defers to the
+        // db.transactions manager exactly like the others): a job or notification dispatched inside
+        // a DB transaction runs only once it commits, and never if it rolls back.
         'sync' => [
             'driver' => 'sync',
+            'after_commit' => true,
         ],
 
         'database' => [
@@ -40,7 +44,7 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            'after_commit' => true,
         ],
 
         'beanstalkd' => [

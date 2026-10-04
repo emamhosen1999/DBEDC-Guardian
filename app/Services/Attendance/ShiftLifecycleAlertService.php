@@ -58,7 +58,7 @@ class ShiftLifecycleAlertService
         $users = User::query()
             ->whereIn('employee_id', $userIds)
             ->whereNull('deleted_at')
-            ->with(['reportsTo', 'department'])
+            ->with(['reportsTo', 'department', 'offboarding'])
             ->get();
 
         $rows = collect();

@@ -189,7 +189,7 @@ class BiometricDeviceHealthAlert extends Command
                 try {
                     $recipient->notify($notification);
                 } catch (\Throwable $exception) {
-                    Log::warning('Biometric device silence alert failed for user '.$recipient->id, [
+                    Log::error('Biometric device silence alert failed for user '.$recipient->id, [
                         'device_id' => $device->id,
                         'error' => $exception->getMessage(),
                     ]);

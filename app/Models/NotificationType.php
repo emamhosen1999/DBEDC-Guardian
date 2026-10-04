@@ -1,7 +1,10 @@
 <?php
+
 // app/Models/NotificationType.php
+
 namespace App\Models;
 
+use App\Services\Notification\NotificationChannelResolver;
 use Illuminate\Database\Eloquent\Model;
 
 class NotificationType extends Model
@@ -14,4 +17,11 @@ class NotificationType extends Model
         'recipient_roles' => 'array',
         'is_active' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        $flush = fn () => app(NotificationChannelResolver::class)->forgetTypes();
+        static::saved($flush);
+        static::deleted($flush);
+    }
 }

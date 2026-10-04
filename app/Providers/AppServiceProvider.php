@@ -45,6 +45,7 @@ use App\Services\Aeon\Tools\NavigateTool;
 use App\Services\Aeon\Tools\PrepareOperationTool;
 use App\Services\Aeon\Tools\ToolRegistry;
 use App\Services\FeatureFlagService;
+use App\Services\Notification\NotificationChannelResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Support\Facades\Event;
@@ -70,6 +71,9 @@ class AppServiceProvider extends ServiceProvider
         // singleton, so a long-lived worker never serves a stale scope; it is also
         // dropped after every handled HTTP request (see boot()).
         $this->app->scoped(DepartmentScope::class);
+
+        // Per-request memo of notification registry rows (scoped for the same reason as DepartmentScope).
+        $this->app->scoped(NotificationChannelResolver::class);
 
         // The access audit ledger carries its actor / plan-hash context while a command runs. A singleton, not scoped:
         // the Spatie-event subscriber is resolved once at boot and must share the instance the command writes its context to.

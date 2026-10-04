@@ -2,145 +2,32 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SendAttendanceReminder;
-use App\Models\HRM\AttendanceSetting;
-use App\Models\User;
-use App\Notifications\Attendance\MissedPunchNotification;
-use App\Services\Notification\FcmNotificationService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 
+/**
+ * Manual entry point for the employee-facing attendance reminders. There is ONE code path: the
+ * notifications of `attendance:shift-alerts`, delivered through PushChannel and the user's
+ * preferences, only to employees rostered to work today (holidays, approved leave, off days and
+ * offboarded staff excluded) and, for the overdue phase, who have not punched in. Its once-per-
+ * (user, date, shift, phase) markers make a manual run safe next to the 5-minute schedule.
+ *
+ * It used to dispatch a per-user FCM job AND a MissedPunchNotification to every user at 22:17
+ * regardless of roster or punches; that job and its schedule entry were removed.
+ */
 class SendAttendanceReminders extends Command
 {
     protected $signature = 'attendance:reminders
-                            {--test : Run in test mode for a single user}
-                            {--user-id= : Send to a specific user ID (for testing)}';
+                            {--lead=30 : Minutes BEFORE shift start for the start reminder}';
 
-    protected $description = 'Send attendance reminders to all eligible users';
+    protected $description = 'Re-run the shift-start and overdue punch-in reminders (alias of attendance:shift-alerts, employee phases).';
 
-    public function handle()
+    public function handle(): int
     {
-        $startTime = microtime(true);
-        $this->info('🚀 Starting attendance reminders at '.now()->toDateTimeString());
-        Log::info('Starting attendance reminders process');
+        $lead = (int) $this->option('lead');
 
-        try {
-            // Get the active attendance setting
-            $attendanceSetting = AttendanceSetting::first();
+        $reminder = $this->call('attendance:shift-alerts', ['--phase' => 'reminder', '--lead' => $lead]);
+        $overdue = $this->call('attendance:shift-alerts', ['--phase' => 'overdue']);
 
-            if (! $attendanceSetting) {
-                $message = 'No active attendance setting found. Please configure attendance settings first.';
-                $this->error($message);
-                Log::error($message);
-
-                return 1; // Exit with error code
-            }
-
-            $this->info('ℹ️ Using attendance setting ID: '.$attendanceSetting->id);
-
-            // Handle test mode
-            if ($this->option('test') || $this->option('user-id')) {
-                return $this->handleTestMode($attendanceSetting);
-            }
-
-            // Get all active users in chunks to handle memory efficiently.
-            // Deliverability (FCM/Expo tokens, mail, db) is resolved per-channel
-            // by the engine notify / FcmNotificationService — no upfront filter needed.
-            $batchSize = 50;
-            $totalUsers = 0;
-            $dispatchedCount = 0;
-            $skippedCount = 0;
-
-            User::query()
-                ->whereNull('deleted_at')
-                ->chunk($batchSize, function ($users) use ($attendanceSetting, &$totalUsers, &$dispatchedCount, &$skippedCount) {
-                    foreach ($users as $user) {
-                        $totalUsers++;
-
-                        // Dispatch the job
-                        SendAttendanceReminder::dispatch($user, $attendanceSetting)
-                            ->onQueue('notifications');
-
-                        // Also fire the structured missed punch-in notification (queued, non-breaking)
-                        try {
-                            $user->notify(new MissedPunchNotification('in', now()->toDateString()));
-                        } catch (\Throwable $exception) {
-                            Log::warning("MissedPunchNotification(in) failed for user {$user->id}", [
-                                'error' => $exception->getMessage(),
-                            ]);
-                        }
-
-                        $dispatchedCount++;
-                        $this->info("✅ Dispatched reminder for user: {$user->name} (ID: {$user->id})");
-                    }
-                });
-
-            $executionTime = round(microtime(true) - $startTime, 2);
-
-            $summary = [
-                'total_users' => $totalUsers,
-                'dispatched' => $dispatchedCount,
-                'skipped' => $skippedCount,
-                'execution_time_seconds' => $executionTime,
-            ];
-
-            $this->info("\n📊 Summary:".json_encode($summary, JSON_PRETTY_PRINT));
-            Log::info('Attendance reminders dispatched successfully', $summary);
-
-            return 0; // Success
-
-        } catch (\Exception $e) {
-            $errorMessage = 'Error in attendance:reminders command: '.$e->getMessage();
-            $this->error($errorMessage);
-            Log::error($errorMessage, [
-                'exception' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return 1; // Exit with error code
-        }
-    }
-
-    /**
-     * Handle test mode for the command
-     */
-    protected function handleTestMode($attendanceSetting)
-    {
-        $userId = $this->option('user-id');
-
-        if ($userId) {
-            $user = User::find($userId);
-
-            if (! $user) {
-                $this->error("User with ID {$userId} not found");
-
-                return 1;
-            }
-
-            $users = collect([$user]);
-        } else {
-            // Get a single test user
-            $user = User::whereNull('deleted_at')->first();
-
-            if (! $user) {
-                $this->error('No active users found for testing');
-
-                return 1;
-            }
-
-            $users = collect([$user]);
-        }
-
-        $this->info("\n🧪 Running in test mode");
-        $this->info("Sending test notification to: {$user->email} (ID: {$user->id})\n");
-
-        foreach ($users as $user) {
-            $job = new SendAttendanceReminder($user, $attendanceSetting);
-            $job->handle(app()->make(FcmNotificationService::class));
-
-            $this->info("✅ Test notification sent to: {$user->email}");
-        }
-
-        return 0;
+        return $reminder === self::SUCCESS && $overdue === self::SUCCESS ? self::SUCCESS : self::FAILURE;
     }
 }

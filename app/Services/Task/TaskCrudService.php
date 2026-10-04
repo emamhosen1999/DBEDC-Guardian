@@ -89,10 +89,6 @@ class TaskCrudService
         // Send notifications if status changed
         if ($oldStatus !== $task->status) {
             $this->notificationService->sendTaskStatusUpdateNotification($task, $oldStatus, $task->status);
-
-            if ($task->status === 'completed') {
-                $this->notificationService->sendTaskCompletionNotification($task);
-            }
         }
 
         return [

@@ -63,8 +63,19 @@ class BiometricAlertPreferencesTest extends TestCase
 
     // ───────────────────────────── registration
 
+    /**
+     * Migration 2026_10_03_000004 registers the types in every fresh database. Tests about the
+     * unregistered state start from an empty registry, removed row by row so the resolver's type
+     * cache is flushed by the model events.
+     */
+    private function withoutRegisteredTypes(): void
+    {
+        NotificationType::all()->each->delete();
+    }
+
     public function test_device_silent_type_is_registered_by_the_seeder(): void
     {
+        $this->withoutRegisteredTypes();
         $this->assertNull(NotificationType::where('key', 'biometric.device_silent')->first());
 
         $this->seed(NotificationTypeSeeder::class);
@@ -175,6 +186,7 @@ class BiometricAlertPreferencesTest extends TestCase
 
     public function test_registered_type_resolves_at_least_as_widely_as_the_unregistered_fallback(): void
     {
+        $this->withoutRegisteredTypes();
         $admin = $this->attendanceAdmin();
 
         // Unregistered: the trait's fallback, in-app + push.

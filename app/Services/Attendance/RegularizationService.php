@@ -71,7 +71,7 @@ class RegularizationService
                     try {
                         $approverUser->notify(new TimeCorrectionRequestedNotification($r->id, $requester?->name));
                     } catch (\Throwable $exception) {
-                        Log::warning("TimeCorrectionRequestedNotification failed for regularization #{$r->id}", [
+                        Log::error("TimeCorrectionRequestedNotification failed for regularization #{$r->id}", [
                             'error' => $exception->getMessage(),
                         ]);
                     }
@@ -98,7 +98,7 @@ class RegularizationService
                 try {
                     $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'approved'));
                 } catch (\Throwable $exception) {
-                    Log::warning("TimeCorrectionDecidedNotification(approved) failed for regularization #{$r->id}", [
+                    Log::error("TimeCorrectionDecidedNotification(approved) failed for regularization #{$r->id}", [
                         'error' => $exception->getMessage(),
                     ]);
                 }
@@ -124,7 +124,7 @@ class RegularizationService
                 try {
                     $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'rejected'));
                 } catch (\Throwable $exception) {
-                    Log::warning("TimeCorrectionDecidedNotification(rejected) failed for regularization #{$r->id}", [
+                    Log::error("TimeCorrectionDecidedNotification(rejected) failed for regularization #{$r->id}", [
                         'error' => $exception->getMessage(),
                     ]);
                 }

@@ -3,7 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\RfiObjection;
-use App\Notifications\Channels\PushChannel;
+use App\Notifications\Concerns\DeliversViaPreferences;
 use App\Services\Notification\Push\PushMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 
 class RfiObjectionNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use DeliversViaPreferences, Queueable;
 
     protected RfiObjection $objection;
 
@@ -36,9 +36,9 @@ class RfiObjectionNotification extends Notification implements ShouldQueue
         $this->event = $event;
     }
 
-    public function via(object $notifiable): array
+    public function typeKey(): string
     {
-        return ['mail', 'database', PushChannel::class];
+        return 'rfi.objection';
     }
 
     /**
@@ -65,6 +65,7 @@ class RfiObjectionNotification extends Notification implements ShouldQueue
             $this->getNotificationMessage(),
             [
                 'type' => 'rfi_objection',
+                'type_key' => $this->typeKey(),
                 'event' => $this->event,
                 'objection_id' => (string) $this->objection->id,
                 'url' => '/mobile/my-objections',
@@ -140,6 +141,7 @@ class RfiObjectionNotification extends Notification implements ShouldQueue
 
         return [
             'type' => 'rfi_objection',
+            'type_key' => $this->typeKey(),
             'event' => $this->event,
             'objection_id' => $this->objection->id,
             'objection_title' => $this->objection->title,

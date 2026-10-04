@@ -2,12 +2,17 @@
 
 namespace App\Services\Task;
 
-use App\Models\Tasks;
+use App\Models\DailyWork as Tasks;
 use App\Models\User;
-use App\Notifications\PushNotification;
+use App\Notifications\TaskAssignedNotification;
+use App\Notifications\TaskStatusChangedNotification;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Fail-soft: the task has already been saved by the time these run, so a notification failure is
+ * logged at error level and never turns a successful legacy task endpoint into a 500.
+ */
 class TaskNotificationService
 {
     /**
@@ -15,82 +20,27 @@ class TaskNotificationService
      */
     public function sendTaskAssignmentNotification(Tasks $task, string $assignedTo): void
     {
-        $user = Auth::user();
+        $actor = Auth::user();
         $assignedUser = User::find($assignedTo);
 
-        if (! $assignedUser) {
+        if (! $assignedUser || $assignedUser->employee_id === $actor?->employee_id) {
             return;
         }
 
-        $notificationData = [
-            'title' => 'New Task Assignment',
-            'body' => "You have been assigned task #{$task->number} by {$user->name}",
-            'task_id' => $task->id,
-            'assigned_by' => $user->id,
-        ];
-
-        Notification::send($assignedUser, new PushNotification($notificationData));
+        $this->safely('task.assigned', $task, fn () => $assignedUser->notify(new TaskAssignedNotification(
+            $task->id,
+            (string) $task->number,
+            (string) ($actor?->name ?? 'a colleague'),
+            $actor?->employee_id,
+        )));
     }
 
     /**
-     * Send task status update notification
+     * Send task status update notification (completion is the 'completed' status of the same type).
      */
     public function sendTaskStatusUpdateNotification(Tasks $task, string $oldStatus, string $newStatus): void
     {
-        $user = Auth::user();
-        $inchargeUser = User::find($task->incharge);
-
-        if (! $inchargeUser || $inchargeUser->id === $user->id) {
-            return;
-        }
-
-        $notificationData = [
-            'title' => 'Task Status Updated',
-            'body' => "Task #{$task->number} status changed from {$oldStatus} to {$newStatus}",
-            'task_id' => $task->id,
-            'updated_by' => $user->id,
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
-        ];
-
-        Notification::send($inchargeUser, new PushNotification($notificationData));
-    }
-
-    /**
-     * Send task completion notification
-     */
-    public function sendTaskCompletionNotification(Tasks $task): void
-    {
-        $user = Auth::user();
-        $inchargeUser = User::find($task->incharge);
-
-        if (! $inchargeUser || $inchargeUser->id === $user->id) {
-            return;
-        }
-
-        $notificationData = [
-            'title' => 'Task Completed',
-            'body' => "Task #{$task->number} has been completed by {$user->name}",
-            'task_id' => $task->id,
-            'completed_by' => $user->id,
-            'completion_time' => $task->completion_time,
-        ];
-
-        Notification::send($inchargeUser, new PushNotification($notificationData));
-    }
-
-    /**
-     * Send bulk notification to multiple users
-     */
-    public function sendBulkNotification(array $userIds, array $notificationData): void
-    {
-        $users = User::whereIn('employee_id', $userIds)->get();
-
-        if ($users->isEmpty()) {
-            return;
-        }
-
-        Notification::send($users, new PushNotification($notificationData));
+        $this->notifyIncharge($task, $oldStatus, $newStatus, null);
     }
 
     /**
@@ -98,39 +48,38 @@ class TaskNotificationService
      */
     public function sendTaskResubmissionNotification(Tasks $task, int $resubmissionCount): void
     {
-        $user = Auth::user();
-        $inchargeUser = User::find($task->incharge);
+        $this->notifyIncharge($task, null, 'resubmission', $resubmissionCount);
+    }
 
-        if (! $inchargeUser || $inchargeUser->id === $user->id) {
+    private function notifyIncharge(Tasks $task, ?string $oldStatus, string $newStatus, ?int $resubmissionCount): void
+    {
+        $actor = Auth::user();
+        $inchargeUser = $task->incharge ? User::find($task->incharge) : null;
+
+        if (! $inchargeUser || $inchargeUser->employee_id === $actor?->employee_id) {
             return;
         }
 
-        $ordinal = $this->getOrdinalNumber($resubmissionCount);
-
-        $notificationData = [
-            'title' => 'Task Resubmission',
-            'body' => "Task #{$task->number} has been resubmitted for the {$ordinal} time",
-            'task_id' => $task->id,
-            'resubmitted_by' => $user->id,
-            'resubmission_count' => $resubmissionCount,
-        ];
-
-        Notification::send($inchargeUser, new PushNotification($notificationData));
+        $this->safely('task.status_changed', $task, fn () => $inchargeUser->notify(new TaskStatusChangedNotification(
+            $task->id,
+            (string) $task->number,
+            $oldStatus,
+            $newStatus,
+            (string) ($actor?->name ?? 'a colleague'),
+            $actor?->employee_id,
+            $resubmissionCount,
+        )));
     }
 
-    /**
-     * Get ordinal number (1st, 2nd, 3rd, etc.)
-     */
-    private function getOrdinalNumber(int $number): string
+    private function safely(string $type, Tasks $task, \Closure $send): void
     {
-        if (! in_array(($number % 100), [11, 12, 13])) {
-            switch ($number % 10) {
-                case 1: return $number.'st';
-                case 2: return $number.'nd';
-                case 3: return $number.'rd';
-            }
+        try {
+            $send();
+        } catch (\Throwable $e) {
+            Log::error("Notification {$type} failed for task #{$task->id}", [
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
         }
-
-        return $number.'th';
     }
 }

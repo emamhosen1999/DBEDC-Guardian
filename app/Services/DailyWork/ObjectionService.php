@@ -6,6 +6,7 @@ use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
 use App\Notifications\RfiObjectionNotification;
+use App\Services\Notification\NotificationRecipients;
 use App\Services\Project\DailyWorkService;
 use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Support\Collection;
@@ -28,8 +29,7 @@ use Illuminate\Support\Facades\Log;
  * The recipient resolution mirrors the legacy web source of truth
  * (RfiObjectionController::notifyStakeholders) EXACTLY:
  *   - always: incharge + assigned users of every linked daily work;
- *   - on "submitted": also every manager (Super Admin / Admin / Project Manager
- *     / Consultant);
+ *   - on "submitted": also every reviewer (holders of daily-works.update);
  *   - on "resolved" / "rejected": also the objection creator;
  *   - never the actor themselves (self-echo suppression).
  *
@@ -142,24 +142,14 @@ class ObjectionService
                 }
             }
 
-            // Submitted objections escalate to managers/admins for triage.
-            // Pin the role lookup to the 'web' guard (where this app's roles are
-            // stored): the SAME service now runs under the mobile 'sanctum' guard,
-            // and without an explicit guard Spatie would resolve to 'sanctum',
-            // throw RoleDoesNotExist, and silently drop EVERY recipient.
-            if ($event === RfiObjectionNotification::EVENT_SUBMITTED) {
-                $targetRoles = ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant'];
-                $availableRoles = \Spatie\Permission\Models\Role::whereIn('name', $targetRoles)
-                    ->where('guard_name', 'web')
-                    ->pluck('name')
-                    ->all();
+            // Submitted objections escalate to everyone who may review one (daily-works.update, the same
+            // permission RfiObjectionPolicy::review requires): by permission, never by role NAME, and
+            // independent of the guard the request came in on. Daily work is project-level, so there is
+            // no employee subject to scope by.
+            $recipients = app(NotificationRecipients::class);
 
-                if (! empty($availableRoles)) {
-                    $managers = User::role($availableRoles, 'web')
-                        ->whereNull('deleted_at')
-                        ->get();
-                    $usersToNotify = $usersToNotify->merge($managers);
-                }
+            if ($event === RfiObjectionNotification::EVENT_SUBMITTED) {
+                $usersToNotify = $usersToNotify->merge($recipients->forPermission('daily-works.update', null, $actorId));
             }
 
             // Terminal decisions loop the creator back in.
@@ -168,9 +158,8 @@ class ObjectionService
                 $usersToNotify->push($objection->createdBy);
             }
 
-            $usersToNotify = $usersToNotify
-                ->unique('id')
-                ->filter(fn (User $user): bool => (string) $user->id !== (string) $actorId);
+            // Actor and inactive users out (incharge / assigned / creator are explicit people, not permission holders).
+            $usersToNotify = $recipients->forEmployees($usersToNotify->map(fn (User $u) => $u->employee_id), null, $actorId);
 
             foreach ($usersToNotify as $user) {
                 $user->notify(new RfiObjectionNotification($objection, $event));
@@ -179,6 +168,7 @@ class ObjectionService
             Log::error('Failed to send objection notifications', [
                 'objection_id' => $objection->id,
                 'event' => $event,
+                'exception' => $e::class,
                 'error' => $e->getMessage(),
             ]);
         }

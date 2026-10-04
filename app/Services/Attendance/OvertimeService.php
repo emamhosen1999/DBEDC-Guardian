@@ -116,7 +116,7 @@ class OvertimeService
         try {
             $user->notify($notification);
         } catch (\Throwable $exception) {
-            Log::warning($context, ['error' => $exception->getMessage()]);
+            Log::error($context, ['error' => $exception->getMessage()]);
         }
     }
 }

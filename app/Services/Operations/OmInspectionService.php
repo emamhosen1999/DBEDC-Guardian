@@ -148,20 +148,15 @@ class OmInspectionService
                 $this->autoCreateDefect($inspection);
             }
 
-            try {
-                $managers = \App\Models\User::permission('om.maintenance.manage')->get();
-                if ($managers->isNotEmpty()) {
-                    \Illuminate\Support\Facades\Notification::send($managers, new \App\Notifications\OmAlertNotification(
-                        "Inspection Alert: {$inspection->inspection_number}",
-                        "Asset audit at {$inspection->chainage} scored {$inspection->total_score}/100 ({$inspection->result}). Auto-defect generated.",
-                        'critical_inspection',
-                        $inspection->inspection_number,
-                        '/om/inspections'
-                    ));
-                }
-            } catch (\Throwable) {
-                // Fail-safe
-            }
+            app(OmAlertDispatcher::class)->send(
+                'om.maintenance.manage',
+                $inspectorId,
+                "Inspection Alert: {$inspection->inspection_number}",
+                "Asset audit at {$inspection->chainage} scored {$inspection->total_score}/100 ({$inspection->result}). Auto-defect generated.",
+                'critical_inspection',
+                $inspection->inspection_number,
+                '/om/inspections'
+            );
         }
 
         return $inspection->fresh(['template', 'asset', 'inspector']);

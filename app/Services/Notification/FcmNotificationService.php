@@ -2,6 +2,7 @@
 
 namespace App\Services\Notification;
 
+use App\Models\NotificationToken;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Exception\Messaging\InvalidMessage;
 use Kreait\Firebase\Exception\Messaging\NotFound;
@@ -46,13 +47,6 @@ class FcmNotificationService
      */
     public function sendNotification($deviceToken, $title, $body, $data = [])
     {
-        Log::info('Sending FCM notification', [
-            'device_token' => $deviceToken,
-            'title' => $title,
-            'body' => $body,
-            'data' => $data,
-        ]);
-
         if (empty($deviceToken)) {
             Log::error('FCM Notification Error: Device token is empty');
 
@@ -86,7 +80,7 @@ class FcmNotificationService
 
             Log::debug('FCM Notification Sent', [
                 'message_id' => $response,
-                'fcm_token' => $deviceToken,
+                'fcm_token' => $this->redact($deviceToken),
             ]);
 
             return true;
@@ -95,7 +89,7 @@ class FcmNotificationService
             // Handle invalid/expired tokens
             $this->handleInvalidToken($deviceToken);
             Log::error('FCM Token not found or invalid', [
-                'fcm_token' => $deviceToken,
+                'fcm_token' => $this->redact($deviceToken),
                 'error' => $e->getMessage(),
             ]);
 
@@ -103,7 +97,7 @@ class FcmNotificationService
 
         } catch (InvalidMessage $e) {
             Log::error('FCM Invalid Message', [
-                'fcm_token' => $deviceToken,
+                'fcm_token' => $this->redact($deviceToken),
                 'error' => $e->getMessage(),
             ]);
 
@@ -113,7 +107,7 @@ class FcmNotificationService
             // \Throwable (not just \Exception): a missing Firebase credentials file
             // surfaces as an Error, and push must never break notification delivery.
             Log::error('FCM Notification Error', [
-                'fcm_token' => $deviceToken,
+                'fcm_token' => $this->redact($deviceToken),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -164,6 +158,12 @@ class FcmNotificationService
         }
     }
 
+    /** A device token is a credential for pushing to that phone: logs carry only its tail. */
+    protected function redact($deviceToken): string
+    {
+        return '…'.substr((string) $deviceToken, -6);
+    }
+
     /**
      * Handle invalid/expired FCM tokens
      *
@@ -173,10 +173,10 @@ class FcmNotificationService
     protected function handleInvalidToken($deviceToken)
     {
         Log::warning('Invalid FCM token detected', [
-            'fcm_token' => $deviceToken,
+            'fcm_token' => $this->redact($deviceToken),
             'action' => 'Token removed from notification_tokens',
         ]);
 
-        \App\Models\NotificationToken::where('token', $deviceToken)->delete();
+        NotificationToken::where('token', $deviceToken)->delete();
     }
 }

@@ -1,5 +1,7 @@
 <?php
+
 // app/Services/Notification/Push/ExpoGateway.php
+
 namespace App\Services\Notification\Push;
 
 use Illuminate\Support\Facades\Http;
@@ -36,6 +38,9 @@ class ExpoGateway implements PushGateway
 
             try {
                 $response = Http::acceptJson()->asJson()->post(self::ENDPOINT, $payload);
+                if ($response->failed()) {
+                    Log::error('Expo push rejected', ['status' => $response->status(), 'tokens' => $chunkTokens->count()]);
+                }
                 $tickets = $response->json('data', []);
                 foreach ($tickets as $i => $ticket) {
                     if (($ticket['status'] ?? null) === 'error'

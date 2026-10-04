@@ -136,20 +136,15 @@ class OmIncidentService
 
             // Dispatch Push & In-App Notification for Major/Critical Incidents
             if (in_array($incident->severity, ['critical', 'major'], true)) {
-                try {
-                    $recipients = \App\Models\User::permission('om.incidents.manage')->get();
-                    if ($recipients->isNotEmpty()) {
-                        \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\OmAlertNotification(
-                            "EMERGENCY: {$incident->title} ({$incident->incident_number})",
-                            "Severity: {$incident->severity} at {$incident->chainage} ({$incident->direction}). Unit: {$incident->dispatched_unit}.",
-                            'incident_escalated',
-                            $incident->incident_number,
-                            '/om/incidents'
-                        ));
-                    }
-                } catch (\Throwable) {
-                    // Fail-safe
-                }
+                app(OmAlertDispatcher::class)->send(
+                    'om.incidents.manage',
+                    $userId,
+                    "EMERGENCY: {$incident->title} ({$incident->incident_number})",
+                    "Severity: {$incident->severity} at {$incident->chainage} ({$incident->direction}). Unit: {$incident->dispatched_unit}.",
+                    'incident_escalated',
+                    $incident->incident_number,
+                    '/om/incidents'
+                );
             }
 
             return $incident->fresh(['vehicles']);

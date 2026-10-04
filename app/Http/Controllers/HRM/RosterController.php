@@ -16,6 +16,7 @@ use App\Services\Attendance\CoverageService;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\WorkTimeComplianceService;
+use App\Services\Notification\NotificationRecipients;
 use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -409,16 +410,16 @@ class RosterController extends Controller
         // Realtime cross-client signal (from realtime-foundation) + per-employee notification.
         $this->signals->touch('roster', substr($data['date'], 0, 7), $request->user()?->id);
 
-        // Notify the affected employee of their updated roster slot.
-        $employee = User::find($data['user_id']);
-        if ($employee) {
-            try {
-                $employee->notify(new RosterChangedNotification($data['date']));
-            } catch (\Throwable $exception) {
-                Log::warning("RosterChangedNotification failed for user {$data['user_id']}", [
-                    'error' => $exception->getMessage(),
-                ]);
-            }
+        // Notify the affected employee of their updated roster slot (never the actor about their own edit, nor an inactive user).
+        try {
+            app(NotificationRecipients::class)
+                ->forEmployees([$data['user_id']], null, $user)
+                ->each(fn (User $employee) => $employee->notify(new RosterChangedNotification($data['date'])));
+        } catch (\Throwable $exception) {
+            Log::error("RosterChangedNotification failed for user {$data['user_id']}", [
+                'exception' => $exception::class,
+                'error' => $exception->getMessage(),
+            ]);
         }
 
         // Coverage warning check

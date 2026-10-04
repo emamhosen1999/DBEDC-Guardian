@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Auth\Concerns\SendsPasswordChangedMail;
 use App\Http\Controllers\Controller;
+use App\Mail\Auth\SecurePasswordResetMail;
 use App\Models\User;
 use App\Services\ModernAuthenticationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,8 @@ use Inertia\Response;
 
 class PasswordResetController extends Controller
 {
+    use SendsPasswordChangedMail;
+
     protected ModernAuthenticationService $authService;
 
     public function __construct(ModernAuthenticationService $authService)
@@ -55,9 +58,12 @@ class PasswordResetController extends Controller
             ['email' => $email]
         );
 
+        // One identical answer whether the address exists, the mail went out or sending failed:
+        // anything else lets a caller enumerate accounts (OWASP Forgot Password guidance).
+        $generic = 'If an account with that email exists, we have sent a password reset link and verification code.';
+
         if (! $user) {
-            // Don't reveal that the email doesn't exist
-            return back()->with('status', 'If an account with that email exists, we have sent a password reset link.');
+            return back()->with('status', $generic);
         }
 
         try {
@@ -65,9 +71,9 @@ class PasswordResetController extends Controller
             $resetData = $this->authService->generatePasswordResetToken($email, $request);
 
             // Send email with reset link and OTP
-            $this->sendPasswordResetEmail($user, $resetData);
+            $this->sendPasswordResetEmail($user, $resetData, $request);
 
-            return back()->with('status', 'We have sent a password reset link and verification code to your email.');
+            return back()->with('status', $generic);
 
         } catch (\Exception $e) {
             $this->authService->logAuthenticationEvent(
@@ -78,7 +84,9 @@ class PasswordResetController extends Controller
                 ['email' => $email, 'error' => $e->getMessage()]
             );
 
-            return back()->withErrors(['email' => 'Failed to send password reset email. Please try again.']);
+            report($e);
+
+            return back()->with('status', $generic);
         }
     }
 
@@ -152,6 +160,8 @@ class PasswordResetController extends Controller
             ->where('email', $email)
             ->delete();
 
+        $this->sendPasswordChangedMail($user, $request);
+
         // Log successful password reset
         $this->authService->logAuthenticationEvent(
             $user,
@@ -164,33 +174,22 @@ class PasswordResetController extends Controller
     }
 
     /**
-     * Send password reset email with OTP
+     * Send password reset email with OTP. The OTP and address must never reach a log line.
      */
-    protected function sendPasswordResetEmail(User $user, array $resetData): void
+    protected function sendPasswordResetEmail(User $user, array $resetData, Request $request): void
     {
-        // In a real application, you would send an actual email
-        // For now, we'll just log the details
-        Log::info('Password Reset Email', [
-            'user_id' => $user->id,
+        $resetUrl = route('password.reset', [
+            'token' => $resetData['token'],
             'email' => $user->email,
-            'verification_code' => $resetData['verification_code'],
-            'expires_at' => $resetData['expires_at'],
         ]);
 
-        // Example of how you would send an email:
-        /*
-        Mail::send('emails.password-reset', [
-            'user' => $user,
-            'verification_code' => $resetData['verification_code'],
-            'reset_url' => route('password.reset', [
-                'token' => $resetData['token'],
-                'email' => $user->email,
-            ]),
-            'expires_at' => $resetData['expires_at'],
-        ], function ($message) use ($user) {
-            $message->to($user->email, $user->name)
-                    ->subject('Reset Your Password');
-        });
-        */
+        Mail::to($user)->send(new SecurePasswordResetMail(
+            $user,
+            $resetData['verification_code'],
+            $resetUrl,
+            (string) $request->ip(),
+            null,
+            $request->userAgent(),
+        ));
     }
 }

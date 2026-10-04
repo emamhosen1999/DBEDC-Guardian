@@ -755,7 +755,7 @@ class LeaveApprovalService
                 $approver->notify(new LeaveOverrideNoticeNotification($leave, $actor, $action));
             }
         } catch (\Throwable $exception) {
-            Log::warning("Leave #{$leave->id} override notice to superseded approvers failed", [
+            Log::error("Leave #{$leave->id} override notice to superseded approvers failed", [
                 'error' => $exception->getMessage(),
             ]);
         }
@@ -823,13 +823,16 @@ class LeaveApprovalService
             return;
         }
 
-        try {
-            $leave->employee->notify(new LeaveApprovedNotification($leave));
-        } catch (\Throwable $exception) {
-            Log::warning("Leave #{$leave->id} approved but employee notification failed", [
-                'error' => $exception->getMessage(),
-            ]);
-        }
+        // After commit: a rolled-back decision must never notify (works on sync and queued drivers).
+        DB::afterCommit(function () use ($leave) {
+            try {
+                $leave->employee->notify(new LeaveApprovedNotification($leave));
+            } catch (\Throwable $exception) {
+                Log::error("Leave #{$leave->id} approved but employee notification failed", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 
     /**
@@ -843,13 +846,15 @@ class LeaveApprovalService
             return;
         }
 
-        try {
-            $leave->employee->notify(new LeaveRejectedNotification($leave, $reason));
-        } catch (\Throwable $exception) {
-            Log::warning("Leave #{$leave->id} rejected but employee notification failed", [
-                'error' => $exception->getMessage(),
-            ]);
-        }
+        DB::afterCommit(function () use ($leave, $reason) {
+            try {
+                $leave->employee->notify(new LeaveRejectedNotification($leave, $reason));
+            } catch (\Throwable $exception) {
+                Log::error("Leave #{$leave->id} rejected but employee notification failed", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 
     /**
@@ -909,14 +914,17 @@ class LeaveApprovalService
         $approver = $this->getCurrentApprover($leave);
 
         if ($approver) {
-            try {
-                $approver->notify(new LeaveApprovalNotification($leave));
-            } catch (\Throwable $exception) {
-                Log::warning("Leave #{$leave->id} approver notification failed", [
-                    'approver_id' => $approver->id,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
+            // After commit: a rolled-back submit/approval must never notify (works on sync and queued drivers).
+            DB::afterCommit(function () use ($leave, $approver) {
+                try {
+                    $approver->notify(new LeaveApprovalNotification($leave));
+                } catch (\Throwable $exception) {
+                    Log::error("Leave #{$leave->id} approver notification failed", [
+                        'approver_id' => $approver->id,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            });
         }
     }
 

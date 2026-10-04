@@ -23,22 +23,13 @@ if (config('app.env') === 'local') {
         });
 }
 
-// Send attendance reminders daily
-Schedule::command('attendance:reminders')
-    ->dailyAt('22:17')
-    ->timezone(config('app.timezone', 'UTC'))
-    ->before(function () {
-        Log::info('Starting attendance reminder job');
-    })
-    ->onSuccess(function () {
-        Log::info('Attendance reminders sent successfully');
-    })
-    ->onFailure(function () {
-        Log::error('Failed to send attendance reminders');
-    })
-    ->withoutOverlapping()
-    ->runInBackground()
-    ->appendOutputTo(storage_path('logs/attendance-reminders.log'));
+// Attendance reminders are NOT a separate daily job any more (it ran at 22:17 for every user, rostered
+// or not): attendance:shift-alerts below sends the start reminder and the overdue punch-in nudge to
+// the employees who are rostered today, through the notification channels. `attendance:reminders`
+// remains only as a manual alias of it.
+
+// Failed queue jobs are kept for a week (long enough to inspect and retry), then pruned.
+Schedule::command('queue:prune-failed', ['--hours' => 168])->daily();
 
 // Clean up old notification logs (keep 30 days)
 Schedule::command('model:prune', [

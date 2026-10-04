@@ -10,6 +10,7 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Password Changed Notification Email
@@ -48,7 +49,7 @@ class PasswordChangedNotificationMail extends Mailable implements ShouldQueue
         $this->ipAddress = $ipAddress;
         $this->location = $location;
         $this->userAgent = $userAgent ?? 'Unknown';
-        $this->supportUrl = $supportUrl ?? route('support.security');
+        $this->supportUrl = $supportUrl ?? (Route::has('support.security') ? route('support.security') : url('/'));
 
         // Set queue priority (security emails are high priority)
         $this->onQueue('security');

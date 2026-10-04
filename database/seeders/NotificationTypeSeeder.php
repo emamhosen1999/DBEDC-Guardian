@@ -11,12 +11,28 @@ class NotificationTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        $types = [
+        foreach (self::types() as $t) {
+            NotificationType::updateOrCreate(['key' => $t['key']], array_merge($t, ['is_active' => true, 'description' => $t['description'] ?? null]));
+        }
+    }
+
+    /**
+     * The registry. Every typeKey() in app/Notifications must appear here
+     * (guarded by NotificationTypeRegistryTest).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function types(): array
+    {
+        return [
             // Leave
             ['key' => 'leave.requested', 'category' => 'leave', 'label' => 'Leave request submitted', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager', 'Super Administrator']],
             ['key' => 'leave.approved', 'category' => 'leave', 'label' => 'Leave approved', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'leave.rejected', 'category' => 'leave', 'label' => 'Leave rejected', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'leave.cancelled', 'category' => 'leave', 'label' => 'Leave cancelled', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
+            // Tasks (daily work; legacy /task/* endpoints)
+            ['key' => 'task.assigned', 'category' => 'task', 'label' => 'Task assigned', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
+            ['key' => 'task.status_changed', 'category' => 'task', 'label' => 'Task status changed', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee', 'Manager']],
             // Attendance
             ['key' => 'attendance.missed_punch_in', 'category' => 'attendance', 'label' => 'Missed punch-in', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'attendance.missed_punch_out', 'category' => 'attendance', 'label' => 'Missed punch-out', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
@@ -29,6 +45,11 @@ class NotificationTypeSeeder extends Seeder
             ['key' => 'attendance.shift_start_reminder', 'category' => 'attendance', 'label' => 'Shift start reminder', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'attendance.shift_punch_in_overdue', 'category' => 'attendance', 'label' => 'Punch-in overdue', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'attendance.shift_absence', 'category' => 'attendance', 'label' => 'Possible absence (manager)', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager', 'Super Administrator']],
+            // Previously unregistered (silently fell back to hardcoded channels, or sent nothing)
+            ['key' => 'attendance.absence_streak_escalation', 'category' => 'attendance', 'label' => 'Absence streak escalation', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager']],
+            ['key' => 'hr.offboarding_initiated', 'category' => 'hr', 'label' => 'Offboarding initiated', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager']],
+            ['key' => 'om.alert', 'category' => 'om', 'label' => 'O&M operational alert', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager']],
+            ['key' => 'rfi.objection', 'category' => 'rfi', 'label' => 'RFI objection updates', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager', 'Employee']],
             // Biometric infrastructure alerts (scheduled: biometric:device-health-alert)
             // Own category, not 'attendance': preferences are stored per CATEGORY
             // (notification_preferences.user_id+category+channel), so filing this under
@@ -42,9 +63,5 @@ class NotificationTypeSeeder extends Seeder
             // take this alert to zero channels.
             ['key' => 'biometric.device_silent', 'category' => 'biometric', 'label' => 'Biometric device silent', 'description' => 'A terminal has stopped sending heartbeats — its punches are not reaching attendance. Recipients are everyone holding the attendance.settings permission, not a fixed role list.', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Super Administrator', 'Administrator']],
         ];
-
-        foreach ($types as $t) {
-            NotificationType::updateOrCreate(['key' => $t['key']], array_merge($t, ['is_active' => true, 'description' => $t['description'] ?? null]));
-        }
     }
 }

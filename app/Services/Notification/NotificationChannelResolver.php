@@ -1,5 +1,7 @@
 <?php
+
 // app/Services/Notification/NotificationChannelResolver.php
+
 namespace App\Services\Notification;
 
 use App\Models\NotificationType;
@@ -8,6 +10,24 @@ use App\Notifications\Channels\PushChannel;
 
 class NotificationChannelResolver
 {
+    /** @var array<string, NotificationType|null> per-request (scoped binding) registry lookups, misses included */
+    private array $types = [];
+
+    /** Drop memoised registry rows (called when a NotificationType is saved or deleted). */
+    public function forgetTypes(): void
+    {
+        $this->types = [];
+    }
+
+    private function type(string $typeKey): ?NotificationType
+    {
+        if (! array_key_exists($typeKey, $this->types)) {
+            $this->types[$typeKey] = NotificationType::where('key', $typeKey)->first();
+        }
+
+        return $this->types[$typeKey];
+    }
+
     /**
      * Pure: compute the effective logical channels.
      * - start from admin-enabled channels
@@ -25,6 +45,7 @@ class NotificationChannelResolver
             if (in_array($channel, $locked, true)) {
                 return true;
             }
+
             return ! in_array($channel, $userDisabled, true);
         });
 
@@ -42,12 +63,14 @@ class NotificationChannelResolver
      */
     public function resolveForUser(string $typeKey, User $user): array
     {
-        $type = NotificationType::where('key', $typeKey)->first();
+        $type = $this->type($typeKey);
         if (! $type || ! $type->is_active) {
             return [];
         }
 
-        $userDisabled = $user->notificationPreferences
+        // loadMissing, not a bare property read: with preventLazyLoading on (non-production) a lazy load on a
+        // queried user throws, and the fail-soft callers would swallow it and drop the notification.
+        $userDisabled = $user->loadMissing('notificationPreferences')->notificationPreferences
             ->where('category', $type->category)
             ->where('enabled', false)
             ->pluck('channel')
