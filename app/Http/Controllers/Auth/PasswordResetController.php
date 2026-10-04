@@ -10,6 +10,7 @@ use App\Services\ModernAuthenticationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
@@ -178,6 +179,18 @@ class PasswordResetController extends Controller
      */
     protected function sendPasswordResetEmail(User $user, array $resetData, Request $request): void
     {
+        // The `log` and `array` mailers write the whole message - the OTP and reset link included - into
+        // storage. In production that is a credential leak, not a delivery, so nothing is sent until a
+        // real transport is configured (the caller still answers with the generic message).
+        if (app()->isProduction() && in_array(config('mail.default'), ['log', 'array'], true)) {
+            Log::warning('Password reset mail withheld: no real mail transport is configured.', [
+                'mailer' => config('mail.default'),
+                'user' => $user->getKey(),
+            ]);
+
+            return;
+        }
+
         $resetUrl = route('password.reset', [
             'token' => $resetData['token'],
             'email' => $user->email,

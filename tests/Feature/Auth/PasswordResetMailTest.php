@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Mail\Auth\PasswordChangedNotificationMail;
 use App\Mail\Auth\SecurePasswordResetMail;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,32 @@ class PasswordResetMailTest extends TestCase
         Mail::shouldReceive('to')->andThrow(new \RuntimeException('smtp down'));
         $failed = $this->post('/forgot-password', ['email' => $user->email])->assertSessionHasNoErrors()->getSession()->get('status');
         $this->assertSame($known, $failed);
+    }
+
+    public function test_production_with_a_log_mailer_never_writes_the_reset_code_anywhere(): void
+    {
+        Mail::fake();
+        config(['mail.default' => 'log']);
+        $this->app['env'] = 'production';
+        $logged = [];
+        Event::listen(MessageLogged::class, function (MessageLogged $e) use (&$logged) {
+            $logged[] = $e->message.' '.json_encode($e->context);
+        });
+        $user = User::factory()->create(['email' => 'prod.reset@example.test']);
+
+        // CSRF is skipped only when the environment is `testing`; this test runs as production.
+        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->post('/forgot-password', ['email' => $user->email])->assertSessionHasNoErrors()->assertSessionHas('status');
+
+        Mail::assertNothingSent();
+        $code = (string) DB::table('password_reset_tokens_secure')->where('email', $user->email)->value('verification_code');
+        foreach ($logged as $line) {
+            $this->assertStringNotContainsString($user->email, $line);
+            if ($code !== '') {
+                $this->assertStringNotContainsString($code, $line);
+            }
+        }
+        $this->assertNotEmpty(array_filter($logged, fn ($l) => str_contains($l, 'Password reset mail withheld')));
     }
 
     public function test_successful_reset_sends_password_changed_mail(): void
