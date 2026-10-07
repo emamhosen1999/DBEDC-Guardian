@@ -177,7 +177,8 @@ class ModernAuthenticationService
         DB::table('password_reset_tokens_secure')->insert([
             'email' => $email,
             'token' => Hash::make($token),
-            'verification_code' => $verificationCode,
+            // Hashed like the token: a database read must never yield a usable code.
+            'verification_code' => Hash::make($verificationCode),
             'is_verified' => false,
             'attempts' => 0,
             'expires_at' => now()->addHours(1),
@@ -199,19 +200,25 @@ class ModernAuthenticationService
      */
     public function verifyPasswordResetToken(string $email, string $token, string $verificationCode): bool
     {
+        // The emailed link token identifies the request; the code is checked against it. Both are hashed, so
+        // the live requests are matched in PHP, and every wrong code counts toward the 5-attempt lockout.
         $record = DB::table('password_reset_tokens_secure')
             ->where('email', $email)
-            ->where('verification_code', $verificationCode)
             ->where('expires_at', '>', now())
             ->where('attempts', '<', 5)
-            ->first();
+            ->orderByDesc('id')
+            ->get()
+            ->first(fn ($row) => Hash::check($token, $row->token));
 
         if (! $record) {
             return false;
         }
 
-        if (! Hash::check($token, $record->token)) {
-            // Increment attempts
+        $codeMatches = is_string($record->verification_code)
+            && str_starts_with($record->verification_code, '$2y$')
+            && Hash::check($verificationCode, $record->verification_code);
+
+        if (! $codeMatches) {
             DB::table('password_reset_tokens_secure')
                 ->where('id', $record->id)
                 ->increment('attempts');

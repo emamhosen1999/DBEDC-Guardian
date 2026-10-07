@@ -130,8 +130,9 @@ class PasswordResetController extends Controller
                 ['email' => $email]
             );
 
+            // Same answer as a wrong code: the reset form must not confirm which addresses have accounts.
             throw ValidationException::withMessages([
-                'email' => 'No account found with this email address.',
+                'verification_code' => 'The verification code is invalid or has expired.',
             ]);
         }
 

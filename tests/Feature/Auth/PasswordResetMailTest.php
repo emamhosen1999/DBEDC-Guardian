@@ -39,10 +39,17 @@ class PasswordResetMailTest extends TestCase
 
         $this->post('/forgot-password', ['email' => $user->email])->assertSessionHasNoErrors();
 
-        $otp = DB::table('password_reset_tokens_secure')->where('email', $user->email)->value('verification_code');
-        $this->assertNotEmpty($otp);
+        // The plain code exists only in the mail; the database keeps its hash.
+        $otp = null;
+        Mail::assertQueued(SecurePasswordResetMail::class, function ($m) use ($user, &$otp) {
+            $otp = $m->otp;
 
-        Mail::assertQueued(SecurePasswordResetMail::class, fn ($m) => $m->hasTo($user->email) && $m->otp === $otp);
+            return $m->hasTo($user->email);
+        });
+        $this->assertNotEmpty($otp);
+        $stored = DB::table('password_reset_tokens_secure')->where('email', $user->email)->value('verification_code');
+        $this->assertNotSame($otp, $stored);
+        $this->assertTrue(Hash::check($otp, $stored));
 
         $log = implode("\n", $this->logged);
         $this->assertStringNotContainsString($otp, $log);
@@ -106,11 +113,11 @@ class PasswordResetMailTest extends TestCase
         $user = User::factory()->create(['email' => 'reset.me@example.test']);
         $this->post('/forgot-password', ['email' => $user->email]);
 
-        $row = DB::table('password_reset_tokens_secure')->where('email', $user->email)->first();
         $token = null;
-        Mail::assertQueued(SecurePasswordResetMail::class, function ($m) use (&$token) {
-            parse_str((string) parse_url($m->resetUrl, PHP_URL_QUERY), $q);
+        $otp = null;
+        Mail::assertQueued(SecurePasswordResetMail::class, function ($m) use (&$token, &$otp) {
             $token = basename(parse_url($m->resetUrl, PHP_URL_PATH));
+            $otp = $m->otp;
 
             return true;
         });
@@ -118,7 +125,7 @@ class PasswordResetMailTest extends TestCase
         $this->post('/reset-password', [
             'token' => $token,
             'email' => $user->email,
-            'verification_code' => $row->verification_code,
+            'verification_code' => $otp,
             'password' => self::STRONG,
             'password_confirmation' => self::STRONG,
         ])->assertRedirect(route('login'));
