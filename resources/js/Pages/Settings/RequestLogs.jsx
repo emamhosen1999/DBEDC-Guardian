@@ -1,7 +1,7 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
 import App from '@/Layouts/App';
 import { showToast } from '@/utils/toastUtils';
@@ -23,6 +23,11 @@ import {
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 const RequestLogs = ({ title }) => {
+    const { auth } = usePage().props;
+    const can = (permission) => Boolean(auth?.isSuperAdmin || auth?.permissions?.includes(permission));
+    const canDelete = can('request_logs.delete');
+    // The server also requires the Super Administrator role for clear-all.
+    const canClearAll = Boolean(auth?.isSuperAdmin) && can('request_logs.clear_all');
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 1024px)');
 
@@ -163,10 +168,7 @@ const RequestLogs = ({ title }) => {
 
     const handleExportLogs = async () => {
         try {
-            const data = await exportLogsMutation.mutateAsync({
-                params: filters,
-                responseType: 'blob',
-            });
+            const data = await exportLogsMutation.mutateAsync(filters);
             const url = window.URL.createObjectURL(new Blob([data]));
             const link = document.createElement('a');
             link.href = url;
@@ -182,7 +184,7 @@ const RequestLogs = ({ title }) => {
 
     const viewDetails = async (id) => {
         try {
-            const { data } = await useRequestLogsQuery.useLogDetails(id);
+            const data = await useRequestLogsQuery.getLogDetails(id);
             setShowDetails(data);
         } catch {
             showToast.error('Failed to load log details.');
@@ -278,16 +280,18 @@ const RequestLogs = ({ title }) => {
                                             />
                                             {!isMobile && 'Refresh'}
                                         </Button>
-                                        {selectedLogs.size > 0 && (
+                                        {canDelete && selectedLogs.size > 0 && (
                                             <Button size="2" variant="solid" color="red" onClick={bulkDelete} style={{ borderRadius: 10 }}>
                                                 <TrashIcon width={16} height={16} />
                                                 Delete ({selectedLogs.size})
                                             </Button>
                                         )}
-                                        <Button size="2" variant="soft" color="red" onClick={() => setConfirmClearAll(true)} style={{ borderRadius: 10 }}>
-                                            <TrashIcon width={16} height={16} />
-                                            {!isMobile && 'Clear All'}
-                                        </Button>
+                                        {canClearAll && (
+                                            <Button size="2" variant="soft" color="red" onClick={() => setConfirmClearAll(true)} style={{ borderRadius: 10 }}>
+                                                <TrashIcon width={16} height={16} />
+                                                {!isMobile && 'Clear All'}
+                                            </Button>
+                                        )}
                                     </Flex>
                                 </Flex>
                             </Box>
@@ -547,7 +551,7 @@ const RequestLogs = ({ title }) => {
                                                                     <EyeOpenIcon width={14} height={14} />
                                                                 </IconButton>
                                                             </Tooltip>
-                                                            <Tooltip content="Delete log">
+                                                            {canDelete && <Tooltip content="Delete log">
                                                                 <IconButton
                                                                     size="1"
                                                                     variant="ghost"
@@ -556,7 +560,7 @@ const RequestLogs = ({ title }) => {
                                                                 >
                                                                     <TrashIcon width={14} height={14} />
                                                                 </IconButton>
-                                                            </Tooltip>
+                                                            </Tooltip>}
                                                         </Flex>
                                                     </Table.Cell>
                                                 </Table.Row>

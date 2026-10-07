@@ -161,3 +161,7 @@ Schedule::command('aeon:index')
     ->dailyAt('04:00')->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping()
     ->runInBackground();
+
+// Request logs older than the retention window (config request-logs.retention_days, 90) are deleted in
+// primary-key chunks so the table is never locked for long.
+Schedule::command('request-logs:prune')->dailyAt('03:30')->withoutOverlapping();

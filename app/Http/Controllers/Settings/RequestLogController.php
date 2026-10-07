@@ -4,11 +4,21 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\RequestLog;
+use App\Services\Access\AccessAudit;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+/**
+ * Permission gating lives in routes/web.php: request_logs.view (read/export), request_logs.delete (single and
+ * bulk delete) and request_logs.clear_all (plus the Super Administrator role, enforced here).
+ */
 class RequestLogController extends Controller
 {
+    /** Columns shown in the table; the heavy JSON/body columns are only loaded by show(). */
+    private const LIST_COLUMNS = ['id', 'ip_address', 'method', 'url', 'user_agent', 'response_status', 'user_id', 'duration_ms', 'created_at'];
+
     public function index()
     {
         return Inertia::render('Settings/RequestLogs', [
@@ -16,46 +26,19 @@ class RequestLogController extends Controller
         ]);
     }
 
-    public function list(Request $request)
+    public function list(Request $request): JsonResponse
     {
-        $query = RequestLog::with('user:employee_id,name');
-
-        // Filters
-        if ($request->has('ip_address') && $request->ip_address) {
-            $query->where('ip_address', 'like', '%'.$request->ip_address.'%');
-        }
-
-        if ($request->has('user_id') && $request->user_id) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        if ($request->has('method') && $request->method) {
-            $query->where('method', $request->method);
-        }
-
-        if ($request->has('status') && $request->status) {
-            $query->where('response_status', $request->status);
-        }
-
-        if ($request->has('search') && $request->search) {
-            $query->where('url', 'like', '%'.$request->search.'%');
-        }
-
-        if ($request->has('start_date') && $request->start_date) {
-            $query->where('created_at', '>=', $request->start_date);
-        }
-
-        if ($request->has('end_date') && $request->end_date) {
-            $query->where('created_at', '<=', $request->end_date.' 23:59:59');
-        }
-
-        $logs = $query->orderBy('created_at', 'desc')
-            ->paginate(min(max((int) $request->get('per_page', 50), 5), 200));
+        $logs = $this->filtered($request)
+            ->with('user:employee_id,name')
+            ->select(self::LIST_COLUMNS)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate((int) min(max((int) $request->query('per_page', 50), 5), 200));
 
         return response()->json($logs);
     }
 
-    public function show($id)
+    public function show(int $id): JsonResponse
     {
         $log = RequestLog::with('user:employee_id,name')->find($id);
 
@@ -66,7 +49,7 @@ class RequestLogController extends Controller
         return response()->json($log);
     }
 
-    public function destroy($id)
+    public function destroy(int $id): JsonResponse
     {
         $log = RequestLog::find($id);
 
@@ -79,24 +62,30 @@ class RequestLogController extends Controller
         return response()->json(['message' => 'Log deleted successfully']);
     }
 
-    public function bulkDelete(Request $request)
+    public function bulkDelete(Request $request): JsonResponse
     {
-        $ids = $request->get('ids', []);
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:200'],
+            'ids.*' => ['integer'],
+        ]);
 
-        if (empty($ids)) {
-            return response()->json(['message' => 'No logs selected'], 400);
-        }
-
-        RequestLog::whereIn('id', $ids)->delete();
+        RequestLog::whereIn('id', $data['ids'])->delete();
 
         return response()->json(['message' => 'Logs deleted successfully']);
     }
 
-    public function clearAll(Request $request)
+    public function clearAll(Request $request, AccessAudit $audit): JsonResponse
     {
-        if (! $request->has('confirm') || $request->confirm !== 'DELETE_ALL') {
+        abort_unless($request->user()?->hasRole('Super Administrator'), 403, 'Only a Super Administrator may clear all request logs.');
+
+        if ($request->input('confirm') !== 'DELETE_ALL') {
             return response()->json(['message' => 'Confirmation required'], 400);
         }
+
+        $before = RequestLog::count();
+
+        // Audit first: the destructive step must never happen without a record of who did it.
+        $audit->record('request_logs.cleared', 'request_logs', null, ['rows' => $before], null);
 
         RequestLog::truncate();
 
@@ -105,38 +94,11 @@ class RequestLogController extends Controller
 
     public function export(Request $request)
     {
-        $query = RequestLog::with('user:employee_id,name');
-
-        // Apply same filters as list method
-        if ($request->has('ip_address') && $request->ip_address) {
-            $query->where('ip_address', 'like', '%'.$request->ip_address.'%');
-        }
-
-        if ($request->has('user_id') && $request->user_id) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        if ($request->has('method') && $request->method) {
-            $query->where('method', $request->method);
-        }
-
-        if ($request->has('status') && $request->status) {
-            $query->where('response_status', $request->status);
-        }
-
-        if ($request->has('search') && $request->search) {
-            $query->where('url', 'like', '%'.$request->search.'%');
-        }
-
-        if ($request->has('start_date') && $request->start_date) {
-            $query->where('created_at', '>=', $request->start_date);
-        }
-
-        if ($request->has('end_date') && $request->end_date) {
-            $query->where('created_at', '<=', $request->end_date.' 23:59:59');
-        }
-
-        $logs = $query->orderBy('created_at', 'desc')
+        $logs = $this->filtered($request)
+            ->with('user:employee_id,name')
+            ->select(self::LIST_COLUMNS)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->limit(10000)
             ->get();
 
@@ -164,5 +126,30 @@ class RequestLogController extends Controller
         return response($csvContent)
             ->header('Content-Type', 'text/csv')
             ->header('Content-Disposition', 'attachment; filename="request_logs_'.date('Y-m-d_H-i-s').'.csv"');
+    }
+
+    /**
+     * @return Builder<RequestLog>
+     */
+    private function filtered(Request $request): Builder
+    {
+        $filters = $request->validate([
+            'ip_address' => ['nullable', 'string', 'max:45'],
+            'user_id' => ['nullable', 'string', 'max:64'],
+            'method' => ['nullable', 'string', 'max:10'],
+            'status' => ['nullable', 'integer'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+        ]);
+
+        return RequestLog::query()
+            ->when($filters['ip_address'] ?? null, fn (Builder $q, $v) => $q->where('ip_address', 'like', '%'.$v.'%'))
+            ->when($filters['user_id'] ?? null, fn (Builder $q, $v) => $q->where('user_id', $v))
+            ->when($filters['method'] ?? null, fn (Builder $q, $v) => $q->where('method', strtoupper($v)))
+            ->when($filters['status'] ?? null, fn (Builder $q, $v) => $q->where('response_status', $v))
+            ->when($filters['search'] ?? null, fn (Builder $q, $v) => $q->where('url', 'like', '%'.$v.'%'))
+            ->when($filters['start_date'] ?? null, fn (Builder $q, $v) => $q->where('created_at', '>=', $v))
+            ->when($filters['end_date'] ?? null, fn (Builder $q, $v) => $q->where('created_at', '<=', $v.' 23:59:59'));
     }
 }

@@ -767,15 +767,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('settings/biometric-devices/download-history', [BiometricDeviceController::class, 'getDownloadHistory'])->name('biometric-devices.download-history');
         Route::get('settings/biometric-devices/download-sessions/{id}/logs', [BiometricDeviceController::class, 'getSessionLogs'])->whereNumber('id')->name('biometric-devices.download-sessions.logs');
         Route::post('settings/biometric-devices/download-sessions/{id}/import', [BiometricDeviceController::class, 'importSessionLogs'])->whereNumber('id')->name('biometric-devices.download-sessions.import');
+    });
 
-        // Request logs routes
+    // Request logs hold IPs, user agents and request payloads: gated by their own permissions, not attendance.settings.
+    Route::middleware(['permission:request_logs.view'])->group(function () {
         Route::get('settings/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');
         Route::get('settings/request-logs/list', [RequestLogController::class, 'list'])->name('request-logs.list');
-        Route::get('settings/request-logs/{id}', [RequestLogController::class, 'show'])->name('request-logs.show');
-        Route::delete('settings/request-logs/{id}', [RequestLogController::class, 'destroy'])->name('request-logs.destroy');
-        Route::post('settings/request-logs/bulk-delete', [RequestLogController::class, 'bulkDelete'])->name('request-logs.bulk-delete');
-        Route::post('settings/request-logs/clear-all', [RequestLogController::class, 'clearAll'])->name('request-logs.clear-all');
         Route::get('settings/request-logs/export', [RequestLogController::class, 'export'])->name('request-logs.export');
+        Route::get('settings/request-logs/{id}', [RequestLogController::class, 'show'])->whereNumber('id')->name('request-logs.show');
+    });
+    Route::middleware(['permission:request_logs.delete'])->group(function () {
+        Route::delete('settings/request-logs/{id}', [RequestLogController::class, 'destroy'])->whereNumber('id')->name('request-logs.destroy');
+        Route::post('settings/request-logs/bulk-delete', [RequestLogController::class, 'bulkDelete'])->name('request-logs.bulk-delete');
+    });
+    // Irreversible; the controller additionally requires the Super Administrator role and writes an audit record.
+    Route::middleware(['permission:request_logs.clear_all'])->group(function () {
+        Route::post('settings/request-logs/clear-all', [RequestLogController::class, 'clearAll'])->name('request-logs.clear-all');
     });
 
     Route::middleware(['permission:attendance.view|attendance.settings|attendance.roster.manage'])->group(function () {
