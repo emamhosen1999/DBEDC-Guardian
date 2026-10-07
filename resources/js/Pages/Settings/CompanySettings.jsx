@@ -2,10 +2,11 @@ import React, {useState} from 'react';
 import {Head, usePage} from "@inertiajs/react";
 import App from "@/Layouts/App.jsx";
 import CompanyInformationForm from "@/Forms/CompanyInformationForm.jsx";
+import EscalationApproverPanel from "@/Components/Access/EscalationApproverPanel.jsx";
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 
-const CompanySettings = ({title}) => {
+const CompanySettings = ({title, escalation}) => {
     const [settings, setSettings] = useState(usePage().props.companySettings);
 
 
@@ -21,6 +22,7 @@ const CompanySettings = ({title}) => {
                     >
                         <CompanyInformationForm settings={settings} setSettings={setSettings} />
                     </div>
+                    <div className="mt-4"><EscalationApproverPanel escalation={escalation} /></div>
                 </ErrorBoundary>
             </div>
         </>

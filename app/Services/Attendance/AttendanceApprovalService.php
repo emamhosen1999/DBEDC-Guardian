@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
 use App\Services\Access\SelfAdministration;
+use App\Services\Approvals\ApprovalRouting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,30 +17,13 @@ class AttendanceApprovalService
 
     public function buildChain(User $requester, bool $escalate = false): array
     {
-        // Single, REAL approver: the requester's direct manager. These requests
-        // (regularization / overtime) affect only the requester, so one authorization
-        // is enough. We deliberately do NOT add a second "department head" level — the
-        // old heuristic (first colleague by designation_id) picked an arbitrary employee
-        // with no authority and no UI access, which stranded every request.
-        $managerId = $requester->report_to ?? $requester->report_to_id ?? null;
-        // A report_to pointing at the requester himself (a data error) is no manager: nobody approves
-        // their own request, so it routes to HR like a request from someone without a manager.
-        if ($managerId !== null && (string) $managerId === (string) $requester->employee_id) {
-            $managerId = null;
-        }
-        // find() honours SoftDeletes: a manager who was offboarded (or a dangling
-        // report_to) must not become a ghost approver nobody can act as.
-        $manager = $managerId ? User::find($managerId) : null;
-        if ($manager) {
-            return [$this->entry(1, $manager->employee_id, $manager->name ?? 'Manager')];
-        }
+        // Single, REAL approver: the requester's line manager. These requests (regularization / overtime)
+        // affect only the requester, so one authorization is enough. Someone without a usable manager (top of
+        // the organization, missing, offboarded, inactive or self) goes to the escalation approver.
+        $routing = app(ApprovalRouting::class);
+        $approver = $routing->manager($requester) ?? $routing->escalationApprover($requester);
 
-        // No (live) manager on record → route to HR / admin so the request is still actionable.
-        $hr = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['HR Manager', 'HR Head', 'Super Administrator']))
-            ->where('employee_id', '!=', $requester->employee_id)
-            ->first();
-
-        return $hr ? [$this->entry(1, $hr->employee_id, $hr->name)] : [];
+        return $approver ? [$this->entry(1, $approver->employee_id, $approver->name ?? 'Approver')] : [];
     }
 
     private function entry(int $level, string $approverId, string $name): array

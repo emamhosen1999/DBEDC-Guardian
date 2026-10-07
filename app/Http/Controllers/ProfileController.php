@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
+use App\Models\UserDepartmentScope;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\ReportingManagerCandidates;
 use App\Services\Access\SelfAdministration;
 use App\Services\Profile\ProfileCrudService;
 use App\Services\Profile\ProfileUpdateService;
@@ -18,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -81,6 +84,7 @@ class ProfileController extends Controller
                 ? ($scope->isGlobal($actor) ? Designation::all() : Designation::whereIn('department_id', $scope->visibleDepartmentIds($actor))->get())
                 : [],
             'report_to' => $reportTo,
+            'administration' => $this->administrationOf($user),
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
             'can' => [
@@ -90,6 +94,26 @@ class ProfileController extends Controller
                 'manageCompensation' => $actor->can('updateCompensation', $user),
             ],
         ]);
+    }
+
+    /**
+     * Departments this employee heads (departments.manager_id) and the ones they additionally administer
+     * through an active user_department_scopes grant - org-chart facts, names only.
+     *
+     * @return array{heads: array<int, string>, also_administers: array<int, array{department: string, type: string, expires_at: ?string}>}
+     */
+    private function administrationOf(User $user): array
+    {
+        $key = (string) $user->getKey();
+        $heads = Department::query()->where('manager_id', $key)->orderBy('name')->pluck('name')->all();
+        $also = Schema::hasTable('user_department_scopes')
+            ? UserDepartmentScope::query()->active()->where('user_id', $key)->with('department:id,name')->get()
+                ->filter(fn ($g) => $g->department)
+                ->map(fn ($g) => ['department' => $g->department->name, 'type' => $g->scope_type, 'expires_at' => $g->expires_at?->toDateString()])
+                ->sortBy('department')->values()->all()
+            : [];
+
+        return ['heads' => $heads, 'also_administers' => $also];
     }
 
     public function store(Request $request)
@@ -483,8 +507,8 @@ class ProfileController extends Controller
                     && ! in_array((int) Designation::whereKey($validated['designation'])->value('department_id'), $scope->managedDepartmentIds($actor), true)) {
                     abort(403, 'Unauthorized to assign designations outside your department scope.');
                 }
-                if ($changed('report_to', 'report_to') && ! $scope->canActOn($actor, (string) $validated['report_to'], allowSelf: true)) {
-                    abort(403, 'The reporting manager must be within your department scope.');
+                if ($changed('report_to', 'report_to') && ! app(ReportingManagerCandidates::class)->allows($actor, (string) $target->getKey(), (string) $validated['report_to'])) {
+                    abort(403, 'The selected reporting manager is not available to you.');
                 }
             }
         }

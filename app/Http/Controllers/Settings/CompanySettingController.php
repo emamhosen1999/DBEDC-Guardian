@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\CompanySetting;
+use App\Models\User;
+use App\Services\Approvals\ApprovalRouting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,10 +15,42 @@ class CompanySettingController extends Controller
     {
         $companySettings = CompanySetting::first() ? CompanySetting::first() : [];
 
+        $canSetEscalation = (bool) request()->user()?->hasRole(ApprovalRouting::LAST_RESORT_ROLE);
+
         return Inertia::render('Settings/CompanySettings', [
             'title' => 'Company Settings',
             'companySettings' => $companySettings,
+            'escalation' => [
+                'can_edit' => $canSetEscalation,
+                'approver_id' => app(ApprovalRouting::class)->configuredEscalationApproverId(),
+                'has_hr_manager' => app(ApprovalRouting::class)->hasEscalationApprover(),
+                'candidates' => $canSetEscalation
+                    ? User::query()->where(fn ($q) => $q->whereNull('is_active')->orWhere('is_active', true))
+                        ->orderBy('name')->get(['employee_id', 'name'])
+                        ->map(fn (User $u) => ['id' => (string) $u->employee_id, 'name' => (string) $u->name])->values()
+                    : [],
+            ],
         ]);
+    }
+
+    /** approvals.escalation_approver_id - Super Administrator only. */
+    public function updateEscalationApprover(Request $request)
+    {
+        abort_unless($request->user()?->hasRole(ApprovalRouting::LAST_RESORT_ROLE), 403, 'Only a Super Administrator can set the escalation approver.');
+
+        $data = $request->validate([
+            'escalation_approver_id' => ['nullable', 'string', 'exists:users,employee_id'],
+        ]);
+        $id = $data['escalation_approver_id'] ?? null;
+
+        if ($id !== null && User::whereKey($id)->where('is_active', false)->exists()) {
+            return response()->json(['message' => 'The escalation approver must be an active employee.', 'errors' => ['escalation_approver_id' => ['The escalation approver must be an active employee.']]], 422);
+        }
+
+        $settings = CompanySetting::first() ?? new CompanySetting;
+        $settings->forceFill(['escalation_approver_id' => $id])->save();
+
+        return response()->json(['message' => 'Escalation approver updated.', 'approver_id' => $id]);
     }
 
     public function update(Request $request)

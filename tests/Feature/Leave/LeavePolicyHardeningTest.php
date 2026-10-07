@@ -321,13 +321,15 @@ class LeavePolicyHardeningTest extends TestCase
     // ── Approval chain: department head resolution ───────────────────────
 
     /** @test */
-    public function department_head_is_resolved_from_root_designation(): void
+    public function department_head_is_resolved_from_the_department_manager_id(): void
     {
         $dept = Department::create(['name' => 'Engineering']);
         $rootDesig = Designation::create(['title' => 'Head of Engineering', 'department_id' => $dept->id, 'parent_id' => null]);
         $childDesig = Designation::create(['title' => 'Engineer', 'department_id' => $dept->id, 'parent_id' => $rootDesig->id]);
 
-        $head = User::factory()->create(['department_id' => $dept->id, 'designation_id' => $rootDesig->id]);
+        // The head is the department's manager_id - a root designation no longer makes someone the head.
+        $head = User::factory()->create(['department_id' => $dept->id, 'designation_id' => $childDesig->id]);
+        $dept->forceFill(['manager_id' => $head->employee_id])->save();
         $manager = User::factory()->create(['department_id' => $dept->id, 'designation_id' => $childDesig->id]);
         $employee = User::factory()->create([
             'department_id' => $dept->id, 'designation_id' => $childDesig->id,
@@ -344,6 +346,6 @@ class LeavePolicyHardeningTest extends TestCase
         $chain = app(LeaveApprovalService::class)->buildApprovalChain($leave);
         $approverIds = array_column($chain, 'approver_id');
 
-        $this->assertContains($head->id, $approverIds, 'Root-designation holder should be the level-2 department head.');
+        $this->assertContains($head->id, $approverIds, 'departments.manager_id should be the level-2 department head.');
     }
 }

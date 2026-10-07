@@ -53,6 +53,7 @@ use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
 use App\Http\Controllers\Quality\NcrController;
+use App\Http\Controllers\ReportingManagerCandidatesController;
 use App\Http\Controllers\RfiObjectionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Settings\AttendanceSettingController;
@@ -554,6 +555,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'assignBiometricDevice'])->name('users.updateBiometricDevice');
     });
+    Route::get('/reporting-manager-candidates', ReportingManagerCandidatesController::class)
+        ->middleware('permission:employees.placement.update|employees.create')
+        ->name('employees.reporting-manager-candidates');
     Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])
         ->middleware('permission:employees.placement.update')
         ->name('users.updateReportTo');
@@ -630,6 +634,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Company settings routes
     Route::middleware(['permission:company.settings'])->group(function () {
         Route::put('/update-company-settings', [CompanySettingController::class, 'update'])->name('update-company-settings');
+        Route::put('/update-escalation-approver', [CompanySettingController::class, 'updateEscalationApprover'])->name('update-escalation-approver');
         Route::get('/company-settings', [CompanySettingController::class, 'index'])->name('admin.settings.company');
     });    // Legacy role routes (maintained for backward compatibility)
     Route::middleware(['permission:roles.view'])->get('/roles-permissions', [RoleController::class, 'getRolesAndPermissions'])->name('roles-settings');

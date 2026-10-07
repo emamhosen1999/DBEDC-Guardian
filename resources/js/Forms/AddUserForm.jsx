@@ -21,6 +21,7 @@ import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
 import DateTimePicker from '@/Components/DateTimePicker';
+import ReportingManagerPicker from '@/Components/Access/ReportingManagerPicker';
 
 const toastStyle = {
     backdropFilter: 'blur(16px) saturate(200%)',
@@ -65,7 +66,6 @@ const AddUserForm = ({ user, allUsers, departments, designations, setUser, open,
     const [selectedImage, setSelectedImage] = useState(null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
     const [allDesignations, setAllDesignations] = useState(designations);
-    const [allReportTo, setAllReportTo] = useState(allUsers);
 
     const val = (key) => changedUserData[key] ?? initialUserData[key] ?? '';
 
@@ -177,12 +177,6 @@ const AddUserForm = ({ user, allUsers, departments, designations, setUser, open,
         setAllDesignations(
             designations.filter((designation) =>
                 designation.department_id === (changedUserData.department || initialUserData.department)
-            )
-        );
-
-        setAllReportTo(
-            allUsers.filter((u) =>
-                u.department === (changedUserData.department || initialUserData.department)
             )
         );
 
@@ -393,21 +387,12 @@ const AddUserForm = ({ user, allUsers, departments, designations, setUser, open,
                             </Field>
 
                             <Field label="Reports To" error={fieldError(errors, 'report_to')}>
-                                <Select.Root
-                                    value={val('report_to') ? String(val('report_to')) : undefined}
-                                    onValueChange={(v) => handleChange('report_to', v)}
+                                <ReportingManagerPicker
+                                    value={val('report_to')}
+                                    employeeId={user?.id ?? null}
+                                    onChange={(v) => handleChange('report_to', v)}
                                     disabled={user?.report_to === 'na'}
-                                >
-                                    <Select.Trigger placeholder="Select Reports To" style={{ width: '100%' }} />
-                                    <Select.Content>
-                                        <Select.Item value="na">--</Select.Item>
-                                        {allReportTo.map((pers) => (
-                                            <Select.Item key={pers.id} value={String(pers.id)}>
-                                                {pers.name}
-                                            </Select.Item>
-                                        ))}
-                                    </Select.Content>
-                                </Select.Root>
+                                />
                             </Field>
                         </Grid>
                     </Box>

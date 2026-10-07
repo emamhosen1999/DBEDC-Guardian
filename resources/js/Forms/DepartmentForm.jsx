@@ -144,7 +144,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                                 <Select.Content>
                                     <Select.Item value="none">Unassigned</Select.Item>
                                     {managers.map(m => (
-                                        <Select.Item key={m.id} value={String(m.id)}>{m.name}</Select.Item>
+                                        <Select.Item key={m.id} value={String(m.id)}>{m.department ? `${m.name} (${m.department})` : m.name}</Select.Item>
                                     ))}
                                 </Select.Content>
                             </Select.Root>

@@ -50,6 +50,7 @@ class NotificationTypeSeeder extends Seeder
             ['key' => 'hr.offboarding_initiated', 'category' => 'hr', 'label' => 'Offboarding initiated', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager']],
             ['key' => 'om.alert', 'category' => 'om', 'label' => 'O&M operational alert', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager']],
             ['key' => 'rfi.objection', 'category' => 'rfi', 'label' => 'RFI objection updates', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager', 'Employee']],
+            ['key' => 'approvals.routing_incomplete', 'category' => 'hr', 'label' => 'Approval routing incomplete', 'description' => 'A request had to be routed to a Super Administrator because the requester has no manager and no HR Manager or escalation approver exists.', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Super Administrator']],
             // Biometric infrastructure alerts (scheduled: biometric:device-health-alert)
             // Own category, not 'attendance': preferences are stored per CATEGORY
             // (notification_preferences.user_id+category+channel), so filing this under

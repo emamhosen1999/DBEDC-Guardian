@@ -11,6 +11,7 @@ use App\Notifications\LeaveOverrideNoticeNotification;
 use App\Notifications\LeaveRejectedNotification;
 use App\Services\Access\DepartmentScope;
 use App\Services\Access\SelfAdministration;
+use App\Services\Approvals\ApprovalRouting;
 use App\Services\Attendance\CoverageService;
 use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
@@ -44,100 +45,44 @@ class LeaveApprovalService
         }
 
         $approvalChain = [];
+        $routing = app(ApprovalRouting::class);
+        $entry = fn (User $approver, ?string $comments = null): array => [
+            'level' => 0,
+            'approver_id' => $approver->employee_id,
+            'approver_name' => $approver->name ?? 'Unknown',
+            'status' => 'pending',
+            'approved_at' => null,
+            'comments' => $comments,
+        ];
 
-        // Level 1: Direct Manager (report_to) - a live manager other than the requester. A self-referencing
-        // report_to (a data error) or an offboarded/dangling one would leave the request with an approver
-        // who cannot act on it.
-        $reportTo = $user->report_to ?? $user->report_to_id ?? null;
-        $directManager = $reportTo !== null && (string) $reportTo !== (string) $user->employee_id ? User::find($reportTo) : null;
-        $directManagerId = $directManager?->employee_id;
-
+        // Level 1: line manager (report_to) - live, active and not the requester.
+        $directManager = $routing->manager($user);
         if ($directManager) {
-            $approvalChain[] = [
-                'level' => 1,
-                'approver_id' => $directManager->employee_id,
-                'approver_name' => $directManager->name ?? 'Unknown',
-                'status' => 'pending',
-                'approved_at' => null,
-                'comments' => null,
-            ];
+            $approvalChain[] = $entry($directManager);
         }
 
-        // Level 2: Department Head (if different from direct manager).
-        // Head = a user in the same department holding a ROOT designation
-        // (designations are hierarchical via parent_id; root = top of the tree).
-        $departmentHead = $user->department_id
-            ? User::where('department_id', $user->department_id)
-                ->where('employee_id', '!=', $user->id)
-                ->when($directManagerId, function ($query) use ($directManagerId) {
-                    $query->where('employee_id', '!=', $directManagerId);
-                })
-                ->whereIn('designation_id', function ($query) use ($user) {
-                    $query->select('id')
-                        ->from('designations')
-                        ->where('department_id', $user->department_id)
-                        ->whereNull('parent_id')
-                        ->whereNull('deleted_at');
-                })
-                ->orderBy('employee_id')
-                ->first()
-            : null;
-
-        if ($departmentHead) {
-            $approvalChain[] = [
-                'level' => 2,
-                'approver_id' => $departmentHead->id,
-                'approver_name' => $departmentHead->name,
-                'status' => 'pending',
-                'approved_at' => null,
-                'comments' => null,
-            ];
+        // Level 2: the requester's department head (departments.manager_id); skipped when it is the
+        // requester or already the direct manager.
+        $departmentHead = $routing->departmentHead($user);
+        if ($departmentHead && (string) $departmentHead->employee_id !== (string) $directManager?->employee_id) {
+            $approvalChain[] = $entry($departmentHead);
         }
 
-        // Level 3: HR Manager (for leaves > 5 days or special leave types)
+        // Level 3: HR (leaves > 5 days or special leave types), when not already in the chain and not the requester.
         if ($leave->no_of_days > 5 || in_array($leave->leave_type, $this->getSpecialLeaveTypes())) {
-            $hrManager = User::whereHas('roles', function ($query) {
-                $query->where('name', 'HR Manager')
-                    ->orWhere('name', 'HR Head')
-                    ->orWhere('name', 'Super Admin');
-            })->first();
-
-            if ($hrManager) {
-                $approvalChain[] = [
-                    'level' => 3,
-                    'approver_id' => $hrManager->id,
-                    'approver_name' => $hrManager->name,
-                    'status' => 'pending',
-                    'approved_at' => null,
-                    'comments' => null,
-                ];
+            $hr = $routing->escalationApprover($user, notify: false);
+            if ($hr && ! in_array((string) $hr->employee_id, array_column($approvalChain, 'approver_id'), true)) {
+                $approvalChain[] = $entry($hr);
             }
         }
 
-        // No manager and no department head (e.g. a department admin created without a reporting
-        // line): the request must never fall through to auto-approval, and never reach the requester
-        // himself. It routes to HR / global admins instead (separation of duties).
+        // No usable manager or department head (top of the organization, offboarded or missing manager):
+        // never auto-approved and never routed to the requester - the escalation approver (HR Manager,
+        // then the configured approver, then Super Administrators with a notice).
         if ($approvalChain === []) {
-            $fallback = User::query()
-                ->where('employee_id', '!=', $user->employee_id)
-                ->whereHas('roles', fn ($q) => $q->where('name', 'HR Manager'))
-                ->orderBy('employee_id')
-                ->first()
-                ?? User::query()
-                    ->where('employee_id', '!=', $user->employee_id)
-                    ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Administrator', 'Super Administrator']))
-                    ->orderBy('employee_id')
-                    ->first();
-
-            if ($fallback) {
-                $approvalChain[] = [
-                    'level' => 1,
-                    'approver_id' => $fallback->employee_id,
-                    'approver_name' => $fallback->name,
-                    'status' => 'pending',
-                    'approved_at' => null,
-                    'comments' => 'Routed to HR: the requester has no reporting manager.',
-                ];
+            $escalation = $routing->escalationApprover($user);
+            if ($escalation) {
+                $approvalChain[] = $entry($escalation, 'Escalated: the requester has no reporting manager.');
             }
         }
 

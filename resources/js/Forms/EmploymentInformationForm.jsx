@@ -7,10 +7,12 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import InfoRow from "@/Components/InfoRow.jsx";
 import DepartmentField from '@/Components/Access/DepartmentField';
-import { eligibleManagers } from '@/utils/reportingLine';
+import ReportingManagerPicker from '@/Components/Access/ReportingManagerPicker';
 
 const EmploymentInformationForm = ({ user, setUser, departments = [], designations = [], allUsers = [], reportTo = null, canEdit = false }) => {
-    const { auth } = usePage().props;
+    const { auth, administration } = usePage().props;
+    const heads = administration?.heads ?? [];
+    const alsoAdministers = (administration?.also_administers ?? []).map((g) => (g.expires_at ? `${g.department} (until ${g.expires_at})` : g.department));
     const [isEditing, setIsEditing] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [formData, setFormData] = useState({
@@ -22,22 +24,11 @@ const EmploymentInformationForm = ({ user, setUser, departments = [], designatio
     });
     const setDepartment = useCallback((value) => setFormData((prev) => (String(prev.department) === String(value) ? prev : { ...prev, department: value, designation: '' })), []);
 
-    // Only the chosen department's designations; managers per the one reporting-line rule (the person
-    // administering included, a department with no designations still has a list).
+    // Only the chosen department's designations; the reporting manager comes from the scoped picker.
     const departmentDesignations = useMemo(
         () => designations.filter((d) => String(d.department_id) === String(formData.department)),
         [designations, formData.department],
     );
-    const managers = useMemo(() => eligibleManagers({
-        managers: allUsers.map((u) => ({
-            ...u,
-            designation_hierarchy_level: designations.find((d) => String(d.id) === String(u.designation_id))?.hierarchy_level ?? null,
-        })),
-        subject: { id: user.id, department_id: formData.department },
-        subjectLevel: designations.find((d) => String(d.id) === String(formData.designation))?.hierarchy_level ?? null,
-        actorId: auth?.user?.employee_id ?? null,
-        currentManagerId: user.report_to ?? null,
-    }), [allUsers, designations, formData.department, formData.designation, user.id, user.report_to, auth?.user?.employee_id]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -70,6 +61,8 @@ const EmploymentInformationForm = ({ user, setUser, departments = [], designatio
                     <InfoRow label="Department" value={user.department?.name || '—'} icon={<BackpackIcon />} />
                     <InfoRow label="Designation" value={user.designation?.title || '—'} />
                     <InfoRow label="Reports To" value={reportTo?.name || '—'} />
+                    {heads.length > 0 && <InfoRow label="Heads" value={heads.join(', ')} />}
+                    {alsoAdministers.length > 0 && <InfoRow label="Also administers" value={alsoAdministers.join(', ')} />}
                 </Box>
             ) : (
                 <form onSubmit={handleSubmit}>
@@ -86,12 +79,7 @@ const EmploymentInformationForm = ({ user, setUser, departments = [], designatio
                         </Box>
                         <Box>
                             <Text size="2" weight="medium" mb="1" display="block">Reports To</Text>
-                            <Select.Root value={formData.report_to ? String(formData.report_to) : undefined} onValueChange={v => setFormData({...formData, report_to: v})} disabled={managers.length === 0}>
-                                <Select.Trigger style={{ width: '100%' }} placeholder={managers.length === 0 ? 'No supervisor available' : 'Select a supervisor'} />
-                                <Select.Content>
-                                    {managers.map(u => <Select.Item key={u.id} value={String(u.id)}>{u.name}</Select.Item>)}
-                                </Select.Content>
-                            </Select.Root>
+                            <ReportingManagerPicker value={formData.report_to} employeeId={user.id} onChange={(v) => setFormData({ ...formData, report_to: v })} />
                         </Box>
                     </Grid>
                     <Flex justify="end">

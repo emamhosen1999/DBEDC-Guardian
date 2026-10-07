@@ -14,6 +14,7 @@ use App\Models\HRM\Designation;
 use App\Models\User;
 use App\Models\WorkLocation;
 use App\Services\Access\DepartmentScope;
+use App\Services\Access\ReportingManagerCandidates;
 use App\Services\Access\SelfAdministration;
 use App\Services\Admin\UserManagementService;
 use App\Traits\HandlesApiExceptions;
@@ -227,7 +228,7 @@ class UserController extends Controller
                 // A department admin registers people only into a department they administer
                 // (defaulting when they administer one) and under a manager inside his scope.
                 $validated['department_id'] = $this->resolveCreatableDepartment($authUser, $validated['department_id'] ?? null);
-                $this->assertReportToInScope($authUser, $validated['report_to'] ?? null);
+                $this->assertReportToInScope($authUser, $validated['report_to'] ?? null, isset($validated['employee_id']) ? (string) $validated['employee_id'] : null);
             }
 
             if (! $authUser->can('employees.access.manage')) {
@@ -328,7 +329,7 @@ class UserController extends Controller
                 if (array_key_exists('report_to', $validated)
                     && (string) $validated['report_to'] !== (string) $targetUser->report_to
                     && ! $this->scope()->isGlobal($authUser)) {
-                    $this->assertReportToInScope($authUser, $validated['report_to']);
+                    $this->assertReportToInScope($authUser, $validated['report_to'], (string) $targetUser->employee_id);
                 }
                 $validated = $this->gateFieldGroup($authUser, $targetUser, $validated, self::ATTENDANCE_CONFIG_FIELDS, 'updateAttendanceConfig', 'attendance method and devices');
                 $validated = $this->gateFieldGroup($authUser, $targetUser, $validated, ['salary_amount'], 'updateCompensation', 'salary');
@@ -667,7 +668,7 @@ class UserController extends Controller
             // employees.placement.update + scope + outranking; never one's own reporting line.
             $this->authorize('updatePlacement', $user);
             if (! $this->scope()->isGlobal($request->user())) {
-                $this->assertReportToInScope($request->user(), $request->input('report_to'));
+                $this->assertReportToInScope($request->user(), $request->input('report_to'), (string) $user->employee_id);
             }
             $updatedUser = $this->userService->updateReportTo($user, $request->input('report_to'));
 
@@ -1266,18 +1267,19 @@ class UserController extends Controller
     }
 
     /**
-     * A non-global actor may only point a reporting line at someone in their own
-     * scope (or themselves) — never graft an employee under an outside manager.
+     * The reporting manager must be in the set this actor may choose from (ReportingManagerCandidates):
+     * their scope plus every department head. Anyone else is refused - never grafting an employee under
+     * a manager outside what the actor may see.
      */
-    private function assertReportToInScope(User $actor, mixed $reportTo): void
+    private function assertReportToInScope(User $actor, mixed $reportTo, ?string $employeeId = null): void
     {
         if ($reportTo === null || $reportTo === '') {
             return;
         }
 
-        if (! $this->scope()->canActOn($actor, (string) $reportTo, allowSelf: true)) {
+        if (! app(ReportingManagerCandidates::class)->allows($actor, $employeeId, (string) $reportTo)) {
             throw ValidationException::withMessages([
-                'report_to' => 'The reporting manager must be within your department scope.',
+                'report_to' => 'The selected reporting manager is not available to you.',
             ]);
         }
     }

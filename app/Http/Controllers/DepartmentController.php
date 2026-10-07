@@ -48,7 +48,10 @@ class DepartmentController extends Controller
         $departments = $query->paginate(min(max((int) $request->get('per_page', 20), 5), 100));
 
         // Get all employees for manager dropdown
-        $managers = User::orderBy('name')->get(['employee_id as id', 'employee_id', 'name']);
+        // Any ACTIVE employee may head a department, whatever department they belong to.
+        $managers = User::where(fn ($q) => $q->whereNull('is_active')->orWhere('is_active', true))
+            ->with('department:id,name')->orderBy('name')->get(['employee_id as id', 'employee_id', 'name', 'department_id'])
+            ->map(fn (User $u) => ['id' => $u->id, 'employee_id' => $u->employee_id, 'name' => $u->name, 'department' => $u->department?->name]);
 
         // Get parent departments for dropdown
         $parentDepartments = Department::whereNull('parent_id')
@@ -87,7 +90,7 @@ class DepartmentController extends Controller
                 'code' => 'nullable|string|max:50|unique:departments',
                 'description' => 'nullable|string',
                 'parent_id' => 'nullable|exists:departments,id',
-                'manager_id' => 'nullable|exists:users,employee_id',
+                'manager_id' => ['nullable', Rule::exists('users', 'employee_id')->where(fn ($q) => $q->whereNull('deleted_at')->where(fn ($w) => $w->whereNull('is_active')->orWhere('is_active', true)))],
                 'location' => 'nullable|string|max:255',
                 'is_active' => 'boolean',
                 'established_date' => 'nullable|date',
@@ -175,7 +178,7 @@ class DepartmentController extends Controller
                 ],
                 'description' => 'nullable|string',
                 'parent_id' => 'nullable|exists:departments,id',
-                'manager_id' => 'nullable|exists:users,employee_id',
+                'manager_id' => ['nullable', Rule::exists('users', 'employee_id')->where(fn ($q) => $q->whereNull('deleted_at')->where(fn ($w) => $w->whereNull('is_active')->orWhere('is_active', true)))],
                 'location' => 'nullable|string|max:255',
                 'is_active' => 'boolean',
                 'established_date' => 'nullable|date',
