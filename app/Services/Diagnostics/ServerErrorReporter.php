@@ -2,14 +2,17 @@
 
 namespace App\Services\Diagnostics;
 
+use App\Exceptions\StaleModelVersionException;
 use App\Models\ClientErrorLog;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Foundation\Http\Exceptions\MaintenanceModeException;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -161,7 +164,7 @@ class ServerErrorReporter
         }
 
         // Explicitly capture optimistic concurrency conflicts (stale writes).
-        if ($e instanceof \App\Exceptions\StaleModelVersionException) {
+        if ($e instanceof StaleModelVersionException) {
             return true;
         }
 
@@ -171,6 +174,12 @@ class ServerErrorReporter
             }
         }
 
+        // The 503 of a maintenance window (php artisan down during a deploy) is planned downtime, not an
+        // incident: every client poll during the window would otherwise land on the board as a fault.
+        if ($e instanceof HttpExceptionInterface && $e->getStatusCode() === 503 && app()->isDownForMaintenance()) {
+            return false;
+        }
+
         // For HTTP exceptions: capture actionable 4xx errors (400 Bad Request, 409 Conflict, 422 Unprocessable),
         // while continuing to ignore background noise (404, 401, 403, 419, 429).
         if ($e instanceof HttpExceptionInterface && $e->getStatusCode() < 500) {
@@ -178,6 +187,7 @@ class ServerErrorReporter
             if (in_array($status, [400, 409, 422], true)) {
                 return true;
             }
+
             return false;
         }
 
@@ -209,13 +219,14 @@ class ServerErrorReporter
             $context['invalid_fields'] = array_keys($errors);
             if ($request) {
                 try {
-                    $context['input'] = \Illuminate\Support\Arr::except(
+                    $context['input'] = Arr::except(
                         $request->except(['password', 'password_confirmation', 'secret', 'token', '_token', 'device_secret', 'pin']),
                         ['password', 'token']
                     );
-                } catch (Throwable) {}
+                } catch (Throwable) {
+                }
             }
-        } elseif ($e instanceof \App\Exceptions\StaleModelVersionException) {
+        } elseif ($e instanceof StaleModelVersionException) {
             $status = 409;
             $severity = 'warning';
             $message = $e->getMessage();
@@ -223,7 +234,7 @@ class ServerErrorReporter
             $context['requested_version'] = $request?->input('version');
         } else {
             $message = (string) mb_substr($e->getMessage() !== '' ? $e->getMessage() : get_class($e), 0, 2000);
-            if ($e instanceof \Illuminate\Database\QueryException) {
+            if ($e instanceof QueryException) {
                 $context['sql'] = $e->getSql();
             }
         }

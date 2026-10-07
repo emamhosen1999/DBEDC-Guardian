@@ -6,6 +6,7 @@ use App\Http\Middleware\AttendanceRateLimit;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DeviceAuthMiddleware;
 use App\Http\Middleware\DisableCacheHeaders;
+use App\Http\Middleware\EnforcePasswordChange;
 use App\Http\Middleware\EnhancedRateLimit;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureGlobalScope;
@@ -52,7 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
             SetLocale::class,
-            \App\Http\Middleware\EnforcePasswordChange::class,
+            EnforcePasswordChange::class,
             DeviceAuthMiddleware::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
@@ -220,9 +221,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null,
             ];
 
-            if ($statusCode >= 500) {
+            // A 503 while the app is in maintenance mode is the planned deploy window (the mobile app keeps
+            // polling through it), not a server fault: never an error with a trace.
+            $plannedDowntime = $statusCode === 503 && app()->isDownForMaintenance();
+
+            if ($statusCode >= 500 && ! $plannedDowntime) {
                 Log::error('API Server Exception', $logContext);
-            } elseif (! in_array($statusCode, [401, 404, 419, 422])) {
+            } elseif (! $plannedDowntime && ! in_array($statusCode, [401, 404, 419, 422])) {
                 Log::warning('API Client Exception', $logContext);
             }
 
