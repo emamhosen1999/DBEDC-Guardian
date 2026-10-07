@@ -8,7 +8,9 @@ use App\Services\Access\RoleCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
@@ -113,6 +115,12 @@ class CatalogRouteMatrixTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware([ThrottleRequests::class]);
+        // The matrix judges authorization, never the network: outbound calls (camera WHEP/HLS through the
+        // Cloudflare tunnel) are faked, and the ONVIF snapshot (raw cURL) is served from its micro-cache.
+        Http::preventStrayRequests();
+        Http::fake();
+        Cache::put('cctv_frame_live_main', 'jpeg', 60);
+        Cache::put('cctv_frame_live_sub', 'jpeg', 60);
         $this->buildWorld();
         $this->existingUserIds = User::withTrashed()->pluck('employee_id')->map(fn ($id) => (string) $id)->all();
     }

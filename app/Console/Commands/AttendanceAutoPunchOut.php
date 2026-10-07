@@ -31,11 +31,19 @@ class AttendanceAutoPunchOut extends Command
         $closed = 0;
         foreach ($rows as $row) {
             $in = Carbon::parse($row->punchin);
-            $shift = $schedules->resolve($row->user_id, $in);
-            // Non-working (off-day) rows have no scheduled end to anchor on: the old
-            // endOfDay() fallback produced near-24h phantom rows. Credit at most an
-            // 8-hour shift, and never stamp a punchout in the future.
-            $end = $shift->isWorkingDay ? $shift->end->copy() : $in->copy()->addHours(8)->min($now);
+            // Resolve by the row's BUSINESS date, not the punch moment: a night-shift punch-in
+            // after midnight belongs to the shift that started the evening before.
+            $shift = $schedules->resolve($row->user_id, Carbon::parse($row->date)->startOfDay());
+            // Off-day rows (and a punch-in made after the resolved shift already ended) have no
+            // scheduled end to anchor on: credit one 8-hour shift from the punch-in. The old
+            // endOfDay() fallback produced near-24h phantom rows, and a shift end earlier than
+            // the punch-in produced a punch-out BEFORE the punch-in (negative worked time).
+            // The row is only closed once that moment has passed, so never in the future and
+            // never while someone is still on their off-day shift.
+            $end = $shift->isWorkingDay ? $shift->end->copy() : $in->copy()->addHours(8);
+            if ($end->lessThanOrEqualTo($in)) {
+                $end = $in->copy()->addHours(8);
+            }
             if ($now->lessThan($end)) {
                 continue; // still on shift
             }

@@ -11,10 +11,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\GrantsAttendancePermissions;
 use Tests\TestCase;
 
 class MobileAttendanceApiTest extends TestCase
 {
+    use GrantsAttendancePermissions;
     use RefreshDatabase;
 
     public function test_guest_cannot_access_mobile_attendance_endpoints(): void
@@ -132,9 +134,9 @@ class MobileAttendanceApiTest extends TestCase
             ],
         ]);
 
-        $user = User::factory()->create([
+        $user = $this->grantPunch(User::factory()->create([
             'attendance_type_id' => $attendanceType->id,
-        ]);
+        ]));
 
         Sanctum::actingAs($user);
 
@@ -184,9 +186,9 @@ class MobileAttendanceApiTest extends TestCase
                 ],
             ]);
 
-            $user = User::factory()->create([
+            $user = $this->grantPunch(User::factory()->create([
                 'attendance_type_id' => $attendanceType->id,
-            ]);
+            ]));
 
             Sanctum::actingAs($user);
 
@@ -216,9 +218,9 @@ class MobileAttendanceApiTest extends TestCase
 
     public function test_mobile_punch_requires_active_attendance_type(): void
     {
-        $user = User::factory()->create([
+        $user = $this->grantPunch(User::factory()->create([
             'attendance_type_id' => null,
-        ]);
+        ]));
 
         Sanctum::actingAs($user);
 

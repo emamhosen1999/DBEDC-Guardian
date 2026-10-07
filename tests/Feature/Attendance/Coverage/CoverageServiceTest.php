@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Attendance\Coverage;
 
+use App\Models\HRM\Attendance;
 use App\Models\HRM\CoverageRequirement;
 use App\Models\HRM\Designation;
 use App\Models\HRM\Leave;
@@ -115,6 +116,34 @@ class CoverageServiceTest extends TestCase
         $this->assertSame(1, $roles[$supervisor->id]['required']);
         $this->assertSame(1.0, $roles[$supervisor->id]['assigned']); // only the supervisor counts
         $this->assertSame('met', $roles[$supervisor->id]['status']);
+    }
+
+    public function test_actual_counts_punched_in_people_once_per_rostered_shift(): void
+    {
+        // Regression: the actual-punch query used attendances.shift_id / work_location_id,
+        // columns that do not exist, so every past-date coverage request returned a 500.
+        $loc = WorkLocation::create(['name' => 'Control Room']);
+        $shift = Shift::factory()->create(['code' => 'N']);
+        CoverageRequirement::create(['work_location_id' => $loc->id, 'shift_id' => $shift->id, 'required_headcount' => 2, 'is_active' => true]);
+
+        $in = User::factory()->create(['work_location_id' => $loc->id]);
+        $noShow = User::factory()->create(['work_location_id' => $loc->id]);
+        $rejected = User::factory()->create(['work_location_id' => $loc->id]);
+        foreach ([$in, $noShow, $rejected] as $u) {
+            RosterDay::create(['user_id' => $u->id, 'date' => '2026-07-06', 'shift_id' => $shift->id, 'source' => 'pattern']);
+        }
+        // Two punch pairs for one person must still count as one head.
+        foreach (['08:00:00', '14:00:00'] as $t) {
+            Attendance::create(['user_id' => $in->id, 'date' => '2026-07-06', 'punchin' => "2026-07-06 $t"]);
+        }
+        Attendance::create([
+            'user_id' => $rejected->id, 'date' => '2026-07-06', 'punchin' => '2026-07-06 08:00:00', 'policy_status' => 'rejected',
+        ]);
+
+        $cell = app(CoverageService::class)->forRange('2026-07-06', '2026-07-06')['2026-07-06'][$loc->id][$shift->id]['total'];
+
+        $this->assertSame(3.0, $cell['assigned']);
+        $this->assertSame(1.0, $cell['actual']);
     }
 
     public function test_query_count_bounded(): void

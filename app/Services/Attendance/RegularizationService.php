@@ -46,6 +46,8 @@ class RegularizationService
             ]);
         }
 
+        $data = $this->normaliseRequestedTimes($userId, $targetDate, $data);
+
         $requester = User::find($userId);
 
         $r = AttendanceRegularization::create([
@@ -84,6 +86,50 @@ class RegularizationService
         $this->signal->touch('attendance', 'all', $userId, 'regularization_apply');
 
         return $r;
+    }
+
+    /**
+     * A correction must be internally coherent, otherwise an approver can only rubber-stamp a
+     * punch-out BEFORE its punch-in. Shared by web and mobile because both go through request().
+     *
+     * The business date D may carry a shift that runs into D+1, so the allowed window is
+     * [D 00:00, D+1 23:59:59]. Both clients build the datetime as "<date> <time>", so a night
+     * shift's 06:00 punch-out arrives as "D 06:00": for a shift that crosses midnight an
+     * out-time at or before the in-time is rolled to the next day (returned data is normalised);
+     * for any other shift it is rejected.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed> the data, with requested_punchout rolled over when needed
+     */
+    private function normaliseRequestedTimes(string $userId, Carbon $targetDate, array $data): array
+    {
+        $in = ! empty($data['requested_punchin']) ? Carbon::parse($data['requested_punchin']) : null;
+        $out = ! empty($data['requested_punchout']) ? Carbon::parse($data['requested_punchout']) : null;
+        $errors = [];
+
+        if ($in !== null && $out !== null && $out->lessThanOrEqualTo($in)) {
+            $crosses = app(ScheduleResolver::class)->resolve($userId, $targetDate)->crossesMidnight;
+            if ($crosses && $out->copy()->addDay()->greaterThan($in)) {
+                $out = $out->copy()->addDay();
+                $data['requested_punchout'] = $out->toDateTimeString();
+            } else {
+                $errors['requested_punchout'] = 'The punch-out must be after the punch-in.';
+            }
+        }
+
+        $windowStart = $targetDate->copy()->startOfDay();
+        $windowEnd = $targetDate->copy()->addDay()->endOfDay();
+        foreach (['requested_punchin' => $in, 'requested_punchout' => $out] as $field => $moment) {
+            if ($moment !== null && ($moment->lt($windowStart) || $moment->gt($windowEnd))) {
+                $errors[$field] = 'The time must fall on the date being corrected (or the morning after, for a night shift).';
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $data;
     }
 
     public function approve(AttendanceRegularization $r, User $approver, ?string $comments = null): array

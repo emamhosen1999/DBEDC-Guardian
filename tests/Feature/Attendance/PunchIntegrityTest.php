@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Attendance;
 
-use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsAttendancePermissions;
 use Tests\TestCase;
 
 /**
@@ -21,6 +21,7 @@ use Tests\TestCase;
  */
 class PunchIntegrityTest extends TestCase
 {
+    use GrantsAttendancePermissions;
     use RefreshDatabase;
 
     /**
@@ -57,9 +58,9 @@ class PunchIntegrityTest extends TestCase
 
     private function userWithType(AttendanceType $type): User
     {
-        return User::factory()->create([
+        return $this->grantPunch(User::factory()->create([
             'attendance_type_id' => $type->id,
-        ]);
+        ]));
     }
 
     /**

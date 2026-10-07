@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\HRM\AttendanceType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -66,6 +67,8 @@ class MustChangePasswordTest extends TestCase
         $created = $this->actingAs($hr)->postJson(route('users.store'), [
             'name' => 'New Hire', 'user_name' => 'newhire', 'email' => 'nh@example.com', 'employee_id' => 'NH-1',
             'password' => self::STRONG, 'password_confirmation' => self::STRONG,
+            // creation requires a way to check in (see AttendanceMethodRequiredTest)
+            'attendance_type_ids' => [AttendanceType::factory()->create(['is_active' => true])->id],
         ])->assertCreated();
         $this->assertTrue((bool) User::find($created->json('user.employee_id'))->must_change_password);
 

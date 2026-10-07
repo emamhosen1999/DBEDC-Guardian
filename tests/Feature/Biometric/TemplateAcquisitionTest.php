@@ -377,7 +377,7 @@ class TemplateAcquisitionTest extends TestCase
         $this->assertSame('SW5kZXhSaWdodEJC', $rows[1]->template_data);
 
         foreach ($rows as $row) {
-            $this->assertSame($user->id, (int) $row->user_id);
+            $this->assertSame((string) $user->id, (string) $row->user_id);
             $this->assertSame('fingerprint', $row->template_type);
             $this->assertSame('templatev10', $row->template_version);
         }

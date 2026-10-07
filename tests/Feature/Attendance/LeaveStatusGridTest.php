@@ -5,7 +5,6 @@ namespace Tests\Feature\Attendance;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -26,7 +25,7 @@ class LeaveStatusGridTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Employee']);
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
@@ -35,7 +34,7 @@ class LeaveStatusGridTest extends TestCase
         $emp = User::factory()->create();
         $emp->assignRole('Employee');
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $type = LeaveSetting::create(['type' => 'Casual', 'days' => 10, 'carry_forward' => false, 'earned_leave' => false]);

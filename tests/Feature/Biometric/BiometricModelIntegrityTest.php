@@ -326,7 +326,7 @@ class BiometricModelIntegrityTest extends TestCase
         $this->assertIsInt($log->clock_offset_applied_seconds);
         $this->assertIsArray($log->context);
         $this->assertIsInt($log->biometric_device_id);
-        $this->assertIsInt($log->user_id);
+        $this->assertIsString($log->user_id); // employee_id keys are strings (model cast)
 
         // Date arithmetic on the pair — the exact thing an uncast string breaks.
         // Carbon 3 returns a float from diffInSeconds(); the cast to int is on

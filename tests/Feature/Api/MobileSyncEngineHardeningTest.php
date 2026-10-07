@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsAttendancePermissions;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 class MobileSyncEngineHardeningTest extends TestCase
 {
+    use GrantsAttendancePermissions;
     use RefreshDatabase;
 
     // ── Bug 1: pull drains all rows across pages ────────────────────────────
@@ -289,9 +291,9 @@ class MobileSyncEngineHardeningTest extends TestCase
             ],
         ]);
 
-        return User::factory()->create([
+        return $this->grantPunch(User::factory()->create([
             'attendance_type_id' => $attendanceType->id,
-        ]);
+        ]));
     }
 
     private function insertAttendance(string $userId, string $updatedAt): int

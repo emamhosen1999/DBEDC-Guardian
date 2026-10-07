@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Schema;
  * always sum to the total:
  *
  *   present   — has a punch-in (or a manual √) for the date.
- *   off_leave — no working shift that day (kind=off), OR on APPROVED leave
+ *   off_leave — no working shift that day or a company holiday (kind=off), OR on APPROVED leave
  *               (kind=leave, carrying the leave-type label).
  *   upcoming  — rostered a working shift whose start has NOT passed yet.
  *               Necessarily empty for past dates (their starts are all behind now).
@@ -44,6 +44,7 @@ class AttendanceDayPartitionService
     public function __construct(
         private readonly ScheduleResolver $schedules,
         private readonly RosterService $roster,
+        private readonly HolidayService $holidays,
     ) {}
 
     /**
@@ -66,6 +67,8 @@ class AttendanceDayPartitionService
 
         $attendanceByUser = $this->attendanceForDate($userIds, $dateStr);
         $leaveByUser = $this->approvedLeaveForDate($userIds, $dateStr);
+
+        $holiday = $this->holidays->onDate($day);
 
         $present = collect();
         $absent = collect();
@@ -95,12 +98,14 @@ class AttendanceDayPartitionService
                 continue;
             }
 
-            // 3. Off — no working shift rostered that day.
-            if (! $schedule->isWorkingDay) {
+            // 3. Off — no working shift rostered that day, or a company holiday (a rest day:
+            //    nobody is absent on it; anyone who did punch is already Present above).
+            if (! $schedule->isWorkingDay || $holiday !== null) {
                 $offLeave->push([
                     'user' => $this->serializeUser($user),
                     'kind' => 'off',
                     'leave_type' => null,
+                    'holiday' => $holiday?->title ?? $holiday?->name,
                 ]);
 
                 continue;

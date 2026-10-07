@@ -29,7 +29,7 @@ class MonthlyCalendarOtBucketsTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         Role::firstOrCreate(['name' => 'Employee']);
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
@@ -39,7 +39,7 @@ class MonthlyCalendarOtBucketsTest extends TestCase
         $user->assignRole('Employee');
 
         $admin = User::factory()->create(['name' => 'Stats Admin']);
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         // Active org-wide overtime policy: 480 min (8h) daily threshold, no double-time band.
@@ -109,7 +109,7 @@ class MonthlyCalendarOtBucketsTest extends TestCase
         $user->assignRole('Employee');
 
         $admin = User::factory()->create(['name' => 'Stats Admin 2']);
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         // Active org-wide breaks policy: 30 min unpaid meal required once worked >= 360 min.

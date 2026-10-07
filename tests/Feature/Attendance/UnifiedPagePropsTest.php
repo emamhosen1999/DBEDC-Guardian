@@ -21,7 +21,7 @@ class UnifiedPagePropsTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Employee']);
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
@@ -40,7 +40,7 @@ class UnifiedPagePropsTest extends TestCase
         ]);
         $emp->assignRole('Employee');
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $this->actingAs($admin)

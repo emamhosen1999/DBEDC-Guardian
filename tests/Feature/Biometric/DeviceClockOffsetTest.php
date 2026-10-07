@@ -506,7 +506,7 @@ class DeviceClockOffsetTest extends TestCase
 
         $this->assertSame(1, $again['duplicates']);
         $this->assertSame(1, DB::table('biometric_att_logs')->where('user_pin', '49')->count());
-        $this->assertSame(1, Attendance::whereNotNull('punchin')->where('user_id', User::where('employee_id', '49')->value('id'))->count());
+        $this->assertSame(1, Attendance::whereNotNull('punchin')->where('user_id', '49')->count());
     }
 
     // ── 6. the read model ───────────────────────────────────────────

@@ -19,6 +19,7 @@ use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\HolidayService;
 use App\Services\Attendance\UpcomingShiftService;
 use App\Services\Realtime\RealtimeSignal;
 use Carbon\Carbon;
@@ -35,6 +36,9 @@ class AttendanceController extends Controller
 {
     use ApiResponse;
     use ResolvesTeamMembers;
+
+    /** Web route gate for marking attendance (routes/web.php attendance.correct|create|update). */
+    private const MARK_PRESENT_PERMISSIONS = ['attendance.correct', 'attendance.create', 'attendance.update'];
 
     protected AttendanceRepository $attendanceRepository;
 
@@ -198,7 +202,7 @@ class AttendanceController extends Controller
 
                 return [
                     'id' => 'user-'.($user?->id ?? 'unknown'),
-                    'user_id' => (int) ($user?->id ?? 0),
+                    'user_id' => (string) ($user?->id ?? ''),
                     'user' => $this->transformUserForAttendanceCards($user),
                     'date' => $firstRecord?->date,
                     'punchin_time' => $firstPunch?->punchin,
@@ -432,9 +436,9 @@ class AttendanceController extends Controller
 
                 return [
                     'id' => 'user-'.($user?->id ?? 'unknown'),
-                    'user_id' => (int) ($user?->id ?? 0),
+                    'user_id' => (string) ($user?->id ?? ''),
                     'user' => [
-                        'id' => (int) ($user?->id ?? 0),
+                        'id' => (string) ($user?->id ?? ''),
                         'name' => $user?->name,
                         'employee_id' => $user?->employee_id,
                         'phone' => $user?->phone,
@@ -910,29 +914,13 @@ class AttendanceController extends Controller
 
             $holidayDates = [];
 
-            if (Schema::hasTable('holidays')) {
-                $holidays = DB::table('holidays')
-                    ->select('from_date', 'to_date')
-                    ->whereDate('from_date', '<=', $analysisEnd->toDateString())
-                    ->whereDate('to_date', '>=', $rangeStart->toDateString())
-                    ->get();
-
-                foreach ($holidays as $holiday) {
-                    $holidayStart = Carbon::parse($holiday->from_date)->startOfDay();
-                    $holidayEnd = Carbon::parse($holiday->to_date)->startOfDay();
-
-                    if ($holidayEnd->lt($rangeStart) || $holidayStart->gt($analysisEnd)) {
-                        continue;
-                    }
-
-                    $effectiveStart = $holidayStart->copy()->max($rangeStart)->startOfDay();
-                    $effectiveEnd = $holidayEnd->copy()->min($analysisEnd)->startOfDay();
-                    $dateCursor = $effectiveStart->copy();
-
-                    while ($dateCursor->lte($effectiveEnd)) {
-                        $holidayDates[$dateCursor->format('Y-m-d')] = true;
-                        $dateCursor->addDay();
-                    }
+            // The ONE holiday definition (active only, annual_fixed recurrence expanded) - the same
+            // service the web monthly grid uses, so the two show identical working-day counts.
+            foreach (app(HolidayService::class)->forRange($rangeStart, $analysisEnd) as $holiday) {
+                $holidayStart = Carbon::parse($holiday->from_date)->startOfDay()->max($rangeStart->copy()->startOfDay());
+                $holidayEnd = Carbon::parse($holiday->to_date)->startOfDay()->min($analysisEnd->copy()->startOfDay());
+                for ($dateCursor = $holidayStart->copy(); $dateCursor->lte($holidayEnd); $dateCursor->addDay()) {
+                    $holidayDates[$dateCursor->format('Y-m-d')] = true;
                 }
             }
 
@@ -1088,6 +1076,15 @@ class AttendanceController extends Controller
     public function punch(PunchAttendanceRequest $request): JsonResponse
     {
         $user = $request->user();
+
+        // Same permission as the web punch route (attendance.own.punch).
+        if (! $user->can('attendance.own.punch')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You do not have permission to punch attendance.',
+            ], 403);
+        }
+
         // Resolve the effective SET of allowed methods (override → location); OR-validate.
         $attendanceTypes = $user->resolvedAttendanceTypes();
 
@@ -1161,7 +1158,9 @@ class AttendanceController extends Controller
     {
         $currentUser = $request->user();
 
-        if (! $this->isManagerUser($currentUser)) {
+        // Same permission as the web route (attendance.correct|create|update): being somebody's
+        // manager is not, on its own, the right to write attendance.
+        if (! $this->isManagerUser($currentUser) || ! $currentUser->canAny(self::MARK_PRESENT_PERMISSIONS)) {
             return $this->errorResponse('You are not authorized to mark attendance.', 'FORBIDDEN', 403);
         }
 

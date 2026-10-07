@@ -19,14 +19,14 @@ class AuditHistoryApiTest extends TestCase
     {
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
     public function test_returns_audit_rows_for_a_record_newest_first(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
         $att = Attendance::factory()->create();
 

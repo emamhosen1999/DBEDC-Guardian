@@ -27,6 +27,7 @@ class UpcomingShiftService
     public function __construct(
         private readonly ScheduleResolver $schedules,
         private readonly RosterService $roster,
+        private readonly HolidayService $holidays,
     ) {}
 
     /**
@@ -104,6 +105,7 @@ class UpcomingShiftService
         $absent = collect();
         $off = collect();
         $onLeave = $this->onApprovedLeave($absentUsers, $date);
+        $isHoliday = $this->holidays->isHoliday($date);
 
         foreach ($absentUsers as $user) {
             // A user whose shift has not started yet belongs to Upcoming, not Absent.
@@ -120,7 +122,8 @@ class UpcomingShiftService
 
             $schedule = $this->schedules->resolve($user->id, $date);
 
-            if (! $schedule->isWorkingDay) {
+            // A company holiday is a rest day: not punching is not an absence.
+            if ($isHoliday || ! $schedule->isWorkingDay) {
                 $off->push($user);
 
                 continue;
@@ -155,11 +158,12 @@ class UpcomingShiftService
         $off = collect();
         $upcoming = collect();
         $onLeave = $this->onApprovedLeave($nonPresentUsers, $date);
+        $isHoliday = $this->holidays->isHoliday($date);
 
         foreach ($nonPresentUsers as $user) {
             $schedule = $this->schedules->resolve($user->id, $date);
 
-            if (! $schedule->isWorkingDay || isset($onLeave[(string) $user->id])) {
+            if ($isHoliday || ! $schedule->isWorkingDay || isset($onLeave[(string) $user->id])) {
                 $off->push($user);
 
                 continue;

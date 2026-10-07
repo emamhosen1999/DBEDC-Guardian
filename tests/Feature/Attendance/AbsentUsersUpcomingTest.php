@@ -20,7 +20,7 @@ class AbsentUsersUpcomingTest extends TestCase
     {
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Role::firstOrCreate(['name' => 'Employee']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
@@ -49,7 +49,7 @@ class AbsentUsersUpcomingTest extends TestCase
         Carbon::setTestNow('2026-07-14 07:00:00');
 
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $evening = $this->employee('Evening Person');
@@ -74,7 +74,7 @@ class AbsentUsersUpcomingTest extends TestCase
         Carbon::setTestNow('2026-07-14 07:00:00');
 
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $this->roster($this->employee('Yesterday Person'), 'M', '08:00', '16:00', '2026-07-13');

@@ -135,11 +135,18 @@ class ServerErrorTelemetryTest extends TestCase
         $this->assertDatabaseCount('client_error_logs', 0);
     }
 
-    public function test_a_422_validation_failure_is_not_logged(): void
+    public function test_a_422_validation_failure_is_recorded_as_a_warning_without_secrets(): void
     {
-        $this->postJson('/__telemetry/validate', [])->assertStatus(422);
+        // Deliberate (bootstrap/app.php stopIgnoring(ValidationException)): failed forms are
+        // surfaced on the diagnostics board as warnings so confusing forms can be found.
+        $this->postJson('/__telemetry/validate', ['password' => 'hunter2-secret', 'note' => 'hi'])->assertStatus(422);
 
-        $this->assertDatabaseCount('client_error_logs', 0);
+        $this->assertDatabaseCount('client_error_logs', 1);
+        $row = ClientErrorLog::first();
+        $this->assertSame('warning', $row->severity);
+        $this->assertSame('ValidationException', $row->error_type);
+        $this->assertStringContainsString('required_field', $row->message);
+        $this->assertStringNotContainsString('hunter2-secret', json_encode($row->toArray()));
     }
 
     public function test_a_403_authorization_failure_is_not_logged(): void

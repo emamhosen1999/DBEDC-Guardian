@@ -8,10 +8,12 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\GrantsAttendancePermissions;
 use Tests\TestCase;
 
 class MobileApiLoginAndPunchTest extends TestCase
 {
+    use GrantsAttendancePermissions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -103,6 +105,7 @@ class MobileApiLoginAndPunchTest extends TestCase
             'attendance_type_id' => $attendanceType->id,
         ]);
         $user->assignRole('Employee');
+        $this->grantPunch($user);
 
         $deviceId = (string) Str::uuid();
 

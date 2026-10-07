@@ -788,7 +788,7 @@ class TemplateRoamingTest extends TestCase
         $this->assertSame([0, 3], $rows->pluck('finger_index')->map('intval')->all());
         // Each slot holds its OWN template, not the concatenation of both.
         $this->assertSame(['QUFB', 'QkJC'], $rows->pluck('template_data')->all());
-        $this->assertSame([$alice->id, $alice->id], $rows->pluck('user_id')->map('intval')->all());
+        $this->assertSame([(string) $alice->id, (string) $alice->id], $rows->pluck('user_id')->map('strval')->all());
     }
 
     public function test_two_fingers_restore_as_two_commands_with_distinct_fids(): void

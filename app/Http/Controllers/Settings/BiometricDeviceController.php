@@ -1742,83 +1742,41 @@ class BiometricDeviceController extends Controller
             ], 422);
         }
 
-        // Anyone else already carrying this PIN. A live holder is a genuine
-        // collision; a soft-deleted holder is only safe to release if it is one
-        // of our own auto-created placeholders.
-        $holders = User::withTrashed()
-            ->where('employee_id', $pin)
-            ->where('id', '!=', $user->id)
-            ->get();
+        // employee_id is the primary key, so by the guard above the target already carries
+        // this PIN exactly: nothing can be re-keyed or released, and no other row (live,
+        // deleted or placeholder) can hold the same employee_id. The only remediation left
+        // is to point the stranded punches at the employee and queue them for re-import.
+        $reason = 'Linked to employee '.$user->employee_id.' by user '.(auth()->id() ?? 0).' on '.now()->toDateTimeString();
 
-        $liveHolder = $holders->first(fn (User $holder) => $holder->deleted_at === null);
+        $relinked = BiometricAttLog::where('user_pin', $pin)
+            ->where('punch_status', 'unknown_user')
+            ->update([
+                'user_id' => (string) $user->employee_id,
+                // 'downloaded' is what BiometricProcessingService::importDownloadedLogs()
+                // selects on, so this is what "retry me" means here.
+                'punch_status' => 'downloaded',
+                'punch_status_reason' => $reason,
+                'updated_at' => now(),
+            ]);
 
-        if ($liveHolder) {
-            return response()->json([
-                'message' => "PIN {$pin} is already assigned to {$liveHolder->name} (user #{$liveHolder->id}). Resolve that conflict before linking.",
-                'pin' => $pin,
-                'unresolved_count' => $unresolvedCount,
-                'conflicting_user_id' => $liveHolder->id,
-            ], 422);
-        }
-
-        $realDeletedHolder = $holders->first(fn (User $holder) => ! $this->isAutoCreatedPlaceholder($holder));
-
-        if ($realDeletedHolder) {
-            return response()->json([
-                'message' => "PIN {$pin} belongs to deleted employee {$realDeletedHolder->name} (user #{$realDeletedHolder->id}), not to an auto-created placeholder. Reassigning it would move that employee's attendance history.",
-                'pin' => $pin,
-                'unresolved_count' => $unresolvedCount,
-                'conflicting_user_id' => $realDeletedHolder->id,
-            ], 422);
-        }
-
-        $reason = 'Linked to user #'.$user->id.' by user #'.(auth()->id() ?? 0).' on '.now()->toDateTimeString();
-
-        $result = DB::transaction(function () use ($user, $pin, $holders, $reason) {
-            $released = 0;
-
-            foreach ($holders as $holder) {
-                // Only placeholders reach here — the guards above rejected
-                // everything else. Release the PIN so resolveOrCreateUser()
-                // stops matching the soft-deleted row.
-                $holder->employee_id = null;
-                $holder->saveQuietly();
-                $released++;
-            }
-
-            $user->employee_id = $pin;
-            $user->save();
-
-            $relinked = BiometricAttLog::where('user_pin', $pin)
-                ->where('punch_status', 'unknown_user')
-                ->update([
-                    'user_id' => $user->id,
-                    // 'downloaded' is what BiometricProcessingService::importDownloadedLogs()
-                    // selects on, so this is what "retry me" means here.
-                    'punch_status' => 'downloaded',
-                    'punch_status_reason' => $reason,
-                    'updated_at' => now(),
-                ]);
-
-            return ['released' => $released, 'relinked' => $relinked];
-        });
+        $result = ['released' => 0, 'relinked' => $relinked];
 
         Log::info('Biometric unknown-user PIN linked', [
             'pin' => $pin,
-            'linked_user_id' => $user->id,
+            'linked_user_id' => (string) $user->employee_id,
             'logs_relinked' => $result['relinked'],
             'placeholders_released' => $result['released'],
             'user_id' => auth()->id(),
         ]);
 
         return response()->json([
-            'message' => "PIN {$pin} linked to {$user->name}. {$result['relinked']} punch(es) queued for re-import; {$result['released']} placeholder record(s) released.",
+            'message' => "PIN {$pin} linked to {$user->name}. {$result['relinked']} punch(es) queued for re-import.",
             'pin' => $pin,
             // The count as it stood when the request was evaluated — same key,
             // same meaning as on every refusal. logs_relinked is what actually
             // moved; they differ only if a concurrent push added a row.
             'unresolved_count' => $unresolvedCount,
-            'user_id' => $user->id,
+            'user_id' => (string) $user->employee_id,
             'user_name' => $user->name,
             'logs_relinked' => $result['relinked'],
             'placeholders_released' => $result['released'],
@@ -1880,27 +1838,6 @@ class BiometricDeviceController extends Controller
         }
 
         return response()->json($report);
-    }
-
-    /**
-     * Is this one of the soft-deleted stand-ins resolveOrCreateUser() mints for
-     * an unrecognised PIN, rather than a real person who was deleted?
-     *
-     * Matched on the shape that helper actually writes (name / email /
-     * user_name), and only ever consulted for users that are already
-     * soft-deleted, so a live account can never be classed as disposable.
-     */
-    private function isAutoCreatedPlaceholder(User $user): bool
-    {
-        if ($user->deleted_at === null) {
-            return false;
-        }
-
-        $pin = (string) $user->employee_id;
-
-        return $user->email === 'device_user_'.$pin.'@placeholder.local'
-            || $user->user_name === 'device_user_'.$pin
-            || $user->name === 'Device User '.$pin;
     }
 
     /**

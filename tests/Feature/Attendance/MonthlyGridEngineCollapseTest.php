@@ -35,7 +35,7 @@ class MonthlyGridEngineCollapseTest extends TestCase
         ]);
     }
 
-    private function loadUser(int $id): User
+    private function loadUser(string $id): User
     {
         return app(AttendanceReportService::class)
             ->getEmployeeUsersWithAttendanceAndLeaves(2026, 6)

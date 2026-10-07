@@ -62,7 +62,7 @@ class AttendanceQueryService
                 ->exists();
         }
 
-        $shift = app(\App\Services\Attendance\RosterService::class)
+        $shift = app(RosterService::class)
             ->resolveShift($userId, Carbon::today());
 
         return [
@@ -160,7 +160,7 @@ class AttendanceQueryService
                     ->get();
 
                 $attendances = $records->groupBy(function ($r) {
-                    return $r->user_id . '_' . Carbon::parse($r->date)->toDateString();
+                    return $r->user_id.'_'.Carbon::parse($r->date)->toDateString();
                 })->map(function ($userDayRecords) {
                     $first = $userDayRecords->first();
                     $dateStr = Carbon::parse($first->date)->toDateString();
@@ -300,7 +300,7 @@ class AttendanceQueryService
     public function getPresentUsersForDate(string $date, array $filters = []): array
     {
         $attendances = $this->attendanceRepository->getPresentUsersForDate($date, $filters);
-        $roster = app(\App\Services\Attendance\RosterService::class);
+        $roster = app(RosterService::class);
         $parsedDate = Carbon::parse($date);
 
         return collect($attendances)->map(function ($attendance) use ($roster, $parsedDate) {
@@ -376,7 +376,7 @@ class AttendanceQueryService
             $baseSlug = $attendanceType ? preg_replace('/_\d+$/', '', (string) $attendanceType->slug) : null;
             $requiresPhoto = in_array($baseSlug, ['geo_polygon', 'route_waypoint'], true);
 
-            $cycles = $userPunches->map(function ($attendance) use ($requiresPhoto) {
+            $cycles = $userPunches->map(function ($attendance) {
                 return [
                     'attendance_id' => $attendance->id,
                     'punchin_location' => $attendance->punchin_location_array,
@@ -394,7 +394,7 @@ class AttendanceQueryService
             $firstCycle = $cycles->first();
 
             return [
-                'user_id' => (int) ($user?->id ?? 0),
+                'user_id' => (string) ($user?->id ?? ''),
                 'user_name' => $user?->name ?? 'Unknown',
                 'name' => $user?->name ?? 'Unknown',
                 'employee_id' => $user?->employee_id ?? null,

@@ -194,16 +194,24 @@ class CoverageService
     {
         $rows = DB::table('attendances')
             ->join('users', 'users.employee_id', '=', 'attendances.user_id')
+            // attendances carries neither a shift nor a work location: the shift a punch
+            // counts against is the one rostered for that person that day (a day can carry
+            // several roster rows; distinct below counts each person once per rostered shift).
+            ->join('roster_days', function ($j) {
+                $j->on('roster_days.user_id', '=', 'attendances.user_id')
+                    ->on('roster_days.date', '=', 'attendances.date');
+            })
             ->whereBetween('attendances.date', [$start->toDateString(), $end->toDateString()])
             ->whereNotNull('attendances.punchin')
             ->where('attendances.policy_status', '!=', 'rejected')
-            ->whereNotNull('attendances.shift_id')
+            ->whereNotNull('roster_days.shift_id')
             ->when($employeeIds !== null, fn ($q) => $q->whereIn('attendances.user_id', $employeeIds === [] ? ['__NONE__'] : $employeeIds))
+            ->distinct()
             ->select([
                 'attendances.date',
-                'attendances.shift_id',
+                'roster_days.shift_id',
                 'attendances.user_id',
-                DB::raw('COALESCE(attendances.work_location_id, users.work_location_id) as loc_id'),
+                DB::raw('COALESCE(roster_days.work_location_id, users.work_location_id) as loc_id'),
                 'users.designation_id',
             ])
             ->get();

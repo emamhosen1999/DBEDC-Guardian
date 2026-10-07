@@ -92,11 +92,10 @@ class AutoPunchOutCommandTest extends TestCase
     }
 
     /**
-     * When less than 8 hours have elapsed since punch-in on an off day, the
-     * fallback must never stamp a punchout in the FUTURE relative to "now" —
-     * it is capped at "now" instead of the full 8-hour credit.
+     * Someone working an off day is still on shift 3 hours after punching in: the hourly run
+     * must leave the row open (it used to close it at "now", fragmenting the day).
      */
-    public function test_off_day_open_row_punchout_is_capped_at_now_when_under_eight_hours(): void
+    public function test_off_day_open_row_is_left_open_while_under_eight_hours(): void
     {
         AttendanceSetting::create([
             'auto_punch_out' => true, 'office_start_time' => '09:00', 'office_end_time' => '17:00',
@@ -107,12 +106,35 @@ class AutoPunchOutCommandTest extends TestCase
             'date' => '2026-06-20', 'punchin' => '2026-06-20 09:00:00', 'punchout' => null,
         ]);
 
-        // Only 3 hours after punch-in — well under the 8h fallback.
         Carbon::setTestNow(Carbon::parse('2026-06-20 12:00:00'));
         Artisan::call('attendance:auto-punch-out');
 
+        $this->assertNull($open->fresh()->punchout);
+    }
+
+    /**
+     * A punch-in made AFTER the rostered shift's end (late overtime, a changed roster) must
+     * never be closed at the earlier shift end, which would put the punch-out before the punch-in.
+     */
+    public function test_punch_in_after_shift_end_never_gets_a_punchout_before_the_punchin(): void
+    {
+        AttendanceSetting::create([
+            'auto_punch_out' => true, 'office_start_time' => '09:00', 'office_end_time' => '17:00',
+            'weekend_days' => ['friday', 'saturday'],
+        ]);
+        $user = User::factory()->create();
+        $open = Attendance::factory()->for($user)->create([
+            'date' => '2026-06-17', 'punchin' => '2026-06-17 18:00:00', 'punchout' => null,
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-17 20:00:00')); // 2h in: still within 8h credit
+        Artisan::call('attendance:auto-punch-out');
+        $this->assertNull($open->fresh()->punchout);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-18 03:00:00'));
+        Artisan::call('attendance:auto-punch-out');
         $open->refresh();
-        $this->assertNotNull($open->punchout);
-        $this->assertSame('2026-06-20 12:00:00', Carbon::parse($open->punchout)->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-06-18 02:00:00', Carbon::parse($open->punchout)->format('Y-m-d H:i:s'));
+        $this->assertTrue(Carbon::parse($open->punchout)->greaterThan(Carbon::parse($open->punchin)));
     }
 }

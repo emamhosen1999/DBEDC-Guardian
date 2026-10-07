@@ -626,6 +626,15 @@ class DataSyncService
             ];
         }
 
+        // An offline-queued punch needs the same permission as a live one (web route and
+        // /api/v1/attendance/punch both require attendance.own.punch).
+        if (! $user->can('attendance.own.punch')) {
+            return [
+                'status' => 'failed',
+                'message' => 'You do not have permission to punch attendance.',
+            ];
+        }
+
         $punchService = new AttendancePunchService;
         $result = $punchService->processPunch($user, $syncRequest);
 

@@ -63,7 +63,7 @@ class MobileProfileApiTest extends TestCase
             ->assertJsonPath('data.phone', '+8801700000000');
 
         $this->assertDatabaseHas('users', [
-            'id' => $user->id,
+            'employee_id' => $user->employee_id,
             'name' => 'Updated Mobile Name',
             'phone' => '+8801700000000',
             'address' => 'Dhaka, Bangladesh',

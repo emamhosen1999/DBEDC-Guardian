@@ -16,6 +16,28 @@ use Illuminate\Support\Collection;
  */
 class HolidayService
 {
+    /** @var array<string, ?Holiday> per-instance memo: date => the holiday covering it (or null) */
+    private array $dayCache = [];
+
+    /**
+     * The active company holiday covering this calendar day, if any. Memoised per instance so a
+     * partition over hundreds of employees asks the database once.
+     */
+    public function onDate(CarbonInterface $date): ?Holiday
+    {
+        $key = $date->toDateString();
+        if (! array_key_exists($key, $this->dayCache)) {
+            $this->dayCache[$key] = $this->forRange($date, $date)->first();
+        }
+
+        return $this->dayCache[$key];
+    }
+
+    public function isHoliday(CarbonInterface $date): bool
+    {
+        return $this->onDate($date) !== null;
+    }
+
     public function forRange(CarbonInterface $from, CarbonInterface $to): Collection
     {
         $from = $from->copy()->startOfDay();

@@ -21,7 +21,7 @@ class DailyOverviewStatsTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Employee']);
-        Role::firstOrCreate(['name' => 'Admin']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
@@ -36,8 +36,10 @@ class DailyOverviewStatsTest extends TestCase
         ]);
 
         $date = Carbon::parse('2026-06-18'); // Thursday, working day
-        $onTime = User::factory()->create(); $onTime->assignRole('Employee');
-        $late = User::factory()->create(); $late->assignRole('Employee');
+        $onTime = User::factory()->create();
+        $onTime->assignRole('Employee');
+        $late = User::factory()->create();
+        $late->assignRole('Employee');
 
         Attendance::factory()->for($onTime)->create([
             'date' => $date->toDateString(),
@@ -50,7 +52,8 @@ class DailyOverviewStatsTest extends TestCase
             'punchout' => $date->copy()->setTime(18, 0),
         ]);
 
-        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin = User::factory()->create();
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $res = $this->actingAs($admin)

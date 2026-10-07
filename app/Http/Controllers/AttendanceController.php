@@ -23,6 +23,7 @@ use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\HolidayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\UpcomingShiftService;
 use App\Traits\HandlesApiExceptions;
@@ -618,9 +619,9 @@ class AttendanceController extends Controller
                 return [
                     'id' => 'user-'.($user?->id ?? 'unknown'),
                     'can_act' => $this->mayActOnAttendanceOf((string) ($user?->employee_id ?? '')),
-                    'user_id' => (int) ($user?->id ?? 0),
+                    'user_id' => (string) ($user?->id ?? ''),
                     'user' => [
-                        'id' => (int) ($user?->id ?? 0),
+                        'id' => (string) ($user?->id ?? ''),
                         'name' => $user?->name,
                         'employee_id' => $user?->employee_id,
                         'phone' => $user?->phone,
@@ -820,7 +821,7 @@ class AttendanceController extends Controller
                     ->map(function ($leave) {
                         return [
                             'id' => (int) ($leave->id ?? 0),
-                            'user_id' => (int) ($leave->user_id ?? 0),
+                            'user_id' => (string) ($leave->user_id ?? ''),
                             'leave_type' => (int) ($leave->leave_type ?? 0),
                             'leave_type_name' => $leave->leave_type_name,
                             'from_date' => $leave->from_date,
@@ -1090,12 +1091,14 @@ class AttendanceController extends Controller
             $now = Carbon::now();
 
             $absentCount = 0;
+            // A company holiday is a rest day: nobody who did not punch is absent on it.
+            $isHoliday = app(HolidayService::class)->isHoliday($parsedDate);
             // Potential absents: employees who are not present and not on leave
             $potentialAbsents = $employees->filter(function ($user) use ($presentUsersIds, $onLeaveUserIds) {
                 return ! $presentUsersIds->contains($user->id) && ! $onLeaveUserIds->contains($user->id);
             });
 
-            foreach ($potentialAbsents as $user) {
+            foreach ($isHoliday ? [] : $potentialAbsents as $user) {
                 $schedule = $resolver->resolve($user->id, $parsedDate);
                 if ($schedule->isWorkingDay) {
                     $isUpcoming = $parsedDate->isFuture() || ($parsedDate->isToday() && $now->lt($schedule->start));

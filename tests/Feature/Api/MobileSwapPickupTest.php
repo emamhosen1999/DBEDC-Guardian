@@ -23,6 +23,7 @@ class MobileSwapPickupTest extends TestCase
     use RefreshDatabase;
 
     private Department $dept;
+
     private Shift $shift;
 
     protected function setUp(): void
@@ -125,11 +126,29 @@ class MobileSwapPickupTest extends TestCase
         $this->assertSame('DAY', $shifts[0]['shift_code']);
     }
 
-    public function test_pickup_rejects_range_over_31_days(): void
+    public function test_pickup_clamps_oversized_range_to_62_days_instead_of_rejecting(): void
+    {
+        // The mobile picker legitimately asks for ~60 days, so the API clamps the window
+        // (62 days from `from`) rather than 422-ing; it must never scan unbounded.
+        $me = $this->employee();
+        $mate = $this->employee();
+        $this->works($mate, '2026-07-02');  // inside the window
+        $this->works($mate, '2026-09-20');  // 81 days after `from`, outside the 62-day clamp
+
+        Sanctum::actingAs($me);
+
+        $response = $this->getJson('/api/v1/attendance/swaps/pickup?from=2026-07-01&to=2026-12-31');
+
+        $response->assertOk();
+        $dates = collect($response->json('data.shifts'))->pluck('date')->all();
+        $this->assertSame(['2026-07-02'], $dates);
+    }
+
+    public function test_pickup_rejects_inverted_range(): void
     {
         Sanctum::actingAs($this->employee());
 
-        $this->getJson('/api/v1/attendance/swaps/pickup?from=2026-07-01&to=2026-08-15')
+        $this->getJson('/api/v1/attendance/swaps/pickup?from=2026-07-10&to=2026-07-01')
             ->assertStatus(422)
             ->assertJsonValidationErrors('to');
     }

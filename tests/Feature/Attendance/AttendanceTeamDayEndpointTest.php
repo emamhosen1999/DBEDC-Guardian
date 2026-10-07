@@ -12,10 +12,12 @@ use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\Concerns\GrantsAttendancePermissions;
 use Tests\TestCase;
 
 class AttendanceTeamDayEndpointTest extends TestCase
 {
+    use GrantsAttendancePermissions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -67,6 +69,7 @@ class AttendanceTeamDayEndpointTest extends TestCase
 
         $manager = User::factory()->create();
         $manager->assignRole('Project Manager');
+        $this->grantPermissions($manager, 'attendance.update'); // same gate as the web mark-as-present route
 
         $present = User::factory()->create(['employee_id' => 'EMP-1001', 'report_to' => $manager->id]);
         $present->assignRole('Employee');

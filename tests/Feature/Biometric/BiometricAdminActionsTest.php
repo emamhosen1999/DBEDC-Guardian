@@ -409,46 +409,34 @@ class BiometricAdminActionsTest extends TestCase
 
     // ───────────────────────────── Task 2: unknown-user remediation
 
-    public function test_link_user_relinks_stranded_rows_and_claims_the_pin(): void
+    public function test_link_user_relinks_stranded_rows_for_the_employee_who_carries_the_pin(): void
     {
+        // employee_id is the primary key: a PIN can only be linked to the employee whose
+        // employee_id IS that PIN (the employee was created after the punches were parked).
         $device = $this->device();
-        $placeholder = $this->placeholder('7788');
-
-        $first = $this->unknownUserLog($device, '7788', '2026-06-19 08:00:00', $placeholder->id);
-        $second = $this->unknownUserLog($device, '7788', '2026-06-19 17:30:00', $placeholder->id);
-        // A different PIN, equally stranded — it must not be touched.
+        $first = $this->unknownUserLog($device, '7788', '2026-06-19 08:00:00');
+        $second = $this->unknownUserLog($device, '7788', '2026-06-19 17:30:00');
+        // A different PIN, equally stranded - it must not be touched.
         $other = $this->unknownUserLog($device, '9999', '2026-06-19 08:05:00');
 
-        $employee = User::factory()->create(['employee_id' => null, 'name' => 'Rafiq Islam']);
+        $employee = User::factory()->create(['employee_id' => '7788', 'name' => 'Rafiq Islam']);
 
-        $response = $this->actingAs($this->admin())
+        $this->actingAs($this->admin())
             ->postJson(route('biometric-devices.attlogs.link-user'), [
                 'pin' => '7788',
-                'user_id' => $employee->id,
-            ]);
-
-        $response->assertOk()
+                'user_id' => $employee->employee_id,
+            ])
+            ->assertOk()
             ->assertJsonPath('logs_relinked', 2)
-            ->assertJsonPath('placeholders_released', 1)
-            ->assertJsonPath('user_id', $employee->id)
+            ->assertJsonPath('user_id', '7788')
             ->assertJsonPath('punch_status', 'downloaded');
 
-        // 1. Future punches resolve: the real employee now carries the PIN.
-        $this->assertSame('7788', (string) $employee->fresh()->employee_id);
-
-        // 2. The placeholder released it, otherwise resolveOrCreateUser() would
-        //    keep matching the soft-deleted row and the fix would be a no-op.
-        $this->assertNull(User::withTrashed()->find($placeholder->id)->employee_id);
-
-        // 3. The stranded rows point at the employee and are back in the state
-        //    importDownloadedLogs() selects on.
         foreach ([$first, $second] as $log) {
             $log->refresh();
-            $this->assertSame($employee->id, $log->user_id);
+            $this->assertSame('7788', $log->user_id);
             $this->assertSame('downloaded', $log->punch_status);
         }
 
-        // The unrelated PIN is untouched.
         $other->refresh();
         $this->assertSame('unknown_user', $other->punch_status);
         $this->assertNull($other->user_id);
@@ -457,118 +445,114 @@ class BiometricAdminActionsTest extends TestCase
     public function test_link_user_refuses_a_user_who_already_has_a_different_employee_id(): void
     {
         $device = $this->device();
-        $this->placeholder('7788');
         $log = $this->unknownUserLog($device, '7788', '2026-06-19 08:00:00');
 
-        $employee = User::factory()->create(['employee_id' => 4242]);
+        $employee = User::factory()->create(['employee_id' => '4242']);
 
         $this->actingAs($this->admin())
             ->postJson(route('biometric-devices.attlogs.link-user'), [
                 'pin' => '7788',
-                'user_id' => $employee->id,
+                'user_id' => $employee->employee_id,
             ])
             ->assertStatus(422)
             ->assertJsonPath('current_employee_id', '4242')
             ->assertJsonPath('requested_pin', '7788');
 
         // Nothing moved: the employee keeps their ID and the punch stays parked.
-        $this->assertSame(4242, (int) $employee->fresh()->employee_id);
+        $this->assertSame('4242', (string) $employee->fresh()->employee_id);
         $this->assertSame('unknown_user', $log->fresh()->punch_status);
     }
 
     public function test_link_user_refuses_a_pin_that_is_not_in_an_unresolved_state(): void
     {
         $device = $this->device();
+        $holder = User::factory()->create(['employee_id' => '5150']);
 
-        // Already resolved — imported into attendance under a real user.
+        // Already resolved - imported into attendance under a real user.
         BiometricAttLog::create([
             'biometric_device_id' => $device->id,
             'serial_number' => $device->serial_number,
             'user_pin' => '5150',
-            'user_id' => User::factory()->create(['employee_id' => 5150])->id,
+            'user_id' => '5150',
             'punch_time' => '2026-06-19 08:00:00',
             'check_type' => 'in',
             'punch_status' => 'processed',
             'occurred_at' => '2026-06-19 08:00:00',
         ]);
 
-        $target = User::factory()->create(['employee_id' => null]);
-
         $this->actingAs($this->admin())
             ->postJson(route('biometric-devices.attlogs.link-user'), [
                 'pin' => '5150',
-                'user_id' => $target->id,
+                'user_id' => $holder->employee_id,
             ])
             ->assertStatus(422)
             ->assertJsonPath('unresolved_count', 0);
 
-        // The target must not have been given the PIN on the way to the refusal.
-        $this->assertNull($target->fresh()->employee_id);
+        $this->assertSame('processed', BiometricAttLog::where('user_pin', '5150')->value('punch_status'));
     }
 
-    public function test_link_user_refuses_a_pin_held_by_a_live_user(): void
+    public function test_link_user_refuses_a_pin_held_by_another_live_employee(): void
     {
+        // The PIN belongs to 3131; linking it to a different employee would re-key them.
         $device = $this->device();
         $this->unknownUserLog($device, '3131', '2026-06-19 08:00:00');
 
-        $incumbent = User::factory()->create(['employee_id' => 3131]);
-        $target = User::factory()->create(['employee_id' => null]);
+        User::factory()->create(['employee_id' => '3131']);
+        $target = User::factory()->create(['employee_id' => 'T-1']);
 
         $this->actingAs($this->admin())
             ->postJson(route('biometric-devices.attlogs.link-user'), [
                 'pin' => '3131',
-                'user_id' => $target->id,
+                'user_id' => $target->employee_id,
             ])
             ->assertStatus(422)
-            ->assertJsonPath('conflicting_user_id', $incumbent->id);
+            ->assertJsonPath('current_employee_id', 'T-1');
 
-        $this->assertNull($target->fresh()->employee_id);
-        $this->assertSame(3131, (int) $incumbent->fresh()->employee_id);
+        $this->assertSame('T-1', (string) $target->fresh()->employee_id);
+        $this->assertSame('unknown_user', BiometricAttLog::where('user_pin', '3131')->value('punch_status'));
     }
 
-    public function test_link_user_refuses_a_pin_held_by_a_deleted_real_employee(): void
+    public function test_link_user_refuses_a_deleted_target(): void
     {
-        // Not one of our placeholders — a genuine ex-employee. Reassigning the
-        // PIN would move their attendance history onto someone else.
+        // A deleted ex-employee is never a valid link target.
         $device = $this->device();
         $this->unknownUserLog($device, '2020', '2026-06-19 08:00:00');
 
-        $exEmployee = User::factory()->create(['employee_id' => 2020, 'name' => 'Former Staff']);
-        $exEmployee->delete();
-
-        $target = User::factory()->create(['employee_id' => null]);
+        $ex = User::factory()->create(['employee_id' => '2020', 'name' => 'Former Staff']);
+        $ex->delete();
 
         $this->actingAs($this->admin())
             ->postJson(route('biometric-devices.attlogs.link-user'), [
                 'pin' => '2020',
-                'user_id' => $target->id,
+                'user_id' => '2020',
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('conflicting_user_id', $exEmployee->id);
+            ->assertStatus(422);
 
-        $this->assertNull($target->fresh()->employee_id);
-        $this->assertSame(2020, (int) User::withTrashed()->find($exEmployee->id)->employee_id);
+        $this->assertSame('unknown_user', BiometricAttLog::where('user_pin', '2020')->value('punch_status'));
     }
 
     public function test_link_user_is_idempotent_for_a_user_who_already_carries_the_pin(): void
     {
-        // Re-running after a partial fix (employee already has the PIN, rows
-        // still stranded) must complete the job, not refuse it.
         $device = $this->device();
         $log = $this->unknownUserLog($device, '6060', '2026-06-19 08:00:00');
-        $employee = User::factory()->create(['employee_id' => 6060]);
+        $employee = User::factory()->create(['employee_id' => '6060']);
+
+        $payload = ['pin' => '6060', 'user_id' => $employee->employee_id];
 
         $this->actingAs($this->admin())
-            ->postJson(route('biometric-devices.attlogs.link-user'), [
-                'pin' => '6060',
-                'user_id' => $employee->id,
-            ])
+            ->postJson(route('biometric-devices.attlogs.link-user'), $payload)
             ->assertOk()
             ->assertJsonPath('logs_relinked', 1);
 
         $log->refresh();
         $this->assertSame('downloaded', $log->punch_status);
-        $this->assertSame($employee->id, $log->user_id);
+        $this->assertSame('6060', $log->user_id);
+
+        // A double submit says "already done" instead of re-linking.
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.attlogs.link-user'), $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('unresolved_count', 0);
     }
 
     // ───────────────────────────── Task 3: device-silence alerting

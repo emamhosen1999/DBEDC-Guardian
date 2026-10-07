@@ -20,8 +20,8 @@ class AbsentUsersTest extends TestCase
     {
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        
-        Role::firstOrCreate(['name' => 'Admin']);
+
+        Role::firstOrCreate(['name' => 'Administrator']);
         Role::firstOrCreate(['name' => 'Employee']);
         Permission::firstOrCreate(['name' => 'attendance.view']);
     }
@@ -29,7 +29,7 @@ class AbsentUsersTest extends TestCase
     public function test_rostered_off_employee_is_returned_as_off_user_instead_of_absent(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         // Create two employees
@@ -62,8 +62,8 @@ class AbsentUsersTest extends TestCase
         // The off employee should not be in absent_users, but in off_users
         $response->assertJsonMissing([
             'absent_users' => [
-                ['id' => $empOff->id]
-            ]
+                ['id' => $empOff->id],
+            ],
         ]);
 
         $response->assertJsonFragment([
@@ -78,7 +78,7 @@ class AbsentUsersTest extends TestCase
     public function test_upcoming_shift_employee_is_returned_as_upcoming_user_when_viewed_before_start(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         $emp = User::factory()->create();
@@ -137,7 +137,7 @@ class AbsentUsersTest extends TestCase
     public function test_daily_overview_stats_excludes_rostered_off_and_upcoming_shift_employees(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('Admin');
+        $admin->assignRole('Administrator');
         $admin->givePermissionTo('attendance.view');
 
         // Create three employees

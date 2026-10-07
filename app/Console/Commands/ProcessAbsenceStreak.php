@@ -61,21 +61,28 @@ class ProcessAbsenceStreak extends Command
             return self::SUCCESS;
         }
 
+        // A company holiday is a rest day: nobody is absent on it, and no streak moves
+        // (computeStreak() skips holidays, so running would only re-escalate yesterday's count).
+        if ($this->isHoliday($today->toDateString())) {
+            $this->info('Today is a company holiday — nothing to check.');
+
+            return self::SUCCESS;
+        }
+
         // Exclude users on approved leave today
         $onLeave = $this->usersOnApprovedLeave($rosteredToday->all(), $today->toDateString());
         $candidates = $rosteredToday->diff($onLeave)->values();
 
-        // Exclude users who already have a completed/in-progress offboarding
-        $offboarded = Offboarding::whereIn('employee_id', function ($q) use ($candidates) {
-            $q->select('id')->from('users')->whereIn('employee_id', $candidates);
-        })
+        // Exclude users already past their last working date. offboardings.employee_id IS the
+        // user's key (employee_id is the users primary key; there is no users.id column in
+        // production, so this must never go through one).
+        $offboardedEmployeeIds = Offboarding::whereIn('employee_id', $candidates->map(fn ($id) => (string) $id)->all())
             ->whereNotIn('status', [Offboarding::STATUS_CANCELLED])
             ->whereNotNull('last_working_date')
-            ->where('last_working_date', '<', now()->toDateString())
-            ->pluck('employee_id');
-
-        $offboardedEmployeeIds = User::whereIn('id', $offboarded)->pluck('employee_id');
-        $candidates = $candidates->diff($offboardedEmployeeIds)->values();
+            ->where('last_working_date', '<', $today->toDateString())
+            ->pluck('employee_id')
+            ->map(fn ($id) => (string) $id);
+        $candidates = $candidates->map(fn ($id) => (string) $id)->diff($offboardedEmployeeIds)->values();
 
         // Find who punched in today
         $punched = Attendance::whereIn('user_id', $candidates)

@@ -94,6 +94,9 @@ class Shift extends Model
 
         if ($crossesMidnight || $end->lessThanOrEqualTo($start)) {
             $end->addDay();
+            // The flag follows the real window: a 22:00-06:00 shift saved without the crosses_midnight
+            // flag still ends tomorrow, and punch business-date rebinding keys off this property.
+            $crossesMidnight = true;
         }
 
         return new ShiftSchedule(
