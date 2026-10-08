@@ -59,7 +59,7 @@ class KPI extends Model
      */
     public function values(): HasMany
     {
-        return $this->hasMany(KPIValue::class);
+        return $this->hasMany(KPIValue::class, 'kpi_id');
     }
 
     /**

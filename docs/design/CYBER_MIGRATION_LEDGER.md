@@ -7,16 +7,16 @@ live Cyber site, computed-style comparison) and committed before the next starts
 
 | Batch | Scope | Status |
 |---|---|---|
-| 1 | Token bridge, app shell (layout, header, sidebar, bottom nav, theme/appearance switching), Auth pages, Dashboard, Errors, Notifications, Search, InstallApp | **done** — 0 open measured mismatches; 5 files verified, the rest wait only on the owner's decision about one proposed contrast exception |
-| 2 | Attendance, Leaves, Holidays, AttendanceEmployee, EmployeeDashboard | todo |
+| 1 | Token bridge, app shell (layout, header, sidebar, bottom nav, theme/appearance switching), Auth pages, Dashboard, EmployeeDashboard, Errors, Notifications, Search, InstallApp | Dashboard and the Auth pages are **owner-accepted** (the reference standard). Notifications, Search, Errors/Forbidden and InstallApp are **reopened** and will be redone to dashboard depth in the next batch. EmployeeDashboard (moved here from batch 2, 2026-10-09) is **done**: three legacy children still carry their own chrome (one open minor mismatch), so it cannot be `verified` yet |
+| 2 | Attendance, Leaves, Holidays, AttendanceEmployee (EmployeeDashboard moved to batch 1) | todo |
 | 3 | Organization, Employees, Departments, Designations, HR, Profile, UserDevices, shared Forms and Tables | todo |
 | 4 | Operations, Project, Quality, PettyCash, Aeon | todo |
 | 5 | Settings, Admin, Administration; sweep for leftover hard-coded colours/styles; full screenshots | todo |
 
-Status values: **todo** (not touched); **done** (migrated; either waiting on an owner-approved exception or
+Status values: **todo** (not touched); **reopened** (built earlier, not accepted by the owner; redone to the dashboard standard); **owner-accepted** (the owner reviewed it live at http://127.0.0.1:5190 and accepted it: only the owner sets this, and only this counts as complete); **done** (migrated; either waiting on an owner-approved exception or
 without a Cyber counterpart to compare against); **verified** (compared with the live Cyber site at
 1440x900 and 390x844, dark and light, with no open major or minor mismatch — see
-`docs/design/CYBER_FIDELITY_CHECKLIST.md`).
+`docs/design/CYBER_FIDELITY_CHECKLIST.md`). Flow: todo, done, verified, owner-accepted.
 
 **Open owner decision (batch 1):** Cyber dims idle sidebar items and the auth subtitle to
 `rgba(255,255,255,.5)`; over the cover's brightest pixels that is 3.84:1 (WCAG 1.4.3 fails). Guardian uses
@@ -201,27 +201,27 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Attendance/RosterTab.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/SettingsTab.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/ShiftsSettings.jsx` | 2 | todo | — |  |
-| `Pages/Auth/ChangePassword.jsx` | 1 | verified | `app-change-password-1440-dark.jpg`, `app-change-password-1440-light.jpg`, `app-change-password-390-dark.jpg`, `app-change-password-390-light.jpg` | Pair 1:ChangePassword: match at 1440/390, dark/light. |
-| `Pages/Auth/ForgotPassword.jsx` | 1 | done | `app-forgot-password-1440-dark.jpg`, `app-forgot-password-1440-light.jpg`, `app-forgot-password-390-dark.jpg`, `app-forgot-password-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:ForgotPassword. |
-| `Pages/Auth/Login.jsx` | 1 | done | `app-login-1440-dark.jpg`, `app-login-1440-light.jpg`, `app-login-390-dark.jpg`, `app-login-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Login. |
-| `Pages/Auth/Register.jsx` | 1 | done | `app-register-1440-dark.jpg`, `app-register-1440-light.jpg`, `app-register-390-dark.jpg`, `app-register-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Register. |
-| `Pages/Auth/ResetPassword.jsx` | 1 | done | `app-reset-password-1440-dark.jpg`, `app-reset-password-1440-light.jpg`, `app-reset-password-390-dark.jpg`, `app-reset-password-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:ResetPassword. Labels now associated with inputs. |
-| `Pages/Auth/VerifyEmail.jsx` | 1 | done | `app-verify-email-1440-dark.jpg`, `app-verify-email-1440-light.jpg`, `app-verify-email-390-dark.jpg`, `app-verify-email-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:VerifyEmail (captured via an Inertia history swap). |
-| `Pages/Dashboard.jsx` | 1 | done | `app-dashboard-1440-dark.jpg`, `app-dashboard-1440-light.jpg`, `app-dashboard-390-dark.jpg`, `app-dashboard-390-light.jpg`, `app-dashboard-1280-dark.jpg`, `app-dashboard-820-dark.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Dashboard (also 1280, 820). Page header with real status chips; zero gutters. |
+| `Pages/Auth/ChangePassword.jsx` | 1 | owner-accepted | `app-change-password-1440-dark.jpg`, `app-change-password-1440-light.jpg`, `app-change-password-390-dark.jpg`, `app-change-password-390-light.jpg` | Pair 1:ChangePassword: match at 1440/390, dark/light. |
+| `Pages/Auth/ForgotPassword.jsx` | 1 | owner-accepted | `app-forgot-password-1440-dark.jpg`, `app-forgot-password-1440-light.jpg`, `app-forgot-password-390-dark.jpg`, `app-forgot-password-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:ForgotPassword. |
+| `Pages/Auth/Login.jsx` | 1 | owner-accepted | `app-login-1440-dark.jpg`, `app-login-1440-light.jpg`, `app-login-390-dark.jpg`, `app-login-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Login. |
+| `Pages/Auth/Register.jsx` | 1 | owner-accepted | `app-register-1440-dark.jpg`, `app-register-1440-light.jpg`, `app-register-390-dark.jpg`, `app-register-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Register. |
+| `Pages/Auth/ResetPassword.jsx` | 1 | owner-accepted | `app-reset-password-1440-dark.jpg`, `app-reset-password-1440-light.jpg`, `app-reset-password-390-dark.jpg`, `app-reset-password-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:ResetPassword. Labels now associated with inputs. |
+| `Pages/Auth/VerifyEmail.jsx` | 1 | owner-accepted | `app-verify-email-1440-dark.jpg`, `app-verify-email-1440-light.jpg`, `app-verify-email-390-dark.jpg`, `app-verify-email-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:VerifyEmail (captured via an Inertia history swap). |
+| `Pages/Dashboard.jsx` | 1 | owner-accepted | `app-dashboard-1440-dark.jpg`, `app-dashboard-1440-light.jpg`, `app-dashboard-390-dark.jpg`, `app-dashboard-390-light.jpg`, `app-dashboard-1280-dark.jpg`, `app-dashboard-820-dark.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Dashboard (also 1280, 820). Rebuilt 2026-10-09 as a registry-driven analytics dashboard (KPI strip, charts, priority order, 12-column packed rows, freshness lines); measured: zero row gaps, equal card heights, one divider token (screenshots `app-dashboard-1440-dark-r5.jpg`, `app-dashboard-390-dark-r5.jpg`). ApexCharts licence decision pending. |
 | `Pages/Departments.jsx` | 3 | todo | — |  |
 | `Pages/Designations.jsx` | 3 | todo | — |  |
-| `Pages/EmployeeDashboard.jsx` | 2 | todo | — |  |
+| `Pages/EmployeeDashboard.jsx` | 1 | done | `app-employee-dashboard-1440-dark-r5.jpg`, `app-employee-dashboard-390-dark-r5.jpg` | Pair 1:EmployeeDashboard (Cyber index/widgets/profile composition). Rebuilt as "My Home": registry widgets for shift, month heat strip, on-time gauge, arrivals line, hours bars, leave balances, holidays, assets, request timeline; punch, requests list, swap responses and the swap/regularization/overtime forms keep their behaviour. Open minor mismatch: PunchStatusCard, MyRequests and SwapResponses keep their own panel chrome (Attendance batch). Moved from batch 2. |
 | `Pages/Employees/EmployeesPage.jsx` | 3 | todo | — |  |
-| `Pages/Errors/Forbidden.jsx` | 1 | verified | `app-forbidden-1440-dark.jpg`, `app-forbidden-1440-light.jpg`, `app-forbidden-390-dark.jpg`, `app-forbidden-390-light.jpg` | Pair 1:Forbidden: match (captured via an Inertia history swap). |
+| `Pages/Errors/Forbidden.jsx` | 1 | reopened | `app-forbidden-1440-dark.jpg`, `app-forbidden-1440-light.jpg`, `app-forbidden-390-dark.jpg`, `app-forbidden-390-light.jpg` | Pair 1:Forbidden: match (captured via an Inertia history swap). |
 | `Pages/Holidays.jsx` | 2 | todo | — |  |
 | `Pages/HR/Assets.jsx` | 3 | todo | — |  |
 | `Pages/HR/Offboarding.jsx` | 3 | todo | — |  |
 | `Pages/HR/Onboarding.jsx` | 3 | todo | — |  |
 | `Pages/HR/Payroll.jsx` | 3 | todo | — |  |
-| `Pages/InstallApp.jsx` | 1 | verified | `app-install-app-1440-dark.jpg`, `app-install-app-1440-light.jpg`, `app-install-app-390-dark.jpg`, `app-install-app-390-light.jpg` | Pair 1:InstallApp (closest: landing.html): match. Stylesheet scoped to .ia-page. |
+| `Pages/InstallApp.jsx` | 1 | reopened | `app-install-app-1440-dark.jpg`, `app-install-app-1440-light.jpg`, `app-install-app-390-dark.jpg`, `app-install-app-390-light.jpg` | Pair 1:InstallApp (closest: landing.html): match. Stylesheet scoped to .ia-page. |
 | `Pages/LeavesEmployee.jsx` | 2 | todo | — |  |
 | `Pages/LeavesUnified.jsx` | 2 | todo | — |  |
-| `Pages/Notifications/Index.jsx` | 1 | done | `app-notifications-1440-dark.jpg`, `app-notifications-1440-light.jpg`, `app-notifications-390-dark.jpg`, `app-notifications-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Notifications (list data stubbed in captures). |
+| `Pages/Notifications/Index.jsx` | 1 | reopened | `app-notifications-1440-dark.jpg`, `app-notifications-1440-light.jpg`, `app-notifications-390-dark.jpg`, `app-notifications-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Notifications (list data stubbed in captures). |
 | `Pages/Operations/AssetInventory.jsx` | 4 | todo | — |  |
 | `Pages/Operations/AssetTimeline.jsx` | 4 | todo | — |  |
 | `Pages/Operations/CameraMonitoring.jsx` | 4 | todo | — |  |
@@ -277,7 +277,7 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Project/Objections/Index.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/utils/buildObjectionsStats.jsx` | 4 | todo | — |  |
 | `Pages/Quality/NcrRegister.jsx` | 4 | todo | — |  |
-| `Pages/Search/Index.jsx` | 1 | done | `app-search-1440-dark.jpg`, `app-search-1440-light.jpg`, `app-search-390-dark.jpg`, `app-search-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Search. |
+| `Pages/Search/Index.jsx` | 1 | reopened | `app-search-1440-dark.jpg`, `app-search-1440-light.jpg`, `app-search-390-dark.jpg`, `app-search-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Search. |
 | `Pages/Settings/BiometricDevices.jsx` | 5 | todo | — |  |
 | `Pages/Settings/CompanySettings.jsx` | 5 | todo | — |  |
 | `Pages/Settings/NotificationPreferences.jsx` | 5 | todo | — |  |
@@ -400,7 +400,10 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Components/Dashboard/AttendanceChartWidget.jsx` | 2 | todo | — |  |
 | `Components/Dashboard/ClockWidget.jsx` | 2 | todo | — |  |
 | `Components/Dashboard/Command/kit.jsx` | 1 | done | — | CommandCard = Cyber card (HUD header, collapse/full-screen tools); MONO → display font; R(px). |
-| `Components/Dashboard/Command/Widgets.jsx` | 1 | done | — | Hero as Cyber card; radii via R(px). |
+| `Components/Dashboard/Command/Widgets.jsx` | 1 | done | — | ProjectHero, WorkforceTrend, OperationsFeed and TodayPanel removed (2026-10-09; replaced by the corridor-map slot and registry widgets). The remaining recharts panels (KpiBand, RfiThroughput ...) are unused legacy: delete or rebuild on CyberChart. |
+| `Components/Dashboard/Widgets/WidgetGrid.jsx` | 1 | done | — | New: registry renderer, KPI strip, 12-column row packer, freshness footer. |
+| `Components/Dashboard/Widgets/ChartPanel.jsx` | 1 | done | — | New: declarative chart specs to ApexCharts options (Cyber demo options), heat strip, timeline. |
+| `Components/Cyber/*` | 1 | done | — | New library: Icon (Bootstrap Icons subset), Button, Badge, Progress, Card (minimize + maximize, no close, per-viewer minimized state), StatTile, KpiTile, CyberChart (lazy ApexCharts, a11y data table). |
 | `Components/Dashboard/GreetingBanner.jsx` | 2 | todo | — |  |
 | `Components/Dashboard/PendingTasksWidget.jsx` | 2 | todo | — |  |
 | `Components/Dashboard/PersonalOverviewCard.jsx` | 2 | todo | — |  |

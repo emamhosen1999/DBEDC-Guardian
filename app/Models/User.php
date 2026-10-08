@@ -278,7 +278,10 @@ class User extends Authenticatable implements HasMedia
 
     public function projects()
     {
-        return $this->belongsToMany(Project::class, 'project_user', 'user_id', 'project_id');
+        // Membership lives in project_resources (the table Project::resources() uses), keyed by employee_id.
+        return $this->belongsToMany(Project::class, 'project_resources', 'user_id', 'project_id', 'employee_id', 'id')
+            ->withPivot('role', 'allocation_percentage', 'start_date', 'end_date')
+            ->withTimestamps();
     }
 
     public function experiences()

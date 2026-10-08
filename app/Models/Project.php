@@ -86,11 +86,6 @@ class Project extends Model implements HasMedia
             ->withTimestamps();
     }
 
-    public function dailyWorks()
-    {
-        return $this->hasMany(DailyWork::class);
-    }
-
     public function timeEntries()
     {
         return $this->hasMany(ProjectTimeEntry::class);

@@ -5,7 +5,7 @@ import {
     AreaChart, Area, RadialBarChart, RadialBar, PolarAngleAxis, Cell, LabelList,
 } from 'recharts';
 import {
-    CommandCard, SectionLabel, Kpi, Spark, StatRow, DeltaChip, TONE, SERIES, MONO, R,
+    CommandCard, SectionLabel, Kpi, StatRow, TONE, SERIES, MONO, R,
     fmtNum, fmtCr, chLabel, tooltipStyle,
 } from './kit.jsx';
 
@@ -15,110 +15,19 @@ const ic = (path) => (
         strokeLinecap="round" strokeLinejoin="round">{path}</svg>
 );
 
-/* ══════════════════════════ PROJECT HERO + CHAINAGE RIBBON ══════════ */
-export function ProjectHero({ project, chainage = [], objections }) {
-    if (!project) return null;
-    const kmDone = ((project.progress / 100) * ROAD_KM).toFixed(1);
-
-    // colour each km cell by completion intensity
-    const cellColor = (b) => {
-        if (!b || b.total === 0) return 'var(--gray-a3)';
-        if (b.rate >= 70) return 'var(--jade-9)';
-        if (b.rate >= 35) return 'var(--accent-9)';
-        return 'var(--blue-a6)';
-    };
-    const objByKm = {};
-    (objections?.points || []).forEach((p) => { objByKm[p.km] = p.count; });
-
-    return (
-        <section className="cc-card cc-hero dl-card" style={{ gridColumn: '1 / -1' }}>
-            <header className="dl-card__header">
-                <h2 className="dl-card__title">Operational Status · Dhaka Bypass Expressway (N-105) O&amp;M Phase</h2>
-                <span className="dl-hud-line" aria-hidden="true" />
-            </header>
-            <div className="dl-card__body">
-            <Flex align="end" justify="between" gap="5" wrap="wrap" mb="4">
-                <Box style={{ minWidth: 0 }}>
-                    <Heading size={{ initial: '5', md: '7' }} style={{ lineHeight: 1.05 }}>
-                        {project.name}
-                    </Heading>
-                    <Text size="1" style={{ fontFamily: MONO, color: 'var(--gray-10)' }}>
-                        {project.authority} · {project.company} · IE {project.engineer}
-                    </Text>
-                </Box>
-                <Flex gap="5" wrap="wrap" align="end">
-                    <HeroStat k="Length" v={`${project.length_km}.0`} unit="km" />
-                    <HeroStat k="Earned" v={kmDone} unit="km" />
-                    <HeroStat k="Days to end" v={project.days_to_end ?? '—'} tone={project.days_to_end < 365 ? 'var(--amber-11)' : undefined} />
-                    <HeroStat k="Health" v={String(project.health || '—').replace('_', ' ')} tone={project.health === 'good' ? 'var(--jade-11)' : 'var(--amber-11)'} />
-                    <Flex align="baseline" gap="1">
-                        <Text style={{ fontFamily: MONO, fontWeight: 600, fontSize: 'clamp(32px,5vw,48px)',
-                            lineHeight: 0.9, color: 'var(--accent-11)' }}>{project.progress}</Text>
-                        <Text size="3" color="gray" style={{ fontFamily: MONO }}>% complete</Text>
-                    </Flex>
-                </Flex>
-            </Flex>
-
-            {/* chainage ribbon */}
-            <Box className="cc-ribbon-wrap">
-                <Box className="cc-ticks">
-                    {Array.from({ length: 7 }, (_, i) => i * 8).map((km) => (
-                        <span key={km} className="cc-tick" style={{ left: `${(km / ROAD_KM) * 100}%` }}>{km}+000</span>
-                    ))}
-                </Box>
-                <Box className="cc-road">
-                    <span className="cc-sheen" />
-                    {chainage.map((b) => (
-                        <span key={b.km} className="cc-seg" title={`${chLabel(b.km)} · ${b.total} RFIs · ${b.rate}% complete`}
-                            style={{ background: cellColor(b) }} />
-                    ))}
-                    {Object.entries(objByKm).map(([km, count]) => (
-                        <span key={km} className="cc-obj" style={{ left: `${(Number(km) / ROAD_KM) * 100}%` }}
-                            title={`${chLabel(km)} · ${count} objection${count > 1 ? 's' : ''}`} />
-                    ))}
-                </Box>
-                <Flex gap="4" wrap="wrap" mt="3" style={{ fontFamily: MONO, fontSize: 11, color: 'var(--gray-11)' }}>
-                    <Legend sw="var(--jade-9)" label="≥70% complete" />
-                    <Legend sw="var(--accent-9)" label="in progress" />
-                    <Legend sw="var(--blue-a6)" label="early works" />
-                    <Legend sw="var(--gray-a3)" label="no RFI yet" />
-                    <Flex align="center" gap="2" style={{ marginLeft: 'auto' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--amber-9)', boxShadow: '0 0 0 3px var(--amber-a4)' }} />
-                        objection hotspot
-                    </Flex>
-                </Flex>
-            </Box>
-            </div>
-        </section>
-    );
-}
-const HeroStat = ({ k, v, unit, tone }) => (
-    <Flex direction="column">
-        <Text size="1" style={{ fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--gray-10)' }}>{k}</Text>
-        <Text style={{ fontFamily: MONO, fontWeight: 700, fontSize: 16, color: tone }}>
-            {v}{unit && <Text as="span" size="1" color="gray">&nbsp;{unit}</Text>}
-        </Text>
-    </Flex>
-);
-const Legend = ({ sw, label }) => (
-    <Flex align="center" gap="2"><span style={{ width: 11, height: 11, borderRadius: R(3), background: sw, flexShrink: 0 }} />{label}</Flex>
-);
-
 /* ══════════════════════════ KPI BAND ═══════════════════════════════ */
 export function KpiBand({ kpis = {}, quality = {} }) {
     return (
         <Grid columns={{ initial: '2', sm: '3', lg: '6' }} gap="3">
             <Kpi tone="accent" label={<>Physical<br />progress</>} value={kpis.progress ?? '—'} unit="%"
                 icon={ic(<><path d="M3 12h4l3-8 4 16 3-8h4" /></>)}
-                foot={<DeltaChip dir="up">0.9</DeltaChip>}
-                spark={<Spark data={[58, 60, 61, 62, 63, 64, kpis.progress ?? 65]} color="var(--accent-9)" />} />
+                />
             <Kpi tone="info" label={<>RFIs<br />logged</>} value={fmtNum(kpis.rfi_total)}
                 icon={ic(<><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></>)}
                 foot={<Text size="1" style={{ fontFamily: MONO, color: 'var(--gray-11)' }}>{fmtNum(kpis.rfi_recent)} · 30d</Text>} />
             <Kpi tone="good" label={<>First-pass<br />rate</>} value={quality.first_pass_rate ?? kpis.first_pass_rate ?? '—'} unit="%"
                 icon={ic(<><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1" /><path d="M22 4 12 14.01l-3-3" /></>)}
-                foot={<DeltaChip dir="up">clean</DeltaChip>}
-                spark={<Spark data={[54, 56, 57, 58, 58, 59, quality.first_pass_rate ?? 59]} color="var(--jade-9)" />} />
+                />
             <Kpi tone="crit" label={<>Open<br />NCRs</>} value={kpis.ncr_open ?? '—'}
                 icon={ic(<><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></>)}
                 foot={<Text size="1" style={{ fontFamily: MONO, color: 'var(--gray-11)' }}>of {kpis.ncr_total} issued</Text>} />
@@ -128,7 +37,7 @@ export function KpiBand({ kpis = {}, quality = {} }) {
             <Kpi tone="warn" label={<>Budget<br />utilized</>} value={kpis.budget_utilization ?? '—'} unit="%"
                 icon={ic(<><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>)}
                 foot={<Text size="1" style={{ fontFamily: MONO, color: 'var(--gray-11)' }}>{fmtCr(kpis.budget_spent_cr)}</Text>}
-                spark={<Spark data={[20, 32, 42, 50, 57, 61, kpis.budget_utilization ?? 64]} color="var(--amber-9)" />} />
+                />
         </Grid>
     );
 }
@@ -327,31 +236,6 @@ export function BudgetBurndown({ budget = {} }) {
     );
 }
 
-/* ══════════════════════════ WORKFORCE TREND ════════════════════════ */
-export function WorkforceTrend({ workforce = {} }) {
-    const data = workforce.series || [];
-    return (
-        <CommandCard title="Workforce Attendance" sub="last 14 days · staff present on site" minHeight={300}
-            right={<Badge color="jade" variant="soft">{workforce.present_today} today</Badge>}>
-            <ResponsiveContainer width="100%" height={230}>
-                <AreaChart data={data} margin={{ top: 10, right: 10, left: -12, bottom: 0 }}>
-                    <defs>
-                        <linearGradient id="ccWf" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--iris-9)" stopOpacity="0.3" />
-                            <stop offset="100%" stopColor="var(--iris-9)" stopOpacity="0" />
-                        </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-a4)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--gray-10)', fontFamily: MONO }} axisLine={false} tickLine={false} interval={2} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--gray-10)', fontFamily: MONO }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Area type="monotone" dataKey="present" name="Present" stroke="var(--iris-9)" strokeWidth={2.4} fill="url(#ccWf)" dot={false} />
-                </AreaChart>
-            </ResponsiveContainer>
-        </CommandCard>
-    );
-}
-
 /* ══════════════════════════ MILESTONE / WORK PACKAGES ══════════════ */
 export function WorkPackages({ milestones = [] }) {
     const cmap = { completed: 'var(--jade-9)', in_progress: 'var(--amber-9)', not_started: 'var(--blue-9)', behind: 'var(--tomato-9)' };
@@ -382,71 +266,3 @@ export function WorkPackages({ milestones = [] }) {
         </CommandCard>
     );
 }
-
-/* ══════════════════════════ OPERATIONS FEED ════════════════════════ */
-export function OperationsFeed({ feed = [] }) {
-    const toneColor = { good: 'var(--jade-9)', warn: 'var(--amber-9)', crit: 'var(--tomato-9)', info: 'var(--blue-9)' };
-    const toneSoft = { good: 'var(--jade-a3)', warn: 'var(--amber-a3)', crit: 'var(--tomato-a3)', info: 'var(--blue-a3)' };
-    const ago = (at) => {
-        if (!at) return '';
-        const d = new Date(String(at).replace(' ', 'T'));
-        const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
-        if (mins < 60) return `${mins}m`;
-        if (mins < 1440) return `${Math.round(mins / 60)}h`;
-        return `${Math.round(mins / 1440)}d`;
-    };
-    return (
-        <CommandCard title="Operations Feed" sub="latest field actions across disciplines" minHeight={300}>
-            <Flex direction="column">
-                {feed.map((f, i) => (
-                    <Flex key={i} gap="3" py="2" style={{ borderTop: i ? '1px solid var(--gray-a3)' : 'none' }}>
-                        <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: R(8), flexShrink: 0,
-                            background: toneSoft[f.tone], color: toneColor[f.tone], fontFamily: MONO, fontWeight: 700, fontSize: 12 }}>
-                            {f.kind === 'ncr' ? '!' : '✓'}
-                        </Flex>
-                        <Box style={{ flex: 1, minWidth: 0 }}>
-                            <Text size="2" style={{ display: 'block', lineHeight: 1.35 }}>{f.title}</Text>
-                            <Text size="1" color="gray" style={{ fontFamily: MONO }}>{f.meta}</Text>
-                        </Box>
-                        <Text size="1" color="gray" style={{ fontFamily: MONO, whiteSpace: 'nowrap' }}>{ago(f.at)}</Text>
-                    </Flex>
-                ))}
-            </Flex>
-        </CommandCard>
-    );
-}
-
-/* ══════════════════════════ TODAY PANEL ════════════════════════════ */
-export function TodayPanel({ today = {}, project = {}, showProject = true }) {
-    const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-    return (
-        <CommandCard title="Today on Site" sub={dateLabel} minHeight={300}>
-            <TodayRow tone="jade" icon={ic(<path d="M20 6 9 17l-5-5" />)} name="On leave today"
-                sub={`${today.on_leave ?? 0} approved`} />
-            <TodayRow tone="blue" icon={ic(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>)}
-                name="Next holiday" sub={today.next_holiday ? `${today.next_holiday.name} · in ${today.next_holiday.in_days} days` : 'none scheduled'} />
-            {showProject && (
-                <>
-                    <TodayRow tone="amber" icon={ic(<><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>)}
-                        name="Current phase" sub={project.current_phase || '—'} />
-                    <TodayRow tone="iris" icon={ic(<><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>)}
-                        name="Schedule / cost index" sub={`SPI ${project.spi ?? '—'} · CPI ${project.cpi ?? '—'}`} />
-                </>
-            )}
-        </CommandCard>
-    );
-}
-const TodayRow = ({ tone, icon, name, sub }) => (
-    <Flex align="center" gap="3" py="2" style={{ borderTop: '1px solid var(--gray-a3)' }}>
-        <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: R(8), flexShrink: 0,
-            background: `var(--${tone}-a3)`, color: `var(--${tone}-11)` }}>{icon}</Flex>
-        <Box style={{ flex: 1, minWidth: 0 }}>
-            <Text size="2" style={{ display: 'block' }}>{name}</Text>
-            <Text size="1" color="gray" style={{ fontFamily: MONO }}>{sub}</Text>
-        </Box>
-    </Flex>
-);
-
-const Lg = ({ c, t }) => (
-    <Flex align="center" gap="2"><span style={{ width: 10, height: 10, borderRadius: R(3), background: c, flexShrink: 0 }} />{t}</Flex>
-);

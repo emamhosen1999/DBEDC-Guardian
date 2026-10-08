@@ -55,7 +55,7 @@ class HrDocument extends Model
      */
     public function employees(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'employee_documents')
+        return $this->belongsToMany(User::class, 'employee_documents', 'hr_document_id', 'user_id', 'id', 'employee_id')
             ->withPivot('acknowledgment_status', 'acknowledgment_date', 'notes')
             ->withTimestamps();
     }

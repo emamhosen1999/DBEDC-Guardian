@@ -6,6 +6,7 @@ use App\Models\HRM\Department;
 use App\Models\User;
 use App\Models\UserDepartmentScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -485,6 +486,41 @@ class DepartmentScope
             : $user->roles()->min('hierarchy_level');
 
         return $level === null ? null : (int) $level;
+    }
+
+    /**
+     * Bulk form of outranks(): of $targetIds, the employees the actor strictly outranks
+     * (target holds no role, or only weaker ones). One query for the whole batch, so a
+     * dashboard can count "what may I decide" without a role lookup per request.
+     * Scope is NOT checked here - combine with applyToEmployeeOwned() / canActOn().
+     *
+     * @param  array<int, string|int>  $targetIds
+     * @return array<int, string>
+     */
+    public function outrankedIds(User $actor, array $targetIds): array
+    {
+        $targetIds = array_values(array_unique(array_map('strval', $targetIds)));
+        $actorLevel = $this->bestRoleLevel($actor);
+
+        if ($targetIds === [] || $actorLevel === null) {
+            return [];
+        }
+
+        $tables = config('permission.table_names');
+        $morphKey = config('permission.column_names.model_morph_key', 'model_id');
+
+        $levels = DB::table($tables['model_has_roles'].' as mhr')
+            ->join($tables['roles'].' as r', 'r.id', '=', 'mhr.role_id')
+            ->where('mhr.model_type', $actor->getMorphClass())
+            ->whereIn('mhr.'.$morphKey, $targetIds)
+            ->groupBy('mhr.'.$morphKey)
+            ->selectRaw('mhr.'.$morphKey.' as target_id, MIN(r.hierarchy_level) as best_level')
+            ->pluck('best_level', 'target_id');
+
+        return array_values(array_filter(
+            $targetIds,
+            fn (string $id) => ($levels[$id] ?? null) === null || $actorLevel < (int) $levels[$id],
+        ));
     }
 
     /**

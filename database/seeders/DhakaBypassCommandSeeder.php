@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -33,41 +34,41 @@ class DhakaBypassCommandSeeder extends Seeder
         DB::table('projects')->where('project_name', $name)->delete();
 
         $projectId = DB::table('projects')->insertGetId(array_filter([
-            'project_name'   => $name,
-            'description'    => 'Upgrading of Joydevpur–Debogram–Bhulta–Madanpur (Dhaka Bypass) Road '
-                . 'N-105 into a 4-lane access-controlled expressway with service roads, under a '
-                . 'DBFOM Public–Private Partnership. Contracting Authority: Roads & Highways Department (RHD). '
-                . 'Project Company: Dhaka Bypass Expressway Development Company Ltd (DBEDC — SRBG 70%, Shamim '
-                . 'Enterprise & UDC 30%). Independent Engineer: Intercontinental Consultants & Technocrats (India) '
-                . 'with Sheladia Associates (USA).',
-            'status'         => 'in_progress',
-            'priority'       => 'high',
-            'progress'       => 72,
+            'project_name' => $name,
+            'description' => 'Upgrading of Joydevpur–Debogram–Bhulta–Madanpur (Dhaka Bypass) Road '
+                .'N-105 into a 4-lane access-controlled expressway with service roads, under a '
+                .'DBFOM Public–Private Partnership. Contracting Authority: Roads & Highways Department (RHD). '
+                .'Project Company: Dhaka Bypass Expressway Development Company Ltd (DBEDC — SRBG 70%, Shamim '
+                .'Enterprise & UDC 30%). Independent Engineer: Intercontinental Consultants & Technocrats (India) '
+                .'with Sheladia Associates (USA).',
+            'status' => 'in_progress',
+            'priority' => 'high',
+            'progress' => 72,
             'project_leader_id' => $leader,
-            'team_leader_id'    => $teamLeader,
-            'color'          => '#EAB308',
-            'start_date'     => '2019-12-26',
-            'end_date'       => '2027-06-30',
-            'budget'         => 35850000000,     // ৳ 3,585 crore
-            'created_at'     => $now,
-            'updated_at'     => $now,
+            'team_leader_id' => $teamLeader,
+            'color' => '#EAB308',
+            'start_date' => '2019-12-26',
+            'end_date' => '2027-06-30',
+            'budget' => 35850000000,     // ৳ 3,585 crore
+            'created_at' => $now,
+            'updated_at' => $now,
         ], fn ($v) => $v !== null));
 
         // enhanced fields (nullable / may vary by install) — set what exists
         $enh = array_filter([
             'planned_start_date' => '2019-12-26',
-            'planned_end_date'   => '2026-12-31',
-            'actual_start_date'  => '2019-12-26',
-            'budget_allocated'   => 35850000000,
-            'budget_spent'       => 23000000000,
+            'planned_end_date' => '2026-12-31',
+            'actual_start_date' => '2019-12-26',
+            'budget_allocated' => 35850000000,
+            'budget_spent' => 23000000000,
             'budget_utilization' => 64.15,
-            'health_status'      => 'healthy',
-            'risk_level'         => 'low',
-            'spi'                => 1.00,
-            'cpi'                => 1.00,
-            'current_phase'      => 'Operations & Maintenance (O&M & TMC Phase)',
-            'next_milestone'     => 'Toll Plaza System & Full Traffic Operation',
-            'next_milestone_date'=> '2026-10-31',
+            'health_status' => 'healthy',
+            'risk_level' => 'low',
+            'spi' => 1.00,
+            'cpi' => 1.00,
+            'current_phase' => 'Operations & Maintenance (O&M & TMC Phase)',
+            'next_milestone' => 'Toll Plaza System & Full Traffic Operation',
+            'next_milestone_date' => '2026-10-31',
         ], fn ($v) => $v !== null);
         $cols = collect($enh)->filter(fn ($v, $k) => Schema::hasColumn('projects', $k))->all();
         if ($cols) {
@@ -119,7 +120,7 @@ class DhakaBypassCommandSeeder extends Seeder
         // Monthly certified spend for burn-down (Jan-2024 → Jun-2026), ৳ crore
         if (Schema::hasTable('project_budget_expenses')) {
             DB::table('project_budget_expenses')->where('project_id', $projectId)->delete();
-            $start = \Carbon\Carbon::create(2024, 1, 1);
+            $start = Carbon::create(2024, 1, 1);
             $months = 30;
             for ($m = 0; $m < $months; $m++) {
                 $date = (clone $start)->addMonths($m);
@@ -138,105 +139,8 @@ class DhakaBypassCommandSeeder extends Seeder
 
         $this->seedNcrs($reporter, $now);
         $this->seedSiteInstructions($now);
-        $this->seedOperationsAndMaintenance($now);
-    }
-
-    /** Seed sample Operations & Maintenance (O&M) and Traffic Monitoring (TMC) records. */
-    private function seedOperationsAndMaintenance($now): void
-    {
-        // 1. Seed Traffic Monitoring Sections
-        if (Schema::hasTable('om_traffic_logs')) {
-            DB::table('om_traffic_logs')->delete();
-            $sections = [
-                ['CH_0_10', 'Joydevpur to Bhulta (Ch 0+000 - Ch 10+000)', 1840, 78.5, 'free_flow', 12, 1],
-                ['CH_10_20', 'Bhulta to Kanchan Bridge (Ch 10+000 - Ch 20+000)', 2420, 68.2, 'moderate', 24, 4],
-                ['CH_20_35', 'Kanchan Bridge to Debogram (Ch 20+000 - Ch 35+000)', 1950, 74.0, 'free_flow', 8, 2],
-                ['CH_35_48', 'Debogram to Madanpur N-1 (Ch 35+000 - Ch 48+000)', 2890, 52.0, 'congested', 35, 9],
-            ];
-            foreach ($sections as [$code, $name, $flow, $speed, $status, $overspeed, $overload]) {
-                DB::table('om_traffic_logs')->insert([
-                    'section_code' => $code, 'section_name' => $name,
-                    'vehicle_count_per_hour' => $flow, 'avg_speed_kmh' => $speed,
-                    'density_status' => $status, 'overspeed_count' => $overspeed,
-                    'overload_count' => $overload, 'recorded_at' => $now,
-                    'created_at' => $now, 'updated_at' => $now,
-                ]);
-            }
-        }
-
-        // 2. Seed VMS Messages
-        if (Schema::hasTable('om_vms_messages')) {
-            DB::table('om_vms_messages')->delete();
-            $vms = [
-                ['VMS-CH05', 'Ch 5+200 (Northbound)', 'DRIVE SAFELY - SPEED LIMIT 80 KM/H', 'ETC LANES OPEN AT TOLL PLAZA', 'info'],
-                ['VMS-CH18', 'Ch 18+400 (Kanchan Bridge)', 'CAUTION: ROADWORK ON RIGHT LANE', 'REDUCE SPEED TO 40 KM/H', 'warning'],
-                ['VMS-CH36', 'Ch 36+100 (Southbound)', 'EXPRESSWAY CLEAR TO MADANPUR INTERCHANGE', 'HAVE A SAFE JOURNEY', 'info'],
-            ];
-            foreach ($vms as [$code, $loc, $line1, $line2, $type]) {
-                DB::table('om_vms_messages')->insert([
-                    'vms_code' => $code, 'location' => $loc,
-                    'message_line1' => $line1, 'message_line2' => $line2,
-                    'type' => $type, 'is_active' => true,
-                    'updated_by_operator_at' => $now,
-                    'created_at' => $now, 'updated_at' => $now,
-                ]);
-            }
-        }
-
-        // 3. Seed Incidents
-        if (Schema::hasTable('om_incidents')) {
-            DB::table('om_incidents')->delete();
-            $incidents = [
-                ['INC-2026-001', 'Stalled Truck on Shoulder', 'Ch 14+200', 'southbound', 'minor', 'dispatched', 'Patrol Unit 2', 12, 'Breakdown on shoulder, tow truck requested.', '2026-08-19 14:10:00'],
-                ['INC-2026-002', 'Debris on Main Carriageway', 'Ch 28+500', 'northbound', 'minor', 'on_scene', 'Patrol Unit 1', 8, 'Tire rubber cleared from inner lane.', '2026-08-19 14:45:00'],
-                ['INC-2026-003', 'Overloaded Tipper Vehicle Warning', 'Ch 39+800', 'southbound', 'major', 'detected', 'Weighbridge Unit 3', 5, 'WIM sensor triggered 48-ton axle load.', '2026-08-19 15:20:00'],
-            ];
-            foreach ($incidents as [$num, $title, $ch, $dir, $sev, $stat, $unit, $resp, $desc, $rep]) {
-                DB::table('om_incidents')->insert([
-                    'incident_number' => $num, 'title' => $title, 'chainage' => $ch,
-                    'direction' => $dir, 'severity' => $sev, 'status' => $stat,
-                    'dispatched_unit' => $unit, 'response_time_minutes' => $resp,
-                    'description' => $desc, 'reported_at' => $rep,
-                    'created_at' => $now, 'updated_at' => $now,
-                ]);
-            }
-        }
-
-        // 4. Seed Routine Maintenance Work Orders
-        if (Schema::hasTable('om_work_orders')) {
-            DB::table('om_work_orders')->delete();
-            $wos = [
-                ['WO-90124', 'Guardrail Repair & Reflector Replacement', 'pavement', 'Ch 12+400 - Ch 13+100', 'medium', 'in_progress', 'Roadside Crew B', 'Replacing damaged W-beam guardrail.'],
-                ['WO-90125', 'Toll Plaza Lane 4 ETC Reader Calibration', 'lighting', 'Main Toll Plaza', 'high', 'assigned', 'ITS Tech Team', 'Recalibrating RFID antenna sensors.'],
-                ['WO-90126', 'Expansion Joint Sealing at Kanchan Bridge', 'bridge', 'Ch 18+270', 'high', 'pending', 'Bridge Maintenance Team', 'Replacing rubber seals on expansion joints.'],
-            ];
-            foreach ($wos as [$num, $title, $cat, $loc, $prio, $stat, $team, $desc]) {
-                DB::table('om_work_orders')->insert([
-                    'work_order_number' => $num, 'title' => $title, 'category' => $cat,
-                    'location' => $loc, 'priority' => $prio, 'status' => $stat,
-                    'assigned_to' => $team, 'description' => $desc,
-                    'created_at' => $now, 'updated_at' => $now,
-                ]);
-            }
-        }
-
-        // 5. Seed Equipment Status
-        if (Schema::hasTable('om_equipment_status')) {
-            DB::table('om_equipment_status')->delete();
-            $eq = [
-                ['CCTV-CH00', 'High Definition PTZ Surveillance Camera', 'cctv', 'Ch 0+000 Interchange', 'online', 99.90],
-                ['VMS-CH18', 'Variable Message Board Matrix', 'vms', 'Ch 18+400 Kanchan Bridge', 'online', 99.80],
-                ['WIM-PLAZA01', 'High-Speed Weigh-in-Motion Scale', 'wim', 'Main Toll Plaza Entry', 'online', 99.50],
-                ['GEN-PLAZA-MAIN', '500kVA Diesel Generator Backup System', 'generator', 'Toll Plaza Central Power Substation', 'online', 100.00],
-            ];
-            foreach ($eq as [$code, $name, $cat, $loc, $stat, $upt]) {
-                DB::table('om_equipment_status')->insert([
-                    'equipment_code' => $code, 'name' => $name, 'category' => $cat,
-                    'location' => $loc, 'status' => $stat, 'uptime_pct' => $upt,
-                    'last_ping_at' => $now, 'created_at' => $now, 'updated_at' => $now,
-                ]);
-            }
-        }
+        // O&M / TMC rows (incidents, work orders, traffic logs, VMS, equipment) are NOT seeded: they were invented sample
+        // data. Those registers are filled only from real operations.
     }
 
     /** NCR register — 101 issued · 41 open · 14 IE-consent · 46 closed. */
@@ -245,63 +149,75 @@ class DhakaBypassCommandSeeder extends Seeder
         DB::table('quality_ncrs')->delete();
 
         // Open NCR categories (authoritative ID lists)
-        $design      = [31, 47, 48, 55, 60, 61, 65, 66, 67, 69, 71, 73];         // 12
-        $qcPavement  = [20, 27, 28, 38, 49, 50, 70, 74, 76, 77, 79, 80, 81, 84,  // 28
-                        85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 100];
+        $design = [31, 47, 48, 55, 60, 61, 65, 66, 67, 69, 71, 73];         // 12
+        $qcPavement = [20, 27, 28, 38, 49, 50, 70, 74, 76, 77, 79, 80, 81, 84,  // 28
+            85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 100];
         $maintenance = [75];                                                      // 1
-        $inProcess   = [20, 27, 48, 73, 75, 93];   // In Process for Submission
-        $underIeRev  = [31];                        // Currently Under Review by IE
-        $consent     = [10, 52, 59, 62, 63, 64, 68, 72, 78, 82, 83, 96, 99, 101];// 14 (IE→closure, RHD consent)
+        $inProcess = [20, 27, 48, 73, 75, 93];   // In Process for Submission
+        $underIeRev = [31];                        // Currently Under Review by IE
+        $consent = [10, 52, 59, 62, 63, 64, 68, 72, 78, 82, 83, 96, 99, 101]; // 14 (IE→closure, RHD consent)
 
         // Rich detail for the 14 IE-consent NCRs [num => [title, chainage_m, severity, corrective]]
         $detail = [
-            10  => ['Inadequate box-culvert size at Km 8+127', 8127, 'major', 'IE recommended closure (RHD Consent) — Letter 4956, 02-Jun-2026.'],
-            52  => ['Potholes & missing safety barriers, Km 37+150–47+835', 37150, 'minor', 'Maintenance activity; IE recommended closure (RHD Consent) — Letter 5035, 01-Jul-2026.'],
-            59  => ['Crash-barrier surface cracks, Km 7+900–8+050 median (Toll)', 7900, 'major', 'IE recommended closure (RHD Consent) — TL-3430, 09-Dec-2024.'],
-            62  => ['Settlement on CS improved subgrade, Km 39+200–39+895 SR (LHS)', 39200, 'major', 'IE recommended closure (RHD Consent) — TL-3913, 31-May-2025.'],
-            63  => ['Reused footpath cover slabs, Ulukhula SR Bridge Km 17+207', 17207, 'minor', 'Rebound-hammer test satisfactory; IE recommended closure — TL-4960, 03-Jun-2026.'],
-            64  => ['Transverse cracks in AC-20 binder, Km 6+175–20+777 SR', 6175, 'major', 'Repaired with anti-crack membrane; IE Letters 3592/3594, 12-Feb-2025.'],
-            68  => ['Transverse reflective cracks AC-20, Km 20+650–21+220 SR (LHS)', 20650, 'major', 'In continuation of NCR-64; under RHD consent.'],
-            72  => ['MSE-wall backfill non-conformity, Km 23+000–27+000', 23000, 'critical', 'IE recommended closure — TL-4030, 10-Jul-2025 (RHD consent TL-4043).'],
-            78  => ['MSE-wall failure ZK 27+546–27+621 SR (LHS)', 27546, 'critical', 'Defective work removed; IE recommended closure — TL-4569, 04-Nov-2025.'],
-            82  => ['Manual laying of AC-20 binder, Km 3+247–3+300 SR (LHS)', 3247, 'minor', 'IE recommended closure (RHD Consent) — TL-4977, 11-Jun-2026.'],
-            83  => ['Asphalt mix over-temperature (>175°C), Km 24+970–25+940 SR (RHS)', 24970, 'major', 'IE recommended closure (RHD Consent) — TL-4983, 15-Jun-2026.'],
-            96  => ['Unauthorised construction at Km 33+704 Underpass', 33704, 'critical', 'IE recommended closure (RHD Consent) — TL-4939, 18-May-2026.'],
-            99  => ['Girder interface surface-prep deficiency (Ramp-B, span 9–10)', null, 'major', 'IE recommended closure (RHD Consent) — TL-5036, 01-Jul-2026.'],
+            10 => ['Inadequate box-culvert size at Km 8+127', 8127, 'major', 'IE recommended closure (RHD Consent) — Letter 4956, 02-Jun-2026.'],
+            52 => ['Potholes & missing safety barriers, Km 37+150–47+835', 37150, 'minor', 'Maintenance activity; IE recommended closure (RHD Consent) — Letter 5035, 01-Jul-2026.'],
+            59 => ['Crash-barrier surface cracks, Km 7+900–8+050 median (Toll)', 7900, 'major', 'IE recommended closure (RHD Consent) — TL-3430, 09-Dec-2024.'],
+            62 => ['Settlement on CS improved subgrade, Km 39+200–39+895 SR (LHS)', 39200, 'major', 'IE recommended closure (RHD Consent) — TL-3913, 31-May-2025.'],
+            63 => ['Reused footpath cover slabs, Ulukhula SR Bridge Km 17+207', 17207, 'minor', 'Rebound-hammer test satisfactory; IE recommended closure — TL-4960, 03-Jun-2026.'],
+            64 => ['Transverse cracks in AC-20 binder, Km 6+175–20+777 SR', 6175, 'major', 'Repaired with anti-crack membrane; IE Letters 3592/3594, 12-Feb-2025.'],
+            68 => ['Transverse reflective cracks AC-20, Km 20+650–21+220 SR (LHS)', 20650, 'major', 'In continuation of NCR-64; under RHD consent.'],
+            72 => ['MSE-wall backfill non-conformity, Km 23+000–27+000', 23000, 'critical', 'IE recommended closure — TL-4030, 10-Jul-2025 (RHD consent TL-4043).'],
+            78 => ['MSE-wall failure ZK 27+546–27+621 SR (LHS)', 27546, 'critical', 'Defective work removed; IE recommended closure — TL-4569, 04-Nov-2025.'],
+            82 => ['Manual laying of AC-20 binder, Km 3+247–3+300 SR (LHS)', 3247, 'minor', 'IE recommended closure (RHD Consent) — TL-4977, 11-Jun-2026.'],
+            83 => ['Asphalt mix over-temperature (>175°C), Km 24+970–25+940 SR (RHS)', 24970, 'major', 'IE recommended closure (RHD Consent) — TL-4983, 15-Jun-2026.'],
+            96 => ['Unauthorised construction at Km 33+704 Underpass', 33704, 'critical', 'IE recommended closure (RHD Consent) — TL-4939, 18-May-2026.'],
+            99 => ['Girder interface surface-prep deficiency (Ramp-B, span 9–10)', null, 'major', 'IE recommended closure (RHD Consent) — TL-5036, 01-Jul-2026.'],
             101 => ['Early-age cracks, approach slab Twin-Cell Frame Bridge K30+745', 30745, 'critical', 'IE recommended closure (RHD Consent) — TL-5033(A), 01-Jul-2026.'],
         ];
 
         $seen = [];
         $insert = function (int $num, string $discipline, string $severity, string $status, $detectedDate) use (&$seen, $reporter, $now, $detail) {
-            if (isset($seen[$num])) return;
+            if (isset($seen[$num])) {
+                return;
+            }
             $seen[$num] = true;
             $d = $detail[$num] ?? null;
             DB::table('quality_ncrs')->insert(array_filter([
-                'ncr_number'   => sprintf('NCR-%03d', $num),
-                'title'        => $d[0] ?? "$discipline non-conformity (NCR-$num)",
-                'description'  => ($d[0] ?? "$discipline non-conformity") . '. Independent Engineer non-conformance report, Dhaka Bypass Expressway (N-105).',
-                'severity'     => $d[2] ?? $severity,
-                'status'       => $status,
-                'reported_by'  => $reporter,
+                'ncr_number' => sprintf('NCR-%03d', $num),
+                'title' => $d[0] ?? "$discipline non-conformity (NCR-$num)",
+                'description' => ($d[0] ?? "$discipline non-conformity").'. Independent Engineer non-conformance report, Dhaka Bypass Expressway (N-105).',
+                'severity' => $d[2] ?? $severity,
+                'status' => $status,
+                'reported_by' => $reporter,
                 'department_id' => self::QC_DEPT,
-                'detected_date'=> $detectedDate,
+                'detected_date' => $detectedDate,
                 'corrective_action' => $d[3] ?? null,
                 'closure_date' => $status === 'closed' ? '2025-12-01' : null,
-                'created_at'   => $now,
-                'updated_at'   => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
             ], fn ($v) => $v !== null));
         };
 
         // Open — status funnel (in-process / under-review / open)
         $statusFor = fn ($n) => in_array($n, $inProcess) ? 'action_in_progress'
             : (in_array($n, $underIeRev) ? 'under_review' : 'open');
-        foreach ($design as $n)      $insert($n, 'Design', 'major', $statusFor($n), '2025-08-15');
-        foreach ($qcPavement as $n)  $insert($n, 'Quality/Pavement', 'minor', $statusFor($n), '2025-10-10');
-        foreach ($maintenance as $n) $insert($n, 'Maintenance', 'minor', $statusFor($n), '2026-01-20');
+        foreach ($design as $n) {
+            $insert($n, 'Design', 'major', $statusFor($n), '2025-08-15');
+        }
+        foreach ($qcPavement as $n) {
+            $insert($n, 'Quality/Pavement', 'minor', $statusFor($n), '2025-10-10');
+        }
+        foreach ($maintenance as $n) {
+            $insert($n, 'Maintenance', 'minor', $statusFor($n), '2026-01-20');
+        }
         // IE-consent (recommended for closure, awaiting RHD consent) → verified
-        foreach ($consent as $n)     $insert($n, 'Quality/Structure', 'major', 'verified', '2024-11-05');
+        foreach ($consent as $n) {
+            $insert($n, 'Quality/Structure', 'major', 'verified', '2024-11-05');
+        }
         // Remaining issued → closed (complete the 101 total)
-        for ($n = 1; $n <= 101; $n++) $insert($n, 'Quality Control', 'minor', 'closed', '2023-06-01');
+        for ($n = 1; $n <= 101; $n++) {
+            $insert($n, 'Quality Control', 'minor', 'closed', '2023-06-01');
+        }
     }
 
     /** Site-Instruction register — 29 issued · 11 open · 18 closed. */

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\DailyWork;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
-use App\Services\CommandCenterService;
+use App\Services\Dashboard\DashboardWidget;
+use App\Services\Dashboard\WidgetRegistry;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +15,8 @@ use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+    public function __construct(private readonly WidgetRegistry $widgets) {}
+
     public function index()
     {
         if (! Auth::check()) {
@@ -27,6 +31,8 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'title' => 'Dashboard',
+            // Deferred: the page paints at once and the registry (cached per employee, scope and section) follows.
+            'widgets' => Inertia::defer(fn () => $this->widgets->payloadFor($user, DashboardWidget::DASHBOARD_MAIN)),
             'user' => $user,
             'status' => session('status'),
             'csrfToken' => session('csrfToken'),
@@ -42,6 +48,7 @@ class DashboardController extends Controller
 
         return Inertia::render('EmployeeDashboard', [
             'title' => 'Employee Dashboard',
+            'widgets' => Inertia::defer(fn () => $this->widgets->payloadFor($user, DashboardWidget::DASHBOARD_EMPLOYEE)),
             'user' => $user,
             'status' => session('status'),
             'csrfToken' => session('csrfToken'),
@@ -49,16 +56,34 @@ class DashboardController extends Controller
     }
 
     /**
-     * Aggregated command-center payload for the redesigned Dashboard.
+     * Command-center payload for the Dashboard - read through the widget registry, the
+     * same path the Inertia page and GET /api/v1/dashboard use.
      */
-    public function command(CommandCenterService $service)
+    public function command()
     {
         $user = Auth::user();
         if (! $user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        return response()->json($service->payload($user));
+        $widget = $this->widgets->widgetFor($user, 'main.command');
+        abort_if($widget === null || $widget['data'] === null, 403);
+
+        return response()->json($widget['data']);
+    }
+
+    /**
+     * JSON form of a dashboard's widgets (polling / refresh). Same contract as the
+     * Inertia deferred prop and GET /api/v1/dashboard.
+     */
+    public function widgets(Request $request)
+    {
+        $section = $request->query('section', DashboardWidget::DASHBOARD_EMPLOYEE);
+        abort_unless(in_array($section, [DashboardWidget::DASHBOARD_EMPLOYEE, DashboardWidget::DASHBOARD_MAIN], true), 422);
+        $user = $request->user();
+        abort_if($section === DashboardWidget::DASHBOARD_MAIN && ! $user->can('core.dashboard.view'), 403);
+
+        return response()->json($this->widgets->payloadFor($user, $section));
     }
 
     public function stats()

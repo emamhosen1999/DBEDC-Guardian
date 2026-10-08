@@ -27,7 +27,8 @@ class Conversation extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        // Explicit key: the default would be `user_employee_id` (relation name + users' string primary key).
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function messages(): HasMany

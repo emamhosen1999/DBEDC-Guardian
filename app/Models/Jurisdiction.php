@@ -39,12 +39,4 @@ class Jurisdiction extends Model
     {
         return $this->belongsTo(User::class, 'incharge');
     }
-
-    /**
-     * Get all daily works associated with this jurisdiction.
-     */
-    public function dailyWorks()
-    {
-        return $this->hasMany(DailyWork::class, 'jurisdiction_id');
-    }
 }

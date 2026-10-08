@@ -50,29 +50,23 @@ class CommandCenterService
                     'access' => ['project' => false],
                     'project' => null, 'kpis' => [], 'throughput' => [], 'quality' => [], 'disciplines' => [],
                     'chainage' => [], 'ncr' => [], 'si' => [], 'objections' => [], 'budget' => [], 'milestones' => [],
-                    'workforce' => $this->workforce($user),
-                    'today' => $this->today($user),
-                    'feed' => [],
                     'generated_at' => now()->toIso8601String(),
                 ];
             }
 
             return [
                 'access' => ['project' => true],
-                'project'    => $this->project(),
-                'kpis'       => $this->kpis($canRfi),
+                'project' => $this->project(),
+                'kpis' => $this->kpis($canRfi),
                 'throughput' => $canRfi ? $this->throughput() : [],
-                'quality'    => $this->quality($canRfi),
-                'disciplines'=> $canRfi ? $this->disciplines() : [],
-                'chainage'   => $canRfi ? $this->chainage() : [],
-                'ncr'        => $this->ncr(),
-                'si'         => $this->siteInstructions(),
+                'quality' => $this->quality($canRfi),
+                'disciplines' => $canRfi ? $this->disciplines() : [],
+                'chainage' => $canRfi ? $this->chainage() : [],
+                'ncr' => $this->ncr(),
+                'si' => $this->siteInstructions(),
                 'objections' => $this->objections(),
-                'budget'     => $this->budget(),
+                'budget' => $this->budget(),
                 'milestones' => $this->milestones(),
-                'workforce'  => $this->workforce($user),
-                'today'      => $this->today($user),
-                'feed'       => $this->feed($canRfi),
                 'generated_at' => now()->toIso8601String(),
             ];
         });
@@ -83,22 +77,27 @@ class CommandCenterService
     private function normalizeStatus(?string $s): string
     {
         $s = strtolower(trim((string) $s));
+
         return match ($s) {
             'complete', 'completed' => 'completed',
-            'resubmission'          => 'resubmission',
-            'new'                   => 'new',
-            default                 => $s ?: 'new',
+            'resubmission' => 'resubmission',
+            'new' => 'new',
+            default => $s ?: 'new',
         };
     }
 
     /** Parse the first chainage in a location string → metres (e.g. "K17+090-…" → 17090). */
     private function chainageMeters(?string $loc): ?int
     {
-        if (! $loc) return null;
+        if (! $loc) {
+            return null;
+        }
         if (preg_match('/(\d{1,2})\s*\+\s*(\d{1,3}(?:\.\d+)?)/', $loc, $m)) {
             $meters = ((int) $m[1]) * 1000 + (float) $m[2];
+
             return ($meters >= 0 && $meters <= self::ROAD_KM * 1000) ? (int) round($meters) : null;
         }
+
         return null;
     }
 
@@ -112,25 +111,25 @@ class CommandCenterService
     private function project(): ?array
     {
         $p = DB::table('projects')->orderBy('id')->first();
-        if (! $p) return null;
+        if (! $p) {
+            return null;
+        }
 
         $end = $p->end_date ? Carbon::parse($p->end_date) : null;
         $daysToEnd = $end ? now()->diffInDays($end, false) : null;
 
         return [
-            'name'          => $p->project_name,
-            'progress'      => (int) ($p->progress ?? 0),
-            'start_date'    => $p->start_date,
-            'end_date'      => $p->end_date,
-            'days_to_end'   => $daysToEnd !== null ? (int) $daysToEnd : null,
-            'health'        => $p->health_status ?? 'unknown',
-            'spi'           => isset($p->spi) ? (float) $p->spi : null,
-            'cpi'           => isset($p->cpi) ? (float) $p->cpi : null,
+            'name' => $p->project_name,
+            'progress' => (int) ($p->progress ?? 0),
+            'start_date' => $p->start_date,
+            'end_date' => $p->end_date,
+            'days_to_end' => $daysToEnd !== null ? (int) $daysToEnd : null,
+            'health' => $p->health_status ?? 'unknown',
+            'spi' => isset($p->spi) ? (float) $p->spi : null,
+            'cpi' => isset($p->cpi) ? (float) $p->cpi : null,
             'current_phase' => $p->current_phase ?? null,
-            'authority'     => 'Roads & Highways Department (RHD)',
-            'company'       => 'DBEDC — SRBG · Shamim · UDC',
-            'engineer'      => 'ICT (India) · Sheladia (USA)',
-            'length_km'     => self::ROAD_KM,
+            'company' => DB::table('company_settings')->orderBy('id')->value('companyName'),
+            'length_km' => self::ROAD_KM,
         ];
     }
 
@@ -144,8 +143,8 @@ class CommandCenterService
             $total = DB::table('daily_works')->count();
             $completed = DB::table('daily_works')->whereIn('status', ['completed', 'complete'])->count();
             $resub = DB::table('daily_works')->where('resubmission_count', '>', 0)->count();
-            $out['rfi_total']    = $total;
-            $out['rfi_completed']= $completed;
+            $out['rfi_total'] = $total;
+            $out['rfi_completed'] = $completed;
             $out['completion_rate'] = $total ? round($completed / $total * 100) : 0;
             $out['first_pass_rate'] = $total ? round(($total - $resub) / $total * 100) : 0;
             $out['resubmission_rate'] = $total ? round($resub / $total * 100) : 0;
@@ -173,7 +172,9 @@ class CommandCenterService
     private function throughput(): array
     {
         $maxDate = DB::table('daily_works')->max('date');
-        if (! $maxDate) return [];
+        if (! $maxDate) {
+            return [];
+        }
         $start = Carbon::parse($maxDate)->startOfMonth()->subMonths(7);
 
         $rows = DB::table('daily_works')
@@ -188,15 +189,19 @@ class CommandCenterService
             $months[$m->format('Y-m')] = ['label' => $m->format('M'), 'ym' => $m->format('Y-m'), 'new' => 0, 'completed' => 0, 'resubmission' => 0];
         }
         foreach ($rows as $r) {
-            if (! isset($months[$r->ym])) continue;
+            if (! isset($months[$r->ym])) {
+                continue;
+            }
             $bucket = $this->normalizeStatus($r->status);
             $bucket = in_array($bucket, ['new', 'completed', 'resubmission']) ? $bucket : 'new';
             $months[$r->ym][$bucket] += (int) $r->c;
         }
+
         return array_map(function ($m) {
             // approval rate = cleared vs everything dispositioned (excludes still-pending "new")
             $disposed = $m['completed'] + $m['resubmission'];
             $m['approval'] = $disposed ? round($m['completed'] / $disposed * 100) : 0;
+
             return $m;
         }, array_values($months));
     }
@@ -232,10 +237,10 @@ class CommandCenterService
             ->groupBy('type')->orderByDesc('total')->get();
 
         return $rows->map(fn ($r) => [
-            'name'      => $r->type,
-            'total'     => (int) $r->total,
+            'name' => $r->type,
+            'total' => (int) $r->total,
             'completed' => (int) $r->completed,
-            'rate'      => $r->total ? round($r->completed / $r->total * 100) : 0,
+            'rate' => $r->total ? round($r->completed / $r->total * 100) : 0,
         ])->all();
     }
 
@@ -243,7 +248,9 @@ class CommandCenterService
     private function chainage(): array
     {
         $bins = array_fill(0, self::ROAD_KM, ['km' => 0, 'total' => 0, 'completed' => 0]);
-        for ($i = 0; $i < self::ROAD_KM; $i++) $bins[$i]['km'] = $i;
+        for ($i = 0; $i < self::ROAD_KM; $i++) {
+            $bins[$i]['km'] = $i;
+        }
 
         DB::table('daily_works')
             ->select('location', 'status')
@@ -252,7 +259,9 @@ class CommandCenterService
             ->chunk(3000, function ($rows) use (&$bins) {
                 foreach ($rows as $r) {
                     $m = $this->chainageMeters($r->location);
-                    if ($m === null) continue;
+                    if ($m === null) {
+                        continue;
+                    }
                     $km = min(self::ROAD_KM - 1, intdiv($m, 1000));
                     $bins[$km]['total']++;
                     if (in_array($this->normalizeStatus($r->status), ['completed'])) {
@@ -263,6 +272,7 @@ class CommandCenterService
 
         return array_map(function ($b) {
             $b['rate'] = $b['total'] ? round($b['completed'] / $b['total'] * 100) : 0;
+
             return $b;
         }, $bins);
     }
@@ -277,33 +287,36 @@ class CommandCenterService
             ->select('status', DB::raw('count(*) c'))->groupBy('status')->pluck('c', 'status');
 
         $open = ['open', 'under_review', 'action_assigned', 'action_in_progress'];
+
         return [
-            'issued'   => DB::table('quality_ncrs')->count(),
-            'open'     => DB::table('quality_ncrs')->whereIn('status', $open)->count(),
-            'consent'  => (int) ($byStatus['verified'] ?? 0),
-            'closed'   => (int) ($byStatus['closed'] ?? 0),
+            'issued' => DB::table('quality_ncrs')->count(),
+            'open' => DB::table('quality_ncrs')->whereIn('status', $open)->count(),
+            'consent' => (int) ($byStatus['verified'] ?? 0),
+            'closed' => (int) ($byStatus['closed'] ?? 0),
             'in_process' => (int) ($byStatus['action_in_progress'] ?? 0),
             'under_review' => (int) ($byStatus['under_review'] ?? 0),
             'severity' => [
                 'critical' => (int) ($bySeverity['critical'] ?? 0),
-                'major'    => (int) ($bySeverity['major'] ?? 0),
-                'minor'    => (int) ($bySeverity['minor'] ?? 0),
+                'major' => (int) ($bySeverity['major'] ?? 0),
+                'minor' => (int) ($bySeverity['minor'] ?? 0),
             ],
         ];
     }
 
     private function siteInstructions(): array
     {
-        if (! Schema::hasTable('site_instructions')) return [];
+        if (! Schema::hasTable('site_instructions')) {
+            return [];
+        }
         $byDept = DB::table('site_instructions')->where('status', 'open')
             ->select('department', DB::raw('count(*) c'))->groupBy('department')->pluck('c', 'department');
 
         return [
             'issued' => DB::table('site_instructions')->count(),
-            'open'   => DB::table('site_instructions')->where('status', 'open')->count(),
+            'open' => DB::table('site_instructions')->where('status', 'open')->count(),
             'closed' => DB::table('site_instructions')->where('status', 'closed')->count(),
             'by_department' => $byDept->map(fn ($c, $d) => ['name' => $d, 'count' => (int) $c])->values()->all(),
-            'items'  => DB::table('site_instructions')->where('status', 'open')
+            'items' => DB::table('site_instructions')->where('status', 'open')
                 ->orderBy('issued_date')->limit(11)
                 ->get(['si_number', 'ie_ref', 'department', 'location', 'description', 'issued_date'])
                 ->map(fn ($s) => (array) $s)->all(),
@@ -313,7 +326,9 @@ class CommandCenterService
     /** Open objections mapped along the road (from chainage register). */
     private function objections(): array
     {
-        if (! Schema::hasTable('objection_chainages')) return ['count' => 0, 'points' => []];
+        if (! Schema::hasTable('objection_chainages')) {
+            return ['count' => 0, 'points' => []];
+        }
 
         $rows = DB::table('objection_chainages')
             ->select('chainage_meters', DB::raw('count(*) c'))
@@ -327,10 +342,12 @@ class CommandCenterService
         }
         ksort($bins);
         $points = [];
-        foreach ($bins as $km => $c) $points[] = ['km' => $km, 'count' => $c];
+        foreach ($bins as $km => $c) {
+            $points[] = ['km' => $km, 'count' => $c];
+        }
 
         return [
-            'count'  => DB::table('objection_chainages')->count(),
+            'count' => DB::table('objection_chainages')->count(),
             'points' => $points,
         ];
     }
@@ -361,131 +378,34 @@ class CommandCenterService
                 $cum += (float) $r->amt;
                 $i++;
                 $series[] = [
-                    'label'     => Carbon::parse($r->ym . '-01')->format("M ’y"),
+                    'label' => Carbon::parse($r->ym.'-01')->format('M ’y'),
                     'certified' => round($cum, 0),
-                    'planned'   => round($allocated * ($i / $n), 0),
+                    'planned' => round($allocated * ($i / $n), 0),
                 ];
             }
         }
 
         return [
             'allocated_cr' => $allocated,
-            'spent_cr'     => round((float) DB::table('project_budgets')->where('project_id', $pid)->sum('spent_amount'), 0),
-            'sources'      => $sources,
-            'series'       => $series,
+            'spent_cr' => round((float) DB::table('project_budgets')->where('project_id', $pid)->sum('spent_amount'), 0),
+            'sources' => $sources,
+            'series' => $series,
         ];
     }
 
     private function milestones(): array
     {
         $pid = $this->projectId();
+
         return DB::table('project_milestones')->where('project_id', $pid)->orderBy('order')
             ->get(['name', 'description', 'status', 'weight', 'due_date'])
             ->map(fn ($m) => [
                 'name' => $m->name, 'description' => $m->description,
                 'status' => $m->status, 'weight' => (int) $m->weight, 'due_date' => $m->due_date,
+                // Only what the status itself defines; an in-progress package has no recorded percentage.
                 'progress' => match ($m->status) {
-                    'completed' => 100, 'in_progress' => 55, 'not_started' => 0, default => 30,
+                    'completed' => 100, 'not_started' => 0, default => null,
                 },
             ])->all();
-    }
-
-    private function workforce(User $user): array
-    {
-        if (! Schema::hasTable('attendances')) return ['series' => [], 'present_today' => 0, 'total' => 0];
-
-        // Anchor to the latest attendance date that is not in the future — the register
-        // can contain stray future-dated (roster/planned) rows that would otherwise
-        // pull the 14-day window past "today" and show an empty trend.
-        $today = now()->toDateString();
-        $maxDate = DB::table('attendances')->whereDate('date', '<=', $today)->max(DB::raw('DATE(date)'));
-        if (! $maxDate) $maxDate = $today;
-        $from = Carbon::parse($maxDate)->subDays(13)->toDateString();
-
-        // Non-global actors count only the employees DepartmentScope lets them see.
-        $visible = $this->scope->visibleEmployeeIds($user);
-
-        $rows = DB::table('attendances')
-            ->select(DB::raw('DATE(date) d'), DB::raw('count(distinct user_id) present'))
-            ->whereBetween(DB::raw('DATE(date)'), [$from, $maxDate])
-            ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible === [] ? ['__NONE__'] : $visible))
-            ->groupBy('d')->orderBy('d')->get();
-
-        $totalStaff = $visible !== null
-            ? count($visible)
-            : DB::table('users')->count();
-        $series = $rows->map(fn ($r) => [
-            'label' => Carbon::parse($r->d)->format('d M'),
-            'present' => (int) $r->present,
-        ])->all();
-
-        return [
-            'series' => $series,
-            'present_today' => $series ? end($series)['present'] : 0,
-            'total' => $totalStaff,
-        ];
-    }
-
-    private function today(User $user): array
-    {
-        $onLeave = 0; $holiday = null;
-        if (Schema::hasTable('leaves')) {
-            $today = now()->toDateString();
-            $visible = $this->scope->visibleEmployeeIds($user);
-            $onLeave = DB::table('leaves')
-                ->whereDate('from_date', '<=', $today)->whereDate('to_date', '>=', $today)
-                ->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible === [] ? ['__NONE__'] : $visible))
-                ->count();
-        }
-        if (Schema::hasTable('holidays') && $user->can('holidays.view')) {
-            $h = DB::table('holidays')->whereDate('from_date', '>=', now()->toDateString())
-                ->orderBy('from_date')->first();
-            if ($h) {
-                $holiday = ['name' => $h->title ?? ($h->name ?? 'Holiday'),
-                    'in_days' => (int) now()->diffInDays(Carbon::parse($h->from_date))];
-            }
-        }
-        return ['on_leave' => $onLeave, 'next_holiday' => $holiday];
-    }
-
-    /** Operations feed — latest RFI dispositions + NCRs. */
-    private function feed(bool $canRfi): array
-    {
-        $items = [];
-
-        if ($canRfi) {
-            $recent = DB::table('daily_works')
-                ->whereNotNull('type')
-                ->orderByDesc('updated_at')->limit(6)
-                ->get(['number', 'type', 'status', 'location', 'side', 'updated_at']);
-            foreach ($recent as $r) {
-                $st = $this->normalizeStatus($r->status);
-                $items[] = [
-                    'kind'  => 'rfi',
-                    'tone'  => $st === 'completed' ? 'good' : ($st === 'resubmission' ? 'warn' : 'info'),
-                    'title' => ($st === 'completed' ? 'RFI approved' : ($st === 'resubmission' ? 'RFI resubmitted' : 'RFI raised'))
-                        . ' — ' . ($r->type ?: 'Works') . ' ' . trim(($r->location ?: '') . ' ' . ($r->side ?: '')),
-                    'meta'  => 'RFI #' . ($r->number ?: '—'),
-                    'at'    => $r->updated_at,
-                ];
-            }
-        }
-
-        $ncrs = DB::table('quality_ncrs')
-            ->whereIn('status', ['open', 'under_review', 'action_in_progress'])
-            ->orderByDesc('detected_date')->limit(3)
-            ->get(['ncr_number', 'title', 'severity', 'detected_date']);
-        foreach ($ncrs as $n) {
-            $items[] = [
-                'kind'  => 'ncr',
-                'tone'  => $n->severity === 'critical' ? 'crit' : ($n->severity === 'major' ? 'warn' : 'info'),
-                'title' => $n->ncr_number . ' — ' . $n->title,
-                'meta'  => ucfirst($n->severity) . ' NCR',
-                'at'    => $n->detected_date,
-            ];
-        }
-
-        usort($items, fn ($a, $b) => strcmp((string) $b['at'], (string) $a['at']));
-        return array_slice($items, 0, 8);
     }
 }

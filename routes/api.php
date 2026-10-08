@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\V1\ClientErrorLogController;
 use App\Http\Controllers\Api\V1\ConfigController;
 use App\Http\Controllers\Api\V1\DailyWorkController as MobileDailyWorkController;
+use App\Http\Controllers\Api\V1\DashboardController as MobileDashboardController;
 use App\Http\Controllers\Api\V1\HeartbeatController;
 use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
 use App\Http\Controllers\Api\V1\ManagerDashboardController as MobileManagerDashboardController;
@@ -305,6 +306,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
     Route::get('/leaves/pending-approvals', [MobileLeaveController::class, 'pendingApprovals'])->name('api.v1.leaves.pending-approvals');
     Route::get('/leaves/decided-approvals', [MobileLeaveController::class, 'decidedApprovals'])->name('api.v1.leaves.decided-approvals');
     Route::get('/leaves/{leaveId}', [MobileLeaveController::class, 'show'])->whereNumber('leaveId')->name('api.v1.leaves.show');
+    Route::get('/dashboard', [MobileDashboardController::class, 'index'])->name('api.v1.dashboard');
     Route::get('/manager/dashboard-summary', [MobileManagerDashboardController::class, 'summary'])->name('api.v1.manager.dashboard.summary');
     Route::get('/manager/team-members', [MobileManagerDashboardController::class, 'teamMembers'])->name('api.v1.manager.team-members');
     Route::post('/leaves', [MobileLeaveController::class, 'store'])->name('api.v1.leaves.store');

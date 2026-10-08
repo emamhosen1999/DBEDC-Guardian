@@ -11,6 +11,9 @@ class KPIValue extends Model
 {
     use HasFactory;
 
+    // Laravel would derive `k_p_i_values` from the class name.
+    protected $table = 'kpi_values';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -39,7 +42,7 @@ class KPIValue extends Model
      */
     public function kpi(): BelongsTo
     {
-        return $this->belongsTo(KPI::class);
+        return $this->belongsTo(KPI::class, 'kpi_id');
     }
 
     /**

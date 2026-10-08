@@ -134,6 +134,8 @@ Route::middleware($middlewareStack)->group(function () {
 
     // Employee Dashboard route
     Route::get('/employee-dashboard', [DashboardController::class, 'employeeIndex'])->name('employee-dashboard');
+    // Widget registry as JSON (?section=employee|main) - the main section needs core.dashboard.view, checked in the action.
+    Route::get('/dashboard/widgets', [DashboardController::class, 'widgets'])->name('dashboard.widgets');
     Route::get('/search', GlobalSearchController::class)->name('search');
 
     // Quality — NCR register (full CRUD + status workflow)
