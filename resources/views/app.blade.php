@@ -4,7 +4,7 @@
 <head>
     <!-- Essential Meta Tags -->
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
@@ -23,7 +23,7 @@
     <meta name="keywords" content="ERP, Enterprise Resource Planning, Business Management, HR Management">
     <meta name="author" content="Emam Hosen">
     <meta name="robots" content="index, follow">
-    <meta name="theme-color" content="#134e9d">
+    <meta name="theme-color" content="#0a151a">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -62,6 +62,38 @@
 
     <!-- Font Loading with Display Swap -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Cyber design language typeface (resources/css/design/cyber) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Theme bootstrap: appearance + design language before first paint -->
+    <script>
+        // Radix Themes FOUC prevention — set appearance before first paint
+        (function() {
+            try {
+                var s = localStorage.getItem('radix-theme-settings');
+                var settings = s ? JSON.parse(s) : {};
+                // Mirrors normalizeThemeSettings() in RadixThemeContext.jsx: Cyber
+                // (dark) is the default, and settings saved before Cyber existed
+                // (no designLanguageVersion) on stock Radix move to it once.
+                var LANGS = ['cyber','none','skeuomorphism','neomorphism','glassmorphism','claymorphism','minimalism','maximalism','brutalism','liquidglass','bentogrid','spatialui'];
+                var design = settings.designLanguage;
+                var appearance = settings.appearance;
+                if (settings.designLanguageVersion !== 1 && (!design || design === 'none')) {
+                    design = 'cyber';
+                    appearance = 'dark';
+                }
+                if (LANGS.indexOf(design) === -1) design = 'cyber';
+                if (appearance !== 'light' && appearance !== 'dark') appearance = 'dark';
+                document.documentElement.setAttribute('data-is-root-theme', 'true');
+                document.documentElement.classList.add(appearance);
+                // Design language must land before first paint, otherwise the
+                // user sees a flash of stock Radix before the skin applies.
+                document.documentElement.setAttribute('data-design', design);
+                var themeColor = document.querySelector('meta[name="theme-color"]');
+                if (themeColor && design === 'cyber') themeColor.setAttribute('content', appearance === 'dark' ? '#0a151a' : '#edf2f4');
+            } catch(e) {}
+        })();
+    </script>
 
     <!-- Title -->
     <title inertia>{{ config('app.name') }}</title>
@@ -96,6 +128,20 @@
         /* Essential CSS Custom Properties */
         :root {
             --font-primary: 'Inter', system-ui, sans-serif;
+        }
+
+        /* Cyber canvas before the bundle loads (no white flash) */
+        html[data-design="cyber"].dark,
+        html[data-design="cyber"].dark body {
+            background-color: #0a151a;
+            color: #ffffff;
+            color-scheme: dark;
+        }
+        html[data-design="cyber"].light,
+        html[data-design="cyber"].light body {
+            background-color: #edf2f4;
+            color: #0a151a;
+            color-scheme: light;
         }
 
         /* Screen Reader Only */
@@ -466,22 +512,6 @@
 
     <!-- Enhanced Loading Management -->
     <script>
-        // Radix Themes FOUC prevention — set appearance before first paint
-        (function() {
-            try {
-                var s = localStorage.getItem('radix-theme-settings');
-                var settings = s ? JSON.parse(s) : {};
-                var appearance = settings.appearance || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                document.documentElement.setAttribute('data-is-root-theme', 'true');
-                document.documentElement.classList.add(appearance === 'dark' ? 'dark' : 'light');
-                // Design language must land before first paint, otherwise the
-                // user sees a flash of stock Radix before the skin applies.
-                var LANGS = ['none','skeuomorphism','neomorphism','glassmorphism','claymorphism','minimalism','maximalism','brutalism','liquidglass','bentogrid','spatialui'];
-                var design = settings.designLanguage;
-                document.documentElement.setAttribute('data-design', LANGS.indexOf(design) !== -1 ? design : 'none');
-            } catch(e) {}
-        })();
-
         // Enhanced Loading Management for Optimized Performance
         window.AppLoader = {
             hideLoading: function() {

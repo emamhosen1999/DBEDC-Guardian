@@ -8,6 +8,7 @@ import {
   SCALING_OPTIONS,
   PANEL_BACKGROUNDS,
   FONT_FAMILIES,
+  DESIGN_LANGUAGES,
 } from '@/Contexts/RadixThemeContext';
 import { SunIcon, MoonIcon, ResetIcon, CopyIcon, CheckIcon } from '@radix-ui/react-icons';
 
@@ -28,6 +29,8 @@ const GRAY_BG = {
 export default function RadixThemeDrawer({ open, onClose }) {
   const { settings, updateSettings, resetSettings, toggleAppearance } = useRadixTheme();
   const [copied, setCopied] = useState(false);
+  const design = DESIGN_LANGUAGES.find(({ id }) => id === settings.designLanguage);
+  const radiusLocked = !!design?.lockRadius;
 
   const copyTheme = useCallback(() => {
     const code = `<Theme
@@ -139,14 +142,20 @@ export default function RadixThemeDrawer({ open, onClose }) {
               <Separator size="4" my="4" />
 
               {/* ── Radius ───────────────────────────────────────────── */}
-              <Text id="radius-title" size="2" weight="medium" mb="3">Radius</Text>
-              <div role="group" aria-labelledby="radius-title"
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 8, marginBottom: 4 }}>
+              <Text id="radius-title" size="2" weight="medium" mb={radiusLocked ? '1' : '3'}>Radius</Text>
+              {radiusLocked && (
+                <Text id="radius-locked" size="1" color="gray" mb="3">
+                  {design.label} uses square corners, so radius is fixed.
+                </Text>
+              )}
+              <div role="group" aria-labelledby="radius-title" aria-describedby={radiusLocked ? 'radius-locked' : undefined}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 8, marginBottom: 4, opacity: radiusLocked ? 0.5 : 1 }}>
                 {RADIUS_OPTIONS.map((r) => (
                   <Flex key={r} direction="column" align="center">
                     <label className="rt-ThemePanelRadioCard">
                       <input className="rt-ThemePanelRadioCardInput" type="radio" name="radius" value={r}
                         checked={settings.radius === r}
+                        disabled={radiusLocked}
                         onChange={() => updateSettings({ radius: r })} />
                       <Box m="3" style={{
                         width: 32, height: 32,

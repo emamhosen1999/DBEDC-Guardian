@@ -1,7 +1,8 @@
 import React from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
-import { Box, Button, Callout, Card, Flex, Heading, Text, TextField } from '@radix-ui/themes';
-import { InfoCircledIcon } from '@radix-ui/react-icons';
+import { Button, Callout, Flex, TextField } from '@radix-ui/themes';
+import { InfoCircledIcon, LockClosedIcon } from '@radix-ui/react-icons';
+import AuthLayout, { AuthField } from '@/Components/AuthLayout';
 
 /*
  * Change one's own password. Where an admin-set password lands the user (users.must_change_password):
@@ -16,37 +17,44 @@ const ChangePassword = ({ forced = false }) => {
     };
 
     return (
-        <Flex justify="center" align="center" style={{ minHeight: '100vh', padding: 16 }}>
+        <>
             <Head title="Change your password" />
-            <Card style={{ width: '100%', maxWidth: 440 }}>
+            <AuthLayout title="Change your password" mark={<LockClosedIcon />}>
                 <form onSubmit={submit} noValidate>
-                    <Flex direction="column" gap="3" p="2">
-                        <Heading size="5">Change your password</Heading>
-                        {forced && (
-                            <Callout.Root color="amber" role="status">
-                                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                                <Callout.Text>An administrator set this password. Choose your own before you continue.</Callout.Text>
-                            </Callout.Root>
-                        )}
-                        {[
-                            ['current_password', 'Current password', 'current-password'],
-                            ['password', 'New password', 'new-password'],
-                            ['password_confirmation', 'Confirm new password', 'new-password'],
-                        ].map(([key, label, autoComplete]) => (
-                            <Box key={key}>
-                                <Text as="label" size="2" weight="medium" htmlFor={key}>{label}</Text>
-                                <TextField.Root id={key} type="password" autoComplete={autoComplete} value={form.data[key]} onChange={(e) => form.setData(key, e.target.value)} />
-                                {form.errors[key] && <Text size="1" color="red" role="alert">{form.errors[key]}</Text>}
-                            </Box>
-                        ))}
-                        <Flex gap="3" justify="between" mt="2">
-                            <Button type="button" variant="soft" color="gray" onClick={() => router.post(route('logout'))}>Sign out</Button>
-                            <Button type="submit" disabled={form.processing}>Change password</Button>
-                        </Flex>
+                    {forced && (
+                        <Callout.Root color="amber" role="status" mb="4">
+                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                            <Callout.Text>An administrator set this password. Choose your own before you continue.</Callout.Text>
+                        </Callout.Root>
+                    )}
+                    {[
+                        ['current_password', 'Current password', 'current-password'],
+                        ['password', 'New password', 'new-password'],
+                        ['password_confirmation', 'Confirm new password', 'new-password'],
+                    ].map(([key, label, autoComplete]) => (
+                        <AuthField key={key} id={key} label={label} required error={form.errors[key]}>
+                            <TextField.Root
+                                id={key}
+                                type="password"
+                                autoComplete={autoComplete}
+                                value={form.data[key]}
+                                onChange={(e) => form.setData(key, e.target.value)}
+                                aria-invalid={form.errors[key] ? true : undefined}
+                                aria-describedby={form.errors[key] ? `${key}-error` : undefined}
+                                required
+                                size="2"
+                            />
+                        </AuthField>
+                    ))}
+                    <Button type="submit" size="3" variant="outline" color="gray" className="dl-auth__submit" disabled={form.processing}>
+                        Change password
+                    </Button>
+                    <Flex justify="center">
+                        <Button type="button" variant="ghost" color="gray" size="2" onClick={() => router.post(route('logout'))}>Sign out</Button>
                     </Flex>
                 </form>
-            </Card>
-        </Flex>
+            </AuthLayout>
+        </>
     );
 };
 

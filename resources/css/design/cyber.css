@@ -1,0 +1,12 @@
+/* ==========================================================================
+   DBEDC Guardian — Cyber design language (data-design="cyber", the default)
+   Source: seantheme.com/cyber. Token mapping reference and per-page status:
+   docs/design/CYBER_MIGRATION_LEDGER.md
+
+   Order matters: palette (raw scales) → tokens (Radix + --dl-* bridge) →
+   components (Radix skins) → shell (layout chrome and shared surfaces).
+   ========================================================================== */
+@import './cyber/palette.css';
+@import './cyber/tokens.css';
+@import './cyber/components.css';
+@import './cyber/shell.css';

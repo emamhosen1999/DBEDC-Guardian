@@ -1,4 +1,3 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import App from '@/Layouts/App';
@@ -7,10 +6,12 @@ import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import TablePagination from '@/Components/TablePagination.jsx';
 import {
     useNotificationsList,
+    useUnreadCount,
     useMarkRead,
     useMarkAllRead,
 } from '@/api/queries/useNotificationsQuery';
-import { Box, Flex, Text, Heading, Button, Badge, Spinner, Separator } from '@radix-ui/themes';
+import PageHeader from '@/Components/PageHeader';
+import { Box, Flex, Text, Button, Badge, Spinner } from '@radix-ui/themes';
 import { BellIcon, CheckCircledIcon } from '@radix-ui/react-icons';
 
 const NotificationsIndex = ({ title }) => {
@@ -26,6 +27,8 @@ const NotificationsIndex = ({ title }) => {
     const perPage = f.values.per_page;
 
     const { data, isLoading, isError } = useNotificationsList({ page, per_page: perPage });
+    // Same query (and cache) as the header bell.
+    const { data: unreadCount } = useUnreadCount();
     const markReadMutation = useMarkRead();
     const markAllReadMutation = useMarkAllRead();
     useClampPage(f, data?.pagination?.last_page);
@@ -57,97 +60,86 @@ const NotificationsIndex = ({ title }) => {
     return (
         <>
             <Head title={title ?? 'Notifications'} />
-            <div className="p-4">
-                <ErrorBoundary>
-                    <Flex direction="column" gap="4">
-                        <Flex align="center" justify="between" wrap="wrap" gap="2">
-                            <Flex align="center" gap="2">
-                                <BellIcon width={22} height={22} />
-                                <Heading size="5">Notifications</Heading>
-                                {unreadTotal > 0 && (
-                                    <Badge color="red" variant="soft" size="1">{unreadTotal} unread on this page</Badge>
-                                )}
+            <PageHeader
+                title="Notifications"
+                subtitle={unreadTotal > 0 ? `${unreadTotal} unread on this page` : 'All caught up'}
+                chips={[
+                    { value: unreadCount, label: 'Unread', tone: unreadCount > 0 ? 'danger' : 'success' },
+                    { value: isLoading ? undefined : apiPagination.total, label: 'Total', tone: 'default' },
+                ]}
+                actions={
+                    <Button size="2" variant="outline" onClick={handleMarkAllRead} disabled={markAllReadMutation.isPending}>
+                        <CheckCircledIcon /> Mark all read
+                    </Button>
+                }
+            />
+            <ErrorBoundary>
+                <section className="dl-card dl-card--page" aria-labelledby="notifications-list-title">
+                        <header className="dl-card__header">
+                            <h2 className="dl-card__title" id="notifications-list-title">All notifications</h2>
+                            <span className="dl-hud-line" aria-hidden="true" />
+                        </header>
+
+                        {isLoading && (
+                            <Flex justify="center" py="6">
+                                <Spinner size="3" />
                             </Flex>
-                            <Button
-                                size="2"
-                                variant="soft"
-                                onClick={handleMarkAllRead}
-                                disabled={markAllReadMutation.isPending}
-                            >
-                                <CheckCircledIcon /> Mark all read
-                            </Button>
-                        </Flex>
+                        )}
 
-                        <Panel>
-                            {isLoading && (
-                                <Flex justify="center" py="6">
-                                    <Spinner size="3" />
-                                </Flex>
-                            )}
+                        {isError && (
+                            <Flex justify="center" py="6">
+                                <Text color="red" size="2" role="alert">Failed to load notifications. Please refresh.</Text>
+                            </Flex>
+                        )}
 
-                            {isError && (
-                                <Flex justify="center" py="6">
-                                    <Text color="red" size="2">Failed to load notifications. Please refresh.</Text>
-                                </Flex>
-                            )}
+                        {!isLoading && !isError && items.length === 0 && (
+                            <Flex align="center" justify="center" direction="column" gap="1" py="6">
+                                <BellIcon style={{ width: 20, height: 20, color: 'var(--gray-a9)' }} aria-hidden="true" />
+                                <Text size="2" color="gray">All caught up</Text>
+                            </Flex>
+                        )}
 
-                            {!isLoading && !isError && items.length === 0 && (
-                                <Flex align="center" justify="center" direction="column" gap="1" py="6">
-                                    <BellIcon style={{ width: 20, height: 20, color: 'var(--gray-7)' }} />
-                                    <Text size="2" color="gray">All caught up</Text>
-                                </Flex>
-                            )}
-
-                            {!isLoading && !isError && items.length > 0 && (
-                                <Flex direction="column">
-                                    {items.map((n, idx) => (
-                                        <React.Fragment key={n.id}>
-                                            {idx > 0 && <Separator size="4" />}
-                                            <Box
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => handleItemClick(n)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleItemClick(n)}
-                                                style={{
-                                                    padding: '12px 8px',
-                                                    cursor: 'pointer',
-                                                    opacity: n.read_at ? 0.6 : 1,
-                                                    background: n.read_at ? 'transparent' : 'var(--accent-a2)',
-                                                    borderRadius: 'var(--radius-2)',
-                                                }}
-                                            >
-                                                <Flex align="start" justify="between" gap="3">
-                                                    <Flex direction="column" gap="1" style={{ minWidth: 0, flex: 1 }}>
-                                                        <Text size="2" weight={n.read_at ? 'regular' : 'medium'}>
-                                                            {n.data?.title || n.data?.message || 'Notification'}
-                                                        </Text>
-                                                        {n.data?.body && (
-                                                            <Text size="1" color="gray">{n.data.body}</Text>
-                                                        )}
-                                                        {n.created_at && (
-                                                            <Text size="1" color="gray">{new Date(n.created_at).toLocaleString()}</Text>
-                                                        )}
-                                                    </Flex>
-                                                    {!n.read_at && (
-                                                        <Badge color="red" variant="soft" size="1">New</Badge>
+                        {!isLoading && !isError && items.length > 0 && (
+                            <ul className="dl-list" aria-label="Notifications">
+                                {items.map((n) => (
+                                    <li key={n.id}>
+                                        <button
+                                            type="button"
+                                            className={`dl-list__item${n.read_at ? '' : ' dl-list__item--unread'}`}
+                                            onClick={() => handleItemClick(n)}
+                                        >
+                                            <Flex align="start" justify="between" gap="3">
+                                                <Flex direction="column" gap="1" style={{ minWidth: 0, flex: 1 }}>
+                                                    <Text size="2" weight={n.read_at ? 'regular' : 'bold'}>
+                                                        {n.data?.title || n.data?.message || 'Notification'}
+                                                    </Text>
+                                                    {n.data?.body && (
+                                                        <Text size="1" color="gray">{n.data.body}</Text>
+                                                    )}
+                                                    {n.created_at && (
+                                                        <Text size="1" color="gray">{new Date(n.created_at).toLocaleString()}</Text>
                                                     )}
                                                 </Flex>
-                                            </Box>
-                                        </React.Fragment>
-                                    ))}
-                                </Flex>
-                            )}
+                                                {!n.read_at && (
+                                                    <Badge color="red" variant="soft" size="1">New</Badge>
+                                                )}
+                                            </Flex>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
 
+                        <Box px="4" py="2" className="dl-card__foot">
                             <TablePagination
                                 pagination={pagination}
                                 loading={isLoading}
                                 onPageChange={f.setPage}
                                 onRowsPerPageChange={f.setPerPage}
                             />
-                        </Panel>
-                    </Flex>
-                </ErrorBoundary>
-            </div>
+                        </Box>
+                </section>
+            </ErrorBoundary>
         </>
     );
 };

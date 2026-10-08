@@ -1,0 +1,318 @@
+/* ==========================================================================
+   Cyber — token bridge
+   --------------------------------------------------------------------------
+   Maps the Cyber admin theme (seantheme.com/cyber, kit tokens.js +
+   app.min.css) onto the three token layers every page already consumes:
+
+     1. Radix Themes variables   --font-size-*, --space-*, --radius-*,
+                                 --color-*, --shadow-*, --focus-*
+     2. Radix colour scales      palette.css (generated)
+     3. App design layer         --dl-* (contract) and --aero-* (mobile-aligned)
+
+   Pages never reference Cyber directly: a page that uses <Text size="2">,
+   var(--gray-a6) or <Card> inherits Cyber through these mappings. The
+   mapping table lives in docs/design/CYBER_MIGRATION_LEDGER.md.
+
+   Specificity: html[data-design="cyber"] .radix-themes (0,2,1) beats Radix's
+   .radix-themes / [data-radius] / [data-scaling] (0,1,0) and the contract's
+   html.dark .radix-themes (0,2,1, declared earlier). No !important.
+   ========================================================================== */
+
+/* ── Primitives (both appearances) ─────────────────────────────────────── */
+html[data-design="cyber"] {
+  --cy-font: "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --cy-font-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --cy-tracking: 0.046875rem;           /* body letter-spacing (0.75px) */
+  --cy-header-height: 2.1875rem;        /* 35px */
+  --cy-sidebar-width: 15.625rem;        /* 250px */
+  --cy-sidebar-rail: 3.5rem;            /* collapsed icon rail (Guardian addition) */
+  --cy-footer-height: 2.125rem;         /* 34px */
+  --cy-gutter: 0.875rem;                /* card padding / content gutter */
+  --cy-hud-stripe: rgba(255, 255, 255, 0.25);
+  --cy-hud-stripe-soft: rgba(255, 255, 255, 0.125);
+}
+
+/* ── Dark (faithful Cyber) ─────────────────────────────────────────────── */
+html[data-design="cyber"].dark,
+html[data-design="cyber"] .radix-themes.dark {
+  color-scheme: dark;
+  --cy-bg: #0a151a;                     /* --bs-body-bg */
+  --cy-bg-rgb: 10, 21, 26;
+  --cy-fg: #ffffff;                     /* --bs-body-color */
+  --cy-fg-rgb: 255, 255, 255;
+  --cy-border: #4d4d4d;                 /* --bs-border-color */
+  --cy-border-translucent: rgba(255, 255, 255, 0.15);
+  --cy-border-hover: #a6a6a6;           /* --bs-border-hover-color */
+  --cy-cap-bg: rgba(255, 255, 255, 0.03); /* --bs-card-cap-bg */
+  --cy-elevated: rgba(10, 21, 26, 0.85);  /* dropdown / modal glass */
+  --cy-backdrop: rgba(10, 21, 26, 0.5);   /* .modal-backdrop */
+  --cy-text-muted: rgba(255, 255, 255, 0.62);
+  --cy-text-faint: rgba(255, 255, 255, 0.5);
+  --cy-muted: #8c8c8c;                  /* --bs-secondary / text-muted */
+  --cy-light: #f2f2f2;                  /* --bs-light (btn-outline-default) */
+  --cy-link: var(--accent-11);
+  --cy-cover: url('./cyber-cover-dark.webp');
+  --cy-hud-stripe: rgba(255, 255, 255, 0.25);
+  --cy-hud-stripe-soft: rgba(255, 255, 255, 0.125);
+}
+
+/* ── Light ("Cyber Light", derived — the kit ships dark only) ──────────── */
+html[data-design="cyber"].light,
+html[data-design="cyber"] .radix-themes.light {
+  color-scheme: light;
+  --cy-bg: #edf2f4;
+  --cy-bg-rgb: 237, 242, 244;
+  --cy-fg: #0a151a;
+  --cy-fg-rgb: 10, 21, 26;
+  --cy-border: #b8c1c5;
+  --cy-border-translucent: rgba(10, 21, 26, 0.14);
+  --cy-border-hover: #6b7579;
+  --cy-cap-bg: rgba(10, 21, 26, 0.03);
+  --cy-elevated: rgba(247, 250, 251, 0.94);
+  --cy-backdrop: rgba(10, 21, 26, 0.3);
+  --cy-text-muted: rgba(10, 21, 26, 0.7);
+  --cy-text-faint: rgba(10, 21, 26, 0.6);
+  --cy-muted: #5d6467;
+  --cy-light: #0a151a;
+  --cy-link: var(--accent-11);
+  --cy-cover: url('./cyber-cover-light.webp');
+  --cy-hud-stripe: rgba(10, 21, 26, 0.22);
+  --cy-hud-stripe-soft: rgba(10, 21, 26, 0.1);
+}
+
+/* ── 1. Radix variables: type, space, radius (both appearances) ────────── */
+html[data-design="cyber"] .radix-themes,
+html[data-design="cyber"] [data-radius] {
+  /* Cyber is square: every radius step is 0. --radius-full / --radius-thumb
+     keep Radix's values so explicit radius="full" avatars, switches and
+     slider thumbs stay round, as Cyber's own avatars and switches are. */
+  --radius-factor: 0;
+  --radius-1: 0px;
+  --radius-2: 0px;
+  --radius-3: 0px;
+  --radius-4: 0px;
+  --radius-5: 0px;
+  --radius-6: 0px;
+}
+
+html[data-design="cyber"] .radix-themes {
+  /* Type — Noto Sans, 10px body, 0.75px tracking (kit app.min.css). The
+     ramp follows kit tokens.js [8,9,10,11,12,14,16,18,20,24,28,32,40,48] and
+     is in rem × --scaling so browser zoom and the Scaling control work.
+     The families resolve in app.css: --custom-font-family (the user's Font
+     choice) > --dl-font-body / --dl-font-display (set to Noto Sans below). */
+  --code-font-family: var(--cy-font-mono);
+  --font-size-1: calc(0.5625rem * var(--scaling));   /*  9px  .small, badges   */
+  --font-size-2: calc(0.625rem * var(--scaling));    /* 10px  body, controls   */
+  --font-size-3: calc(0.75rem * var(--scaling));     /* 12px  lg controls      */
+  --font-size-4: calc(0.875rem * var(--scaling));    /* 14px  section titles   */
+  --font-size-5: calc(1.09375rem * var(--scaling));  /* 17.5px .page-header    */
+  --font-size-6: calc(1.25rem * var(--scaling));     /* 20px                   */
+  --font-size-7: calc(1.5625rem * var(--scaling));   /* 25px  h1               */
+  --font-size-8: calc(2rem * var(--scaling));        /* 32px                   */
+  --font-size-9: calc(3rem * var(--scaling));        /* 48px                   */
+  --default-font-size: var(--font-size-2);
+  --font-weight-light: 400;
+  --font-weight-regular: 500;                        /* --bs-body-font-weight  */
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  --line-height-1: calc(0.84375rem * var(--scaling));
+  --line-height-2: calc(0.9375rem * var(--scaling));
+  --line-height-3: calc(1.125rem * var(--scaling));
+  --line-height-4: calc(1.3125rem * var(--scaling));
+  --line-height-5: calc(1.640625rem * var(--scaling));
+  --line-height-6: calc(1.875rem * var(--scaling));
+  --line-height-7: calc(2.1875rem * var(--scaling));
+  --line-height-8: calc(2.5rem * var(--scaling));
+  --line-height-9: calc(3.5rem * var(--scaling));
+  --heading-line-height-1: calc(0.6875rem * var(--scaling));
+  --heading-line-height-2: calc(0.75rem * var(--scaling));
+  --heading-line-height-3: calc(0.9375rem * var(--scaling));
+  --heading-line-height-4: calc(1.0625rem * var(--scaling));
+  --heading-line-height-5: calc(1.3125rem * var(--scaling));
+  --heading-line-height-6: calc(1.5rem * var(--scaling));
+  --heading-line-height-7: calc(1.875rem * var(--scaling));
+  --heading-line-height-8: calc(2.375rem * var(--scaling));
+  --heading-line-height-9: calc(3.625rem * var(--scaling));
+  --default-line-height: 1.5;
+  --letter-spacing-1: var(--cy-tracking);
+  --letter-spacing-2: var(--cy-tracking);
+  --letter-spacing-3: var(--cy-tracking);
+  --letter-spacing-4: var(--cy-tracking);
+  --letter-spacing-5: var(--cy-tracking);
+  --letter-spacing-6: var(--cy-tracking);
+  --letter-spacing-7: var(--cy-tracking);
+  --letter-spacing-8: var(--cy-tracking);
+  --letter-spacing-9: var(--cy-tracking);
+  --default-letter-spacing: var(--cy-tracking);
+  --heading-letter-spacing: var(--cy-tracking);
+
+  /* Space — Bootstrap spacers on a .875rem grid (3.5 / 7 / 14 / 21 / 28 / 35).
+     Control heights come from here: size 1 = space-5 (24px, keeps the WCAG
+     2.2 target size), size 2 = space-6 (28px = .btn / .form-control), size 3
+     = space-7 (35px = header height). */
+  --space-1: calc(0.25rem * var(--scaling));
+  --space-2: calc(0.4375rem * var(--scaling));
+  --space-3: calc(0.65625rem * var(--scaling));
+  --space-4: calc(0.875rem * var(--scaling));
+  --space-5: calc(1.5rem * var(--scaling));
+  --space-6: calc(1.75rem * var(--scaling));
+  --space-7: calc(2.1875rem * var(--scaling));
+  --space-8: calc(2.625rem * var(--scaling));
+  --space-9: calc(3.5rem * var(--scaling));
+
+  /* Bootstrap .btn / .form-check cursors */
+  --cursor-button: pointer;
+  --cursor-checkbox: pointer;
+  --cursor-link: pointer;
+  --cursor-menu-item: pointer;
+  --cursor-radio: pointer;
+  --cursor-switch: pointer;
+}
+
+/* ── 1b. Radix surface colours, shadows, focus — per appearance ────────── */
+html[data-design="cyber"].dark,
+html[data-design="cyber"] .radix-themes.dark {
+  --color-background: var(--cy-bg);
+  --color-panel-solid: #0e1b21;
+  --color-panel-translucent: rgba(10, 21, 26, 0.8);
+  --color-surface: transparent;                      /* .form-control bg */
+  --color-overlay: var(--cy-backdrop);
+  --focus-8: var(--cy-theme);
+  --focus-a8: var(--cy-theme);
+  /* Flat: shadows are hairline rings + Bootstrap's short drop. */
+  --shadow-1: inset 0 0 0 1px var(--gray-a7);
+  --shadow-2: 0 0 0 1px var(--gray-a5);
+  --shadow-3: 0 0 0 1px var(--gray-a5);
+  --shadow-4: 0 0 0 1px var(--gray-a6), 0 0.5rem 0.5rem -0.25rem rgba(var(--cy-bg-rgb), 0.5);
+  --shadow-5: 0 0 0 1px var(--gray-a7), 0 0.75rem 0.75rem -0.375rem rgba(var(--cy-bg-rgb), 0.5);
+  --shadow-6: 0 0 0 1px var(--gray-a7), 0 1rem 2.625rem rgba(0, 0, 0, 0.55);
+  --base-card-surface-box-shadow: 0 0 0 1px var(--cy-border-translucent);
+  --base-card-surface-hover-box-shadow: 0 0 0 1px var(--gray-a8);
+  --base-card-surface-active-box-shadow: 0 0 0 1px var(--gray-a7);
+  --base-card-classic-border-color: var(--cy-border-translucent);
+  --base-card-classic-hover-border-color: var(--gray-a8);
+  --base-card-classic-active-border-color: var(--gray-a7);
+}
+
+html[data-design="cyber"].light,
+html[data-design="cyber"] .radix-themes.light {
+  --color-background: var(--cy-bg);
+  --color-panel-solid: #f7fafb;
+  --color-panel-translucent: rgba(247, 250, 251, 0.88);
+  --color-surface: rgba(255, 255, 255, 0.55);
+  --color-overlay: var(--cy-backdrop);
+  --focus-8: #0b6f9f;
+  --focus-a8: #0b6f9f;
+  --shadow-1: inset 0 0 0 1px var(--gray-a7);
+  --shadow-2: 0 0 0 1px var(--gray-a5);
+  --shadow-3: 0 0 0 1px var(--gray-a5);
+  --shadow-4: 0 0 0 1px var(--gray-a6), 0 0.5rem 0.5rem -0.25rem rgba(10, 21, 26, 0.08);
+  --shadow-5: 0 0 0 1px var(--gray-a7), 0 0.75rem 1.5rem -0.5rem rgba(10, 21, 26, 0.18);
+  --shadow-6: 0 0 0 1px var(--gray-a7), 0 1rem 2.625rem rgba(10, 21, 26, 0.22);
+  --base-card-surface-box-shadow: 0 0 0 1px var(--cy-border-translucent);
+  --base-card-surface-hover-box-shadow: 0 0 0 1px var(--gray-a8);
+  --base-card-surface-active-box-shadow: 0 0 0 1px var(--gray-a7);
+  --base-card-classic-border-color: var(--cy-border-translucent);
+  --base-card-classic-hover-border-color: var(--gray-a8);
+  --base-card-classic-active-border-color: var(--gray-a7);
+}
+
+/* ── 3. App design layer (_contract.css --dl-* and mobile-aligned --aero-*) */
+html[data-design="cyber"],
+html[data-design="cyber"] .radix-themes {
+  --dl-font-body: var(--cy-font);
+  --dl-font-display: var(--cy-font);
+  --dl-border-width: 1px;
+  --dl-border-style: solid;
+  --dl-panel-shadow: none;
+  --dl-panel-shadow-hover: none;
+  --dl-panel-inset: none;
+  --dl-control-shadow: none;
+  --dl-control-shadow-active: none;
+  --dl-text-shadow: none;
+  --dl-transition: 0.15s ease-in-out;
+  --dl-lift: 0px;
+  --dl-grid-gap: var(--cy-gutter);
+  --dl-accent-treatment: flat;
+  --dl-backdrop: blur(6px);
+  --dl-app-bg: none;
+  --dl-app-bg-size: cover;
+  --dl-panel-radius: 0px;   /* Panel.jsx routes inline radii through this */
+}
+
+html[data-design="cyber"].dark,
+html[data-design="cyber"].dark .radix-themes,
+html[data-design="cyber"] .radix-themes.dark,
+html[data-design="cyber"].light,
+html[data-design="cyber"].light .radix-themes,
+html[data-design="cyber"] .radix-themes.light {
+  --dl-border-color: var(--cy-border-translucent);
+  --dl-surface-bg: var(--cy-cap-bg);
+  --dl-elevated-bg: var(--cy-elevated);
+  /* The cover photo is painted by .app-bg-grid::before (app.css), already
+     grayscaled and composited with the 80% canvas overlay at build time. */
+  --dl-app-glow: var(--cy-cover) center / cover no-repeat, var(--cy-bg);
+
+  --aero-accent: var(--accent-11);
+  --aero-accent-strong: var(--accent-10);
+  --aero-success: var(--green-11);
+  --aero-warning: var(--amber-11);
+  --aero-danger: var(--red-11);
+  --aero-surface: var(--cy-cap-bg);
+  --aero-surface-border: var(--cy-border-translucent);
+  --aero-color-subtle: var(--gray-11);
+  --aero-color-faint: var(--gray-10);
+}
+
+/* ── Document ──────────────────────────────────────────────────────────── */
+html[data-design="cyber"] {
+  background-color: var(--cy-bg);
+}
+
+/* --bs-body-font-size .625rem / weight 500 / line-height 1.5 */
+html[data-design="cyber"] body {
+  font-family: var(--custom-font-family, var(--cy-font));
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: var(--cy-tracking);
+  color: var(--cy-fg);
+  background-color: var(--cy-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-design="cyber"] .radix-themes {
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--cy-tracking);
+}
+
+/* The root Theme stays transparent so the fixed cover shows through; panels
+   that need an opaque fill still get it from --color-background. */
+html[data-design="cyber"] .radix-themes:where([data-is-root-theme='true']) {
+  background-color: transparent;
+}
+
+/* ── Reduced motion & print ────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-design="cyber"] .radix-themes {
+    --dl-transition: 0.01ms linear;
+  }
+}
+
+@media print {
+  html[data-design="cyber"],
+  html[data-design="cyber"] .radix-themes {
+    --dl-app-glow: none;
+    --color-background: #fff;
+    --color-panel-solid: #fff;
+    --cy-bg: #fff;
+    --cy-fg: #000;
+    color-scheme: light;
+  }
+  html[data-design="cyber"] body {
+    color: #000;
+    background: #fff;
+  }
+}

@@ -18,15 +18,17 @@ export const SCALING_OPTIONS = ['90%', '95%', '100%', '105%', '110%'];
 export const PANEL_BACKGROUNDS = ['solid', 'translucent'];
 
 /*
- * The ten design languages, plus 'none' (stock Radix).
+ * The design languages, plus 'none' (stock Radix).
  * `id` is the value written to <html data-design="...">, and is also the
  * filename in resources/css/design/<id>.css.
  * `lockRadius` marks languages where corner radius is constitutive of the
- * style rather than decorative -- Brutalism is not Brutalism with rounded
- * corners, Claymorphism is not Claymorphism without them. For those two the
- * Radius control is disabled rather than silently ignored.
+ * style rather than decorative -- Brutalism and Cyber are not themselves with
+ * rounded corners, Claymorphism is not Claymorphism without them. For those
+ * the Radius control is disabled rather than silently ignored.
+ * Cyber (seantheme.com/cyber) is the app's design; the others are dormant.
  */
 export const DESIGN_LANGUAGES = [
+  { id: 'cyber',          label: 'Cyber',          blurb: 'Dark operations console, square HUD surfaces', lockRadius: true },
   { id: 'none',           label: 'None',           blurb: 'Stock Radix Themes' },
   { id: 'skeuomorphism',  label: 'Skeuomorphism',  blurb: 'Physical materials, bevels, real textures' },
   { id: 'neomorphism',    label: 'Neomorphism',    blurb: 'Soft extruded surfaces, dual light source' },
@@ -54,18 +56,60 @@ export const FONT_FAMILIES = [
   { label: 'System UI', value: 'system-ui, sans-serif' },
 ];
 
-const DEFAULT_SETTINGS = {
-  accentColor: 'blue',
+/*
+ * Bumped when the default design changes. Settings saved under an older
+ * version get the new default design once; anything chosen after that sticks.
+ */
+export const DESIGN_LANGUAGE_VERSION = 1;
+
+export const DEFAULT_THEME_SETTINGS = Object.freeze({
+  accentColor: 'blue', // Cyber's theme colour #67ceff (resources/css/design/cyber/palette.css)
   grayColor: 'auto',
   radius: 'medium',
   scaling: '100%',
-  appearance: 'light',
+  appearance: 'dark',
   panelBackground: 'solid',
   fontFamily: 'auto',
   customAccentHex: '',
   bgStyle: 'grid',
-  designLanguage: 'none',
-};
+  designLanguage: 'cyber',
+  designLanguageVersion: DESIGN_LANGUAGE_VERSION,
+});
+const DEFAULT_SETTINGS = DEFAULT_THEME_SETTINGS;
+
+/*
+ * One-time move to Cyber. Settings saved before Cyber existed carry no
+ * version: if they were on stock Radix ('none' or unset) they switch to Cyber
+ * in its native dark appearance. An explicit language choice is kept, and
+ * once versioned, every later choice (including 'none' or light) is honoured.
+ */
+export function normalizeThemeSettings(settings) {
+  // Read the version from what was stored, before the defaults fill it in.
+  const isLegacy = settings?.designLanguageVersion !== DESIGN_LANGUAGE_VERSION;
+  const next = { ...DEFAULT_SETTINGS, ...settings, designLanguageVersion: DESIGN_LANGUAGE_VERSION };
+  if (isLegacy) {
+    const legacyDesign = settings?.designLanguage;
+    if (!legacyDesign || legacyDesign === 'none') {
+      next.designLanguage = 'cyber';
+      next.appearance = 'dark';
+    }
+  }
+  if (!DESIGN_LANGUAGE_IDS.includes(next.designLanguage)) next.designLanguage = DEFAULT_SETTINGS.designLanguage;
+  if (next.appearance !== 'light' && next.appearance !== 'dark') next.appearance = DEFAULT_SETTINGS.appearance;
+  return next;
+}
+
+/* Parse what localStorage holds; anything unreadable falls back to the defaults. */
+export function loadThemeSettings(raw) {
+  if (!raw) return { ...DEFAULT_SETTINGS };
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === 'object' ? normalizeThemeSettings(parsed) : { ...DEFAULT_SETTINGS };
+  } catch (_) {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
 const RadixThemeContext = createContext(null);
 
 export const useRadixTheme = () => {
@@ -76,14 +120,9 @@ export const useRadixTheme = () => {
 
 export const RadixThemeProvider = ({ children }) => {
   const [settings, setSettings] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-      }
-    } catch (_) {}
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    return { ...DEFAULT_SETTINGS, appearance: prefersDark ? 'dark' : 'light' };
+    let stored = null;
+    try { stored = localStorage.getItem(STORAGE_KEY); } catch (_) {}
+    return loadThemeSettings(stored);
   });
 
   useEffect(() => {
@@ -94,6 +133,7 @@ export const RadixThemeProvider = ({ children }) => {
     applyCustomAccent(settings.customAccentHex);
     syncAppearanceClass(settings.appearance);
     syncDesignLanguage(settings.designLanguage);
+    syncThemeColor(settings.designLanguage, settings.appearance);
   }, [settings]);
 
   const updateSettings = useCallback((patch) => {
@@ -101,7 +141,7 @@ export const RadixThemeProvider = ({ children }) => {
   }, []);
 
   const resetSettings = useCallback(() => {
-    setSettings(DEFAULT_SETTINGS);
+    setSettings({ ...DEFAULT_SETTINGS });
   }, []);
 
   const toggleAppearance = useCallback(() => {
@@ -162,6 +202,22 @@ function syncAppearanceClass(appearance) {
 function syncDesignLanguage(language) {
   const id = DESIGN_LANGUAGE_IDS.includes(language) ? language : 'none';
   document.documentElement.setAttribute('data-design', id);
+}
+
+/* Browser/OS chrome colour (mobile address bar, PWA title bar). */
+const THEME_COLORS = {
+  cyber: { dark: '#0a151a', light: '#edf2f4' },
+  none: { dark: '#111113', light: '#134e9d' },
+};
+
+export function resolveThemeColor(language, appearance) {
+  const palette = THEME_COLORS[language] || THEME_COLORS.none;
+  return appearance === 'dark' ? palette.dark : palette.light;
+}
+
+function syncThemeColor(language, appearance) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', resolveThemeColor(language, appearance));
 }
 
 export { RadixThemeContext };

@@ -5,8 +5,9 @@ import { defineConfig } from 'vite';
 import fs from 'node:fs';
 import { globSync } from 'glob';
 
-// Replace 'aero-enterprise-suite' with your actual system username if using Herd/Valet paths
-const host = 'aero-enterprise-suite.test';
+// Replace 'aero-enterprise-suite' with your actual system username if using Herd/Valet paths.
+// VITE_DEV_HOST / VITE_HMR_HOST override it for other local setups (e.g. 127.0.0.1 with Docker).
+const host = process.env.VITE_DEV_HOST || 'aero-enterprise-suite.test';
 
 // Dynamically discover all Inertia page components.
 // Exclude co-located tests so test code never ships in the production bundle.
@@ -47,9 +48,12 @@ export default defineConfig({
         },
         chunkSizeWarningLimit: 600,
     },
-    server: { 
+    server: {
         host,
-        hmr: { host },
+        hmr: { host: process.env.VITE_HMR_HOST || host },
+        watch: {
+            ignored: ['**/vendor/**', '**/storage/**', '**/public/build/**', '**/.git/**'],
+        },
         ...(fs.existsSync('C:/laragon/etc/ssl/laragon.key') && fs.existsSync('C:/laragon/etc/ssl/laragon.crt') ? {
             https: {
                 key: fs.readFileSync('C:/laragon/etc/ssl/laragon.key'),

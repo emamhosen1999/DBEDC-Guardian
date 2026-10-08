@@ -1,15 +1,14 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Badge, Box, Button, Callout, Checkbox, Flex, Heading, IconButton, Separator, Spinner, Text, TextField, Tooltip } from '@radix-ui/themes';
+import { Box, Button, Callout, Checkbox, Flex, IconButton, Spinner, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
-    ArrowRightIcon, CheckCircledIcon, ClockIcon, Cross2Icon,
-    DesktopIcon, EnvelopeClosedIcon, ExclamationTriangleIcon,
-    EyeNoneIcon, EyeOpenIcon, GlobeIcon, LockClosedIcon, MobileIcon,
-    LockOpen2Icon, InfoCircledIcon,
+    CheckCircledIcon, ClockIcon, Cross2Icon,
+    DesktopIcon, ExclamationTriangleIcon,
+    EyeNoneIcon, EyeOpenIcon, GlobeIcon, MobileIcon,
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import { getDeviceHeaders, getDeviceLoginPayload } from '@/utils/deviceAuth';
+import AuthLayout, { AuthField } from '@/Components/AuthLayout';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const VALIDATION_CONFIG = {
@@ -80,46 +79,6 @@ const validatePassword = (password) => {
     
     return { isValid: true, message: null };
 };
-
-// ── SVG Background ─────────────────────────────────────────────────────────
-function RadixBg() {
-    return (
-        <Box style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-            <svg width="100%" height="100%" viewBox="0 0 2560 1920" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.55 }}>
-                <g>
-                    <path d="M-119.809 -1055.99L859.027 -684.98C915.435 -663.6 955.626 -624.994 968.519 -579.807L1129.49 -15.6245L1860.47 -241.727C1919.02 -259.836 1985.68 -257.939 2042.09 -236.559L3020.93 134.453C3124.79 173.822 3164.97 266.777 3110.66 342.073L2850.06 703.385C2827.36 734.857 2790.34 759.666 2745.28 773.604L1467.45 1168.86L1748.58 2154.16C1758.67 2189.52 1751.28 2226.32 1727.72 2258.12L1361.75 2752.01L203.258 2312.91C146.85 2291.53 106.659 2252.92 93.7664 2207.73L-67.2076 1643.55L-798.184 1869.65C-856.73 1887.76 -923.398 1885.87 -979.806 1864.48L-2138.3 1425.38L-1787.63 925.687C-1765.05 893.507 -1727.57 868.111 -1681.77 853.942L-405.167 459.07L-686.568 -527.183C-696.491 -561.961 -689.511 -598.157 -666.811 -629.629L-406.21 -990.941C-351.902 -1066.24 -223.676 -1095.36 -119.809 -1055.99Z" fill="url(#lb0)"/>
-                    <path d="M885.9 -99.2158L1864.74 271.796C1921.14 293.177 1961.34 331.783 1974.23 376.97L2135.2 941.152L2866.18 715.049C2924.72 696.94 2991.39 698.837 3047.8 720.218L4026.64 1091.23C4130.5 1130.6 4170.68 1223.55 4116.37 1298.85L3855.77 1660.16C3833.07 1691.63 3796.05 1716.44 3750.99 1730.38L2473.16 2125.63L2754.29 3110.94C2764.38 3146.29 2756.99 3183.09 2733.43 3214.9L2367.46 3708.79L1208.97 3269.68C1152.56 3248.3 1112.37 3209.7 1099.48 3164.51C816.824 2173.87 747.087 1929.46 319.141 429.593C309.218 394.815 316.198 358.619 338.898 327.147L599.499 -34.1647C653.807 -109.461 782.033 -138.585 885.9 -99.2158Z" fill="url(#lb1)"/>
-                    <path d="M1597.13 169.784L2575.97 540.796C2632.38 562.177 2672.57 600.783 2685.46 645.97L2846.44 1210.15L3577.41 984.049C3635.96 965.94 3702.63 967.837 3759.03 989.218L4737.87 1360.23C4841.74 1399.6 4881.91 1492.55 4827.61 1567.85L4567 1929.16C4544.3 1960.63 4507.28 1985.44 4462.22 1999.38L3184.4 2394.63L3465.53 3379.94C3475.61 3415.29 3468.23 3452.09 3444.66 3483.9L3078.69 3977.79L1920.2 3538.68C1863.79 3517.3 1823.6 3478.7 1810.71 3433.51L1649.74 2869.33L918.759 3095.43C860.213 3113.54 793.545 3111.64 737.138 3090.26L-421.356 2651.15L-70.6875 2151.46C-48.1049 2119.28 -10.63 2093.89 35.1782 2079.72L1311.78 1684.85L1030.38 698.593C1020.45 663.815 1027.43 627.619 1050.13 596.147L1310.73 234.835C1365.04 159.539 1493.27 130.415 1597.13 169.784Z" fill="url(#lb2)"/>
-                    <path d="M3059.26 767.932L3310.25 1618.16C3324.72 1667.15 3315.74 1727.88 3285.79 1783.6L2911.89 2479.3L3514.51 2558.36C3562.77 2564.69 3599.15 2596.78 3613.62 2645.77L3864.61 3496C3891.25 3586.22 3837.41 3706.98 3744.37 3765.74L3297.91 4047.66C3259.03 4072.22 3217.48 4082.97 3180.34 4078.1L2126.89 3939.89L1473.9 5154.88C1450.47 5198.48 1415.9 5235.81 1376.24 5260.35L760.412 5641.34L463.348 4635.06C448.884 4586.06 457.863 4525.33 487.81 4469.61L861.713 3773.92L259.094 3694.86C210.828 3688.53 174.448 3656.44 159.984 3607.44L-137.08 2601.17L474.823 2206.89C514.228 2181.5 556.514 2170.3 594.278 2175.25L1646.71 2313.32L2300.33 1097.17C2323.38 1054.28 2357.22 1017.43 2396.11 992.876L2842.57 710.953C2935.61 652.202 3032.62 677.712 3059.26 767.932Z" fill="url(#lb3)"/>
-                </g>
-                <defs>
-                    <radialGradient id="lb0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(-804.109 -2036.8) rotate(64.9401) scale(6436.87 6304.81)">
-                        <stop stopColor="var(--color-background)"/><stop offset="0.0833333" stopColor="var(--accent-7)"/><stop offset="0.364583" stopColor="var(--accent-5)"/><stop offset="0.658041" stopColor="var(--color-background)"/><stop offset="0.798521" stopColor="var(--accent-9)"/><stop offset="1" stopColor="var(--color-background)"/>
-                    </radialGradient>
-                    <radialGradient id="lb1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(201.6 -1080.02) rotate(64.9401) scale(6436.87 6304.81)">
-                        <stop stopColor="var(--color-background)"/><stop offset="0.0833333" stopColor="var(--accent-2)"/><stop offset="0.333803" stopColor="var(--accent-1)"/><stop offset="0.658041" stopColor="var(--color-background)"/><stop offset="0.798521" stopColor="var(--accent-9)"/><stop offset="1" stopColor="var(--color-background)"/>
-                    </radialGradient>
-                    <radialGradient id="lb2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(912.834 -811.021) rotate(64.9401) scale(6436.87 6304.81)">
-                        <stop stopColor="var(--color-background)"/><stop offset="0.140625" stopColor="var(--accent-3)"/><stop offset="0.333803" stopColor="var(--accent-7)"/><stop offset="0.658041" stopColor="var(--color-background)"/><stop offset="0.798521" stopColor="var(--accent-9)"/><stop offset="1" stopColor="var(--color-background)"/>
-                    </radialGradient>
-                    <radialGradient id="lb3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(3479.06 -623.459) rotate(113.028) scale(8332.26 4870.62)">
-                        <stop stopColor="var(--color-background)"/><stop offset="0.0833333" stopColor="var(--accent-7)"/><stop offset="0.333803" stopColor="var(--accent-1)"/><stop offset="0.658041" stopColor="var(--color-background)"/><stop offset="0.798521" stopColor="var(--accent-9)"/><stop offset="1" stopColor="var(--color-background)"/>
-                    </radialGradient>
-                </defs>
-            </svg>
-        </Box>
-    );
-}
-
-function FormField({ label, error, children }) {
-    return (
-        <Flex direction="column" gap="1">
-            <Text as="label" size="2" weight="medium">{label}</Text>
-            {children}
-            {error && <Text size="1" color="red">{error}</Text>}
-        </Flex>
-    );
-}
 
 export default function Login({
     status,
@@ -450,151 +409,130 @@ export default function Login({
     // ===== RENDER =====
     const deviceInfo = uiState.deviceBlockingData?.blockedDeviceInfo || blockedDeviceInfo;
     const showDeviceAlert = (deviceBlocked || uiState.deviceBlockingData) && uiState.showDeviceAlert;
+    const emailError = validationErrors.email || (validationErrors.hasAttemptedSubmit && validationResults.email.message);
+    const passwordError = validationErrors.password || (validationErrors.hasAttemptedSubmit && validationResults.password.message);
 
     return (
         <>
             <Head title="Sign In" />
-            <RadixBg />
 
-            <Box style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16,
-                position: 'relative',
-                zIndex: 1,
-                overflowX: 'hidden',
-                opacity: uiState.isLoaded ? 1 : 0,
-                transform: uiState.isLoaded ? 'translateY(0)' : 'translateY(16px)',
-                transition: 'opacity 0.35s ease, transform 0.35s ease',
-            }}>
-                <Box style={{ width: '100%', maxWidth: 420 }}>
-                    <Panel size="4">
-                        {/* Logo + Title */}
-                        <Flex direction="column" align="center" gap="2" mb="5">
-                            <img src="/assets/images/logo.png" alt="Logo" style={{ width: 96, height: 96, objectFit: 'contain' }}
-                                onError={e => { e.target.style.display = 'none'; }} />
-                            <Heading size="6" align="center">Welcome back</Heading>
-                            <Text size="2" color="gray" align="center">Sign in to your account</Text>
-                        </Flex>
+            <AuthLayout
+                title="Welcome back"
+                subtitle="Sign in to your account"
+                style={{
+                    opacity: uiState.isLoaded ? 1 : 0,
+                    transform: uiState.isLoaded ? 'translateY(0)' : 'translateY(16px)',
+                    transition: 'opacity 0.35s ease, transform 0.35s ease',
+                }}
+            >
+                {/* Status alert */}
+                {status && uiState.showSuccessAlert && (
+                    <Callout.Root color="green" mb="4">
+                        <Callout.Icon><CheckCircledIcon /></Callout.Icon>
+                        <Callout.Text>{status}</Callout.Text>
+                    </Callout.Root>
+                )}
 
-                        {/* Status alert */}
-                        {status && uiState.showSuccessAlert && (
-                            <Callout.Root color="green" mb="4">
-                                <Callout.Icon><CheckCircledIcon /></Callout.Icon>
-                                <Callout.Text>{status}</Callout.Text>
-                            </Callout.Root>
-                        )}
-
-                        {/* Device blocking alert */}
-                        {showDeviceAlert && (
-                            <Callout.Root color="red" mb="4">
-                                <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                                <Callout.Text>
-                                    <Flex justify="between" align="start" gap="2">
-                                        <Box>
-                                            <Text size="2" weight="bold" style={{ display: 'block' }}>Device Access Blocked</Text>
-                                            <Text size="2">{uiState.deviceBlockingData?.message || deviceMessage || 'Account is active on another device.'}</Text>
-                                            {deviceInfo && (
-                                                <Flex gap="2" align="center" mt="2">
-                                                    {deviceInfo.device_type === 'mobile' ? <MobileIcon /> : <DesktopIcon />}
-                                                    <Text size="1">{deviceInfo.device_name || 'Unknown Device'}</Text>
-                                                    {deviceInfo.last_activity && <><ClockIcon /><Text size="1">{deviceInfo.last_activity}</Text></>}
-                                                    {deviceInfo.ip_address && <><GlobeIcon /><Text size="1">{deviceInfo.ip_address}</Text></>}
-                                                </Flex>
-                                            )}
-                                            <Text size="1" color="gray" mt="1" style={{ display: 'block' }}>Contact your administrator to reset device access.</Text>
-                                        </Box>
-                                        <IconButton size="1" variant="ghost" color="red" onClick={() => dismissAlert('Device')} aria-label="Dismiss">
-                                            <Cross2Icon />
-                                        </IconButton>
-                                    </Flex>
-                                </Callout.Text>
-                            </Callout.Root>
-                        )}
-
-                        {/* Form */}
-                        <form onSubmit={handleFormSubmit} noValidate>
-                            <Flex direction="column" gap="4">
-                                {/* Email */}
-                                <FormField label="Email address" error={validationErrors.email || (validationErrors.hasAttemptedSubmit && validationResults.email.message)}>
-                                    <TextField.Root
-                                        ref={emailInputRef}
-                                        type="email"
-                                        placeholder="your@email.com"
-                                        value={formData.email}
-                                        onChange={e => updateFormField('email', e.target.value)}
-                                        autoComplete="username"
-                                        autoFocus
-                                        size="3"
-                                        color={(validationErrors.email || (validationErrors.hasAttemptedSubmit && !validationResults.email.isValid)) ? 'red' : undefined}
-                                    >
-                                        <TextField.Slot><EnvelopeClosedIcon /></TextField.Slot>
-                                    </TextField.Root>
-                                </FormField>
-
-                                {/* Password */}
-                                <FormField label="Password" error={validationErrors.password || (validationErrors.hasAttemptedSubmit && validationResults.password.message)}>
-                                    <TextField.Root
-                                        ref={passwordInputRef}
-                                        type={uiState.isPasswordVisible ? 'text' : 'password'}
-                                        placeholder="••••••••"
-                                        value={formData.password}
-                                        onChange={e => updateFormField('password', e.target.value)}
-                                        autoComplete="current-password"
-                                        size="3"
-                                        color={(validationErrors.password || (validationErrors.hasAttemptedSubmit && !validationResults.password.isValid)) ? 'red' : undefined}
-                                    >
-                                        <TextField.Slot><LockClosedIcon /></TextField.Slot>
-                                        <TextField.Slot>
-                                            <Tooltip content={uiState.isPasswordVisible ? 'Hide password' : 'Show password'}>
-                                                <IconButton size="1" variant="ghost" type="button" onClick={togglePasswordVisibility} aria-label="Toggle password">
-                                                    {uiState.isPasswordVisible ? <EyeNoneIcon /> : <EyeOpenIcon />}
-                                                </IconButton>
-                                            </Tooltip>
-                                        </TextField.Slot>
-                                    </TextField.Root>
-                                </FormField>
-
-                                {/* Remember + Forgot */}
-                                <Flex justify="between" align="center">
-                                    <Text as="label" size="2">
-                                        <Flex gap="2" align="center">
-                                            <Checkbox
-                                                checked={formData.remember}
-                                                onCheckedChange={handleRememberChange}
-                                            />
-                                            Remember me
+                {/* Device blocking alert */}
+                {showDeviceAlert && (
+                    <Callout.Root color="red" mb="4">
+                        <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                        <Callout.Text>
+                            <Flex justify="between" align="start" gap="2">
+                                <Box>
+                                    <Text size="2" weight="bold" style={{ display: 'block' }}>Device Access Blocked</Text>
+                                    <Text size="2">{uiState.deviceBlockingData?.message || deviceMessage || 'Account is active on another device.'}</Text>
+                                    {deviceInfo && (
+                                        <Flex gap="2" align="center" mt="2" wrap="wrap">
+                                            {deviceInfo.device_type === 'mobile' ? <MobileIcon /> : <DesktopIcon />}
+                                            <Text size="1">{deviceInfo.device_name || 'Unknown Device'}</Text>
+                                            {deviceInfo.last_activity && <><ClockIcon /><Text size="1">{deviceInfo.last_activity}</Text></>}
+                                            {deviceInfo.ip_address && <><GlobeIcon /><Text size="1">{deviceInfo.ip_address}</Text></>}
                                         </Flex>
-                                    </Text>
-                                    {canResetPassword && (
-                                        <Link href={route('password.request')}>
-                                            <Text size="2" color="accent">Forgot password?</Text>
-                                        </Link>
                                     )}
-                                </Flex>
-
-                                {/* Submit */}
-                                <Button type="submit" size="3" disabled={uiState.isSubmitting} style={{ width: '100%' }}>
-                                    {uiState.isSubmitting ? <><Spinner size="1" /> Signing in…</> : <><ArrowRightIcon /> Sign In</>}
-                                </Button>
+                                    <Text size="1" color="gray" mt="1" style={{ display: 'block' }}>Contact your administrator to reset device access.</Text>
+                                </Box>
+                                <IconButton size="1" variant="ghost" color="red" onClick={() => dismissAlert('Device')} aria-label="Dismiss">
+                                    <Cross2Icon />
+                                </IconButton>
                             </Flex>
-                        </form>
+                        </Callout.Text>
+                    </Callout.Root>
+                )}
 
-                        <Separator size="4" my="4" />
-                         <Text size="1" color="gray" align="center" mt="4" style={{ display: 'block' }}>
-                        © 2025 Emam Hosen. All rights reserved.
+                {/* Form */}
+                <form onSubmit={handleFormSubmit} noValidate>
+                    <AuthField id="login-email" label="Email address" required error={emailError}>
+                        <TextField.Root
+                            id="login-email"
+                            ref={emailInputRef}
+                            type="email"
+                            placeholder="your@email.com"
+                            value={formData.email}
+                            onChange={e => updateFormField('email', e.target.value)}
+                            autoComplete="username"
+                            autoFocus
+                            required
+                            size="2"
+                            aria-invalid={emailError ? true : undefined}
+                            aria-describedby={emailError ? 'login-email-error' : undefined}
+                            color={(validationErrors.email || (validationErrors.hasAttemptedSubmit && !validationResults.email.isValid)) ? 'red' : undefined}
+                        />
+                    </AuthField>
+
+                    <AuthField
+                        id="login-password"
+                        label="Password"
+                        required
+                        error={passwordError}
+                        aside={canResetPassword && (
+                            <Link href={route('password.request')} className="dl-auth__link">Forgot password?</Link>
+                        )}
+                    >
+                        <TextField.Root
+                            id="login-password"
+                            ref={passwordInputRef}
+                            type={uiState.isPasswordVisible ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={formData.password}
+                            onChange={e => updateFormField('password', e.target.value)}
+                            autoComplete="current-password"
+                            required
+                            size="2"
+                            aria-invalid={passwordError ? true : undefined}
+                            aria-describedby={passwordError ? 'login-password-error' : undefined}
+                            color={(validationErrors.password || (validationErrors.hasAttemptedSubmit && !validationResults.password.isValid)) ? 'red' : undefined}
+                        >
+                            <TextField.Slot side="right">
+                                <Tooltip content={uiState.isPasswordVisible ? 'Hide password' : 'Show password'}>
+                                    <IconButton size="1" variant="ghost" color="gray" type="button" onClick={togglePasswordVisibility}
+                                        aria-label={uiState.isPasswordVisible ? 'Hide password' : 'Show password'}>
+                                        {uiState.isPasswordVisible ? <EyeNoneIcon /> : <EyeOpenIcon />}
+                                    </IconButton>
+                                </Tooltip>
+                            </TextField.Slot>
+                        </TextField.Root>
+                    </AuthField>
+
+                    {/* Remember me */}
+                    <Text as="label" size="2" style={{ display: 'block', marginBottom: 14, textTransform: 'uppercase' }}>
+                        <Flex gap="2" align="center">
+                            <Checkbox
+                                checked={formData.remember}
+                                onCheckedChange={handleRememberChange}
+                            />
+                            Remember me
+                        </Flex>
                     </Text>
 
-                       
+                    {/* Submit */}
+                    <Button type="submit" size="3" variant="outline" color="gray" className="dl-auth__submit" disabled={uiState.isSubmitting}>
+                        {uiState.isSubmitting ? <><Spinner size="1" /> Signing in…</> : 'Sign In'}
+                    </Button>
+                </form>
 
-                       
-                    </Panel>
-
-                   
-                </Box>
-            </Box>
+                <p className="dl-auth__foot">© 2025 Emam Hosen. All rights reserved.</p>
+            </AuthLayout>
         </>
     );
 }

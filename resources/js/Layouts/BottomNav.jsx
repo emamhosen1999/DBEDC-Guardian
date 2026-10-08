@@ -1,7 +1,6 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect } from 'react';
-import { Link, usePage, router } from '@inertiajs/react';
-import { Box, Flex, IconButton, Text, Tooltip } from '@radix-ui/themes';
+import { usePage, router } from '@inertiajs/react';
+import { Tooltip } from '@radix-ui/themes';
 import {
   HomeIcon,
   PersonIcon,
@@ -42,64 +41,25 @@ const BottomNav = ({ toggleThemeDrawer }) => {
   }, [toggleThemeDrawer]);
 
   return (
-    <Panel
-      as="nav"
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 60,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
-        zIndex: 200,
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        borderRadius: 0,
-        background: 'var(--color-background)',
-      }}
-      aria-label="Bottom navigation"
-    >
+    <nav className="dl-bottomnav" aria-label="Bottom navigation">
       {navItems.map(item => {
         const isActive = activeTab === item.id;
         const Icon = item.icon;
         return (
           <Tooltip key={item.id} content={item.label}>
-            <Flex
-              direction="column"
-              align="center"
-              gap="1"
-              style={{
-                cursor: 'pointer',
-                padding: '6px 10px',
-                borderRadius: 'var(--radius-2)',
-                background: 'transparent',
-                color: isActive ? 'var(--aero-accent, var(--accent-9))' : 'var(--aero-color-faint, var(--gray-8))',
-                transition: 'color 140ms ease',
-                minWidth: 52,
-                position: 'relative',
-              }}
+            <button
+              type="button"
+              className="dl-bottomnav__item"
               onClick={() => handleNav(item)}
-              role="button"
-              tabIndex={0}
-              aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleNav(item); }}
             >
-              <Icon style={{ width: 20, height: 20 }} />
-              <Text
-                size="1"
-                weight={isActive ? 'bold' : 'regular'}
-                style={{ fontSize: 11, lineHeight: 1, color: isActive ? 'var(--gray-12)' : 'var(--aero-color-faint, var(--gray-8))' }}
-              >
-                {item.label}
-              </Text>
-            </Flex>
+              <Icon aria-hidden="true" />
+              <span className="dl-bottomnav__label">{item.label}</span>
+            </button>
           </Tooltip>
         );
       })}
-    </Panel>
+    </nav>
   );
 };
 

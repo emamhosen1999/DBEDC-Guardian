@@ -1,104 +1,45 @@
-import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-
-import { useRadixTheme } from '@/Contexts/RadixThemeContext';
+import { Text } from '@radix-ui/themes';
 
 import logo from '../../../public/assets/images/logo.png';
 
-const AuthLayout = ({ children, title, subtitle }) => {
-    const { settings: themeSettings } = useRadixTheme();
-
-    return (
-        <div
-            style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '16px',
-                position: 'relative',
-                overflow: 'hidden',
-                fontFamily: `'Inter', system-ui, -apple-system, sans-serif`,
-                backgroundColor: 'var(--color-background)',
-            }}
-        >
-            <div style={{ width: '100%', maxWidth: 420, padding: '0 4px' }}>
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '80vh',
-                    paddingTop: 16,
-                    paddingBottom: 16,
-                }}>
-                    {/* Auth Form Card — clean, cardless, matching mobile */}
-                    <div style={{ width: '100%', maxWidth: 420 }}>
-                        <Panel
-                            tinted
-                            style={{
-                                padding: '32px 24px',
-                                position: 'relative',
-                                overflow: 'visible',
-                                width: '100%',
-                                borderRadius: 20,
-                            }}
-                        >
-                            {/* Logo at top of form card */}
-                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <img
-                                            src={logo}
-                                            alt="Logo"
-                                            style={{ width: 120, height: 120, objectFit: 'contain' }}
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Header — matching mobile's clean typography */}
-                            <div style={{ marginBottom: 24, textAlign: 'center' }}>
-                                <h1
-                                    style={{
-                                        fontSize: 26,
-                                        fontWeight: 900,
-                                        marginBottom: 8,
-                                        letterSpacing: '-0.5px',
-                                        lineHeight: 1.2,
-                                        fontFamily: `'Space Grotesk', system-ui, sans-serif`,
-                                        color: 'var(--gray-12)',
-                                        margin: '0 0 8px 0',
-                                    }}
-                                >
-                                    {title}
-                                </h1>
-                                {subtitle && (
-                                    <p
-                                        style={{
-                                            fontSize: 13,
-                                            lineHeight: 1.5,
-                                            color: 'var(--aero-color-subtle, var(--gray-9))',
-                                            fontFamily: `'Inter', system-ui, sans-serif`,
-                                            margin: 0,
-                                        }}
-                                    >
-                                        {subtitle}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Form Content */}
-                            <div>{children}</div>
-                        </Panel>
-                    </div>
+/*
+ * Stand-alone auth screens (Cyber page_login / page_register): centred
+ * 360px column on the Cyber cover, mark → uppercase title → muted subtitle.
+ * Styles: resources/css/design/cyber/shell.css (.dl-auth*).
+ */
+const AuthLayout = ({ children, title, subtitle, mark, style }) => (
+    <main className="dl-auth" style={style}>
+        <div className="dl-auth__panel">
+            <div className="dl-auth__head">
+                <div className="dl-auth__mark" aria-hidden={mark ? 'true' : undefined}>
+                    {mark ?? (
+                        <img src={logo} alt="DBEDC" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    )}
                 </div>
+                <h1 className="dl-auth__title">{title}</h1>
+                {subtitle && <p className="dl-auth__subtitle">{subtitle}</p>}
             </div>
+            {children}
+        </div>
+    </main>
+);
+
+/* Label above the control, optional link on the right (e.g. "Forgot password?"). */
+export function AuthField({ id, label, required = false, aside, error, children }) {
+    return (
+        <div className="dl-auth__field">
+            <div className="dl-auth__label-row">
+                <label htmlFor={id} className="dl-auth__label">
+                    {label}
+                    {required && <span className="dl-auth__required" aria-hidden="true">*</span>}
+                </label>
+                {aside}
+            </div>
+            {children}
+            {error && <Text size="1" color="red" id={`${id}-error`} role="alert">{error}</Text>}
         </div>
     );
-};
+}
 
 export default AuthLayout;

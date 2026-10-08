@@ -1,0 +1,519 @@
+/* ==========================================================================
+   Cyber — Radix component skins (Tier 2 of _contract.css)
+   --------------------------------------------------------------------------
+   Only what tokens cannot express: square corners on components that hard-
+   code radius-full, Bootstrap's uppercase micro-typography, the 1px outline
+   button, glass menus/dialogs, and the dense .table rhythm. Colours always
+   come from tokens (accent/gray scales re-pointed in palette.css), so the
+   light appearance needs almost no rules of its own.
+
+   Selectors are html[data-design="cyber"] .rt-X (0,2,1): above Radix's
+   :where()-flattened (0,1,0) component rules, below inline styles.
+   ========================================================================== */
+
+/* ── Typography ────────────────────────────────────────────────────────── */
+html[data-design="cyber"] .rt-Heading:not([class*='rt-r-weight-']) {
+  font-weight: 600; /* .page-header / headings */
+}
+
+html[data-design="cyber"] .rt-Link {
+  color: var(--accent-a11);
+  text-underline-offset: 0.18em;
+}
+
+/* Links in running text must not rely on colour alone (WCAG 1.4.1): the
+   Cyber link colour is close in luminance to body text, so keep the kit's
+   underline instead of Radix's hover-only one. */
+html[data-design="cyber"] .rt-Link:where(.rt-underline-auto) {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+html[data-design="cyber"] .rt-Link:where(.rt-underline-auto):hover {
+  text-decoration-color: currentColor;
+}
+
+html[data-design="cyber"] .rt-Code {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-Kbd {
+  border-radius: 0;
+  font-family: var(--cy-font);
+  font-weight: 600;
+  letter-spacing: 0;
+  box-shadow: inset 0 0 0 1px var(--gray-a7);
+  background-color: var(--gray-a4);
+}
+
+/* ── Buttons (.btn) ────────────────────────────────────────────────────── */
+html[data-design="cyber"] .rt-BaseButton {
+  border-radius: 0;
+  font-weight: 600;
+  letter-spacing: var(--cy-tracking);
+  transition: color var(--dl-transition), background-color var(--dl-transition),
+    box-shadow var(--dl-transition), border-color var(--dl-transition);
+}
+
+html[data-design="cyber"] .rt-Button {
+  text-transform: uppercase;
+}
+
+/* .btn-outline-theme: full-colour hairline, fills on hover */
+html[data-design="cyber"] .rt-BaseButton:where(.rt-variant-outline) {
+  box-shadow: inset 0 0 0 1px var(--accent-9);
+  color: var(--accent-a11);
+}
+
+html[data-design="cyber"] .rt-BaseButton:where(.rt-variant-outline):not(:disabled, [data-disabled]):hover {
+  background-color: var(--accent-9);
+  color: var(--accent-contrast);
+}
+
+/* .btn-default: neutral solid buttons are white with black text in Cyber.
+   Radix's gray-9 + white would also fail 4.5:1 at 10px. */
+html[data-design="cyber"] .rt-BaseButton:where(.rt-variant-solid)[data-accent-color='gray']:not(:disabled, [data-disabled]) {
+  background-color: var(--cy-fg);
+  color: var(--cy-bg);
+}
+
+html[data-design="cyber"] .rt-BaseButton:where(.rt-variant-solid)[data-accent-color='gray']:not(:disabled, [data-disabled]):hover {
+  background-color: color-mix(in srgb, var(--cy-fg) 85%, var(--cy-bg));
+}
+
+/* .btn-outline-secondary frame (#8c8c8c). Text stays at full strength: the
+   kit's #8c8c8c label falls under 4.5:1 over the brighter cover areas. */
+html[data-design="cyber"] .rt-BaseButton:where(.rt-variant-outline)[data-accent-color='gray'] {
+  box-shadow: inset 0 0 0 1px var(--cy-muted);
+  color: var(--gray-12);
+}
+
+/* .btn-secondary: #8c8c8c fill, black text (7.7:1) */
+html[data-design="cyber"] .rt-BaseButton.dl-btn-secondary {
+  font-size: var(--font-size-2);
+}
+
+html[data-design="cyber"] .rt-BaseButton.dl-btn-secondary:not(:disabled, [data-disabled]) {
+  background-color: var(--cy-muted);
+  box-shadow: inset 0 0 0 1px var(--cy-muted);
+  color: #000;
+}
+
+html[data-design="cyber"] .rt-BaseButton.dl-btn-secondary:not(:disabled, [data-disabled]):hover {
+  background-color: #a3a3a3;
+}
+
+html[data-design="cyber"] .rt-BaseButton:where(.rt-variant-outline)[data-accent-color='gray']:not(:disabled, [data-disabled]):hover {
+  background-color: var(--gray-a4);
+  color: var(--gray-12);
+}
+
+html[data-design="cyber"] .rt-BaseButton:where(:focus-visible) {
+  outline: 1px solid var(--focus-8);
+  outline-offset: 2px;
+}
+
+/* ── Inputs (.form-control / .form-select) ─────────────────────────────── */
+html[data-design="cyber"] :is(.rt-TextFieldRoot, .rt-TextAreaRoot, .rt-SelectTrigger) {
+  border-radius: 0;
+  font-weight: 600;
+}
+
+/* .form-control: 1px var(--bs-border-color) (#4d4d4d) frame */
+html[data-design="cyber"] :is(.rt-TextFieldRoot, .rt-TextAreaRoot):where(.rt-variant-surface),
+html[data-design="cyber"] .rt-SelectTrigger:where(.rt-variant-surface) {
+  box-shadow: inset 0 0 0 1px var(--cy-border);
+}
+
+html[data-design="cyber"] :is(.rt-TextFieldRoot, .rt-TextAreaRoot):where(:focus-within),
+html[data-design="cyber"] .rt-SelectTrigger:where(:focus-visible, [data-state='open']) {
+  outline: 1px solid var(--focus-8);
+  outline-offset: 1px;
+  box-shadow: inset 0 0 0 1px var(--focus-8);
+}
+
+html[data-design="cyber"] :is(.rt-TextFieldInput, .rt-TextAreaInput)::placeholder {
+  color: var(--gray-a10);
+  opacity: 1;
+}
+
+html[data-design="cyber"] .rt-TextFieldRoot:where(.rt-variant-soft),
+html[data-design="cyber"] .rt-TextAreaRoot:where(.rt-variant-soft),
+html[data-design="cyber"] .rt-SelectTrigger:where(.rt-variant-soft) {
+  background-color: var(--gray-a3);
+}
+
+/* Checkboxes and radios follow .form-check-input: square box, hairline. */
+html[data-design="cyber"] .rt-BaseCheckboxRoot::before {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-BaseCheckboxRoot:where(:focus-visible)::before {
+  outline: 1px solid var(--focus-8);
+  outline-offset: 2px;
+}
+
+/* ── Cards, panels, callouts (.card / .alert) ──────────────────────────── */
+html[data-design="cyber"] .rt-Card {
+  --card-background-color: transparent;
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-Card:where(.rt-variant-classic) {
+  box-shadow: none;
+}
+
+html[data-design="cyber"] .rt-Card::before,
+html[data-design="cyber"] .rt-Card::after {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-CalloutRoot {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-CalloutRoot:where(.rt-variant-soft) {
+  box-shadow: inset 0 0 0 1px var(--accent-a6);
+}
+
+/* ── Badges (.badge) ───────────────────────────────────────────────────── */
+html[data-design="cyber"] .rt-Badge {
+  border-radius: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--cy-tracking);
+}
+
+/* ── Tables (.table) ───────────────────────────────────────────────────── */
+html[data-design="cyber"] .rt-TableRoot {
+  border-radius: 0;
+  max-width: 100%;
+}
+
+html[data-design="cyber"] .rt-TableRoot:where(.rt-variant-surface) {
+  border: 1px solid var(--cy-border-translucent);
+  background-color: transparent;
+}
+
+html[data-design="cyber"] .rt-TableRootTable {
+  --table-row-box-shadow: inset 0 -1px var(--gray-a7);
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-TableRoot:where(.rt-r-size-1) {
+  --table-cell-padding: var(--space-1) var(--space-2);
+  --table-cell-min-height: calc(1.75rem * var(--scaling));
+}
+
+html[data-design="cyber"] .rt-TableRoot:where(.rt-r-size-2) {
+  --table-cell-padding: 0.5rem;
+  --table-cell-min-height: calc(2rem * var(--scaling));
+}
+
+html[data-design="cyber"] .rt-TableRoot:where(.rt-r-size-3) {
+  --table-cell-padding: var(--space-3) var(--space-4);
+  --table-cell-min-height: calc(2.25rem * var(--scaling));
+}
+
+html[data-design="cyber"] .rt-TableRoot:where(.rt-variant-surface) .rt-TableHeader {
+  --table-row-background-color: var(--cy-cap-bg);
+}
+
+/* app.css sets mobile-aligned 11/13px cells with 12px 14px padding; Cyber
+   is the 10px .table with .5rem cells, so hand the padding back to Radix's
+   per-size variable. */
+html[data-design="cyber"] :is(.rt-TableColumnHeaderCell, .rt-TableRowHeaderCell, .rt-TableCell) {
+  padding: var(--table-cell-padding);
+  font-size: inherit;
+  border-bottom: 0;
+}
+
+html[data-design="cyber"] .rt-TableColumnHeaderCell {
+  color: var(--gray-12);
+  background: transparent;
+  font-family: var(--cy-font);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--cy-tracking);
+  vertical-align: bottom;
+}
+
+html[data-design="cyber"] .rt-TableCell {
+  vertical-align: middle;
+}
+
+html[data-design="cyber"] .rt-TableBody .rt-TableRow:hover {
+  --table-row-background-color: var(--gray-a2); /* .table-hover */
+}
+
+/* ── Tabs (.nav-tabs), segmented control (.nav-pills) ──────────────────── */
+/* app.css turns Tabs.List into a pill segmented control (mobile-aligned);
+   Cyber tabs are a flat underline row. */
+html[data-design="cyber"] .rt-TabsList {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  gap: 0;
+}
+
+html[data-design="cyber"] .rt-TabsTrigger {
+  border-radius: 0;
+  font-size: inherit;
+  transition: color var(--dl-transition);
+}
+
+html[data-design="cyber"] .rt-TabsTrigger[data-state='active'] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--gray-12);
+}
+
+html[data-design="cyber"] .rt-BaseTabList {
+  box-shadow: inset 0 -1px 0 0 var(--gray-a7);
+}
+
+html[data-design="cyber"] .rt-BaseTabListTrigger {
+  color: var(--gray-a11);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--cy-tracking);
+}
+
+html[data-design="cyber"] :is(.rt-BaseTabListTriggerInner, .rt-BaseTabListTriggerInnerHidden) {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-BaseTabListTrigger:where([data-state='active'], [data-active]) {
+  color: var(--gray-12);
+}
+
+html[data-design="cyber"] .rt-BaseTabListTrigger:where([data-state='active'], [data-active])::before {
+  background-color: var(--accent-9);
+}
+
+html[data-design="cyber"] .rt-SegmentedControlRoot {
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--gray-a7);
+}
+
+html[data-design="cyber"] :is(.rt-SegmentedControlIndicator, .rt-SegmentedControlIndicator::before, .rt-SegmentedControlItem) {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-SegmentedControlIndicator::before {
+  background-color: var(--gray-a5);
+  box-shadow: none;
+}
+
+html[data-design="cyber"] .rt-SegmentedControlItem {
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* ── Menus, selects, popovers (.dropdown-menu) ─────────────────────────
+   rgba(body-bg,.8) + blur 6px, 1px border-colour frame, .5rem 0 padding,
+   items .21875rem .875rem at rgba(fg,.75); hover = border-colour fill.
+   Opens with appDropdownShow (opacity, .25s cubic-bezier(.7,0,.3,1)) and
+   closes instantly, like Bootstrap's .dropdown-menu. */
+html[data-design="cyber"] :is(
+  .rt-BaseMenuContent,
+  .rt-SelectContent,
+  .rt-PopoverContent,
+  .rt-HoverCardContent
+) {
+  border-radius: 0;
+  background-color: rgba(var(--cy-bg-rgb), 0.8);
+  box-shadow: 0 0 0 1px var(--cy-border);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+html[data-design="cyber"].light :is(.rt-BaseMenuContent, .rt-SelectContent, .rt-PopoverContent, .rt-HoverCardContent) {
+  background-color: var(--cy-elevated);
+}
+
+html[data-design="cyber"] :is(.rt-BaseMenuContent, .rt-SelectContent) {
+  --base-menu-content-padding: 0.5rem;
+  --base-menu-item-height: 1.375rem;
+  --base-menu-item-padding-left: 0.875rem;
+  --base-menu-item-padding-right: 0.875rem;
+  --select-content-padding: 0.5rem;
+  --select-item-height: 1.375rem;
+  --select-item-indicator-width: 0.875rem;
+}
+
+html[data-design="cyber"] :is(.rt-BaseMenuContent, .rt-SelectContent, .rt-PopoverContent, .rt-HoverCardContent)[data-state='open'] {
+  animation: cyDropdownShow 0.25s both cubic-bezier(0.7, 0, 0.3, 1);
+}
+
+html[data-design="cyber"] :is(.rt-BaseMenuContent, .rt-SelectContent, .rt-PopoverContent, .rt-HoverCardContent)[data-state='closed'] {
+  animation: none;
+}
+
+@keyframes cyDropdownShow {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+html[data-design="cyber"] :is(.rt-BaseMenuItem, .rt-SelectItem) {
+  border-radius: 0;
+  color: rgba(var(--cy-fg-rgb), 0.75);
+  font-size: var(--font-size-2);
+  font-weight: 500;
+}
+
+html[data-design="cyber"] .rt-BaseMenuContent :where(.rt-BaseMenuItem[data-highlighted]),
+html[data-design="cyber"] .rt-SelectContent :where(.rt-SelectItem[data-highlighted]) {
+  background-color: var(--cy-border);
+  color: var(--cy-fg);
+}
+
+html[data-design="cyber"].light .rt-BaseMenuContent :where(.rt-BaseMenuItem[data-highlighted]),
+html[data-design="cyber"].light .rt-SelectContent :where(.rt-SelectItem[data-highlighted]) {
+  background-color: var(--gray-a4);
+}
+
+html[data-design="cyber"] :is(.rt-BaseMenuSeparator, .rt-SelectSeparator) {
+  margin: 0.4375rem 0;
+  background-color: var(--cy-border);
+}
+
+/* Coloured items (e.g. Sign out in red) keep their hue when highlighted. */
+html[data-design="cyber"] .rt-BaseMenuItem[data-accent-color]:not([data-accent-color='gray']) {
+  color: var(--accent-a11);
+}
+
+html[data-design="cyber"] .rt-BaseMenuContent :where(.rt-BaseMenuItem[data-accent-color]:not([data-accent-color='gray'])[data-highlighted]) {
+  background-color: var(--accent-a4);
+  color: var(--accent-a11);
+}
+
+html[data-design="cyber"] :is(.rt-BaseMenuLabel, .rt-SelectLabel) {
+  color: var(--gray-a10);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* .tooltip: emphasis background at .9, .21875rem .4375rem, .625rem, fade .15s */
+html[data-design="cyber"] .rt-TooltipContent {
+  border-radius: 0;
+  padding: 0.21875rem 0.4375rem;
+}
+
+html[data-design="cyber"] .rt-TooltipText {
+  font-size: var(--font-size-2);
+  line-height: 1.5;
+}
+
+html[data-design="cyber"] .rt-TooltipContent[data-state] {
+  animation: cyFadeIn 0.15s linear both;
+}
+
+@keyframes cyFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+html[data-design="cyber"].dark .rt-TooltipContent,
+html[data-design="cyber"] .dark .rt-TooltipContent {
+  background-color: rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 0 1px var(--gray-a6);
+}
+
+html[data-design="cyber"].dark .rt-TooltipText,
+html[data-design="cyber"] .dark .rt-TooltipText {
+  color: #ffffff;
+}
+
+html[data-design="cyber"].dark .rt-TooltipArrow,
+html[data-design="cyber"] .dark .rt-TooltipArrow {
+  fill: rgba(0, 0, 0, 0.9);
+}
+
+/* ── Dialogs (.modal) ──────────────────────────────────────────────────
+   Backdrop #0a151a at .5 + blur 6px, fading in .15s linear; the dialog
+   drops 50px into place over .3s ease-out (.modal.fade .modal-dialog). */
+html[data-design="cyber"] .rt-BaseDialogOverlay {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+html[data-design="cyber"] .rt-BaseDialogOverlay[data-state='open'],
+html[data-design="cyber"] .rt-BaseDialogOverlay[data-state='open']::before {
+  animation: cyFadeIn 0.15s linear both;
+}
+
+html[data-design="cyber"] .rt-BaseDialogContent[data-state='open'] {
+  animation: cyModalShow 0.3s ease-out both, cyFadeIn 0.15s linear both;
+}
+
+@keyframes cyModalShow {
+  0% { transform: translateY(-50px); }
+  100% { transform: none; }
+}
+
+html[data-design="cyber"] :is(.rt-DialogContent, .rt-AlertDialogContent) {
+  border-radius: 0;
+  background-color: var(--cy-elevated);
+  box-shadow: var(--shadow-6);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+html[data-design="cyber"] :is(.rt-DialogContent, .rt-AlertDialogContent) {
+  border: 1px solid var(--cy-border-translucent);
+}
+
+html[data-design="cyber"] :is(.rt-DialogTitle, .rt-AlertDialogTitle) {
+  font-family: var(--cy-font);
+  font-weight: 600;
+  letter-spacing: var(--cy-tracking);
+  text-transform: uppercase;
+}
+
+/* ── Toasts (.toast): Components/RadixToaster.jsx reads these variables ── */
+html[data-design="cyber"] .radix-toast-viewport {
+  --normal-bg: rgba(var(--cy-bg-rgb), 0.85);
+  --normal-border: var(--cy-border-translucent);
+  --normal-text: var(--cy-fg);
+  --toast-padding: 0.5rem 0.75rem;
+  --toast-font-size: var(--font-size-2);
+  --toast-line-height: 1.5;
+  --toast-shadow: 0 0.5rem 0.5rem -0.25rem rgba(var(--cy-bg-rgb), 0.5);
+  --toast-backdrop: blur(6px);
+}
+
+/* ── Misc controls ─────────────────────────────────────────────────────── */
+html[data-design="cyber"] :is(.rt-ProgressRoot, .rt-ProgressIndicator) {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-ProgressRoot {
+  background-color: var(--gray-a5);
+}
+
+html[data-design="cyber"] .rt-Separator {
+  background-color: var(--gray-a6);
+}
+
+html[data-design="cyber"] .rt-ScrollAreaThumb {
+  background-color: var(--gray-a7);
+}
+
+html[data-design="cyber"] .rt-Skeleton {
+  border-radius: 0;
+}
+
+html[data-design="cyber"] .rt-AvatarRoot:not([data-radius='full']) {
+  border-radius: 0;
+}
+
+/* Native scrollbars: app.css keeps the 5px WebKit bar; Cyber's thumb is
+   white @ .25 and square. (No standard scrollbar-color here: in Chromium it
+   would override the thin ::-webkit-scrollbar.) */
+html[data-design="cyber"] ::-webkit-scrollbar-thumb {
+  background: var(--gray-a7);
+  border-radius: 0;
+}

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons';
-import { Badge, Box, Button, Flex, Heading, Text, TextField } from '@radix-ui/themes';
+import { Badge, Button, Text, TextField } from '@radix-ui/themes';
 import App from '@/Layouts/App.jsx';
-import { Panel } from '@/Components/ui/Panel';
+import PageHeader from '@/Components/PageHeader';
 
 export default function GlobalSearch({ query = '', groups = [], minimumLength = 2 }) {
     const [value, setValue] = useState(query);
@@ -28,74 +28,66 @@ export default function GlobalSearch({ query = '', groups = [], minimumLength = 
     return (
         <App>
             <Head title="Search" />
-            <Flex justify="center" p={{ initial: '3', md: '4' }}>
-                <Box style={{ width: '100%', maxWidth: 1100 }}>
-                    <Panel>
-                        <Flex direction="column" gap="4">
-                            <Box>
-                                <Heading size="6">Search Guardian</Heading>
-                                <Text size="2" color="gray">
-                                    Results only include records you are allowed to view.
-                                </Text>
-                            </Box>
+            <PageHeader
+                title="Search Guardian"
+                subtitle="Results only include records you are allowed to view."
+                chips={[
+                    query.length >= minimumLength ? { value: resultCount, label: 'Results', tone: resultCount > 0 ? 'theme' : 'default' } : null,
+                    query.length >= minimumLength ? { value: groups.length, label: 'Groups', tone: 'default' } : null,
+                ]}
+            />
 
-                            <form onSubmit={submit}>
-                                <Flex gap="2">
-                                    <Box style={{ flex: 1 }}>
-                                        <TextField.Root
-                                            value={value}
-                                            onChange={(event) => setValue(event.target.value)}
-                                            placeholder="Employee, RFI, objection, work order, incident…"
-                                            size="3"
-                                            aria-label="Search Guardian"
-                                            maxLength={100}
-                                            autoFocus
-                                        >
-                                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                                        </TextField.Root>
-                                    </Box>
-                                    <Button type="submit" size="3" loading={processing} disabled={processing || value.trim().length < minimumLength}>
-                                        Search
-                                    </Button>
-                                </Flex>
-                            </form>
+            {/* Cyber page_search_results: one .form-control-lg with its action inside the field */}
+            <form onSubmit={submit} role="search" className="dl-search-bar">
+                <TextField.Root
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    placeholder="Employee, RFI, objection, work order, incident…"
+                    size="3"
+                    aria-label="Search Guardian"
+                    maxLength={100}
+                    autoFocus
+                >
+                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                    <TextField.Slot side="right">
+                        <Button type="submit" size="1" className="dl-btn-secondary" loading={processing} disabled={processing || value.trim().length < minimumLength}>
+                            Search
+                        </Button>
+                    </TextField.Slot>
+                </TextField.Root>
+                {error && <Text as="p" color="red" role="alert" mt="2">{error}</Text>}
+                {query.length > 0 && query.length < minimumLength && (
+                    <Text as="p" color="amber" size="2" mt="2">Enter at least {minimumLength} characters.</Text>
+                )}
+            </form>
 
-                            {error && <Text color="red" role="alert">{error}</Text>}
+            {query.length >= minimumLength && resultCount === 0 && (
+                <div className="dl-empty">
+                    <Text weight="medium" as="div">No accessible results for “{query}”.</Text>
+                    <Text size="2" color="gray">Try a record number, employee ID, name, location, or description.</Text>
+                </div>
+            )}
 
-                            {query.length > 0 && query.length < minimumLength && (
-                                <Text color="amber" size="2">Enter at least {minimumLength} characters.</Text>
-                            )}
-
-                            {query.length >= minimumLength && resultCount === 0 && (
-                                <Box p="6" style={{ textAlign: 'center', border: '1px dashed var(--gray-a6)', borderRadius: 12 }}>
-                                    <Text weight="medium" as="div">No accessible results for “{query}”.</Text>
-                                    <Text size="2" color="gray">Try a record number, employee ID, name, location, or description.</Text>
-                                </Box>
-                            )}
-
-                            {groups.map((group) => (
-                                <Box key={group.key}>
-                                    <Flex align="center" gap="2" mb="2">
-                                        <Heading size="3">{group.label}</Heading>
-                                        <Badge variant="soft">{group.items.length}</Badge>
-                                    </Flex>
-                                    <Flex direction="column" gap="2">
-                                        {group.items.map((item) => (
-                                            <Link key={`${group.key}-${item.id}`} href={item.url} style={{ textDecoration: 'none' }}>
-                                                <Box p="3" style={{ border: '1px solid var(--gray-a5)', borderRadius: 10, background: 'var(--gray-a2)' }}>
-                                                    <Text weight="medium" as="div">{item.title}</Text>
-                                                    {item.subtitle && <Text size="2" color="gray" as="div">{item.subtitle}</Text>}
-                                                    {item.meta && <Text size="1" color="gray" as="div" mt="1">{item.meta}</Text>}
-                                                </Box>
-                                            </Link>
-                                        ))}
-                                    </Flex>
-                                </Box>
-                            ))}
-                        </Flex>
-                    </Panel>
-                </Box>
-            </Flex>
+            {groups.map((group) => (
+                <section key={group.key} className="dl-card dl-card--page" aria-labelledby={`search-group-${group.key}`}>
+                    <header className="dl-card__header">
+                        <h2 className="dl-card__title" id={`search-group-${group.key}`}>{group.label}</h2>
+                        <span className="dl-hud-line" aria-hidden="true" />
+                        <Badge variant="soft">{group.items.length}</Badge>
+                    </header>
+                    <ul className="dl-list dl-results">
+                        {group.items.map((item) => (
+                            <li key={`${group.key}-${item.id}`}>
+                                <Link href={item.url} className="dl-list__item dl-result">
+                                    <span className="dl-result__title">{item.title}</span>
+                                    {item.subtitle && <span className="dl-result__text">{item.subtitle}</span>}
+                                    {item.meta && <span className="dl-result__meta">{item.meta}</span>}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            ))}
         </App>
     );
 }

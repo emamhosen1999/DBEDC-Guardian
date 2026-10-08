@@ -1,10 +1,8 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, usePage, router } from "@inertiajs/react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { Avatar, Badge, Box, DropdownMenu, Flex, IconButton, Kbd, Separator, Text, TextField, Tooltip } from '@radix-ui/themes';
+import { Avatar, Badge, Box, DropdownMenu, Flex, Text, Tooltip } from '@radix-ui/themes';
 import {
-  HamburgerMenuIcon,
   MagnifyingGlassIcon,
   BellIcon,
   PersonIcon,
@@ -24,30 +22,47 @@ import {
   useMarkAllRead,
 } from '@/api/queries/useNotificationsQuery';
 import { useRealtimeNotifications } from '@/Hooks/useRealtimeNotifications';
-import { isDesktop } from '@/utils/desktop-bridge';
-
-const getGreeting = () => {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-};
+import logo from '../../../public/assets/images/logo.png';
+import { pageLabelFromComponent } from '@/utils/pageLabel.js';
 
 const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform);
 
-// Thin vertical divider between icon groups
-const VDivider = () => (
-  <Box style={{ width: 1, height: 20, background: 'var(--gray-a5)', flexShrink: 0, marginInline: 4 }} />
-);
+/* Brand: first word at full strength, the rest at half opacity (Cyber "CYBER ADMIN"). */
+function BrandName({ name }) {
+  const [first, ...rest] = String(name || 'DBEDC Guardian').split(' ');
+  return (
+    <span className="dl-header__logo-text">
+      {first}
+      {rest.length > 0 && <> <span className="dl-header__logo-muted">{rest.join(' ')}</span></>}
+    </span>
+  );
+}
+
+function MenuToggler({ sideBarOpen, onClick }) {
+  return (
+    <button
+      type="button"
+      className="dl-header__toggler"
+      onClick={onClick}
+      aria-label={sideBarOpen ? 'Collapse navigation' : 'Expand navigation'}
+      aria-expanded={!!sideBarOpen}
+      aria-controls="app-sidebar"
+    >
+      <span className="dl-header__toggler-bar" />
+      <span className="dl-header__toggler-bar" />
+      <span className="dl-header__toggler-bar" />
+    </button>
+  );
+}
 
 const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) => {
-  const { auth, app, title } = usePage().props;
+  const { props: { auth, app, title }, component } = usePage();
   const { settings, toggleAppearance } = useRadixTheme();
   const isMobile  = useMediaQuery('(max-width: 640px)');
   const isTablet  = useMediaQuery('(max-width: 1024px)');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const searchWrapRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Live in-app notifications (Task 13): React Query + RTDB-driven refresh.
   const { data: unreadCount = 0 } = useUnreadCount();
@@ -79,19 +94,19 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
       router.get(route('search'), { q: searchQuery }, { preserveState: true, preserveScroll: true });
       setSearchOpen(false);
       setSearchQuery('');
+      searchInputRef.current?.blur();
     }
   }, [searchQuery]);
 
   const openSearch = useCallback(() => {
     setSearchOpen(true);
-    requestAnimationFrame(() => {
-      searchWrapRef.current?.querySelector('input')?.focus();
-    });
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   }, []);
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     setSearchQuery('');
+    searchInputRef.current?.blur();
   }, []);
 
   // Cmd/Ctrl+K global shortcut
@@ -107,337 +122,236 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
     return () => document.removeEventListener('keydown', handler);
   }, [searchOpen, openSearch, closeSearch]);
 
-  const userName        = auth?.user?.name || auth?.user?.first_name || 'User';
+  const userName        = auth?.user?.name || auth?.user?.first_name || 'Employee';
   const userDesignation = auth?.user?.designation?.title || 'Team Member';
   const avatarSrc       = auth?.user?.profile_image_url || auth?.user?.profile_image;
-  const pageTitle       = title || app?.name || 'Dashboard';
+  const pageTitle       = title || pageLabelFromComponent(component) || app?.name || 'Dashboard';
+  const shortcut        = isMac ? '⌘K' : 'Ctrl K';
 
-  // ── Mobile full-width search overlay ──────────────────────────────────────
+  // ── Mobile full-width search row ─────────────────────────────────────────
   if (isMobile && searchOpen) {
     return (
-      <Panel
-        as="header"
-        style={{
-          height: 56, display: 'flex', alignItems: 'center',
-          paddingInline: 10, gap: 6,
-          borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
-          position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
-          borderRadius: 0,
-          background: 'var(--color-background)',
-        }}
-      >
-        <form
-          onSubmit={handleSearchSubmit}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}
-        >
-          <Box ref={searchWrapRef} style={{ flex: 1 }}>
-            <TextField.Root
-              size="2"
+      <header className="dl-header dl-header--search">
+        <form onSubmit={handleSearchSubmit} role="search">
+          <div className="dl-header__search">
+            <MagnifyingGlassIcon className="dl-header__search-icon" aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              className="dl-header__search-input"
+              type="search"
               placeholder="Search anything…"
+              aria-label="Search Guardian"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               autoFocus
-            >
-              <TextField.Slot>
-                <MagnifyingGlassIcon style={{ width: 14, height: 14 }} />
-              </TextField.Slot>
-            </TextField.Root>
-          </Box>
-          <IconButton type="button" variant="ghost" color="gray" size="2" onClick={closeSearch} aria-label="Close search">
+            />
+          </div>
+          <button type="button" className="dl-header__icon-btn" onClick={closeSearch} aria-label="Close search">
             <Cross1Icon />
-          </IconButton>
+          </button>
         </form>
-      </Panel>
+      </header>
     );
   }
 
   return (
-    <Panel
-      as="header"
-      style={{
-        height: 56,
-        display: 'flex',
-        alignItems: 'center',
-        paddingInline: 12,
-        gap: 4,
-        borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        flexShrink: 0,
-        borderRadius: 0,
-        background: 'var(--color-background)',
-      }}
-    >
-      {/* ── Sidebar toggle ──────────────────────────────────────────────────── */}
-      <Box style={{ WebkitAppRegion: 'no-drag' }}>
-        <Tooltip content={sideBarOpen ? 'Collapse sidebar' : 'Expand sidebar'} delayDuration={600}>
-          <IconButton variant="ghost" color="gray" size="2" onClick={toggleSideBar} aria-label="Toggle sidebar">
-            <HamburgerMenuIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
+    <header className="dl-header">
+      {/* ── Brand: sidebar toggle + logo ─────────────────────────────────── */}
+      <div className="dl-header__brand" style={{ WebkitAppRegion: 'no-drag' }}>
+        <MenuToggler sideBarOpen={sideBarOpen} onClick={toggleSideBar} />
+        <Link href={route('dashboard')} className="dl-header__logo" aria-label={`${app?.name || 'DBEDC Guardian'} dashboard`}>
+          <img src={logo} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <BrandName name={app?.name} />
+        </Link>
+      </div>
 
-      {/* ── Page title — always flex:1, always visible on ≥tablet ────────────── */}
-      {!isMobile && (
-        <Box style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
-          <Text
-            size="2"
-            weight="medium"
-            style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)' }}
-          >
-            {pageTitle}
-          </Text>
-        </Box>
-      )}
+      <div className="dl-header__menu">
+        {/* ── Page title (Cyber's header menu slot, ≥1200px) ────────────── */}
+        {!isMobile && (
+          <div className="dl-header__item dl-header__item--title">
+            <span className="dl-header__title">{pageTitle}</span>
+          </div>
+        )}
 
-      {/* ── Mobile spacer ───────────────────────────────────────────────────── */}
-      {isMobile && <Box style={{ flex: 1 }} />}
+        {/* ── HUD filler ─────────────────────────────────────────────────── */}
+        <div className="dl-header__item dl-header__item--grow" aria-hidden="true">
+          <div className="dl-hud-line--lg" style={{ width: '100%', height: '100%' }} />
+        </div>
 
-      {/* ── Search — anchored on RIGHT, never shifts left ────────────────────── */}
-      {!isMobile && (
-        <Box ref={searchWrapRef} style={{ flexShrink: 0, WebkitAppRegion: 'no-drag' }}>
-          {searchOpen ? (
-            <form
-              onSubmit={handleSearchSubmit}
-              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-            >
-              <TextField.Root
-                size="2"
-                placeholder="Search anything…"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: isTablet ? 200 : 280 }}
-                autoFocus
-              >
-                <TextField.Slot>
-                  <MagnifyingGlassIcon style={{ width: 14, height: 14 }} />
-                </TextField.Slot>
-              </TextField.Root>
-              <Tooltip content="Close  Esc" delayDuration={600}>
-                <IconButton type="button" variant="ghost" color="gray" size="2" onClick={closeSearch} aria-label="Close search">
-                  <Cross1Icon />
-                </IconButton>
-              </Tooltip>
-            </form>
-          ) : (
-            <Box
-              role="button"
-              tabIndex={0}
-              onClick={openSearch}
-              onKeyDown={e => e.key === 'Enter' && openSearch()}
-              aria-label="Open search"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                height: 32, paddingInline: 10,
-                width: isTablet ? 160 : 210,
-                border: '1px solid var(--gray-a5)',
-                borderRadius: 'var(--radius-2)',
-                cursor: 'text', color: 'var(--gray-9)',
-                background: 'var(--gray-a2)',
-                transition: 'border-color 120ms, background 120ms',
-                outline: 'none',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gray-a7)'; e.currentTarget.style.background = 'var(--gray-a3)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--gray-a5)'; e.currentTarget.style.background = 'var(--gray-a2)'; }}
-              onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-8)'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = 'var(--gray-a5)'; }}
-            >
-              <MagnifyingGlassIcon style={{ width: 13, height: 13, flexShrink: 0 }} />
-              <Text size="2" color="gray" style={{ flex: 1, userSelect: 'none', whiteSpace: 'nowrap' }}>Search…</Text>
-              {!isTablet && (
-                <Kbd size="1" style={{ opacity: 0.65, fontSize: 10, flexShrink: 0 }}>{isMac ? '⌘K' : 'Ctrl+K'}</Kbd>
-              )}
-            </Box>
+        {/* ── Action icons ───────────────────────────────────────────────── */}
+        <div className="dl-header__item dl-header__icons" style={{ WebkitAppRegion: 'no-drag' }}>
+
+          {/* Mobile: search icon */}
+          {isMobile && (
+            <button type="button" className="dl-header__icon-btn" onClick={openSearch} aria-label="Search">
+              <MagnifyingGlassIcon />
+            </button>
           )}
-        </Box>
-      )}
 
-      {/* ── Right action bar ─────────────────────────────────────────────────── */}
-      <Flex align="center" gap="2" style={{ flexShrink: 0, paddingLeft: 6, WebkitAppRegion: 'no-drag' }}>
+          {/* Appearance toggle — hidden on mobile */}
+          {!isMobile && (
+            <Tooltip content={settings.appearance === 'dark' ? 'Light mode' : 'Dark mode'} delayDuration={600}>
+              <button type="button" className="dl-header__icon-btn" onClick={toggleAppearance} aria-label="Toggle appearance">
+                {settings.appearance === 'dark' ? <SunIcon /> : <MoonIcon />}
+              </button>
+            </Tooltip>
+          )}
 
-        {/* Mobile: search icon */}
-        {isMobile && (
-          <IconButton variant="ghost" color="gray" size="2" onClick={openSearch} aria-label="Search">
-            <MagnifyingGlassIcon />
-          </IconButton>
-        )}
+          {/* Language switcher — hidden on small tablet */}
+          {!isTablet && <LanguageSwitcher />}
 
-        {/* Appearance toggle — hidden on mobile */}
-        {!isMobile && (
-          <Tooltip content={settings.appearance === 'dark' ? 'Light mode' : 'Dark mode'} delayDuration={600}>
-            <IconButton variant="ghost" color="gray" size="2" onClick={toggleAppearance} aria-label="Toggle appearance">
-              {settings.appearance === 'dark' ? <SunIcon /> : <MoonIcon />}
-            </IconButton>
-          </Tooltip>
-        )}
-
-        {/* Theme drawer — hidden on mobile */}
-        {!isMobile && (
-          <Tooltip content="Customize theme" delayDuration={600}>
-            <IconButton variant="ghost" color="gray" size="2" onClick={toggleThemeDrawer} aria-label="Theme settings">
-              <MixerHorizontalIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-
-        {/* Language switcher — hidden on small tablet */}
-        {!isTablet && <LanguageSwitcher />}
-
-        <VDivider />
-
-        {/* Notifications */}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Box style={{ position: 'relative', display: 'inline-flex' }}>
-              <IconButton variant="ghost" color="gray" size="2" aria-label="Notifications">
+          {/* Notifications */}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <button
+                type="button"
+                className="dl-header__icon-btn"
+                aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+              >
                 <BellIcon />
-              </IconButton>
-              {unreadCount > 0 && (
-                <Box style={{
-                  position: 'absolute', top: 2, right: 2,
-                  minWidth: 14, height: 14,
-                  background: 'var(--red-9)', color: '#fff',
-                  borderRadius: '50%', fontSize: 9, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1.5px solid var(--color-panel-solid)',
-                  pointerEvents: 'none', lineHeight: 1,
-                }}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Box>
-              )}
-            </Box>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end" style={{ minWidth: 300, maxWidth: 340 }}>
-            <Flex align="center" justify="between" px="3" py="2">
-              <Text size="2" weight="bold">Notifications</Text>
-              {unreadCount > 0 && <Badge color="red" variant="soft" size="1">{unreadCount} unread</Badge>}
-            </Flex>
-            <Separator size="4" />
-            {Array.isArray(notifications) && notifications.length > 0 ? (
-              <>
-                {notifications.slice(0, 6).map(n => (
-                  <DropdownMenu.Item
-                    key={n.id}
-                    style={{ opacity: n.read_at ? 0.55 : 1 }}
-                    onSelect={() => handleNotificationClick(n)}
-                  >
-                    <Flex direction="column" style={{ maxWidth: 260 }}>
-                      <Text size="2" weight={n.read_at ? 'regular' : 'medium'} style={{ lineHeight: 1.4 }}>
-                        {n.data?.title || n.data?.message || 'Notification'}
-                      </Text>
-                      {n.created_at && (
-                        <Text size="1" color="gray">{new Date(n.created_at).toLocaleDateString()}</Text>
-                      )}
-                    </Flex>
-                  </DropdownMenu.Item>
-                ))}
-                <Separator size="4" />
                 {unreadCount > 0 && (
-                  <DropdownMenu.Item onSelect={handleMarkAllRead} disabled={markAllReadMutation.isPending}>
-                    <Text size="2" style={{ justifyContent: 'center', width: '100%', textAlign: 'center' }}>Mark all read</Text>
-                  </DropdownMenu.Item>
+                  <span className="dl-header__count" aria-hidden="true">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
-                <DropdownMenu.Item asChild>
-                  <Link href={route('notifications.index')} style={{ justifyContent: 'center' }}>
-                    <Text size="2" color="accent">View all notifications</Text>
-                  </Link>
-                </DropdownMenu.Item>
-              </>
-            ) : (
-              <Flex align="center" justify="center" direction="column" gap="1" py="5">
-                <BellIcon style={{ width: 20, height: 20, color: 'var(--gray-7)' }} />
-                <Text size="2" color="gray">All caught up</Text>
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" sideOffset={6} style={{ minWidth: 300, maxWidth: 'min(340px, calc(100vw - 16px))' }}>
+              <Flex align="center" justify="between" px="3" py="2">
+                <Text size="2" weight="bold" style={{ textTransform: 'uppercase' }}>Notifications</Text>
+                {unreadCount > 0 && <Badge color="red" variant="soft" size="1">{unreadCount} unread</Badge>}
               </Flex>
-            )}
-            <Separator size="4" />
-            <DropdownMenu.Item asChild>
-              <Link href={route('settings.notifications')} style={{ justifyContent: 'center' }}>
-                <Text size="2" color="gray">Notification settings</Text>
-              </Link>
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-
-        {/* User menu */}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Box
-              role="button"
-              tabIndex={0}
-              aria-label="User menu"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '4px 6px 4px 4px',
-                borderRadius: 'var(--radius-2)',
-                cursor: 'pointer', outline: 'none',
-                transition: 'background 120ms',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--gray-a3)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              <Box style={{ position: 'relative', flexShrink: 0 }}>
-                <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="2" radius="full" />
-                <Box style={{
-                  position: 'absolute', bottom: 0, right: 0,
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: 'var(--green-9)',
-                  border: '1.5px solid var(--color-panel-solid)',
-                }} />
-              </Box>
-              {!isTablet && (
-                <Box>
-                  <Text size="1" color="gray" style={{ display: 'block', lineHeight: 1.2 }}>{getGreeting()}</Text>
-                  <Text size="2" weight="medium" style={{ display: 'block', lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {userName}
-                  </Text>
-                </Box>
-              )}
-            </Box>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end" style={{ minWidth: 220 }}>
-            {/* User info card */}
-            <Panel tinted style={{ margin: '2px 2px 4px', padding: 0 }}>
-              <Flex align="center" gap="3" px="3" py="3">
-                <Box style={{ position: 'relative', flexShrink: 0 }}>
-                  <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="3" radius="full" />
-                  <Box style={{
-                    position: 'absolute', bottom: 1, right: 1,
-                    width: 9, height: 9, borderRadius: '50%',
-                    background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
-                  }} />
-                </Box>
-                <Box style={{ minWidth: 0 }}>
-                  <Text size="2" weight="bold" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</Text>
-                  <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDesignation}</Text>
-                  {auth?.user?.email && (
-                    <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{auth.user.email}</Text>
+              <DropdownMenu.Separator />
+              {Array.isArray(notifications) && notifications.length > 0 ? (
+                <>
+                  {notifications.slice(0, 6).map(n => (
+                    <DropdownMenu.Item
+                      key={n.id}
+                      style={{ opacity: n.read_at ? 0.62 : 1, height: 'auto', paddingBlock: 6 }}
+                      onSelect={() => handleNotificationClick(n)}
+                    >
+                      <Flex direction="column" style={{ maxWidth: 260 }}>
+                        <Text size="2" weight={n.read_at ? 'regular' : 'medium'} style={{ lineHeight: 1.4 }}>
+                          {n.data?.title || n.data?.message || 'Notification'}
+                        </Text>
+                        {n.created_at && (
+                          <Text size="1" color="gray">{new Date(n.created_at).toLocaleDateString()}</Text>
+                        )}
+                      </Flex>
+                    </DropdownMenu.Item>
+                  ))}
+                  <DropdownMenu.Separator />
+                  {unreadCount > 0 && (
+                    <DropdownMenu.Item onSelect={handleMarkAllRead} disabled={markAllReadMutation.isPending}>
+                      <Text size="2" style={{ justifyContent: 'center', width: '100%', textAlign: 'center' }}>Mark all read</Text>
+                    </DropdownMenu.Item>
                   )}
-                </Box>
-              </Flex>
-            </Panel>
-            <DropdownMenu.Item asChild>
-              <Link href={auth?.user?.id ? route('profile', { user: auth.user.id }) : '#'}>
-                <PersonIcon style={{ marginRight: 8 }} /> Profile
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link href={route('dashboard')}>
-                <DashboardIcon style={{ marginRight: 8 }} /> Dashboard
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item onClick={toggleThemeDrawer}>
-              <MixerHorizontalIcon style={{ marginRight: 8 }} /> Theme Settings
-            </DropdownMenu.Item>
-            <Separator size="4" my="1" />
-            <DropdownMenu.Item color="red" onClick={handleLogout}>
-              <ExitIcon style={{ marginRight: 8 }} /> Sign out
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+                  <DropdownMenu.Item asChild>
+                    <Link href={route('notifications.index')} style={{ justifyContent: 'center' }}>
+                      <Text size="2" color="accent">View all notifications</Text>
+                    </Link>
+                  </DropdownMenu.Item>
+                </>
+              ) : (
+                <Flex align="center" justify="center" direction="column" gap="1" py="5">
+                  <BellIcon style={{ width: 20, height: 20, color: 'var(--gray-a9)' }} />
+                  <Text size="2" color="gray">All caught up</Text>
+                </Flex>
+              )}
+              <DropdownMenu.Separator />
+              <DropdownMenu.Item asChild>
+                <Link href={route('settings.notifications')} style={{ justifyContent: 'center' }}>
+                  <Text size="2" color="gray">Notification settings</Text>
+                </Link>
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
 
-      </Flex>
-    </Panel>
+        </div>
+
+        {/* ── Search (desktop: inline field; Ctrl/⌘K focuses it) ─────────── */}
+        {!isMobile && (
+          <form className="dl-header__item dl-header__search" onSubmit={handleSearchSubmit} role="search" style={{ WebkitAppRegion: 'no-drag' }}>
+            <MagnifyingGlassIcon className="dl-header__search-icon" aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              className="dl-header__search-input"
+              type="search"
+              placeholder="Search"
+              aria-label={`Search Guardian (${shortcut})`}
+              aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}
+              value={searchQuery}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => { if (!searchQuery) setSearchOpen(false); }}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {!isTablet && <kbd className="dl-header__search-kbd" aria-hidden="true">{shortcut}</kbd>}
+          </form>
+        )}
+
+        <div className="dl-header__item dl-header__icons" style={{ WebkitAppRegion: 'no-drag' }}>
+          {/* User menu */}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <button type="button" className="dl-header__icon-btn" aria-label={`Account menu for ${userName}`}>
+                {avatarSrc
+                  ? <img className="dl-header__avatar" src={avatarSrc} alt="" />
+                  : <PersonIcon />}
+                {!isTablet && <span>{userName}</span>}
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" sideOffset={6} style={{ minWidth: 220 }}>
+              {/* Employee info */}
+              <Box style={{ margin: '2px 2px 4px', padding: 0, background: 'var(--aero-surface, var(--gray-a2))' }}>
+                <Flex align="center" gap="3" px="3" py="3">
+                  <Box style={{ position: 'relative', flexShrink: 0 }}>
+                    <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="3" radius="full" />
+                    <Box style={{
+                      position: 'absolute', bottom: 1, right: 1,
+                      width: 9, height: 9, borderRadius: '50%',
+                      background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
+                    }} />
+                  </Box>
+                  <Box style={{ minWidth: 0 }}>
+                    <Text size="2" weight="bold" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{userName}</Text>
+                    <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDesignation}</Text>
+                    {auth?.user?.email && (
+                      <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{auth.user.email}</Text>
+                    )}
+                  </Box>
+                </Flex>
+              </Box>
+              <DropdownMenu.Item asChild>
+                <Link href={auth?.user?.id ? route('profile', { user: auth.user.id }) : '#'}>
+                  <PersonIcon style={{ marginRight: 8 }} /> Profile
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item asChild>
+                <Link href={route('dashboard')}>
+                  <DashboardIcon style={{ marginRight: 8 }} /> Dashboard
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onClick={toggleThemeDrawer}>
+                <MixerHorizontalIcon style={{ marginRight: 8 }} /> Theme Settings
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Item color="red" onClick={handleLogout}>
+                <ExitIcon style={{ marginRight: 8 }} /> Sign out
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+
+          {/* Theme drawer (Cyber's gear, last) — hidden on mobile */}
+          {!isMobile && (
+            <Tooltip content="Customize theme" delayDuration={600}>
+              <button type="button" className="dl-header__icon-btn" onClick={toggleThemeDrawer} aria-label="Theme settings">
+                <MixerHorizontalIcon />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+    </header>
   );
 });
 

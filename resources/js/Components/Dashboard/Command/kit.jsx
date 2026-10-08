@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Flex, Box, Heading, Text, Skeleton } from '@radix-ui/themes';
+import { Flex, Box, Text } from '@radix-ui/themes';
+import { EnterFullScreenIcon, ExitFullScreenIcon, MinusIcon, PlusIcon } from '@radix-ui/react-icons';
 
 /* ── data ───────────────────────────────────────────────────────────── */
 export function useCommandData() {
@@ -39,46 +40,68 @@ export const SERIES = {
 export const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US'));
 export const fmtCr = (n) => (n == null ? '—' : '৳' + Number(n).toLocaleString('en-US') + ' Cr');
 export const chLabel = (km) => `Ch ${km}+000`;
-export const MONO = "'Space Grotesk', system-ui, -apple-system, sans-serif";
+/* Numeric/display face: the active design language's display font (Noto Sans in
+   Cyber, Space Grotesk otherwise). A CSS var, so it also works inside CC_CSS. */
+export const MONO = "var(--dl-font-display, 'Space Grotesk', system-ui, -apple-system, sans-serif)";
+/* Corner radius that a design language may square off (Cyber → 0). */
+export const R = (px) => `var(--dl-panel-radius, ${px}px)`;
 
-/* ── command card (card with a header) ─────────────────────────────── */
-export function CommandCard({ title, sub, right, children, style, minHeight }) {
+/* ── command card (Cyber .card: header strip with title, HUD line and the
+   .card-header-btn tools — collapse and full screen) ───────────────────── */
+export function CommandCard({ title, sub, right, children, style, minHeight, flush = false, tools = true }) {
+    const bodyId = useId();
+    const [collapsed, setCollapsed] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+
+    useEffect(() => {
+        if (!expanded) return undefined;
+        const onKeyDown = (event) => { if (event.key === 'Escape') setExpanded(false); };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [expanded]);
+
+    const className = ['cc-card', 'dl-card', collapsed ? 'dl-card--collapsed' : '', expanded ? 'dl-card--expanded' : '']
+        .filter(Boolean).join(' ');
+    const label = typeof title === 'string' ? title : 'panel';
+
     return (
-        <Box
-            className="cc-card"
-            style={{
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight,
-                borderRadius: 16,
-                background: 'var(--aero-surface, var(--gray-2))',
-                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                padding: '20px 16px',
-                ...style,
-            }}
-        >
+        <section className={className} style={{ minHeight: collapsed ? undefined : minHeight, ...style }}
+            role={expanded ? 'dialog' : undefined} aria-modal={expanded || undefined} aria-label={expanded ? label : undefined}>
             {(title || right) && (
-                <Flex align="center" justify="between" gap="3" mb="3" style={{ flexShrink: 0 }}>
-                    <Box style={{ minWidth: 0 }}>
-                        {title && <Heading size="3" style={{ letterSpacing: '-0.01em', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>{title}</Heading>}
-                        {sub && <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>{sub}</Text>}
-                    </Box>
-                    {right && <Box style={{ flexShrink: 0 }}>{right}</Box>}
-                </Flex>
+                <header className="dl-card__header">
+                    {title && <h3 className="dl-card__title" title={typeof title === 'string' ? title : undefined}>{title}</h3>}
+                    <span className="dl-hud-line" aria-hidden="true" />
+                    {right && <div className="dl-card__actions">{right}</div>}
+                    {tools && (
+                        <div className="dl-card__tools">
+                            <button type="button" className="dl-card__tool" onClick={() => setCollapsed((c) => !c)}
+                                aria-expanded={!collapsed} aria-controls={bodyId}
+                                aria-label={collapsed ? `Show ${label}` : `Collapse ${label}`}>
+                                {collapsed ? <PlusIcon aria-hidden="true" /> : <MinusIcon aria-hidden="true" />}
+                            </button>
+                            <button type="button" className="dl-card__tool" onClick={() => setExpanded((e) => !e)}
+                                aria-pressed={expanded} aria-label={expanded ? `Exit full screen: ${label}` : `Full screen: ${label}`}>
+                                {expanded ? <ExitFullScreenIcon aria-hidden="true" /> : <EnterFullScreenIcon aria-hidden="true" />}
+                            </button>
+                        </div>
+                    )}
+                </header>
             )}
-            <Box style={{ flex: 1, minHeight: 0 }}>{children}</Box>
-        </Box>
+            <div className={`dl-card__body${flush ? ' dl-card__body--flush' : ''}`} id={bodyId}>
+                {sub && <Text as="p" className={`dl-card__sub${flush ? ' dl-card__sub--padded' : ''}`} style={{ fontVariantNumeric: 'tabular-nums' }}>{sub}</Text>}
+                {children}
+            </div>
+        </section>
     );
 }
 
 export function SectionLabel({ children, right }) {
     return (
-        <Flex align="center" gap="3" style={{ gridColumn: '1 / -1', margin: '12px 2px 2px' }}>
-            <Text size="1" style={{ letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: 'var(--aero-color-subtle, var(--gray-10))', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap' }}>{children}</Text>
-            <Box style={{ flex: 1, height: 1, background: 'var(--dl-border-color, rgba(0,0,0,0.08))' }} />
+        <div className="dl-section-label">
+            <h2 className="dl-section-label__text">{children}</h2>
+            <span className="dl-hud-line" aria-hidden="true" />
             {right}
-        </Flex>
+        </div>
     );
 }
 
@@ -86,24 +109,16 @@ export function SectionLabel({ children, right }) {
 export function Kpi({ icon, label, value, unit, foot, tone = 'accent', spark }) {
     const t = TONE[tone] ?? TONE.accent;
     return (
-        <Box
-            className="cc-card cc-kpi"
-            style={{
-                borderRadius: 16,
-                background: 'var(--aero-surface, var(--gray-2))',
-                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                padding: '18px 16px',
-            }}
-        >
+        <Box className="cc-card cc-kpi dl-card" style={{ padding: '14px' }}>
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" gap="2">
-                    <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: 10,
+                    <Flex align="center" justify="center" style={{ width: 24, height: 24, borderRadius: R(10),
                         background: t.soft, color: t.text, flexShrink: 0 }}>{icon}</Flex>
-                    <Text size="1" style={{ textTransform: 'uppercase', letterSpacing: '0.08em',
-                        color: 'var(--aero-color-subtle, var(--gray-10))', fontWeight: 700, fontSize: 11, lineHeight: 1.2 }}>{label}</Text>
+                    <Text size="1" style={{ textTransform: 'uppercase',
+                        color: 'var(--aero-color-subtle, var(--gray-10))', fontWeight: 700, lineHeight: 1.2 }}>{label}</Text>
                 </Flex>
                 <Flex align="baseline" gap="1">
-                    <Text style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em',
+                    <Text style={{ fontFamily: MONO, fontWeight: 600, fontSize: 'var(--font-size-5)',
                         fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: 'var(--gray-12)' }}>{value}</Text>
                     {unit && <Text size="2" color="gray" weight="medium">{unit}</Text>}
                 </Flex>
@@ -149,8 +164,8 @@ export function StatRow({ dot, name, sub, value, barPct, barColor }) {
                 {sub && <Text size="1" color="gray" style={{ fontFamily: MONO }}>{sub}</Text>}
             </Box>
             {barPct != null && (
-                <Box style={{ width: 120, height: 7, borderRadius: 5, background: 'var(--gray-a4)', overflow: 'hidden', flexShrink: 0 }}>
-                    <Box style={{ width: `${barPct}%`, height: '100%', background: barColor || 'var(--accent-9)', borderRadius: 5 }} />
+                <Box style={{ width: 120, height: 7, borderRadius: R(5), background: 'var(--gray-a4)', overflow: 'hidden', flexShrink: 0 }}>
+                    <Box style={{ width: `${barPct}%`, height: '100%', background: barColor || 'var(--accent-9)', borderRadius: R(5) }} />
                 </Box>
             )}
             {value != null && <Text style={{ fontFamily: MONO, fontWeight: 700 }}>{value}</Text>}

@@ -22,6 +22,7 @@
 @import './design/liquidglass.css';
 @import './design/bentogrid.css';
 @import './design/spatialui.css';
+@import './design/cyber.css';
 
 .radix-themes {
   --default-font-family: var(--custom-font-family, var(--dl-font-body, 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif)) !important;
@@ -193,7 +194,7 @@ font[style] {
 
 /* ─── Mobile-App-Aligned Badges, Buttons, Inputs ──────────────────── */
 .rt-Badge {
-  border-radius: 999px !important;
+  border-radius: 999px;
   font-family: var(--default-font-family);
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -216,72 +217,72 @@ font[style] {
 
 /* ─── Mobile-App-Aligned Tables ────────────────────────────────────── */
 .rt-TableRoot {
-  border-radius: 16px !important;
-  border: 1px solid var(--dl-border-color, rgba(0,0,0,0.08)) !important;
-  background: var(--aero-surface, var(--color-background)) !important;
-  overflow: hidden !important;
+  border-radius: 16px;
+  border: 1px solid var(--dl-border-color, rgba(0,0,0,0.08));
+  background: var(--aero-surface, var(--color-background));
+  overflow: hidden;
 }
 
 .rt-TableColumnHeaderCell {
-  font-family: var(--heading-font-family) !important;
-  font-weight: 700 !important;
-  font-size: 11px !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase !important;
-  color: var(--aero-color-subtle, var(--gray-9)) !important;
-  border-bottom: 1px solid var(--dl-border-color, rgba(0,0,0,0.08)) !important;
-  background: var(--aero-surface, var(--gray-2)) !important;
-  padding: 12px 14px !important;
+  font-family: var(--heading-font-family);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--aero-color-subtle, var(--gray-9));
+  border-bottom: 1px solid var(--dl-border-color, rgba(0,0,0,0.08));
+  background: var(--aero-surface, var(--gray-2));
+  padding: 12px 14px;
 }
 
 .rt-TableCell {
-  border-bottom: 1px solid var(--dl-border-color, rgba(0,0,0,0.05)) !important;
-  font-size: 13px !important;
-  padding: 12px 14px !important;
-  vertical-align: middle !important;
+  border-bottom: 1px solid var(--dl-border-color, rgba(0,0,0,0.05));
+  font-size: 13px;
+  padding: 12px 14px;
+  vertical-align: middle;
 }
 
 .rt-TableRow:last-child .rt-TableCell {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 /* ─── Mobile-App-Aligned Dialogs & Sheets ──────────────────────────── */
 .rt-DialogContent,
 .rt-AlertDialogContent {
-  background: var(--color-background) !important;
-  border: 1px solid var(--aero-surface-border, rgba(0,0,0,0.12)) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35) !important;
+  background: var(--color-background);
+  border: 1px solid var(--aero-surface-border, rgba(0,0,0,0.12));
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
 }
 
 .rt-DialogTitle,
 .rt-AlertDialogTitle {
-  font-family: var(--heading-font-family) !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.02em !important;
+  font-family: var(--heading-font-family);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* ─── Mobile-App-Aligned Segment Tabs ──────────────────────────────── */
 .rt-TabsList {
-  background: var(--aero-surface, var(--gray-3)) !important;
-  border-radius: 12px !important;
-  padding: 3px !important;
-  gap: 2px !important;
-  border: 1px solid var(--aero-surface-border, rgba(0,0,0,0.06)) !important;
+  background: var(--aero-surface, var(--gray-3));
+  border-radius: 12px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--aero-surface-border, rgba(0,0,0,0.06));
 }
 
 .rt-TabsTrigger {
-  border-radius: 9px !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  transition: all 140ms ease !important;
-  color: var(--aero-color-subtle, var(--gray-10)) !important;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 140ms ease;
+  color: var(--aero-color-subtle, var(--gray-10));
 }
 
 .rt-TabsTrigger[data-state="active"] {
-  background: var(--color-background) !important;
-  color: var(--aero-accent, var(--accent-11)) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
+  background: var(--color-background);
+  color: var(--aero-accent, var(--accent-11));
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
 
 /* ─── Ultra-Sleek Mobile Scrollbars ────────────────────────────────── */

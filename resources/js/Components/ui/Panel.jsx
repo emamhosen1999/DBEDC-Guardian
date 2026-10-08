@@ -7,6 +7,17 @@ const TINT_STYLE = { background: 'var(--aero-surface, var(--gray-2))', borderRad
 // Matches mobile app's $surfaceBorder (rgba(255,255,255,0.10) dark / rgba(0,0,0,0.07) light)
 const SURFACE_STYLE = { border: '1px solid var(--aero-surface-border, var(--gray-a4))', borderRadius: 12 };
 
+/**
+ * Inline radii win over any stylesheet, so a panel's radius is routed through
+ * the design-language token instead: Cyber sets --dl-panel-radius to 0, every
+ * other language falls back to the value the caller asked for.
+ */
+export function resolvePanelStyle(style) {
+  if (!style || style.borderRadius == null) return style;
+  const requested = typeof style.borderRadius === 'number' ? `${style.borderRadius}px` : style.borderRadius;
+  return { ...style, borderRadius: `var(--dl-panel-radius, ${requested})` };
+}
+
 function intersperseSeparators(children) {
   const arr = React.Children.toArray(children);
   return arr.flatMap((child, i) =>
@@ -24,13 +35,19 @@ function intersperseSeparators(children) {
  * `variant`/`size` are absorbed (Card-era leftovers) and never leak to the DOM.
  * All other props forward to the underlying Radix <Box>.
  */
-export function Panel({ tinted = false, divided = false, variant, size, p, children, style, ...props }) {
+export function Panel({ tinted = false, divided = false, variant, size, p, children, style, className, ...props }) {
   const isSurface = variant === 'surface';
   const base = tinted ? TINT_STYLE : isSurface ? SURFACE_STYLE : null;
-  const mergedStyle = base ? { ...base, ...style } : style;
+  const mergedStyle = resolvePanelStyle(base ? { ...base, ...style } : style);
   const kids = divided ? intersperseSeparators(children) : children;
   return (
-    <Box p={tinted || isSurface ? (p ?? '4') : p} style={mergedStyle} {...props}>
+    <Box
+      p={tinted || isSurface ? (p ?? '4') : p}
+      style={mergedStyle}
+      className={className ? `dl-panel ${className}` : 'dl-panel'}
+      data-panel={tinted ? 'tinted' : isSurface ? 'surface' : undefined}
+      {...props}
+    >
       {kids}
     </Box>
   );

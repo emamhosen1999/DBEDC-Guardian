@@ -5,10 +5,9 @@ import {
     AreaChart, Area, RadialBarChart, RadialBar, PolarAngleAxis, Cell, LabelList,
 } from 'recharts';
 import {
-    CommandCard, SectionLabel, Kpi, Spark, StatRow, DeltaChip, TONE, SERIES, MONO,
+    CommandCard, SectionLabel, Kpi, Spark, StatRow, DeltaChip, TONE, SERIES, MONO, R,
     fmtNum, fmtCr, chLabel, tooltipStyle,
 } from './kit.jsx';
-import { Panel } from '@/Components/ui/Panel';
 
 const ROAD_KM = 48;
 const ic = (path) => (
@@ -32,13 +31,15 @@ export function ProjectHero({ project, chainage = [], objections }) {
     (objections?.points || []).forEach((p) => { objByKm[p.km] = p.count; });
 
     return (
-        <Panel className="cc-card cc-hero" style={{ gridColumn: '1 / -1' }} tinted>
+        <section className="cc-card cc-hero dl-card" style={{ gridColumn: '1 / -1' }}>
+            <header className="dl-card__header">
+                <h2 className="dl-card__title">Operational Status · Dhaka Bypass Expressway (N-105) O&amp;M Phase</h2>
+                <span className="dl-hud-line" aria-hidden="true" />
+            </header>
+            <div className="dl-card__body">
             <Flex align="end" justify="between" gap="5" wrap="wrap" mb="4">
                 <Box style={{ minWidth: 0 }}>
-                    <Text size="1" style={{ fontFamily: MONO, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gray-11)' }}>
-                        Operational Status · Dhaka Bypass Expressway (N-105) O&M Phase
-                    </Text>
-                    <Heading size={{ initial: '5', md: '7' }} style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+                    <Heading size={{ initial: '5', md: '7' }} style={{ lineHeight: 1.05 }}>
                         {project.name}
                     </Heading>
                     <Text size="1" style={{ fontFamily: MONO, color: 'var(--gray-10)' }}>
@@ -51,7 +52,7 @@ export function ProjectHero({ project, chainage = [], objections }) {
                     <HeroStat k="Days to end" v={project.days_to_end ?? '—'} tone={project.days_to_end < 365 ? 'var(--amber-11)' : undefined} />
                     <HeroStat k="Health" v={String(project.health || '—').replace('_', ' ')} tone={project.health === 'good' ? 'var(--jade-11)' : 'var(--amber-11)'} />
                     <Flex align="baseline" gap="1">
-                        <Text style={{ fontFamily: MONO, fontWeight: 700, fontSize: 'clamp(32px,5vw,52px)', letterSpacing: '-0.04em',
+                        <Text style={{ fontFamily: MONO, fontWeight: 600, fontSize: 'clamp(32px,5vw,48px)',
                             lineHeight: 0.9, color: 'var(--accent-11)' }}>{project.progress}</Text>
                         <Text size="3" color="gray" style={{ fontFamily: MONO }}>% complete</Text>
                     </Flex>
@@ -87,7 +88,8 @@ export function ProjectHero({ project, chainage = [], objections }) {
                     </Flex>
                 </Flex>
             </Box>
-        </Panel>
+            </div>
+        </section>
     );
 }
 const HeroStat = ({ k, v, unit, tone }) => (
@@ -99,7 +101,7 @@ const HeroStat = ({ k, v, unit, tone }) => (
     </Flex>
 );
 const Legend = ({ sw, label }) => (
-    <Flex align="center" gap="2"><span style={{ width: 11, height: 11, borderRadius: 3, background: sw, flexShrink: 0 }} />{label}</Flex>
+    <Flex align="center" gap="2"><span style={{ width: 11, height: 11, borderRadius: R(3), background: sw, flexShrink: 0 }} />{label}</Flex>
 );
 
 /* ══════════════════════════ KPI BAND ═══════════════════════════════ */
@@ -196,10 +198,10 @@ export function DisciplineMix({ data = [] }) {
                             <Text size="2" weight="medium">{d.name}</Text>
                             <Text size="1" style={{ fontFamily: MONO, color: 'var(--gray-11)' }}>{fmtNum(d.total)} · {d.rate}%</Text>
                         </Flex>
-                        <Box style={{ height: 16, borderRadius: 5, background: 'var(--gray-a4)', overflow: 'hidden', position: 'relative' }}>
+                        <Box style={{ height: 16, borderRadius: R(5), background: 'var(--gray-a4)', overflow: 'hidden', position: 'relative' }}>
                             <Box style={{ width: `${(d.total / max) * 100}%`, height: '100%', background: 'var(--blue-a5)' }} />
                             <Box style={{ position: 'absolute', top: 0, left: 0, height: '100%',
-                                width: `${(d.completed / max) * 100}%`, background: 'var(--jade-9)', borderRadius: 5 }} />
+                                width: `${(d.completed / max) * 100}%`, background: 'var(--jade-9)', borderRadius: R(5) }} />
                         </Box>
                     </Box>
                 ))}
@@ -225,7 +227,7 @@ export function NcrPanel({ ncr = {} }) {
             right={<Badge color="tomato" variant="soft">{ncr.open} open</Badge>}>
             <Flex gap="2" mb="3">
                 {[['critical', sev.critical, 'var(--tomato-9)'], ['major', sev.major, 'var(--amber-9)'], ['minor', sev.minor, 'var(--iris-9)']].map(([k, v, c]) => (
-                    <Box key={k} style={{ flex: 1, borderRadius: 8, padding: '8px 10px', background: 'var(--gray-a2)', border: '1px solid var(--gray-a4)' }}>
+                    <Box key={k} style={{ flex: 1, borderRadius: R(8), padding: '8px 10px', background: 'var(--gray-a2)', border: '1px solid var(--gray-a4)' }}>
                         <Text style={{ fontFamily: MONO, fontWeight: 700, fontSize: 20, color: c }}>{v ?? 0}</Text>
                         <Text size="1" color="gray" style={{ display: 'block', fontFamily: MONO, textTransform: 'capitalize' }}>{k}</Text>
                     </Box>
@@ -246,7 +248,7 @@ export function SiPanel({ si = {} }) {
             right={<Badge color="amber" variant="soft">{si.open} open</Badge>}>
             <Flex gap="2" mb="3">
                 {(si.by_department || []).map((d) => (
-                    <Box key={d.name} style={{ flex: 1, borderRadius: 8, padding: '8px 10px', background: 'var(--gray-a2)', border: '1px solid var(--gray-a4)' }}>
+                    <Box key={d.name} style={{ flex: 1, borderRadius: R(8), padding: '8px 10px', background: 'var(--gray-a2)', border: '1px solid var(--gray-a4)' }}>
                         <Text style={{ fontFamily: MONO, fontWeight: 700, fontSize: 20, color: deptColor[d.name] || 'var(--gray-11)' }}>{d.count}</Text>
                         <Text size="1" color="gray" style={{ display: 'block', fontFamily: MONO }}>{d.name}</Text>
                     </Box>
@@ -365,9 +367,9 @@ export function WorkPackages({ milestones = [] }) {
                             <Text size="1" color="gray" style={{ fontFamily: MONO }}>{m.description}</Text>
                         </Box>
                         <Flex align="center" gap="3">
-                            <Box style={{ flex: 1, height: 18, borderRadius: 5, background: 'var(--gray-a4)', overflow: 'hidden' }}>
+                            <Box style={{ flex: 1, height: 18, borderRadius: R(5), background: 'var(--gray-a4)', overflow: 'hidden' }}>
                                 <Box style={{ width: `${m.progress}%`, height: '100%', background: cmap[m.status] || 'var(--gray-9)',
-                                    borderRadius: 5, transition: 'width .8s cubic-bezier(.2,.7,.3,1)' }} />
+                                    borderRadius: R(5), transition: 'width .8s cubic-bezier(.2,.7,.3,1)' }} />
                             </Box>
                             <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, width: 34, textAlign: 'right' }}>{m.progress}%</Text>
                         </Flex>
@@ -398,7 +400,7 @@ export function OperationsFeed({ feed = [] }) {
             <Flex direction="column">
                 {feed.map((f, i) => (
                     <Flex key={i} gap="3" py="2" style={{ borderTop: i ? '1px solid var(--gray-a3)' : 'none' }}>
-                        <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                        <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: R(8), flexShrink: 0,
                             background: toneSoft[f.tone], color: toneColor[f.tone], fontFamily: MONO, fontWeight: 700, fontSize: 12 }}>
                             {f.kind === 'ncr' ? '!' : '✓'}
                         </Flex>
@@ -436,7 +438,7 @@ export function TodayPanel({ today = {}, project = {}, showProject = true }) {
 }
 const TodayRow = ({ tone, icon, name, sub }) => (
     <Flex align="center" gap="3" py="2" style={{ borderTop: '1px solid var(--gray-a3)' }}>
-        <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+        <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: R(8), flexShrink: 0,
             background: `var(--${tone}-a3)`, color: `var(--${tone}-11)` }}>{icon}</Flex>
         <Box style={{ flex: 1, minWidth: 0 }}>
             <Text size="2" style={{ display: 'block' }}>{name}</Text>
@@ -446,5 +448,5 @@ const TodayRow = ({ tone, icon, name, sub }) => (
 );
 
 const Lg = ({ c, t }) => (
-    <Flex align="center" gap="2"><span style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />{t}</Flex>
+    <Flex align="center" gap="2"><span style={{ width: 10, height: 10, borderRadius: R(3), background: c, flexShrink: 0 }} />{t}</Flex>
 );

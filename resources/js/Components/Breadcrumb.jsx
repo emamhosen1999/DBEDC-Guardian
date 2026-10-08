@@ -1,12 +1,13 @@
 import React from 'react';
-import { Flex, Text } from '@radix-ui/themes';
 import { HomeIcon } from '@radix-ui/react-icons';
 import { Link, usePage } from '@inertiajs/react';
 import { getPages } from '@/Props/pages.jsx';
+import { pageLabelFromComponent } from '@/utils/pageLabel.js';
 
 const Breadcrumb = () => {
-    const { props, url } = usePage();
+    const { props, url, component } = usePage();
     const { title, auth } = props;
+    const currentLabel = title || pageLabelFromComponent(component) || 'Current Page';
     
     // Get permissions
     const permissions = auth?.permissions || [];
@@ -71,7 +72,7 @@ const Breadcrumb = () => {
         if (!currentRoute) {
             // Fallback if no route found
             breadcrumbs.push({
-                label: title || 'Current Page',
+                label: currentLabel,
                 icon: null,
                 href: null,
                 key: 'current'
@@ -147,7 +148,7 @@ const Breadcrumb = () => {
         } else {
             // Fallback if page not found in data
             breadcrumbs.push({
-                label: title || 'Current Page',
+                label: currentLabel,
                 icon: null,
                 href: null,
                 key: 'current'
@@ -159,39 +160,32 @@ const Breadcrumb = () => {
 
     const breadcrumbs = generateBreadcrumbs();
 
+    // Cyber's dashboard (index) has no breadcrumb row; its page header opens the content.
+    let onDashboard = false;
+    try { onDashboard = route().current('dashboard'); } catch { onDashboard = false; }
+    if (onDashboard) return null;
+
+    /* Cyber .app-content-header + .breadcrumb: uppercase trail, links in the
+       accent colour, "/" separators drawn by CSS (cyber/shell.css). */
     return (
-        <nav
-            aria-label="Breadcrumb"
-            style={{ padding: '4px 16px', borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}
-        >
-            <Flex align="center" gap="1" wrap="wrap">
-                {breadcrumbs.map((breadcrumb, idx) => (
-                    <React.Fragment key={breadcrumb.key}>
-                        {idx > 0 && (
-                            <Text size="1" color="gray" style={{ userSelect: 'none' }}>/</Text>
-                        )}
-                        <Flex align="center" gap="1">
-                            {breadcrumb.icon && (
-                                <span style={{ display: 'flex', alignItems: 'center', color: breadcrumb.href ? 'var(--gray-10)' : 'var(--gray-12)', width: 14, height: 14 }}>
-                                    {breadcrumb.icon}
-                                </span>
-                            )}
-                            {breadcrumb.href ? (
-                                <Link href={breadcrumb.href} style={{ textDecoration: 'none' }}>
-                                    <Text size="2" color="gray" style={{ transition: 'color 120ms' }}
-                                        onMouseEnter={e => e.target.style.color = 'var(--accent-11)'}
-                                        onMouseLeave={e => e.target.style.color = ''}>
-                                        {breadcrumb.label}
-                                    </Text>
-                                </Link>
+        <div className="dl-content-header">
+        <nav aria-label="Breadcrumb" className="dl-breadcrumb">
+            <ol>
+                {breadcrumbs.map((breadcrumb, idx) => {
+                    const isLast = idx === breadcrumbs.length - 1;
+                    return (
+                        <li key={breadcrumb.key}>
+                            {breadcrumb.href && !isLast ? (
+                                <Link href={breadcrumb.href}>{breadcrumb.label}</Link>
                             ) : (
-                                <Text size="2" weight="medium">{breadcrumb.label}</Text>
+                                <span aria-current={isLast ? 'page' : undefined}>{breadcrumb.label}</span>
                             )}
-                        </Flex>
-                    </React.Fragment>
-                ))}
-            </Flex>
+                        </li>
+                    );
+                })}
+            </ol>
         </nav>
+        </div>
     );
 };
 

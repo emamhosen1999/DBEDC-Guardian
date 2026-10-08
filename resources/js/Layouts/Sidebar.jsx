@@ -1,17 +1,30 @@
-import { Panel } from '@/Components/ui/Panel';
-import React, { useEffect, useState, useCallback } from 'react';
-import { Link, usePage } from "@inertiajs/react";
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Link, usePage, router } from "@inertiajs/react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { useRadixTheme } from '@/Contexts/RadixThemeContext';
-import { Avatar, Badge, Box, Flex, IconButton, ScrollArea, Separator, Text, TextField, Tooltip } from '@radix-ui/themes';
+import { DropdownMenu } from '@radix-ui/themes';
 import {
-  ChevronRightIcon,
   MagnifyingGlassIcon,
-  HomeIcon,
-  GearIcon,
+  PersonIcon,
+  DashboardIcon,
+  ExitIcon,
 } from '@radix-ui/react-icons';
-import logo from '../../../public/assets/images/logo.png';
 import { isNavRouteActive } from '@/utils/navRoute.js';
+import { buildNavSections, collectGroupPaths, filterNavPages, isGroupActive } from '@/Layouts/navSections.js';
+
+/*
+ * Cyber sidebar (seantheme.com/cyber, measured on the live site):
+ * - every top-level group of Props/pages.jsx renders as a section header
+ *   (.menu-header) with its children as top-level items; only a child that has
+ *   children of its own is expandable (caret + submenu);
+ * - one open item per depth (opening one closes the others), toggled
+ *   instantly, submenu items slide in (appSidebarSubMenuSlideInRight .3s
+ *   cubic-bezier(.7,0,.3,1), staggered 0/45/60/75… ms);
+ * - items containing the active route are open on load without animation;
+ *   the first click on such an item closes it.
+ * Styles: resources/css/design/cyber/shell.css (.dl-nav*).
+ */
+
+const COMPACT_QUERY = '(max-width: 1199.98px)';
 
 const highlightSearchMatch = (text, searchTerm) => {
   if (!searchTerm || !searchTerm.trim()) return text;
@@ -19,442 +32,238 @@ const highlightSearchMatch = (text, searchTerm) => {
   const parts = text.split(regex);
   return parts.map((part, index) =>
     part.toLowerCase() === searchTerm.toLowerCase()
-      ? <Text key={index} as="span" weight="bold" color="accent" style={{ background: 'var(--accent-a4)', borderRadius: 'var(--radius-1)', padding: '0 2px' }}>{part}</Text>
+      ? <mark key={index} className="dl-nav-match">{part}</mark>
       : part
   );
 };
 
-const useSidebarState = () => {
-  const [openSubMenus, setOpenSubMenus] = useState(() => {
-    try {
-      const stored = localStorage.getItem('sidebar_open_submenus');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch { return new Set(); }
-  });
+const navIcon = (icon) => (icon ? React.cloneElement(icon, { 'aria-hidden': true, focusable: 'false' }) : null);
 
-  const updateOpenSubMenus = useCallback((newSet) => {
-    const valid = newSet instanceof Set ? newSet : new Set();
-    setOpenSubMenus(valid);
-    try { localStorage.setItem('sidebar_open_submenus', JSON.stringify([...valid])); }
-    catch (e) { console.warn('sidebar localStorage error', e); }
-  }, []);
+function NavItem({ page, path, depth, url, navState, onToggle, onNavigate, searchTerm, searching }) {
+  const hasSub = Array.isArray(page.subMenu) && page.subMenu.length > 0;
 
-  return { openSubMenus, setOpenSubMenus: updateOpenSubMenus };
-};
-
-// Left accent bar that marks the active nav item
-const ActiveBar = () => (
-  <Box style={{
-    position: 'absolute',
-    left: 0,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: 3,
-    height: 18,
-    background: 'var(--aero-accent, var(--accent-9))',
-    borderRadius: '0 3px 3px 0',
-    flexShrink: 0,
-  }} />
-);
-
-const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, onNavigate, searchTerm, collapsed, onExpandSidebar }) => {
-  const isActive = !!(page.route && isNavRouteActive(activePage, page.route));
-  const hasActiveChild = !!(page.subMenu?.some(s =>
-    s.route ? isNavRouteActive(activePage, s.route) : s.subMenu?.some(n => isNavRouteActive(activePage, n.route))
-  ));
-  const isExpanded = openSubMenus.has(page.name);
-  const indent = level * 14;
-
-  // ── Collapsed icon-only mode (top-level only) ──────────────────────────────
-  if (collapsed && level === 0) {
-    if (page.subMenu) {
-      return (
-        <Tooltip content={page.name} side="right" delayDuration={80}>
-          <Box style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
-            <IconButton
-              variant={hasActiveChild ? 'soft' : 'ghost'}
-              color={hasActiveChild ? 'accent' : 'gray'}
-              size="3"
-              onClick={onExpandSidebar}
-              aria-label={page.name}
-              style={{ width: 36, height: 36, cursor: 'pointer', borderRadius: 'var(--radius-2)' }}
-            >
-              {page.icon && React.cloneElement(page.icon, { style: { width: 16, height: 16 } })}
-            </IconButton>
-            {hasActiveChild && (
-              <Box style={{
-                position: 'absolute', top: 4, right: 4,
-                width: 5, height: 5, borderRadius: '50%',
-                background: 'var(--aero-accent, var(--accent-9))',
-                border: '1.5px solid var(--color-panel-solid)',
-              }} />
-            )}
-          </Box>
-        </Tooltip>
-      );
-    }
-    if (page.route) {
-      return (
-        <Tooltip content={page.name} side="right" delayDuration={80}>
-          <Box style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
-            {isActive && <ActiveBar />}
-            <IconButton
-              variant={isActive ? 'soft' : 'ghost'}
-              color={isActive ? 'accent' : 'gray'}
-              size="3"
-              asChild
-              aria-label={page.name}
-              style={{ width: 36, height: 36, cursor: 'pointer', borderRadius: 'var(--radius-2)' }}
-            >
-              <Link href={route(page.route)} onClick={() => onNavigate(page.route)}>
-                {page.icon && React.cloneElement(page.icon, { style: { width: 16, height: 16 } })}
-              </Link>
-            </IconButton>
-          </Box>
-        </Tooltip>
-      );
-    }
-    return null;
-  }
-
-  // ── Group item (expanded mode) ─────────────────────────────────────────────
-  if (page.subMenu) {
+  if (hasSub) {
+    const active = isGroupActive(page, url);
+    const state = navState[path];
+    const open = searching || state === 'open' || (state !== 'closed' && active);
+    const className = [
+      'dl-nav-item',
+      'dl-nav-item--has-sub',
+      active ? 'dl-nav-item--active' : '',
+      open ? 'dl-nav-item--open' : '',
+      !searching && state === 'open' ? 'dl-nav-item--expand' : '',
+    ].filter(Boolean).join(' ');
     return (
-      <Box style={{ position: 'relative', marginBottom: 1 }}>
-        {hasActiveChild && <ActiveBar />}
-        <Box
-          role="button"
-          tabIndex={0}
-          onClick={() => onToggle(page.name)}
-          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onToggle(page.name)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            paddingLeft: 10 + indent, paddingRight: 10, height: 34,
-            borderRadius: 'var(--radius-2)', cursor: 'pointer',
-            background: hasActiveChild ? 'var(--aero-surface, var(--gray-a3))' : 'transparent',
-            color: hasActiveChild ? 'var(--aero-accent, var(--accent-11))' : 'var(--gray-11)',
-            userSelect: 'none', outline: 'none',
-            transition: 'background 100ms',
-          }}
-          onMouseEnter={e => { if (!hasActiveChild) e.currentTarget.style.background = 'var(--gray-a2)'; }}
-          onMouseLeave={e => { if (!hasActiveChild) e.currentTarget.style.background = 'transparent'; }}
-          onFocus={e => { if (!hasActiveChild) e.currentTarget.style.background = 'var(--gray-a2)'; }}
-          onBlur={e => { if (!hasActiveChild) e.currentTarget.style.background = 'transparent'; }}
+      <li className={className}>
+        <button
+          type="button"
+          className="dl-nav-link"
+          aria-expanded={open}
+          onClick={() => onToggle(path, depth, open)}
         >
-          {page.icon && (
-            <Box style={{ flexShrink: 0, opacity: hasActiveChild ? 1 : 0.6, display: 'flex', alignItems: 'center' }}>
-              {React.cloneElement(page.icon, { style: { width: 15, height: 15 } })}
-            </Box>
-          )}
-          <Text size="2" style={{ flex: 1, color: 'inherit', lineHeight: 1 }}>
-            {highlightSearchMatch(page.name, searchTerm)}
-          </Text>
-          <Badge size="1" variant="soft" color={hasActiveChild ? 'accent' : 'gray'} radius="full"
-            style={{ fontSize: 10, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-            {page.subMenu.length}
-          </Badge>
-          <ChevronRightIcon style={{
-            width: 12, height: 12, flexShrink: 0, opacity: 0.5,
-            transform: isExpanded ? 'rotate(90deg)' : 'none',
-            transition: 'transform 150ms ease',
-          }} />
-        </Box>
-        <Box style={{
-          display: 'grid',
-          gridTemplateRows: isExpanded ? '1fr' : '0fr',
-          transition: 'grid-template-rows 200ms ease',
-          marginLeft: 12 + indent,
-        }}>
-          <Box style={{ overflow: 'hidden' }}>
-            <Box style={{ paddingTop: 2, paddingBottom: 2, borderLeft: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))', paddingLeft: 6 }}>
-              {page.subMenu.map(sub => (
-                <NavItem key={sub.name} page={sub} level={level + 1} activePage={activePage}
-                  openSubMenus={openSubMenus} onToggle={onToggle} onNavigate={onNavigate}
-                  searchTerm={searchTerm} collapsed={false} onExpandSidebar={onExpandSidebar} />
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+          {page.icon && <span className="dl-nav-icon">{navIcon(page.icon)}</span>}
+          <span className="dl-nav-text">{highlightSearchMatch(page.name, searchTerm)}</span>
+          <span className="dl-nav-caret" aria-hidden="true"><b className="dl-caret" /></span>
+        </button>
+        <ul className="dl-nav-sub">
+          {page.subMenu.map((child) => (
+            <NavItem
+              key={child.name}
+              page={child}
+              path={`${path}/${child.name}`}
+              depth={depth + 1}
+              url={url}
+              navState={navState}
+              onToggle={onToggle}
+              onNavigate={onNavigate}
+              searchTerm={searchTerm}
+              searching={searching}
+            />
+          ))}
+        </ul>
+      </li>
     );
   }
 
-  // ── Leaf nav item (expanded mode) ──────────────────────────────────────────
-  if (page.route) {
-    return (
-      <Box style={{ position: 'relative', marginBottom: 1 }}>
-        {isActive && <ActiveBar />}
-        <Link
-          href={route(page.route)}
-          method={page.method}
-          preserveState
-          preserveScroll
-          style={{ textDecoration: 'none', display: 'block' }}
-          onClick={() => onNavigate(page.route)}
-        >
-          <Box
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              paddingLeft: 10 + indent, paddingRight: 10, height: 34,
-              borderRadius: 'var(--radius-2)', cursor: 'pointer',
-              background: isActive ? 'var(--aero-surface, var(--gray-a3))' : 'transparent',
-              color: isActive ? 'var(--aero-accent, var(--accent-11))' : 'var(--gray-11)',
-              transition: 'background 100ms',
-            }}
-            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--gray-a2)'; }}
-            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-          >
-            {page.icon && (
-              <Box style={{ flexShrink: 0, opacity: isActive ? 1 : 0.6, display: 'flex', alignItems: 'center' }}>
-                {React.cloneElement(page.icon, { style: { width: 15, height: 15 } })}
-              </Box>
-            )}
-            <Text size="2" weight={isActive ? 'medium' : 'regular'} style={{ color: 'inherit' }}>
-              {highlightSearchMatch(page.name, searchTerm)}
-            </Text>
-          </Box>
-        </Link>
-      </Box>
-    );
-  }
+  if (!page.route) return null;
+  const isActive = isNavRouteActive(url, page.route);
+  return (
+    <li className={`dl-nav-item${isActive ? ' dl-nav-item--active' : ''}`}>
+      <Link
+        href={route(page.route)}
+        method={page.method}
+        preserveState
+        preserveScroll
+        className="dl-nav-link"
+        onClick={() => onNavigate(page.route)}
+        aria-current={isActive ? 'page' : undefined}
+      >
+        {page.icon && <span className="dl-nav-icon">{navIcon(page.icon)}</span>}
+        <span className="dl-nav-text">{highlightSearchMatch(page.name, searchTerm)}</span>
+      </Link>
+    </li>
+  );
+}
 
-  return null;
-});
-NavItem.displayName = 'NavItem';
-
-const SectionLabel = ({ icon, label, color = 'accent' }) => (
-  <Flex align="center" gap="1" px="1" pt="2" pb="1" style={{ flexShrink: 0 }}>
-    {React.cloneElement(icon, { style: { width: 10, height: 10, color: `var(--${color}-9)`, flexShrink: 0 } })}
-    <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: 10, color: `var(--${color}-11)` }}>
-      {label}
-    </Text>
-    <Box style={{ flex: 1, height: '1px', background: `var(--${color}-a5)`, marginLeft: 2 }} />
-  </Flex>
+/* Cyber .menu-header: title, then a hairline over a HUD stripe and three blocks. */
+const SectionHeader = ({ id, label }) => (
+  <>
+    <div className="dl-nav-header">
+      <h2 className="dl-nav-header__title" id={id}>{label}</h2>
+      <div className="dl-nav-header__deco" aria-hidden="true">
+        <div className="dl-nav-header__line" />
+        <div className="dl-nav-header__row">
+          <div className="dl-hud-line dl-nav-header__hud" />
+          <div className="dl-nav-header__block" />
+          <div className="dl-nav-header__block" />
+          <div className="dl-nav-header__block" />
+        </div>
+      </div>
+    </div>
+    <div className="dl-nav-rule" aria-hidden="true" />
+  </>
 );
 
-const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
-  const isMobile = useMediaQuery('(max-width: 768px)');
+const Sidebar = React.memo(({ toggleSideBar, pages, url }) => {
+  const isCompact = useMediaQuery(COMPACT_QUERY);
   const { auth, app } = usePage().props;
-  const collapsed = !isMobile && !sideBarOpen;
 
-  const { openSubMenus, setOpenSubMenus: updateOpenSubMenus } = useSidebarState();
   const [activePage, setActivePage] = useState(url);
   const [searchTerm, setSearchTerm] = useState('');
+  // path -> 'open' | 'closed'; unset items follow the active route (Cyber reload semantics).
+  const [navState, setNavState] = useState({});
 
-  const filterPagesRecursively = useCallback((pagesList, term) => {
-    const lower = term.toLowerCase();
-    return pagesList.reduce((acc, page) => {
-      const matches = page.name.toLowerCase().includes(lower);
-      if (page.subMenu) {
-        const filteredSub = filterPagesRecursively(page.subMenu, term);
-        if (matches || filteredSub.length > 0) acc.push({ ...page, subMenu: filteredSub });
-      } else if (matches) {
-        acc.push(page);
-      }
-      return acc;
-    }, []);
-  }, []);
+  const searching = searchTerm.trim().length > 0;
+  const visiblePages = useMemo(
+    () => (searching ? filterNavPages(pages, searchTerm) : pages),
+    [pages, searchTerm, searching],
+  );
+  const sections = useMemo(() => buildNavSections(visiblePages), [visiblePages]);
+  const groupsByDepth = useMemo(() => collectGroupPaths(sections), [sections]);
 
-  const groupedPages = (() => {
-    const allPages = searchTerm.trim() ? filterPagesRecursively(pages, searchTerm) : pages;
-    return {
-      mainPages: allPages.filter(p => !p.category || p.category === 'main'),
-      settingsPages: allPages.filter(p => p.category === 'settings'),
-    };
-  })();
-
-  useEffect(() => {
-    if (!searchTerm.trim()) return;
-    const expand = (list, set = new Set()) => {
-      list.forEach(p => {
-        if (p.subMenu) {
-          const has = p.subMenu.some(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.subMenu);
-          if (has) { set.add(p.name); expand(p.subMenu, set); }
-        }
-      });
-      return set;
-    };
-    updateOpenSubMenus(expand(pages));
-  }, [searchTerm, pages]);
-
+  // A new route behaves like Cyber's page load: only groups on the active route stay open.
   useEffect(() => {
     setActivePage(url);
-    const expandParents = (items, target, parents = []) => {
-      for (const p of items) {
-        const crumbs = [...parents, p.name];
-        if (p.route && '/' + p.route === target) {
-          updateOpenSubMenus(new Set([...openSubMenus, ...crumbs.slice(0, -1)]));
-          return true;
-        }
-        if (p.subMenu && expandParents(p.subMenu, target, crumbs)) return true;
-      }
-      return false;
-    };
-    expandParents(pages, url);
-  }, [url, pages]);
+    setNavState({});
+  }, [url]);
 
-  const handleSubMenuToggle = useCallback((name) => {
-    const next = new Set(openSubMenus);
-    next.has(name) ? next.delete(name) : next.add(name);
-    updateOpenSubMenus(next);
-  }, [openSubMenus, updateOpenSubMenus]);
+  const handleToggle = useCallback((path, depth, isOpen) => {
+    setNavState((prev) => {
+      const next = { ...prev };
+      (groupsByDepth[depth] || []).forEach((p) => { if (p !== path) next[p] = 'closed'; });
+      next[path] = isOpen ? 'closed' : 'open';
+      return next;
+    });
+  }, [groupsByDepth]);
 
   const handlePageClick = useCallback((pageRoute) => {
     setActivePage('/' + pageRoute);
     setSearchTerm('');
-    if (isMobile) toggleSideBar();
-  }, [isMobile, toggleSideBar]);
+    if (isCompact) toggleSideBar();
+  }, [isCompact, toggleSideBar]);
 
-  const userName = auth?.user?.name || auth?.user?.first_name || 'User';
+  const handleLogout = useCallback(() => router.post(route('logout'), { preserveState: true, preserveScroll: true }), []);
+
+  const userName = auth?.user?.name || auth?.user?.first_name || 'Employee';
   const userDesignation = auth?.user?.designation?.title || 'Team Member';
   const avatarSrc = auth?.user?.profile_image_url || auth?.user?.profile_image;
 
-  const renderNavList = (list, isCollapsed) =>
-    list.map(page => (
-      <NavItem
-        key={page.name}
-        page={page}
-        level={0}
-        activePage={activePage}
-        openSubMenus={openSubMenus}
-        onToggle={handleSubMenuToggle}
-        onNavigate={handlePageClick}
-        searchTerm={isCollapsed ? '' : searchTerm}
-        collapsed={isCollapsed}
-        onExpandSidebar={toggleSideBar}
-      />
-    ));
-
   return (
-    <Panel
-      style={{
-        width: isMobile ? 260 : (collapsed ? 56 : 240),
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRight: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
-        flexShrink: 0,
-        overflow: 'hidden',
-        borderRadius: 0,
-        background: 'var(--color-background)',
-      }}>
+    <aside id="app-sidebar" className="dl-sidebar" aria-label="Main navigation">
+      <div className="dl-sidebar__scroll">
+        <div className="dl-sidebar__inner">
+          <nav className="dl-nav" aria-label="Primary">
 
-      {/* ── Brand ───────────────────────────────────────────────────────────── */}
-      <Flex
-        align="center"
-        justify={collapsed ? 'center' : 'start'}
-        gap="3"
-        px={collapsed ? '0' : '3'}
-        style={{ height: 56, borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))', flexShrink: 0, paddingInline: collapsed ? 0 : undefined }}
-      >
-        <Box style={{ width: 30, height: 30, flexShrink: 0, overflow: 'hidden', borderRadius: 'var(--radius-2)', border: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}>
-          <img src={logo} alt={app?.name || 'Logo'} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-        </Box>
-        {!collapsed && (
-          <Box style={{ minWidth: 0, flex: 1 }}>
-            <Text size="2" weight="bold" truncate style={{ display: 'block', color: 'var(--aero-accent, var(--accent-11))' }}>{app?.name || 'Enterprise'}</Text>
-            <Text size="1" color="gray" style={{ display: 'block' }}>DBEDC Guardian</Text>
-          </Box>
-        )}
-      </Flex>
+            {/* ── Profile (Cyber .menu-profile) ─────────────────────────────── */}
+            <div className="dl-sidebar__profile-wrap">
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <button type="button" className="dl-sidebar__profile" aria-label={`Account menu for ${userName}`}>
+                    <span className="dl-sidebar__profile-image">
+                      {avatarSrc ? <img src={avatarSrc} alt="" /> : <PersonIcon aria-hidden="true" />}
+                    </span>
+                    <span className="dl-sidebar__profile-info">
+                      <span className="dl-sidebar__profile-row">
+                        <span className="dl-sidebar__profile-name">Welcome back, {userName}</span>
+                        <span className="dl-sidebar__profile-caret" aria-hidden="true"><b className="dl-caret" /></span>
+                      </span>
+                      <small className="dl-sidebar__profile-role">{userDesignation}</small>
+                    </span>
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="start" style={{ minWidth: 200 }}>
+                  <DropdownMenu.Item asChild>
+                    <Link href={auth?.user?.id ? route('profile', { user: auth.user.id }) : '#'}>
+                      <PersonIcon style={{ marginRight: 8 }} /> Profile
+                    </Link>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item asChild>
+                    <Link href={route('dashboard')}>
+                      <DashboardIcon style={{ marginRight: 8 }} /> Dashboard
+                    </Link>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item color="red" onClick={handleLogout}>
+                    <ExitIcon style={{ marginRight: 8 }} /> Sign out
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            </div>
 
-      {/* ── Search (expanded only) ───────────────────────────────────────────── */}
-      {!collapsed && (
-        <Box px="2" py="2" style={{ flexShrink: 0 }}>
-          <TextField.Root
-            size="1"
-            placeholder="Search navigation…"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          >
-            <TextField.Slot>
-              <MagnifyingGlassIcon style={{ width: 12, height: 12 }} />
-            </TextField.Slot>
-          </TextField.Root>
-        </Box>
-      )}
+            {/* ── Search (Guardian addition, Cyber .menu-search look) ───────── */}
+            <div className="dl-sidebar__search">
+              <MagnifyingGlassIcon aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Search navigation…"
+                aria-label="Search navigation"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-      {/* ── Navigation ──────────────────────────────────────────────────────── */}
-      <ScrollArea style={{ flex: 1 }}>
-        <Flex direction="column" px={collapsed ? '1' : '2'} pb="3" pt="1" style={{ gap: 0 }}>
+            {/* ── Sections (Cyber .menu-header + .menu-item) ────────────────── */}
+            {sections.map((section, i) => (
+              <React.Fragment key={section.key}>
+                <SectionHeader id={`dl-nav-section-${i}`} label={section.label} />
+                <ul className="dl-nav-list" aria-labelledby={`dl-nav-section-${i}`}>
+                  {section.items.map((page) => (
+                    <NavItem
+                      key={page.name}
+                      page={page}
+                      path={`${section.key}/${page.name}`}
+                      depth={0}
+                      url={activePage}
+                      navState={navState}
+                      onToggle={handleToggle}
+                      onNavigate={handlePageClick}
+                      searchTerm={searchTerm}
+                      searching={searching}
+                    />
+                  ))}
+                </ul>
+              </React.Fragment>
+            ))}
 
-          {collapsed ? (
-            /* Icon-only layout */
-            <>
-              {renderNavList(groupedPages.mainPages, true)}
-              {groupedPages.settingsPages.length > 0 && (
-                <>
-                  <Separator size="4" my="1" />
-                  {renderNavList(groupedPages.settingsPages, true)}
-                </>
-              )}
-              {groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 &&
-                renderNavList(pages, true)}
-            </>
-          ) : (
-            /* Full expanded layout */
-            <>
-              {groupedPages.mainPages.length > 0 && (
-                <>
-                  <SectionLabel icon={<HomeIcon />} label="Main" color="accent" />
-                  {renderNavList(groupedPages.mainPages, false)}
-                </>
-              )}
-              {groupedPages.settingsPages.length > 0 && (
-                <>
-                  <Separator size="4" my="2" />
-                  <SectionLabel icon={<GearIcon />} label="Admin" color="amber" />
-                  {renderNavList(groupedPages.settingsPages, false)}
-                </>
-              )}
-              {groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && !searchTerm.trim() &&
-                renderNavList(pages, false)}
-              {searchTerm.trim() && groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && (
-                <Flex direction="column" align="center" gap="1" py="6">
-                  <MagnifyingGlassIcon style={{ width: 20, height: 20, color: 'var(--gray-7)' }} />
-                  <Text size="2" color="gray">No results for "{searchTerm}"</Text>
-                </Flex>
-              )}
-            </>
-          )}
-        </Flex>
-      </ScrollArea>
+            {searching && sections.length === 0 && (
+              <p className="dl-nav-empty" role="status">No results for "{searchTerm}"</p>
+            )}
+          </nav>
 
-      {/* ── User footer ─────────────────────────────────────────────────────── */}
-      <Box style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))', flexShrink: 0, padding: collapsed ? '8px 0' : '8px 12px' }}>
-        {collapsed ? (
-          <Tooltip content={`${userName} · ${userDesignation}`} side="right" delayDuration={80}>
-            <Flex justify="center" style={{ cursor: 'default' }}>
-              <Box style={{ position: 'relative' }}>
-                <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="2" radius="full" />
-                <Box style={{
-                  position: 'absolute', bottom: 0, right: 0,
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
-                }} />
-              </Box>
-            </Flex>
-          </Tooltip>
-        ) : (
-          <Flex align="center" gap="2">
-            <Box style={{ position: 'relative', flexShrink: 0 }}>
-              <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="2" radius="full" />
-              <Box style={{
-                position: 'absolute', bottom: 0, right: 0,
-                width: 8, height: 8, borderRadius: '50%',
-                background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
-              }} />
-            </Box>
-            <Box style={{ minWidth: 0, flex: 1 }}>
-              <Text size="2" weight="medium" truncate style={{ display: 'block' }}>{userName}</Text>
-              <Text size="1" color="gray" truncate style={{ display: 'block' }}>{userDesignation}</Text>
-            </Box>
-            <Text size="1" color="gray" style={{ flexShrink: 0 }}>{app?.version || 'v4'}</Text>
-          </Flex>
-        )}
-      </Box>
-
-    </Panel>
+          {/* ── Status block (Cyber sidebar widgets) ───────────────────────── */}
+          <div className="dl-sidebar__foot">
+            <div className="dl-sidebar__stat">
+              <span className="dl-sidebar__stat-label">Session</span>
+              <span className="dl-sidebar__stat-value">online</span>
+            </div>
+            <div className="dl-sidebar__stat">
+              <span className="dl-sidebar__stat-label">Version</span>
+              <span className="dl-sidebar__stat-value">{app?.version || 'v4'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 });
 
