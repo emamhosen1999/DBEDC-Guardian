@@ -4,7 +4,9 @@ return [
     // Master switch for request logging.
     'enabled' => (bool) env('REQUEST_LOG_ENABLED', true),
 
-    'retention_days' => (int) env('REQUEST_LOG_RETENTION_DAYS', 90),
+    // 30 days stay queryable in the database; older rows are archived (gzip NDJSON, see archive_path) before
+    // deletion, so incident investigation keeps the full history without a multi-GB table (owner, 2026-10-09).
+    'retention_days' => (int) env('REQUEST_LOG_RETENTION_DAYS', 30),
 
     // Stored bodies are capped; anything larger is truncated (response) or replaced by a marker (request).
     'max_response_bytes' => (int) env('REQUEST_LOG_MAX_RESPONSE_BYTES', 10000),
