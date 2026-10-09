@@ -327,18 +327,6 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
 .cy-heat__legend [data-state='absent'] i { background: var(--red-9); }
 .cy-heat__legend [data-state='off'] i { box-shadow: inset 0 0 0 1px var(--cy-muted); }
 
-/* KPI strip: tiles joined edge to edge, one divider token */
-.cy-kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  border-bottom: 1px solid var(--cy-border);
-}
-.cy-kpi-strip > .dl-tile {
-  padding: 0.4375rem 0.875rem;
-  border-inline-start: 1px solid var(--cy-border);
-  border-top: 0;
-}
-.cy-kpi-strip > .dl-tile:first-child { border-inline-start: 0; }
 
 /* Freshness line in a card footer */
 .cy-fresh {
@@ -349,11 +337,6 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
   letter-spacing: var(--cy-tracking);
 }
 
-/* KPI strip cells: share the strip's dividers */
-.cy-kpi-strip__cell { display: flex; min-width: 0; border-inline-start: 1px solid var(--cy-border); }
-.cy-kpi-strip__cell:first-child { border-inline-start: 0; }
-.cy-kpi-strip__cell > .dl-tile { flex: 1; border: 0; }
-.cy-kpi-strip > .dl-tile { border-inline-start: 0; }
 
 /* Cards fill their cell: body grows, charts centre in the room left (no dead strip under a short card) */
 .dl-col > .dl-card { height: 100%; }
@@ -375,7 +358,74 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
 /* Stacked cards (below 992px): one divider between them, edge to edge */
 @media (max-width: 991.98px) {
   .dl-col + .dl-col { border-top: 1px solid var(--cy-border); }
-  .cy-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cy-kpi-strip__cell:nth-child(odd) { border-inline-start: 0; }
-  .cy-kpi-strip__cell:nth-child(n + 3) { border-top: 1px solid var(--cy-border); }
 }
+
+/* KPI strip: 420-column grid (equal split of any 1-7 tiles), tiles joined edge to edge by ONE divider token, every tile the same fixed height and
+   containing all of its content (label, value, delta, hint, sparkline). Spans are set per row by KpiStrip so a row is
+   always filled; nothing is positioned outside a tile. */
+.cy-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(420, minmax(0, 1fr));
+  border-bottom: 1px solid var(--cy-border);
+  border-inline-end: 1px solid var(--cy-border);
+  overflow: hidden;
+}
+
+.cy-kpi-strip__cell {
+  min-width: 0;
+  height: 7.25rem;
+  overflow: hidden;
+  border-inline-start: 1px solid var(--cy-border);
+  border-top: 1px solid var(--cy-border);
+  margin: -1px 0 0 -1px;
+}
+
+.cy-kpi-strip__cell > .dl-tile,
+.cy-kpi.dl-tile {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0.4375rem 0.875rem;
+  overflow: hidden;
+}
+
+.cy-kpi > .cy-stat { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.cy-kpi .cy-stat__label,
+.cy-kpi .cy-kpi__delta,
+.cy-kpi .cy-kpi__hint { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-kpi .cy-stat__value { flex: none; }
+.cy-kpi__spark { margin-top: auto; height: 1.25rem; overflow: hidden; flex: none; }
+.cy-kpi__spark .apexcharts-canvas { max-height: 1.25rem; overflow: hidden; }
+
+/* A minimized card shrinks to its header and keeps its own bottom edge (the rest of its cell stays open, as on Cyber) */
+.dl-col > .dl-card--collapsed { flex: 0 0 auto; height: auto; border-bottom: 1px solid var(--cy-border); }
+.dl-col > .dl-card--collapsed > .dl-card__header { border-bottom: 0; }
+
+/* Entitlement rings (leave balances): used share as the arc, days left in the centre */
+.cy-rings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+.cy-ring-cell {
+  min-width: 0;
+  margin: -1px 0 0 -1px;
+  border-top: 1px solid var(--cy-border-translucent);
+  border-inline-start: 1px solid var(--cy-border-translucent);
+}
+.cy-ring-link { display: flex; flex-direction: column; align-items: center; gap: 0.109375rem; padding: 0.4375rem 0.4375rem 0.4375rem; text-align: center; color: inherit; text-decoration: none; }
+.cy-ring { width: 3.5rem; height: 3.5rem; }
+.cy-ring__track { fill: none; stroke: var(--accent-a3); stroke-width: 3; }
+.cy-ring__arc { fill: none; stroke: var(--accent-9); stroke-width: 3; }
+.cy-ring__arc[data-tone='warn'] { stroke: var(--amber-9); }
+.cy-ring__arc[data-tone='crit'] { stroke: var(--red-9); }
+.cy-ring__value { fill: var(--gray-12); font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cy-ring__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.625rem; font-weight: 700; letter-spacing: var(--cy-tracking); text-transform: uppercase; }
+.cy-ring__meta { font-size: 0.546875rem; color: var(--gray-a11); }
+.cy-kpi__spark .apexcharts-yaxistooltip, .cy-kpi__spark .apexcharts-xaxistooltip { display: none !important; }
+.dl-col > .dl-card--collapsed > .dl-card__body,
+.dl-col > .dl-card--collapsed > .dl-card__foot { display: none; }
+html[data-design="cyber"] .dl-col > .dl-card--collapsed { border-bottom: 1px solid var(--cy-border); }

@@ -80,10 +80,10 @@ export default function OmDashboard({
         {
             key: 'uptime',
             title: 'Equipment & Sensor Uptime',
-            value: defaultStats.equipment_uptime_pct === null ? '99.2%' : `${defaultStats.equipment_uptime_pct}%`,
+            value: defaultStats.equipment_uptime_pct === null ? '—' : `${defaultStats.equipment_uptime_pct}%`,
             icon: <ComputerDesktopIcon />,
             color: 'green',
-            description: 'CCTV, WIM & Emergency SOS',
+            description: defaultStats.equipment_uptime_pct === null ? 'No equipment readings yet' : 'CCTV, WIM & Emergency SOS',
         },
     ];
 

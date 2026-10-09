@@ -50,7 +50,7 @@ class CatalogRouteMatrixTest extends TestCase
     private const GUARDED = [
         '#^user/#', '#^api/(user|notifications|notification-token|log-error|log-performance)#', '#^(notifications|settings/notifications)#',
         '#^(verify-email|email/verification-notification)#', '#^(firebase/token|employee-dashboard|account/password|my-devices|security/dashboard)#',
-        '#^aeon#', '#^petty-cash#', '#^search$#', '#^api/(designations|departments)/list$#', '#^api/users/managers/list$#', '#^api/v1/#',
+        '#^aeon#', '#^petty-cash#', '#^dashboard/widgets$#', '#^search$#', '#^api/(designations|departments)/list$#', '#^api/users/managers/list$#', '#^api/v1/#',
     ];
 
     /**

@@ -68,6 +68,7 @@ class DepartmentAdminRouteMatrixTest extends TestCase
         '#^(notifications|settings/notifications)#' => 'self-service: the caller\'s own notifications and preferences',
         '#^(verify-email|email/verification-notification)#' => 'self-service: the caller\'s own e-mail verification',
         '#^(firebase/token|employee-dashboard|account/password|my-devices|security/dashboard)#' => 'self-service: the caller\'s own dashboard, password, devices',
+        '#^dashboard/widgets$#' => 'the caller\'s own widget registry: every widget re-checks its permission and DepartmentScope, the main section needs core.dashboard.view in the action',
         '#^aeon#' => 'self-service: the caller\'s own AI conversations (owner-scoped)',
         '#^petty-cash#' => 'the caller\'s own petty-cash fund; the admin views sit behind petty-cash.* permissions',
         '#^search$#' => 'global search: every section re-checks its permission and DepartmentScope',

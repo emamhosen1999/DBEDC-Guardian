@@ -16,12 +16,10 @@ use App\Services\Operations\OmIncidentService;
 use App\Services\Operations\OmLookupService;
 use App\Services\Operations\OmShiftService;
 use App\Services\Operations\OmTollAuditService;
-use App\Services\Operations\OmVersionGuard;
 use App\Services\Operations\OmWorkOrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,9 +41,12 @@ class OperationsMaintenanceController extends Controller
     public function dashboard(Request $request): Response|JsonResponse
     {
         $equipmentUptime = OmEquipment::avg('uptime_pct');
+        // Real figures only (owner rule): no transactions or no equipment readings means "no data" (null), never a
+        // placeholder number.
+        $toll = $this->tollAuditService->getTollSummary();
         $stats = [
             'today_toll_revenue' => (float) OmTollRecord::whereDate('transacted_at', now()->today())->sum('amount'),
-            'etc_vehicle_ratio' => 42.5,
+            'etc_vehicle_ratio' => $toll['total_transactions_today'] > 0 ? $toll['etc_percentage'] : null,
             'total_defects_count' => OmDefect::count(),
             'open_defects_count' => OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])->count(),
             'rectified_defects_count' => OmDefect::whereIn('status', ['rectified', 'verified_closed'])->count(),
@@ -55,7 +56,7 @@ class OperationsMaintenanceController extends Controller
             'active_incidents_count' => OmIncident::whereIn('status', ['detected', 'dispatched', 'on_scene'])->count(),
             'open_work_orders_count' => OmWorkOrder::whereIn('status', ['pending', 'assigned', 'in_progress'])->count(),
             'active_lane_closures_count' => OmLaneClosurePermit::where('status', 'active')->count(),
-            'equipment_uptime_pct' => $equipmentUptime === null ? 99.2 : round((float) $equipmentUptime, 2),
+            'equipment_uptime_pct' => $equipmentUptime === null ? null : round((float) $equipmentUptime, 2),
             'avg_patrol_response_min' => $this->incidentService->getIncidentStats()['avg_response_time_min'],
         ];
 

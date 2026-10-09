@@ -10,7 +10,7 @@ vi.mock('@inertiajs/react', () => ({
 }));
 vi.mock('@/Components/ErrorBoundary/ErrorBoundary', () => ({ default: ({ children }) => <>{children}</> }));
 
-const { WidgetGrid, widgetByKey, statValue } = await import('../WidgetGrid.jsx');
+const { WidgetGrid, widgetByKey, statValue, packRows, kpiRows, STRIP_COLUMNS } = await import('../WidgetGrid.jsx');
 
 const payload = {
     sections: [{ key: 'team', label: 'My team' }, { key: 'project', label: 'Project delivery' }],
@@ -60,5 +60,28 @@ describe('WidgetGrid', () => {
         expect(statValue(payload, 'team.today', 'absent')).toBe(3);
         expect(statValue(payload, 'team.today', 'missing')).toBeNull();
         expect(widgetByKey(payload, 'team.broken')).toBeNull();
+    });
+});
+
+describe('row packing', () => {
+    it('fills every row to twelve columns without leaving a gap', () => {
+        const widgets = [4, 8, 12, 6, 6, 6, 4, 8, 6].map((span, i) => ({ key: `w${i}`, span }));
+        packRows(widgets).forEach((row) => expect(row.reduce((sum, c) => sum + c.span, 0)).toBe(12));
+    });
+
+    it('stretches a lone widget and a short last row to the full width', () => {
+        const rows = packRows([{ key: 'a', span: 8 }]);
+        expect(rows).toHaveLength(1);
+        expect(rows[0][0].span).toBe(12);
+        const last = packRows([{ key: 'a', span: 6 }, { key: 'b', span: 6 }, { key: 'c', span: 4 }]).at(-1);
+        expect(last.reduce((sum, c) => sum + c.span, 0)).toBe(12);
+    });
+
+    it('splits 7 KPI tiles into 4 + 3 (and 2-up on a phone) with equal tiles in every row', () => {
+        const rowsOf = (spans) => { const rows = []; let used = 0; let row = []; spans.forEach((s) => { row.push(s); used += s; if (used === STRIP_COLUMNS) { rows.push(row); row = []; used = 0; } }); return rows; };
+        expect(rowsOf(kpiRows(7, 7)).map((r) => r.length)).toEqual([7]);
+        expect(rowsOf(kpiRows(7, 4)).map((r) => r.length)).toEqual([4, 3]);
+        expect(rowsOf(kpiRows(7, 2)).map((r) => r.length)).toEqual([2, 2, 2, 1]);
+        [1, 2, 3, 4, 5, 6, 7].forEach((m) => expect(new Set(kpiRows(m, m)).size).toBe(1));
     });
 });

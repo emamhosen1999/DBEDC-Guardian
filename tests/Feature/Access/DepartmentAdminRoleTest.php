@@ -763,10 +763,15 @@ class DepartmentAdminRoleTest extends TestCase
     public function test_the_dashboard_and_its_widget_endpoints_show_only_scoped_data(): void
     {
         $command = $this->as($this->admin)->getJson(route('dashboard.command'))->assertOk();
-        $this->assertFalse($command->json('access.project'), 'no project / quality permission: workforce view only');
-        $this->assertSame(User::where('department_id', $this->d1->id)->count(), $command->json('workforce.total'));
-        $this->assertSame(1, $command->json('workforce.present_today'), "only D1's punch counts");
+        $this->assertFalse($command->json('access.project'), 'no project / quality permission: no project registers');
         $this->assertSame([], $command->json('kpis'));
+
+        // The workforce picture is a registry widget now (Department overview): D1's active people only.
+        $widgets = $this->as($this->admin)->getJson(route('dashboard.widgets', ['section' => 'main']))->assertOk()->json('widgets');
+        $department = collect($widgets)->firstWhere('key', 'team.department');
+        $this->assertNotNull($department, 'a department administrator gets the Department overview widget');
+        $headcount = collect($department['data']['stats'])->firstWhere('key', 'headcount')['value'];
+        $this->assertSame(User::where('department_id', $this->d1->id)->where('is_active', true)->count(), $headcount, 'headcount covers D1 only');
 
         $updates = $this->as($this->admin)->getJson(route('updates'))->assertOk()->getContent();
         $this->assertOnly($updates, $this->e1, $this->e2, 'updates widget');

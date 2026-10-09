@@ -11,7 +11,7 @@ import { baseOptions, cyberTokens, mergeOptions } from './chartTheme.js';
  * options  Apex options, or a function of the resolved token colours. Merged over Cyber's defaults (chartTheme.js).
  * label    accessible summary (role="img"). Always give the numbers' gist, e.g. "Present 112 of 130 today".
  * table    optional { columns: string[], rows: any[][] } for the "View data" table; derived from series and
- *          categories / labels when omitted.
+ *          categories / labels when omitted; `false` removes the table and its toggle.
  * empty    when set, the chart is replaced by this honest empty state (never a fabricated series).
  *
  * Accessibility: the chart is an image with a text alternative, "View data" toggles a real table with the same
@@ -101,7 +101,8 @@ export default function CyberChart({ options, label, table, empty, height, class
         return <div className={`cy-chart cy-chart--empty ${className}`.trim()} role="status">{empty ?? 'No data for this period.'}</div>;
     }
 
-    const data = table ?? deriveTable(resolved);
+    // table={false} switches the data table off (a sparkline sits inside a tile that already prints the figure).
+    const data = table === false ? null : (table ?? deriveTable(resolved));
     return (
         <div className={`cy-chart ${className}`.trim()}>
             <div ref={host} role="img" aria-label={label} className="cy-chart__canvas" style={{ minHeight: resolved.chart?.height }} />

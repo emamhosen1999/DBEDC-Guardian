@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cyber Review</title>
+<style>
+  :root {
+    --bg: #0b1016; --panel: #111a24; --panel-2: #16222f; --line: #23344a; --text: #dbe6f3; --muted: #8aa0b8;
+    --accent: #2bd4c5; --warn: #f2b84b; --bad: #ff6b6b; --ok: #3ad18b; --focus: #7fe7ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, select, input, textarea { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  header.bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header.bar h1 { font-size: 15px; margin: 0 8px 0 0; letter-spacing: .04em; color: var(--accent); }
+  header.bar label { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  .grow { flex: 1; }
+  .status { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+  .status.match { color: var(--ok); border-color: var(--ok); } .status.minor { color: var(--warn); border-color: var(--warn); } .status.major { color: var(--bad); border-color: var(--bad); }
+  main { padding: 12px 16px 40px; }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pane { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .pane .head { display: flex; gap: 6px; align-items: center; padding: 8px; border-bottom: 1px solid var(--line); }
+  .pane .head strong { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
+  .pane .head input { flex: 1; min-width: 0; }
+  .stage { position: relative; overflow: auto; background: #05080c; }
+  .stage iframe { border: 0; transform-origin: 0 0; background: #fff; display: block; }
+  .tabs { display: flex; gap: 4px; margin: 16px 0 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tabs button { border-radius: 6px 6px 0 0; border-bottom: none; background: transparent; }
+  .tabs button[aria-selected="true"] { background: var(--panel); border-color: var(--line); color: var(--accent); }
+  .tabpanel { background: var(--panel); border: 1px solid var(--line); border-top: none; border-radius: 0 0 10px 10px; padding: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); vertical-align: -2px; margin-right: 6px; }
+  .muted { color: var(--muted); }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .shots figure { margin: 0; } .shots img { width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+  .overlay { position: relative; margin-top: 12px; max-width: 100%; }
+  .overlay img { width: 100%; display: block; border-radius: 6px; }
+  .overlay img.top { position: absolute; inset: 0; }
+  form.suggest { display: grid; gap: 8px; max-width: 900px; }
+  form.suggest textarea { min-height: 90px; resize: vertical; }
+  ul.list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+  ul.list li { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .empty { color: var(--muted); font-style: italic; }
+  @media (max-width: 900px) { .panes, .shots { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>CYBER REVIEW</h1>
+  <label>Page pair <select id="pair" aria-label="Page pair"></select></label>
+  <label>Viewport
+    <select id="viewport" aria-label="Viewport">
+      <option value="1440">Desktop 1440</option><option value="1280">Laptop 1280</option>
+      <option value="820">Tablet 820</option><option value="390">Phone 390</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="fit" checked> Fit to pane</label>
+  <span id="pairStatus" class="status">no measurements yet</span>
+  <span class="grow"></span>
+  <button id="reload" type="button">Reload both</button>
+</header>
+
+<main>
+  <section class="panes" aria-label="Live comparison">
+    <div class="pane">
+      <div class="head"><strong>Cyber (live)</strong><input id="refUrl" aria-label="Cyber page address"><button type="button" data-go="ref">Go</button><a class="muted" id="refOpen" target="_blank" rel="noopener">open ↗</a></div>
+      <div class="stage" id="refStage"><iframe id="refFrame" title="Cyber reference page"></iframe></div>
+    </div>
+    <div class="pane">
+      <div class="head"><strong>Guardian (local)</strong><input id="appUrl" aria-label="Guardian page address"><button type="button" data-go="app">Go</button><a class="muted" id="appOpen" target="_blank" rel="noopener">open ↗</a></div>
+      <div class="stage" id="appStage"><iframe id="appFrame" title="Guardian migrated page"></iframe></div>
+    </div>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="diffs">Measured differences</button>
+    <button role="tab" aria-selected="false" data-tab="notes">Agent notes &amp; suggestions</button>
+    <button role="tab" aria-selected="false" data-tab="shots">Screenshots &amp; overlay</button>
+    <button role="tab" aria-selected="false" data-tab="mine">Your suggestions</button>
+  </div>
+  <section class="tabpanel" id="panel"></section>
+</main>
+
+<script>
+const APP_ORIGIN = 'http://127.0.0.1:8002';
+const REF_ORIGIN = 'https://seantheme.com/cyber/';
+// Default pairs per batch; the agents' manifest (shots/manifest.json) adds measured pairs on top.
+const DEFAULT_PAIRS = [
+  ['1', 'Dashboard', '/dashboard', 'index.html'],
+  ['1', 'Employee dashboard', '/employee-dashboard', 'widgets.html'],
+  ['1', 'Login', '/login', 'page_login.html'],
+  ['1', 'Forgot password', '/forgot-password', 'page_login.html'],
+  ['1', 'Error 404', '/cyber-review-missing-page', 'page_404_error.html'],
+  ['1', 'Notifications', '/notifications', 'email_inbox.html'],
+  ['1', 'Search', '/search?q=attendance', 'page_search_results.html'],
+  ['2', 'Attendance timesheet', '/attendance', 'table_plugins.html'],
+  ['2', 'Attendance monthly', '/attendance?tab=monthly', 'calendar.html'],
+  ['2', 'Leaves', '/leaves', 'page_orders.html'],
+  ['2', 'Holidays', '/holidays', 'calendar.html'],
+  ['3', 'Employees', '/employees', 'table_elements.html'],
+  ['3', 'Departments', '/departments', 'table_elements.html'],
+  ['3', 'Employee form', '/employees', 'form_elements.html'],
+  ['4', 'Daily works', '/daily-works', 'page_data_management.html'],
+  ['4', 'O&M analytics', '/om/analytics', 'analytics.html'],
+  ['4', 'Petty cash', '/petty-cash', 'page_orders.html'],
+  ['5', 'Company settings', '/settings/company', 'settings.html'],
+  ['5', 'Request logs', '/settings/request-logs', 'table_plugins.html'],
+].map(([batch, page, app_route, ref]) => ({ id: `${batch}:${page}`, batch, page, app_route, ref_url: REF_ORIGIN + ref, mismatches: [], suggestions: [], diff_notes: '', status: null }));
+
+let pairs = [...DEFAULT_PAIRS];
+let mine = [];
+let current = null;
+let tab = 'diffs';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const isColor = (v) => /^(#|rgb|hsl)/i.test(String(v || '').trim());
+
+async function load() {
+  try {
+    const manifest = await (await fetch('/api/manifest')).json();
+    for (const m of Array.isArray(manifest) ? manifest : []) {
+      const key = m.id || `${m.batch}:${m.page}`;
+      const existing = pairs.find((p) => p.id === key || (p.app_route === m.app_route && String(p.batch) === String(m.batch)));
+      const merged = { ...(existing || {}), ...m, id: key, batch: String(m.batch ?? existing?.batch ?? '?') };
+      if (existing) pairs[pairs.indexOf(existing)] = merged; else pairs.push(merged);
+    }
+  } catch (e) { /* no manifest yet */ }
+  try { mine = await (await fetch('/api/suggestions')).json(); } catch (e) { mine = []; }
+  renderSelect();
+}
+
+function renderSelect() {
+  const sel = $('pair'); const keep = sel.value;
+  sel.innerHTML = '';
+  for (const b of [...new Set(pairs.map((p) => p.batch))].sort()) {
+    const g = document.createElement('optgroup'); g.label = `Batch ${b}`;
+    for (const p of pairs.filter((x) => x.batch === b)) {
+      const o = document.createElement('option'); o.value = p.id;
+      o.textContent = `${p.page}${p.viewport ? ` (${p.viewport}${p.theme ? ', ' + p.theme : ''})` : ''}`;
+      g.appendChild(o);
+    }
+    sel.appendChild(g);
+  }
+  const hash = decodeURIComponent(location.hash.slice(1));
+  sel.value = pairs.some((p) => p.id === hash) ? hash : (pairs.some((p) => p.id === keep) ? keep : pairs[0].id);
+  choose(sel.value);
+}
+
+function choose(id) {
+  current = pairs.find((p) => p.id === id) || pairs[0];
+  history.replaceState(null, '', '#' + encodeURIComponent(current.id));
+  $('refUrl').value = current.ref_url;
+  $('appUrl').value = APP_ORIGIN + current.app_route;
+  navigate('ref'); navigate('app');
+  const st = $('pairStatus');
+  st.className = 'status ' + (current.status || '');
+  st.textContent = current.status ? `status: ${current.status}` : 'no measurements yet';
+  renderPanel();
+}
+
+function navigate(which) {
+  const url = $(which === 'ref' ? 'refUrl' : 'appUrl').value.trim();
+  $(which === 'ref' ? 'refFrame' : 'appFrame').src = url;
+  $(which === 'ref' ? 'refOpen' : 'appOpen').href = url;
+}
+
+function layout() {
+  const vw = parseInt($('viewport').value, 10);
+  const fit = $('fit').checked;
+  for (const [stage, frame] of [['refStage', 'refFrame'], ['appStage', 'appFrame']]) {
+    const s = $(stage), f = $(frame);
+    const avail = s.clientWidth || 600;
+    const scale = fit ? Math.min(1, avail / vw) : 1;
+    const h = Math.round((window.innerHeight - 150) / scale);
+    f.style.width = vw + 'px'; f.style.height = h + 'px'; f.style.transform = `scale(${scale})`;
+    s.style.height = Math.round(h * scale) + 'px';
+  }
+}
+
+function renderPanel() {
+  const p = current, el = $('panel');
+  if (tab === 'diffs') {
+    const rows = (p.mismatches || []).map((m) => `<tr><td>${esc(m.element)}</td><td><code>${esc(m.property)}</code></td>
+      <td>${isColor(m.cyber) ? `<span class="swatch" style="background:${esc(m.cyber)}"></span>` : ''}<code>${esc(m.cyber)}</code></td>
+      <td>${isColor(m.ours) ? `<span class="swatch" style="background:${esc(m.ours)}"></span>` : ''}<code>${esc(m.ours)}</code></td></tr>`).join('');
+    el.innerHTML = rows ? `<table><thead><tr><th>Element</th><th>Property</th><th>Cyber</th><th>Guardian</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<p class="empty">No measured differences recorded for this pair yet.</p>`;
+  } else if (tab === 'notes') {
+    const sug = (p.suggestions || []).map((s) => `<li>${esc(typeof s === 'string' ? s : JSON.stringify(s))}</li>`).join('');
+    el.innerHTML = `<p>${esc(p.diff_notes) || '<span class="empty">No agent notes yet.</span>'}</p>${sug ? `<h3>Agent suggestions</h3><ul class="list">${sug}</ul>` : ''}`;
+  } else if (tab === 'shots') {
+    if (!p.ref_image && !p.app_image) { el.innerHTML = '<p class="empty">No screenshots recorded for this pair yet.</p>'; return; }
+    el.innerHTML = `<div class="shots"><figure><figcaption class="muted">Cyber (${esc(p.ref_source || 'live')})</figcaption><img alt="Cyber reference screenshot" src="/shots/${esc(p.ref_image)}"></figure>
+      <figure><figcaption class="muted">Guardian</figcaption><img alt="Guardian screenshot" src="/shots/${esc(p.app_image)}"></figure></div>
+      <label class="muted">Overlay: Guardian opacity <input type="range" id="ov" min="0" max="100" value="50" aria-label="Guardian overlay opacity"></label>
+      <div class="overlay"><img alt="" src="/shots/${esc(p.ref_image)}"><img class="top" id="ovTop" alt="" src="/shots/${esc(p.app_image)}" style="opacity:.5"></div>`;
+    $('ov').addEventListener('input', (e) => { $('ovTop').style.opacity = e.target.value / 100; });
+  } else {
+    const list = mine.filter((s) => s.pair === p.id).map((s) => `<li><span class="muted">${esc(s.at)} · ${esc(s.priority)} · ${esc(s.viewport)}px</span><br>${esc(s.text)}</li>`).join('');
+    el.innerHTML = `<form class="suggest" id="sf">
+        <label for="st">Your suggestion for <strong>${esc(p.page)}</strong> (what differs from Cyber, or what you want changed)</label>
+        <textarea id="st" required maxlength="4000"></textarea>
+        <label class="muted">Priority <select id="sp"><option>normal</option><option>high</option><option>low</option></select></label>
+        <div><button type="submit">Save suggestion</button> <span id="sm" class="muted" role="status"></span></div>
+      </form><ul class="list">${list || '<li class="empty">No suggestions yet for this pair.</li>'}</ul>`;
+    $('sf').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = { pair: p.id, cyber_url: $('refUrl').value, app_url: $('appUrl').value, viewport: $('viewport').value, priority: $('sp').value, text: $('st').value };
+      const r = await fetch('/api/suggestions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (r.ok) { mine.push(await r.json()); renderPanel(); } else { $('sm').textContent = 'Could not save, please retry.'; }
+    });
+  }
+}
+
+document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.go)));
+['refUrl', 'appUrl'].forEach((id) => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') navigate(id === 'refUrl' ? 'ref' : 'app'); }));
+$('pair').addEventListener('change', (e) => choose(e.target.value));
+$('viewport').addEventListener('change', layout);
+$('fit').addEventListener('change', layout);
+$('reload').addEventListener('click', () => { navigate('ref'); navigate('app'); load(); });
+document.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[role="tab"]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+  tab = b.dataset.tab; renderPanel();
+}));
+window.addEventListener('resize', layout);
+load().then(layout);
+</script>
+</body>
+</html>

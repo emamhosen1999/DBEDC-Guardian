@@ -22,15 +22,20 @@ export default function KpiTile({ label, value, tone = 'neutral', delta, spark, 
 
     const body = (
         <>
-            <span className="cy-stat__label">{label}</span>
+            <span className="cy-stat__label" title={label}>{label}</span>
             <span className="cy-stat__value" data-tone={tone}>{value ?? '—'}</span>
             {delta && (
-                <span className="cy-kpi__delta" data-verdict={verdict}>
+                <span className="cy-kpi__delta" data-verdict={verdict} title={delta.text}>
                     {arrow && <Icon name={arrow} />} {delta.text}
                 </span>
             )}
-            {hint && <span className="cy-kpi__hint">{hint}</span>}
-            {hasSpark && <div className="cy-kpi__spark"><CyberChart options={options} label={sparkLabel ?? `${label} trend`} height={20} table={null} /></div>}
+            {hint && <span className="cy-kpi__hint" title={hint}>{hint}</span>}
+            {hasSpark && (
+                <div className="cy-kpi__spark">
+                    <CyberChart options={options} label={sparkLabel ?? `${label} trend`} height={20} table={false} />
+                    <span className="visually-hidden">{sparkLabel ?? `${label} trend`}: {spark.join(', ')}</span>
+                </div>
+            )}
         </>
     );
     return <div className="dl-tile cy-kpi">{href ? <Link href={href} className="cy-stat">{body}</Link> : <span className="cy-stat">{body}</span>}</div>;

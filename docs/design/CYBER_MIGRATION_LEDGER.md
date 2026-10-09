@@ -401,7 +401,8 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Components/Dashboard/ClockWidget.jsx` | 2 | todo | — |  |
 | `Components/Dashboard/Command/kit.jsx` | 1 | done | — | CommandCard = Cyber card (HUD header, collapse/full-screen tools); MONO → display font; R(px). |
 | `Components/Dashboard/Command/Widgets.jsx` | 1 | done | — | ProjectHero, WorkforceTrend, OperationsFeed and TodayPanel removed (2026-10-09; replaced by the corridor-map slot and registry widgets). The remaining recharts panels (KpiBand, RfiThroughput ...) are unused legacy: delete or rebuild on CyberChart. |
-| `Components/Dashboard/Widgets/WidgetGrid.jsx` | 1 | done | — | New: registry renderer, KPI strip, 12-column row packer, freshness footer. |
+| `Components/Dashboard/Widgets/WidgetGrid.jsx` | 1 | done | — | New: registry renderer, KPI strip (fixed equal-height tiles, 420-column grid so 7 tiles split 7 / 4+3 / 2-up exactly, content contained, no "View data" toggle on sparklines), 12-column row packer, entitlement rings, freshness footer. |
+| `Components/PageHeader.jsx` | 1 | done | — | Shared header: at most 5 chips in the row from 1200px, the rest in a "+N" menu; wraps inside the header below 1200px; one scrollable snapping row under the title at phone width; chips ellipsise with a full-text tooltip. Playwright assertion: header contains every chip and clears the next element at 1440, 1280, 1024, 820, 390. |
 | `Components/Dashboard/Widgets/ChartPanel.jsx` | 1 | done | — | New: declarative chart specs to ApexCharts options (Cyber demo options), heat strip, timeline. |
 | `Components/Cyber/*` | 1 | done | — | New library: Icon (Bootstrap Icons subset), Button, Badge, Progress, Card (minimize + maximize, no close, per-viewer minimized state), StatTile, KpiTile, CyberChart (lazy ApexCharts, a11y data table). |
 | `Components/Dashboard/GreetingBanner.jsx` | 2 | todo | — |  |

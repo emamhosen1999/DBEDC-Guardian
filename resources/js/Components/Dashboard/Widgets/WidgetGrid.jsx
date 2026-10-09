@@ -3,7 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import axios from 'axios';
 
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
-import { Button, Card, Icon, KpiTile, Progress, StatTile } from '@/Components/Cyber';
+import { Button, Card, Icon, KpiTile, StatTile } from '@/Components/Cyber';
 import ChartPanel from './ChartPanel.jsx';
 
 /**
@@ -59,24 +59,29 @@ function RowLink({ href, children }) {
     return href ? <Link href={href} className="cy-stat">{children}</Link> : <>{children}</>;
 }
 
+/** One entitlement ring: the arc is the share USED, the centre the days left; pure SVG so a card can hold several. */
+function Ring({ row }) {
+    const radius = 15.9155; // circumference 100
+    const used = row.total > 0 ? Math.max(0, Math.min(100, (row.used / row.total) * 100)) : 0;
+    const tone = row.remaining <= 0 && row.total > 0 ? 'crit' : used >= 80 ? 'warn' : 'theme';
+    const body = (
+        <>
+            <svg className="cy-ring" viewBox="0 0 36 36" role="img" aria-label={`${row.label}: ${row.used} of ${row.total} ${row.unit} used, ${row.remaining} left`}>
+                <circle className="cy-ring__track" cx="18" cy="18" r={radius} />
+                <circle className="cy-ring__arc" data-tone={tone} cx="18" cy="18" r={radius} strokeDasharray={`${used} ${100 - used}`} transform="rotate(-90 18 18)" />
+                <text x="18" y="20.5" textAnchor="middle" className="cy-ring__value">{row.remaining}</text>
+            </svg>
+            <span className="cy-ring__label" title={row.label}>{row.label}</span>
+            <span className="cy-ring__meta">{row.used} / {row.total} {row.unit} used</span>
+        </>
+    );
+    return <li className="cy-ring-cell">{row.href ? <Link href={row.href} className="cy-stat cy-ring-link">{body}</Link> : <span className="cy-ring-link">{body}</span>}</li>;
+}
+
 function Rows({ data }) {
     const rows = data?.rows ?? [];
     if (!rows.length) return <Empty />;
-    return (
-        <ul className="dl-list">
-            {rows.map((r) => (
-                <li key={r.key} className="dl-list__row">
-                    <RowLink href={r.href}>
-                        <div className="cy-row">
-                            <span className="cy-row__title">{r.label}</span>
-                            <span className="cy-row__meta">{r.remaining} / {r.total} {r.unit}</span>
-                        </div>
-                        <Progress value={r.total > 0 ? r.total - r.remaining : 0} max={r.total || 1} color={r.tone === 'warn' ? 'warning' : 'theme'} label={`${r.label}: ${r.used} of ${r.total} ${r.unit} used`} />
-                    </RowLink>
-                </li>
-            ))}
-        </ul>
-    );
+    return <ul className="cy-rings" aria-label="Entitlements">{rows.map((r) => <Ring key={r.key} row={r} />)}</ul>;
 }
 
 function Items({ data }) {
@@ -159,14 +164,53 @@ export function WidgetCard({ widget, onRetry }) {
     );
 }
 
+/** Tiles per row at the current width: all of them at 1440+, then 4, 3 or 2 (the strip never spills sideways). */
+function tilesPerRow(width, count) {
+    if (width >= 1440) return Math.min(count, 7);
+    if (width >= 1024) return Math.min(count, 4);
+    if (width >= 576) return Math.min(count, 4);
+    return Math.min(count, 2);
+}
+
+/** The strip is a 420-column grid (420 is divisible by 1 to 7), so a row of any 1-7 tiles splits into exactly equal parts. */
+export const STRIP_COLUMNS = 420;
+
+/**
+ * Split n tiles over rows of at most `perRow`, balanced (7 over 4 gives 4 + 3), and give each tile a column span so every
+ * row is filled edge to edge with equal tiles.
+ */
+export function kpiRows(n, perRow) {
+    const rows = Math.ceil(n / perRow);
+    const base = Math.floor(n / rows);
+    const extra = n % rows;
+    const spans = [];
+    for (let r = 0; r < rows; r += 1) {
+        const m = base + (r < extra ? 1 : 0);
+        for (let i = 0; i < m; i += 1) spans.push(STRIP_COLUMNS / m);
+    }
+    return spans;
+}
+
+function useViewportWidth() {
+    const [width, setWidth] = React.useState(typeof window === 'undefined' ? 1440 : window.innerWidth);
+    useEffect(() => {
+        const onResize = () => setWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+    return width;
+}
+
 /** The KPI tiles widgets contribute to the top strip (kpis with strip !== false), in widget priority order. */
 export function KpiStrip({ payload }) {
+    const width = useViewportWidth();
     const kpis = (payload?.widgets ?? []).filter((w) => !w.error && w.type !== 'command').flatMap((w) => (Array.isArray(w.data?.kpis) ? w.data.kpis : []).filter((k) => k.strip !== false));
     if (!kpis.length) return null;
+    const spans = kpiRows(kpis.length, tilesPerRow(width, kpis.length));
     return (
         <div className="cy-kpi-strip" role="list" aria-label="Key figures">
-            {kpis.map((k) => (
-                <div key={k.key} role="listitem" className="cy-kpi-strip__cell">
+            {kpis.map((k, i) => (
+                <div key={k.key} role="listitem" className="cy-kpi-strip__cell" style={{ gridColumn: `span ${spans[i]}` }}>
                     <KpiTile label={k.label} value={k.value} tone={k.tone} delta={k.delta} spark={k.spark} sparkLabel={k.spark_label} hint={k.hint} href={k.href} />
                 </div>
             ))}
