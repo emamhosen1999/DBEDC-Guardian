@@ -1,1 +1,0 @@
-import{e as n}from"./toastUtils-Nz2_9vgE.js";import"./vendor-inertia-0ZSCdEh7.js";import"./vendor-utils-BW66G-U-.js";function u(s,a){var t;return((s==null?void 0:s.status)??((t=s==null?void 0:s.response)==null?void 0:t.status))!==409?!1:(a.warning(n(s,"This cell was changed by someone else.")),!0)}export{u as h};
