@@ -1,5 +1,5 @@
 import { Panel } from '@/Components/ui/Panel';
-import { Box, Flex, Grid, Text, Heading, IconButton, Separator, Checkbox, Switch, RadioGroup, Radio, Spinner, Skeleton, ScrollArea, Tabs, Tooltip, Progress, Callout, Inset, Dialog as RadixDialog, Select as RadixSelect, TextField as RadixTextField, TextArea, Table as RadixTable, DropdownMenu as RadixDropdownMenu, Button as RadixButton, Badge as RadixBadge } from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, IconButton, Separator, Checkbox, CheckboxGroup, Switch, RadioGroup, Radio, Spinner, Skeleton, ScrollArea, Tabs, Tooltip, Progress, Callout, Inset, Dialog as RadixDialog, Select as RadixSelect, TextField as RadixTextField, TextArea, Table as RadixTable, DropdownMenu as RadixDropdownMenu, Button as RadixButton, Badge as RadixBadge } from '@radix-ui/themes';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 
 const CardHeader = ({ children, className, ...props }) => (
@@ -1146,7 +1146,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                         ))}
                                     </div>
                                 ) : suggestedRfis.length > 0 ? (
-                                    <CheckboxGroup
+                                    <CheckboxGroup.Root
                                         value={selectedRfis}
                                         onValueChange={setSelectedRfis}
                                     >
@@ -1160,7 +1160,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                             isAlreadyAttached ? 'border-success/50 bg-success-50/20' : 'border-divider'
                                                         }`}
                                                     >
-                                                        <Checkbox value={String(rfi.id)} className="mt-1" />
+                                                        <CheckboxGroup.Item value={String(rfi.id)} className="mt-1" aria-label={`RFI ${rfi.number ?? rfi.id}`} />
                                                         <div className="flex-1 min-w-0 space-y-2">
                                                             {/* Header: RFI Number + Attached Badge */}
                                                             <div className="flex items-center gap-2 flex-wrap">
@@ -1208,7 +1208,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                 );
                                             })}
                                         </div>
-                                    </CheckboxGroup>
+                                    </CheckboxGroup.Root>
                                 ) : (
                                     <div className="text-center py-8 text-default-500 border border-dashed border-divider rounded-lg">
                                         <DocumentTextIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -1654,7 +1654,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                             {detailsObjection.chainage_summary.specific?.length > 0 && (
                                                 <div>
                                                     <p className="text-xs text-default-500 mb-1.5">Specific Chainages ({detailsObjection.chainage_summary.specific.length})</p>
-                                                    <ScrollShadow className="max-h-24" hideScrollBar>
+                                                    <ScrollArea scrollbars="vertical" style={{ maxHeight: '6rem' }}>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {detailsObjection.chainage_summary.specific.map((chainage, idx) => (
                                                                 <Badge key={idx} size="sm" variant="soft" color="secondary" className="text-xs">
@@ -1662,7 +1662,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                                 </Badge>
                                                             ))}
                                                         </div>
-                                                    </ScrollShadow>
+                                                    </ScrollArea>
                                                 </div>
                                             )}
                                             {/* Chainage Range */}

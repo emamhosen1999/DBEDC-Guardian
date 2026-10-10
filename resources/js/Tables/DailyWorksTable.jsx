@@ -43,7 +43,7 @@ import {
     TrashIcon,
     UploadIcon
 } from '@radix-ui/react-icons';
-import { Badge, Box, Button, Flex, IconButton, Table as RadixTable, ScrollArea, Select, Separator, Skeleton, Text, TextField, Tooltip, Tabs } from '@radix-ui/themes';
+import { Avatar, Badge, Box, Button, Flex, IconButton, Link, Table as RadixTable, ScrollArea, Select, Separator, Skeleton, Text, TextField, Tooltip, Tabs } from '@radix-ui/themes';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 

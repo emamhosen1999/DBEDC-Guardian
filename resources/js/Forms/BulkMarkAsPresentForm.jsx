@@ -1,5 +1,5 @@
 import { Panel } from '@/Components/ui/Panel';
-import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
+import { Avatar, Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -130,7 +130,7 @@ const BulkMarkAsPresentForm = ({
 
         try {
             const submitData = {
-                user_ids: formData.user_ids.map(id => parseInt(id)),
+                user_ids: formData.user_ids.map(id => String(id)),
                 date: formData.date,
                 punch_in_time: formData.punch_in_time,
                 punch_out_time: formData.punch_out_time || null,
@@ -288,19 +288,17 @@ const BulkMarkAsPresentForm = ({
                                                     Select Employees ({formData.user_ids.length} of {availableUsers.length})
                                                 </h3>
                                             </div>
-                                            <Checkbox
-                                                isSelected={selectAll}
-                                                onValueChange={handleSelectAll}
-                                                color="primary"
-                                                size="sm"
-                                            >
-                                                Select All
-                                            </Checkbox>
+                                            <Text as="label" size="2">
+                                                <Flex gap="2" align="center">
+                                                    <Checkbox checked={selectAll} onCheckedChange={(checked) => handleSelectAll(checked === true)} />
+                                                    Select All
+                                                </Flex>
+                                            </Text>
                                         </div>
                                         
                                         <Panel>
                                             <Panel.Body className="p-4">
-                                                <ScrollShadow className="max-h-64">
+                                                <ScrollArea scrollbars="vertical" style={{ maxHeight: '16rem' }}>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                         {availableUsers.map((user) => (
                                                             <div 
@@ -308,29 +306,21 @@ const BulkMarkAsPresentForm = ({
                                                                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-default-50"
                                                             >
                                                                 <Checkbox
-                                                                    isSelected={formData.user_ids.includes(user.id.toString())}
-                                                                    onValueChange={(checked) => handleUserSelection(user.id, checked)}
-                                                                    color="primary"
-                                                                    size="sm"
+                                                                    checked={formData.user_ids.includes(user.id.toString())}
+                                                                    onCheckedChange={(checked) => handleUserSelection(user.id, checked === true)}
+                                                                    aria-label={`Select ${user.name}`}
                                                                 />
-                                                                <User
-                                                                    avatarProps={{
-                                                                        size: "sm",
-                                                                        src: user.profile_image_url,
-                                                                        showFallback: true,
-                                                                        name: user.name,
-                                                                    }}
-                                                                    description={`ID: ${user.employee_id}`}
-                                                                    name={user.name}
-                                                                    classNames={{
-                                                                        name: "text-sm",
-                                                                        description: "text-xs"
-                                                                    }}
-                                                                />
+                                                                <Flex align="center" gap="2">
+                                                                    <Avatar size="1" radius="full" src={user.profile_image_url || undefined} fallback={(user.name || '?').charAt(0)} />
+                                                                    <Box>
+                                                                        <Text as="p" size="2" weight="medium">{user.name}</Text>
+                                                                        <Text as="p" size="1" color="gray">ID: {user.employee_id}</Text>
+                                                                    </Box>
+                                                                </Flex>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                </ScrollShadow>
+                                                </ScrollArea>
                                             </Panel.Body>
                                         </Panel>
                                         

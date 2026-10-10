@@ -1,4 +1,4 @@
-import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
+import { Avatar, Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePage } from '@inertiajs/react';
@@ -15,6 +15,17 @@ import { format } from 'date-fns';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import LocationPickerMap from '@/Components/LocationPickerMap';
+
+/** Avatar, name and a muted second line (replaces HeroUI's <User>). */
+const EmployeeRow = ({ user, description }) => (
+    <Flex align="center" gap="2">
+        <Avatar size="2" radius="full" src={user?.profile_image_url || undefined} fallback={(user?.name || '?').charAt(0)} />
+        <Box>
+            <Text as="p" size="2" weight="medium">{user?.name}</Text>
+            {description && <Text as="p" size="1" color="gray">{description}</Text>}
+        </Box>
+    </Flex>
+);
 
 const MarkAsPresentForm = ({ 
     open, 
@@ -142,7 +153,7 @@ const MarkAsPresentForm = ({
 
             // Prepare submit data using the same format as regular punch function
             const submitData = {
-                user_id: parseInt(formData.user_id),
+                user_id: String(formData.user_id),
                 date: formData.date,
                 punch_in_time: formData.punch_in_time,
                 punch_out_time: formData.punch_out_time || null,
@@ -239,70 +250,27 @@ const MarkAsPresentForm = ({
                                                         borderRadius: `var(--borderRadius, 8px)`,
                                                     }}
                                                 >
-                                                    <User
-                                                        avatarProps={{
-                                                            size: "sm",
-                                                            src: currentUser.profile_image_url,
-                                                            showFallback: true,
-                                                            name: currentUser.name,
-                                                        }}
-                                                        description={`Employee ID: ${currentUser.employee_id}`}
-                                                        name={currentUser.name}
-                                                    />
+                                                    <EmployeeRow user={currentUser} description={`Employee ID: ${currentUser.employee_id}`} />
                                                 </div>
                                             ) : (
                                                 // Show dropdown when no user is preselected
-                                                <Select
-                                                    label="Select Employee"
-                                                    placeholder="Choose an employee to mark as present"
-                                                    selectedKeys={formData.user_id ? new Set([formData.user_id.toString()]) : new Set()}
-                                                    onSelectionChange={(keys) => {
-                                                        const value = Array.from(keys)[0];
-                                                        handleFieldChange('user_id', value || '');
-                                                    }}
-                                                    isInvalid={Boolean(errors.user_id)}
-                                                    errorMessage={errors.user_id}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    radius={getThemeRadius()}
-                                                    classNames={{
-                                                        trigger: "min-h-unit-12",
-                                                        value: "text-small"
-                                                    }}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                    renderValue={(items) => {
-                                                        return items.map((item) => {
-                                                            const user = availableUsers.find(u => u.id.toString() === item.key);
-                                                            return user ? (
-                                                                <div key={item.key} className="flex items-center gap-2">
-                                                                    <span>{user.name}</span>
-                                                                    <span className="text-xs text-default-500">({user.employee_id})</span>
-                                                                </div>
-                                                            ) : null;
-                                                        });
-                                                    }}
-                                                >
-                                                    {availableUsers.map((user) => (
-                                                        <SelectItem 
-                                                            key={user.id.toString()} 
-                                                            value={user.id.toString()}
-                                                            textValue={`${user.name} (${user.employee_id})`}
-                                                        >
-                                                            <User
-                                                                avatarProps={{
-                                                                    size: "sm",
-                                                                    src: user.profile_image_url,
-                                                                    showFallback: true,
-                                                                    name: user.name,
-                                                                }}
-                                                                description={`ID: ${user.employee_id}`}
-                                                                name={user.name}
-                                                            />
-                                                        </SelectItem>
-                                                    ))}
-                                                </Select>
+                                                <Box>
+                                                    <Text as="label" size="2" weight="medium" htmlFor="mark-present-employee">Select Employee</Text>
+                                                    <Select.Root
+                                                        value={formData.user_id ? String(formData.user_id) : undefined}
+                                                        onValueChange={(value) => handleFieldChange('user_id', value)}
+                                                    >
+                                                        <Select.Trigger id="mark-present-employee" placeholder="Choose an employee to mark as present" style={{ width: '100%' }} color={errors.user_id ? 'red' : undefined} />
+                                                        <Select.Content position="popper">
+                                                            {availableUsers.map((user) => (
+                                                                <Select.Item key={String(user.id)} value={String(user.id)}>
+                                                                    {user.name} ({user.employee_id})
+                                                                </Select.Item>
+                                                            ))}
+                                                        </Select.Content>
+                                                    </Select.Root>
+                                                    {errors.user_id && <Text as="p" size="1" color="red" mt="1">{errors.user_id}</Text>}
+                                                </Box>
                                             )}
 
                                             {/* Date Display */}

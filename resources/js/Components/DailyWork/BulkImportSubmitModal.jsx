@@ -18,6 +18,11 @@ import { showToast } from '@/utils/toastUtils';
  * BulkImportSubmitModal - Modal for importing RFI submission dates from Excel.
  * Excel should have two columns: RFI Number and Submission Date.
  */
+/** The work's current status as a small neutral badge (e.g. "in progress"). */
+const getStatusBadge = (status) => (
+    <Badge size="1" color="gray" variant="soft">{String(status).replace(/[-_]/g, ' ')}</Badge>
+);
+
 const BulkImportSubmitModal = ({
     isOpen,
     onClose,

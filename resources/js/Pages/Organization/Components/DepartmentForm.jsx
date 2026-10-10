@@ -182,7 +182,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                                                 <Checkbox
                                                     checked={(formData.default_roles || []).includes(name)}
                                                     onCheckedChange={(on) => handleChange('default_roles', on ? [...(formData.default_roles || []), name] : (formData.default_roles || []).filter((n) => n !== name))}
-                                                    disabled={readOnly || loading}
+                                                    disabled={readOnly || isMutating}
                                                 />
                                                 {name}
                                             </Flex>

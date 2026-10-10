@@ -130,7 +130,9 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
         setTolerance(route?.tolerance || 150);
     }, [type]);
 
-    const validWaypoints = waypoints.filter(w => w.lat && w.lng);
+    // Memoised: a fresh array on every render re-ran the effect below, and its setRoadCoords([]) re-rendered again
+    // ("Maximum update depth exceeded"), an endless loop that froze the attendance page and its navigation.
+    const validWaypoints = useMemo(() => waypoints.filter(w => w.lat && w.lng), [waypoints]);
 
     // Fetch live road driving geometry when waypoints change
     useEffect(() => {
@@ -142,9 +144,9 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
                 }
             });
             return () => { isCurrent = false; };
-        } else {
-            setRoadCoords([]);
         }
+        setRoadCoords(prev => (prev.length ? [] : prev));
+        return undefined;
     }, [validWaypoints]);
 
     const mapCenter = validWaypoints[0]?.lat

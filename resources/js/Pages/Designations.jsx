@@ -18,6 +18,7 @@ import DeleteDesignationForm from '@/Forms/DeleteDesignationForm.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
 import DepartmentFilter from '@/Components/Access/DepartmentFilter';
+import { TableLoadingSkeleton } from '@/Components/LoadingSkeleton.jsx';
 
 const Designations = ({ title, initialDesignations, departments, allDesignations, stats: initialStats, filters: initialFilters }) => {
     const { auth } = usePage().props;
