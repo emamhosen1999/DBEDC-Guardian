@@ -13,7 +13,7 @@ class OmAiDistressService
     public function getDetections(array $filters = [], int $perPage = 15): LengthAwarePaginator|array
     {
         if (! Schema::hasTable('om_ai_detections')) {
-            return $this->getMockDetections($filters);
+            return new LengthAwarePaginator([], 0, $perPage);
         }
 
         try {
@@ -61,6 +61,7 @@ class OmAiDistressService
 
         try {
             $avgConfidence = OmAiDetection::avg('confidence_score');
+
             return [
                 'total_detections' => OmAiDetection::count(),
                 'pending_review' => OmAiDetection::where('status', 'pending_review')->count(),
@@ -84,26 +85,30 @@ class OmAiDistressService
     public function ingestBatch(array $detections, ?int $patrolShiftId = null): int
     {
         if (! Schema::hasTable('om_ai_detections')) {
-            return count($detections);
+            return 0;
         }
 
         $count = 0;
         foreach ($detections as $d) {
+            // A detection without its type and model confidence is not a measurement: skip it rather than invent values.
+            if (! isset($d['distress_type'], $d['confidence_score'], $d['severity'])) {
+                continue;
+            }
             OmAiDetection::create([
                 'detection_code' => 'AID-'.now()->format('Ymd').'-'.strtoupper(Str::random(6)),
-                'distress_type' => $d['distress_type'] ?? 'pothole',
-                'confidence_score' => $d['confidence_score'] ?? 0.85,
-                'chainage' => $d['chainage'] ?? 'KM 00+000',
+                'distress_type' => $d['distress_type'],
+                'confidence_score' => $d['confidence_score'],
+                'chainage' => $d['chainage'] ?? null,
                 'direction' => $d['direction'] ?? 'northbound',
                 'latitude' => $d['latitude'] ?? null,
                 'longitude' => $d['longitude'] ?? null,
-                'estimated_area_sqm' => $d['estimated_area_sqm'] ?? 0.5,
-                'severity' => $d['severity'] ?? 'medium',
+                'estimated_area_sqm' => $d['estimated_area_sqm'] ?? null,
+                'severity' => $d['severity'],
                 'image_path' => $d['image_path'] ?? null,
                 'bounding_box' => $d['bounding_box'] ?? null,
                 'patrol_shift_id' => $patrolShiftId,
                 'status' => 'pending_review',
-                'notes' => $d['notes'] ?? 'Auto-detected via Mobile AI Dashcam edge inference',
+                'notes' => $d['notes'] ?? null,
             ]);
             $count++;
         }
@@ -119,12 +124,12 @@ class OmAiDistressService
 
         $wo = OmWorkOrder::create([
             'work_order_number' => 'WO-AI-'.now()->format('Ymd').'-'.strtoupper(Str::random(4)),
-            'title' => $woData['title'] ?? 'Batch AI Road Repair: Potholes & Cracks',
+            'title' => $woData['title'] ?? 'Batch repair from AI detections',
             'work_type' => $woData['work_type'] ?? 'corrective',
             'priority' => $woData['priority'] ?? 'high',
             'status' => 'draft',
-            'chainage' => $woData['chainage'] ?? 'KM 14+000 - KM 16+000',
-            'description' => $woData['description'] ?? 'Automated batch Work Order converted from Edge-AI dashcam detections.',
+            'chainage' => $woData['chainage'] ?? null,
+            'description' => $woData['description'] ?? null,
             'assigned_to' => $userId,
         ]);
 
@@ -145,7 +150,9 @@ class OmAiDistressService
         }
 
         $detection = OmAiDetection::find($id);
-        if (! $detection) return false;
+        if (! $detection) {
+            return false;
+        }
 
         $detection->update([
             'status' => 'rejected_false_positive',

@@ -148,8 +148,8 @@ class OmWorkOrderService
                     'status' => 'requested',
                     'requested_by' => $userId,
                     'traffic_control_plan' => $lc['traffic_control_plan'] ?? 'Standard Expressway Lane Closure Scheme (IRC:SP:55)',
-                    'safety_cones_deployed' => (int) ($lc['safety_cones_deployed'] ?? 30),
-                    'traffic_marshals_deployed' => (int) ($lc['traffic_marshals_deployed'] ?? 2),
+                    'safety_cones_deployed' => (int) ($lc['safety_cones_deployed'] ?? 0),
+                    'traffic_marshals_deployed' => (int) ($lc['traffic_marshals_deployed'] ?? 0),
                     'flashing_arrow_board_present' => (bool) ($lc['flashing_arrow_board_present'] ?? true),
                 ]);
             }

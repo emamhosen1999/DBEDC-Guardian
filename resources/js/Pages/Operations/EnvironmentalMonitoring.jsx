@@ -73,10 +73,10 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
         },
         {
             title: 'Compliance Rate',
-            value: `${stats?.compliance_rate ?? 100}%`,
+            value: stats?.compliance_rate == null ? '—' : `${stats.compliance_rate}%`,
             icon: <CheckBadgeIcon style={{ width: 22, height: 22 }} />,
             color: 'green',
-            description: 'Readings within regulatory limits',
+            description: stats?.compliance_rate == null ? 'No readings recorded yet' : 'Readings within regulatory limits',
         },
         {
             title: 'Minor Exceedances',
@@ -250,7 +250,7 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
                                         </Badge>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="2">{log.location || 'Expressway Mainline'}</Text>
+                                        <Text size="2">{log.location || '—'}</Text>
                                         {log.chainage && (
                                             <Flex align="center" gap="1" mt="1">
                                                 <MapPinIcon style={{ width: 12, height: 12, color: 'var(--gray-9)' }} />
@@ -276,7 +276,7 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
                                     <Table.Cell>
                                         <Flex align="center" gap="1">
                                             <SunIcon style={{ width: 14, height: 14, color: 'var(--amber-9)' }} />
-                                            <Text size="1">{log.weather_condition || 'Normal'}</Text>
+                                            <Text size="1">{log.weather_condition || '—'}</Text>
                                         </Flex>
                                     </Table.Cell>
                                     <Table.Cell align="right">
@@ -479,13 +479,13 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
                             <Box>
                                 <Text size="1" color="gray">Location & Chainage</Text>
                                 <Text size="2" weight="medium">
-                                    {selectedLog?.location || 'Expressway Corridor'} (KM {selectedLog?.chainage || 'N/A'})
+                                    {selectedLog?.location || '—'} (KM {selectedLog?.chainage || 'N/A'})
                                 </Text>
                             </Box>
 
                             <Box>
                                 <Text size="1" color="gray">Weather Condition</Text>
-                                <Text size="2">{selectedLog?.weather_condition || 'Standard'}</Text>
+                                <Text size="2">{selectedLog?.weather_condition || '—'}</Text>
                             </Box>
 
                             {selectedLog?.description && (

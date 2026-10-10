@@ -18,49 +18,43 @@ import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefre
 export default function WimOverloadAnalytics({ auth, analytics }) {
     useOperationsRealtimeRefresh();
 
+    const available = analytics?.available === true;
+    const dash = '—';
+    const num = (v) => (v == null ? dash : Number(v).toLocaleString());
+
     const statsData = [
         {
-            title: 'Heavy Vehicles (24h)',
-            value: (analytics?.total_heavy_vehicles ?? 14250).toLocaleString(),
+            title: 'Weighed Vehicles Recorded',
+            value: available ? num(analytics.total_heavy_vehicles) : dash,
             icon: <TruckIcon style={{ width: 22, height: 22 }} />,
             color: 'blue',
-            description: 'Scanned at N-105 WIM high-speed plazas',
+            description: available ? `WIM logs ${analytics.first_log_date} to ${analytics.last_log_date}` : 'No WIM readings recorded yet',
         },
         {
             title: 'Overload Violation Rate',
-            value: `${analytics?.overload_percentage ?? 18.5}%`,
+            value: available ? `${analytics.overload_percentage}%` : dash,
             icon: <ExclamationTriangleIcon style={{ width: 22, height: 22 }} />,
             color: 'red',
-            description: 'Exceeding BRTA statutory axle load limits',
+            description: 'Share of weighed vehicles above their statutory limit',
         },
         {
-            title: 'Daily ESAL Fatigue',
-            value: (analytics?.total_esal_accumulated ?? 45600).toLocaleString(),
+            title: 'Accumulated ESAL',
+            value: available ? num(analytics.total_esal_accumulated) : dash,
             icon: <FireIcon style={{ width: 22, height: 22 }} />,
             color: 'amber',
             description: 'Equivalent 18-kip Standard Axle Loads (AASHTO)',
         },
         {
-            title: 'Highway Fatigue Cost (BDT)',
-            value: `৳${((analytics?.structural_damage_cost_bdt ?? 2280000) / 1000000).toFixed(2)}M`,
+            title: 'Recorded Fatigue Cost (BDT)',
+            value: available ? `৳${num(analytics.structural_damage_cost_bdt)}` : dash,
             icon: <CurrencyDollarIcon style={{ width: 22, height: 22 }} />,
             color: 'indigo',
-            description: 'Cumulative structural wear & tear impact',
+            description: 'Sum of the estimated damage cost stored with each WIM log',
         },
     ];
 
-    const axleClasses = analytics?.axle_class_breakdown || [
-        { axle_class: 'Class 5 (2-Axle Rigid Truck)', vehicle_count: 5200, overloaded_count: 520, overload_rate: 10.0, avg_damage_factor: 1.15, total_esal: 5980, damage_cost_bdt: 299000 },
-        { axle_class: 'Class 6 (3-Axle Heavy Truck)', vehicle_count: 4800, overloaded_count: 1056, overload_rate: 22.0, avg_damage_factor: 2.85, total_esal: 13680, damage_cost_bdt: 684000 },
-        { axle_class: 'Class 7 (4-Axle Semi-Trailer)', vehicle_count: 2600, overloaded_count: 676, overload_rate: 26.0, avg_damage_factor: 4.10, total_esal: 10660, damage_cost_bdt: 533000 },
-        { axle_class: 'Class 8+ (Multi-Axle Container Carrier)', vehicle_count: 1650, overloaded_count: 710, overload_rate: 43.0, avg_damage_factor: 9.25, total_esal: 15262, damage_cost_bdt: 763100 },
-    ];
-
-    const laneDist = analytics?.lane_distribution || [
-        { lane_name: 'Lane 1 (Outer Slow / Freight Lane)', esal_percentage: 68, esal_count: 31000, overload_rate: 26.5 },
-        { lane_name: 'Lane 2 (Middle Commercial Lane)', esal_percentage: 24, esal_count: 10940, overload_rate: 12.0 },
-        { lane_name: 'Lane 3 (Inner Fast / Overtaking Lane)', esal_percentage: 8, esal_count: 3660, overload_rate: 2.1 },
-    ];
+    const axleClasses = analytics?.axle_class_breakdown || [];
+    const laneDist = analytics?.lane_distribution || [];
 
     return (
         <App auth={auth}>
@@ -104,7 +98,7 @@ export default function WimOverloadAnalytics({ auth, analytics }) {
                             <Table.Header>
                                 <Table.Row>
                                     <Table.ColumnHeaderCell>Vehicle & Axle Configuration</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Total Vehicles (24h)</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Weighed Vehicles</Table.ColumnHeaderCell>
                                     <Table.ColumnHeaderCell>Overloaded Violations</Table.ColumnHeaderCell>
                                     <Table.ColumnHeaderCell>Mean Damage Factor</Table.ColumnHeaderCell>
                                     <Table.ColumnHeaderCell>Accumulated ESALs</Table.ColumnHeaderCell>
@@ -112,6 +106,13 @@ export default function WimOverloadAnalytics({ auth, analytics }) {
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
+                                {axleClasses.length === 0 && (
+                                    <Table.Row>
+                                        <Table.Cell colSpan={6}>
+                                            <Text size="2" color="gray">{analytics?.reason || 'No weigh-in-motion readings have been recorded yet.'}</Text>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                )}
                                 {axleClasses.map((cls, idx) => (
                                     <Table.Row key={idx}>
                                         <Table.Cell>
@@ -152,9 +153,12 @@ export default function WimOverloadAnalytics({ auth, analytics }) {
                 <Panel>
                     <Heading size="4" weight="bold" mb="1">Lane-Specific Fatigue Allocation (Channelization)</Heading>
                     <Text size="2" color="gray" mb="4">
-                        Heavy commercial traffic on Dhaka Bypass concentrates disproportionately in the outer slow lane, causing accelerated rutting and structural wear.
+                        Share of accumulated ESAL and overload rate by lane, from recorded WIM logs.
                     </Text>
 
+                    {laneDist.length === 0 && (
+                        <Text size="2" color="gray">No lane-level WIM readings recorded yet.</Text>
+                    )}
                     <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                         {laneDist.map((lane, idx) => (
                             <Card key={idx} style={{ border: idx === 0 ? '2px solid var(--amber-8)' : undefined }}>
@@ -177,12 +181,6 @@ export default function WimOverloadAnalytics({ auth, analytics }) {
                                     <Text size="1" color="gray">Lane Overload Rate:</Text>
                                     <Text size="2" weight="bold" color={lane.overload_rate > 20 ? 'red' : 'gray'}>
                                         {lane.overload_rate}%
-                                    </Text>
-                                </Flex>
-                                <Flex justify="between" align="center" mt="1">
-                                    <Text size="1" color="gray">Recommended Action:</Text>
-                                    <Text size="1" weight="medium" color="indigo">
-                                        {idx === 0 ? 'High Modulus Asphalt (EME2)' : idx === 1 ? 'Standard Mill & Fill' : 'Routine Surface Seal'}
                                     </Text>
                                 </Flex>
                             </Card>

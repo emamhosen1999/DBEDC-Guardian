@@ -162,7 +162,7 @@ export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
                                                 <Text weight="bold" style={{ display: 'block', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {inc.title}
                                                 </Text>
-                                                <Text size="1" color="gray">{inc.incident_type?.replace(/_/g, ' ').toUpperCase() || 'BREAKDOWN'}</Text>
+                                                <Text size="1" color="gray">{inc.incident_type?.replace(/_/g, ' ').toUpperCase() || '—'}</Text>
                                             </Table.Cell>
                                             <Table.Cell>
                                                 <Text size="2" style={{ whiteSpace: 'nowrap' }}>{inc.chainage} ({inc.direction})</Text>
@@ -239,7 +239,7 @@ export default function IncidentsPatrol({ auth, metrics, incidents, filters }) {
                                             <Badge color="red" variant="soft">Damage Est: ৳{Number(v.estimated_asset_repair_cost).toLocaleString()}</Badge>
                                         </Flex>
                                         <Text size="1" color="gray">Driver: {v.driver_name || 'N/A'} · Insurance: {v.insurance_company || 'N/A'}</Text>
-                                        <Text size="1" mt="1">Asset Damage: {v.damage_to_expressway_asset || 'Guardrail deformation'}</Text>
+                                        <Text size="1" mt="1">Asset Damage: {v.damage_to_expressway_asset || 'None recorded'}</Text>
                                     </Box>
                                 ))}
                             </Box>

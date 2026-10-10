@@ -50,25 +50,26 @@ class OmAnalyticsService
             ? round($completedWOs->avg(function ($wo) {
                 return $wo->actual_start_at->diffInMinutes($wo->completed_at) / 60;
             }), 1)
-            : 0;
+            : null; // no completed work orders in range: no MTTR, never 0
 
         // WO Completion Rate
         $totalWOs = OmWorkOrder::where('created_at', '>=', $startDate)->count();
         $closedWOs = OmWorkOrder::where('created_at', '>=', $startDate)
             ->whereIn('status', ['completed', 'verified'])->count();
-        $woCompletionRate = $totalWOs > 0 ? round($closedWOs / $totalWOs * 100, 1) : 0;
+        $woCompletionRate = $totalWOs > 0 ? round($closedWOs / $totalWOs * 100, 1) : null;
 
         // Defect Resolution Rate
         $totalDefects = OmDefect::where('created_at', '>=', $startDate)->count();
         $resolvedDefects = OmDefect::where('created_at', '>=', $startDate)
             ->whereIn('status', ['rectified', 'verified_closed'])->count();
-        $defectResolutionRate = $totalDefects > 0 ? round($resolvedDefects / $totalDefects * 100, 1) : 0;
+        $defectResolutionRate = $totalDefects > 0 ? round($resolvedDefects / $totalDefects * 100, 1) : null;
 
         // Avg Incident Response Time (minutes)
         $respondedIncidents = OmIncident::where('reported_at', '>=', $startDate)
             ->whereNotNull('response_time_minutes')
             ->where('response_time_minutes', '>', 0);
-        $avgResponseTime = round((float) ($respondedIncidents->avg('response_time_minutes') ?? 0), 1);
+        $avgResponse = $respondedIncidents->avg('response_time_minutes');
+        $avgResponseTime = $avgResponse === null ? null : round((float) $avgResponse, 1);
 
         // SLA Compliance
         $slaDefects = OmDefect::where('created_at', '>=', $startDate)
@@ -77,13 +78,13 @@ class OmAnalyticsService
         $slaBreached = OmSlaBreach::where('entity_type', 'defect')
             ->where('breached_at', '>=', $startDate)
             ->count();
-        $slaComplianceRate = $slaDefects > 0 ? round((1 - ($slaBreached / $slaDefects)) * 100, 1) : 100;
+        $slaComplianceRate = $slaDefects > 0 ? round((1 - ($slaBreached / $slaDefects)) * 100, 1) : null;
 
         // Inspection Pass Rate
         $totalInspections = OmInspection::where('inspection_date', '>=', $startDate)->count();
         $passedInspections = OmInspection::where('inspection_date', '>=', $startDate)
             ->where('result', 'pass')->count();
-        $inspectionPassRate = $totalInspections > 0 ? round($passedInspections / $totalInspections * 100, 1) : 0;
+        $inspectionPassRate = $totalInspections > 0 ? round($passedInspections / $totalInspections * 100, 1) : null;
 
         return [
             'mttr_hours' => $mttr,
@@ -160,7 +161,7 @@ class OmAnalyticsService
             ->select(
                 DB::raw("DATE_FORMAT(breached_at, '%Y-%m-%d') as date"),
                 DB::raw('COUNT(*) as breaches'),
-                DB::raw("SUM(overdue_hours) as total_overdue_hours")
+                DB::raw('SUM(overdue_hours) as total_overdue_hours')
             )
             ->groupBy('date')
             ->orderBy('date')

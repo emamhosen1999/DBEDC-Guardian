@@ -31,13 +31,13 @@ export default function AssetTimeline({ auth, asset, timeline }) {
 
     return (
         <App auth={auth}>
-            <Head title={`Asset Timeline — ${asset?.asset_code || 'Unknown'}`} />
+            <Head title={`Asset Timeline — ${asset?.asset_code || '—'}`} />
             <Box p="5">
                 {/* Asset Header */}
                 <Panel mb="4">
                     <Flex justify="between" align="start">
                         <Box>
-                            <Heading size="6" weight="bold">{asset?.name || 'Unknown Asset'}</Heading>
+                            <Heading size="6" weight="bold">{asset?.name || '—'}</Heading>
                             <Text size="2" color="gray" as="div">{asset?.asset_code} · {asset?.category?.replace(/_/g, ' ')}</Text>
                             <Text size="2" color="gray" as="div" mt="1">
                                 Chainage: {asset?.start_chainage}{asset?.end_chainage ? ` → ${asset.end_chainage}` : ''} · {asset?.direction?.replace(/_/g, ' ')}

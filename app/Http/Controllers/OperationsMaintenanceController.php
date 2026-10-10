@@ -178,13 +178,10 @@ class OperationsMaintenanceController extends Controller
             ->take(100)
             ->get();
 
+        // Only recorded facts: counts come from om_defects; weather, traffic, inspection team and similar narrative
+        // fields are not captured by Guardian, so they are not reported (owner rule 2026-10-08: no mock data).
         $reportSummary = [
             'report_date' => $date,
-            'section_opened' => 'K-4+000 to K-22+000, N-105 Dhaka Bypass Expressway',
-            'inspection_team' => 'SE: Prodip - Habib (QC & Highway Patrol)',
-            'weather' => 'Partly Cloudy / Fair',
-            'traffic_condition' => 'Normal Corridor Flow, Morning Peak near K-9 Kanchan',
-            'overall_pavement_condition' => 'Fair to Good',
             'new_defects_today' => $newToday,
             'repaired_today' => $repairedToday,
             'cumulative_open_defects' => $totalOpen,
@@ -194,8 +191,7 @@ class OperationsMaintenanceController extends Controller
                 'moderate' => $moderateOpen,
                 'minor' => $minorOpen,
             ],
-            'reported_to_ceo' => '09:15 AM - Executive Briefing Dossier',
-            'report_prepared_by' => $request->user()?->name ?? 'Md. Habibur Rahman',
+            'report_prepared_by' => $request->user()?->name,
         ];
 
         if ($request->wantsJson() && ! $request->header('X-Inertia')) {

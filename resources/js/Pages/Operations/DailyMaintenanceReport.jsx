@@ -33,19 +33,15 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
             'Distress Type / Title': d.title || d.distress_type || 'N/A',
             'Severity': (d.severity || 'Medium').toUpperCase(),
             'Status': (d.status || 'Reported').replace(/_/g, ' ').toUpperCase(),
-            'SLA Target (Hours)': d.sla_hours ?? 24,
-            'Reported By': d.reporter?.name || 'Patrol Unit',
+            'SLA Target (Hours)': d.sla_hours ?? '',
+            'Reported By': d.reporter?.name || '',
             'Reported At': d.reported_at || d.created_at || 'N/A',
-            'Contractor Assigned': d.work_orders?.[0]?.contractor_name || 'In-House Crew',
+            'Contractor Assigned': d.work_orders?.[0]?.contractor_name || '',
             'Remarks / QC Notes': d.description || '',
         }));
 
         const summaryRows = [
             { 'KPI Metric': 'Daily Report Date', 'Value': selectedDate },
-            { 'KPI Metric': 'Inspection Team', 'Value': summary?.inspection_team || 'SE: Prodip - Habib' },
-            { 'KPI Metric': 'Weather Condition', 'Value': summary?.weather || 'Fair' },
-            { 'KPI Metric': 'Observed Traffic Flow', 'Value': summary?.traffic_condition || 'Normal Corridor Flow' },
-            { 'KPI Metric': 'Overall Pavement Condition', 'Value': summary?.overall_pavement_condition || 'Fair to Good' },
             { 'KPI Metric': 'Cumulative Open Defects', 'Value': summary?.cumulative_open_defects ?? 0 },
             { 'KPI Metric': 'New Defects Today', 'Value': summary?.new_defects_today ?? 0 },
             { 'KPI Metric': 'Defects Repaired Today', 'Value': summary?.repaired_today ?? 0 },
@@ -53,8 +49,7 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
             { 'KPI Metric': 'Major Safety Hazards', 'Value': summary?.open_by_severity?.major ?? 0 },
             { 'KPI Metric': 'Moderate Defects', 'Value': summary?.open_by_severity?.moderate ?? 0 },
             { 'KPI Metric': 'Minor Defects', 'Value': summary?.open_by_severity?.minor ?? 0 },
-            { 'KPI Metric': 'Executive Submission Time', 'Value': summary?.reported_to_ceo || '09:15 AM' },
-            { 'KPI Metric': 'Report Prepared By', 'Value': summary?.report_prepared_by || 'QC Department' },
+            { 'KPI Metric': 'Report Prepared By', 'Value': summary?.report_prepared_by || '' },
         ];
 
         const workbook = XLSX.utils.book_new();
@@ -110,7 +105,7 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
                                             Daily Road Maintenance Monitoring Report
                                         </Heading>
                                         <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
-                                            Section: K-4+000 to K-22+000, N-105 Dhaka Bypass Expressway • Standard QC Morning Briefing for CEO
+                                            Defect counts and register from Guardian O&M records
                                         </Text>
                                     </Box>
                                 </Flex>
@@ -140,26 +135,16 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
                         {/* Executive KPI Cards */}
                         <StatsCards stats={statItems} columns={{ initial: '1', sm: '4' }} mb="4" />
 
-                        {/* Inspection Metadata Dossier */}
+                        {/* Report metadata: only what Guardian records */}
                         <Box p="4" mb="4" style={{ borderRadius: 14, background: 'var(--aero-surface, var(--gray-a2))', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                            <Grid columns={{ initial: '1', sm: '3' }} gap="4">
+                            <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                 <Box>
-                                    <Text size="1" color="gray" weight="bold">INSPECTION TEAM</Text>
-                                    <Text size="2" weight="medium">{summary?.inspection_team || 'SE: Prodip - Habib'}</Text>
-                                    <Text size="1" color="gray" mt="2" weight="bold">WEATHER OBSERVATION</Text>
-                                    <Text size="2" weight="medium">{summary?.weather || 'Fair'}</Text>
+                                    <Text size="1" color="gray" weight="bold">REPORT DATE</Text>
+                                    <Text size="2" weight="medium" as="div">{summary?.report_date || selectedDate}</Text>
                                 </Box>
                                 <Box>
-                                    <Text size="1" color="gray" weight="bold">TRAFFIC CONDITION OBSERVED</Text>
-                                    <Text size="2" weight="medium">{summary?.traffic_condition || 'Normal Corridor Flow'}</Text>
-                                    <Text size="1" color="gray" mt="2" weight="bold">OVERALL PAVEMENT CONDITION</Text>
-                                    <Text size="2" weight="medium">{summary?.overall_pavement_condition || 'Fair to Good'}</Text>
-                                </Box>
-                                <Box>
-                                    <Text size="1" color="gray" weight="bold">EXECUTIVE SUBMISSION TIME</Text>
-                                    <Badge color="green" variant="soft">{summary?.reported_to_ceo || '09:15 AM'}</Badge>
-                                    <Text size="1" color="gray" mt="2" weight="bold">PREPARED BY</Text>
-                                    <Text size="2" weight="medium">{summary?.report_prepared_by || 'QC Department'}</Text>
+                                    <Text size="1" color="gray" weight="bold">PREPARED BY</Text>
+                                    <Text size="2" weight="medium" as="div">{summary?.report_prepared_by || '—'}</Text>
                                 </Box>
                             </Grid>
                         </Box>
@@ -253,7 +238,7 @@ export default function DailyMaintenanceReport({ auth, summary, defects, date })
                                                         )}
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <Text size="2">{d.responsible_party || 'O&M Contractor'}</Text>
+                                                        <Text size="2">{d.responsible_party || '—'}</Text>
                                                         {d.recommended_action && (
                                                             <Text size="1" color="gray" style={{ display: 'block' }}>{d.recommended_action}</Text>
                                                         )}

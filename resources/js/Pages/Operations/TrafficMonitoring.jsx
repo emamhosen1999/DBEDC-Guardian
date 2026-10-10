@@ -57,7 +57,7 @@ export default function TrafficMonitoring({ auth, trafficSections, overloadAlert
                                     <Panel key={sec.id} tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: 16, background: 'var(--aero-surface, var(--color-background))' }}>
                                         <Flex align="center" justify="between" mb="2">
                                             <Badge color={sec.density_status === 'free_flow' ? 'green' : sec.density_status === 'moderate' ? 'amber' : 'red'} variant="soft" style={{ borderRadius: 999 }}>
-                                                {sec.density_status?.replace('_', ' ').toUpperCase() || 'NORMAL'}
+                                                {sec.density_status?.replace('_', ' ').toUpperCase() || '—'}
                                             </Badge>
                                             <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>{sec.section_code}</Text>
                                         </Flex>

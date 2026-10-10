@@ -47,8 +47,14 @@ class OmEnvironmentalService
         $spillsReported = OmEnvironmentalLog::where('monitoring_type', 'spill_hazardous')->count();
         $wasteDumping = OmEnvironmentalLog::where('monitoring_type', 'illegal_waste_dumping')->count();
 
+        $compliant = OmEnvironmentalLog::where('compliance_status', 'compliant')->count();
+
         return [
             'total_logs' => $totalLogs,
+            // null when nothing has been logged: no rate, never a default 100%
+            'compliance_rate' => $totalLogs > 0 ? round($compliant / $totalLogs * 100, 1) : null,
+            'minor_exceedance_count' => $minorExceedances,
+            'critical_violation_count' => $violations,
             'logs_this_month' => $thisMonth,
             'critical_violations' => $violations,
             'minor_exceedances' => $minorExceedances,

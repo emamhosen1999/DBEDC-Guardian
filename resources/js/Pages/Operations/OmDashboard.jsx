@@ -46,7 +46,7 @@ export default function OmDashboard({
         {
             key: 'defects_total',
             title: 'Total Defects Logged',
-            value: defaultStats.total_defects_count || 71,
+            value: defaultStats.total_defects_count || 0,
             icon: <BoltIcon />,
             color: 'blue',
             description: `${defaultStats.rectified_defects_count || 0} Rectified & Verified`,

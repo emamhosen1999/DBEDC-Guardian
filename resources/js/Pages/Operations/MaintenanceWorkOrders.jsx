@@ -195,7 +195,7 @@ export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters
                                                 <Text weight="bold" style={{ display: 'block', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {wo.title}
                                                 </Text>
-                                                <Text size="1" color="gray">{wo.work_type?.replace(/_/g, ' ').toUpperCase() || 'ROUTINE'}</Text>
+                                                <Text size="1" color="gray">{wo.work_type?.replace(/_/g, ' ').toUpperCase() || '—'}</Text>
                                             </Table.Cell>
                                             <Table.Cell>
                                                 <Badge color="indigo" variant="soft" style={{ borderRadius: 999 }}>{wo.category.toUpperCase()}</Badge>

@@ -12,6 +12,8 @@ export default function OmAnalytics({ auth, analytics, filters }) {
 
     const a = analytics || {};
     const kpis = a.kpis || {};
+    // A rate with nothing to measure is null on the server: show a dash, never 0% or 100%.
+    const pct = (v) => (v == null ? '—' : `${v}%`);
 
     const handlePeriodChange = (period) => {
         router.get('/om/analytics', { period }, { preserveState: true, preserveScroll: true });
@@ -43,11 +45,11 @@ export default function OmAnalytics({ auth, analytics, filters }) {
                 {/* Core KPIs */}
                 <StatsCards stats={[
                     { label: 'MTTR (Hours)', value: kpis.mttr_hours ?? '—', icon: ClockIcon, color: 'blue' },
-                    { label: 'WO Completion', value: `${kpis.wo_completion_rate ?? 0}%`, icon: WrenchScrewdriverIcon, color: 'green' },
-                    { label: 'Defect Resolution', value: `${kpis.defect_resolution_rate ?? 0}%`, icon: BoltIcon, color: 'indigo' },
+                    { label: 'WO Completion', value: pct(kpis.wo_completion_rate), icon: WrenchScrewdriverIcon, color: 'green' },
+                    { label: 'Defect Resolution', value: pct(kpis.defect_resolution_rate), icon: BoltIcon, color: 'indigo' },
                     { label: 'Avg Response (min)', value: kpis.avg_incident_response_min ?? '—', icon: ExclamationTriangleIcon, color: 'amber' },
-                    { label: 'SLA Compliance', value: `${kpis.sla_compliance_rate ?? 100}%`, icon: ShieldCheckIcon, color: kpis.sla_compliance_rate >= 90 ? 'green' : 'red' },
-                    { label: 'Inspection Pass Rate', value: `${kpis.inspection_pass_rate ?? 0}%`, icon: ChartBarIcon, color: 'cyan' },
+                    { label: 'SLA Compliance', value: pct(kpis.sla_compliance_rate), icon: ShieldCheckIcon, color: kpis.sla_compliance_rate == null ? 'gray' : kpis.sla_compliance_rate >= 90 ? 'green' : 'red' },
+                    { label: 'Inspection Pass Rate', value: pct(kpis.inspection_pass_rate), icon: ChartBarIcon, color: 'cyan' },
                 ]} />
 
                 {/* Volume Summary */}

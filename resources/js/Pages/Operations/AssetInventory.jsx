@@ -56,7 +56,7 @@ export default function AssetInventory({ auth, assets, stats, filters }) {
         { key: 'total', title: 'Total Registered Assets', value: stats?.total_assets || assetList.length, color: 'blue' },
         { key: 'active', title: 'Active In Service', value: stats?.active_assets || 0, color: 'green', icon: <CheckCircleIcon /> },
         { key: 'critical', title: 'Critical Attention', value: stats?.critical_attention || 0, color: 'red', icon: <ExclamationTriangleIcon /> },
-        { key: 'pci', title: 'Avg Expressway PCI', value: `${stats?.avg_condition_pci || 88.5}/100`, color: 'indigo' },
+        { key: 'pci', title: 'Avg Expressway PCI', value: stats?.avg_condition_pci != null ? `${stats.avg_condition_pci}/100` : '—', color: 'indigo' },
         { key: 'valuation', title: 'Asset Valuation', value: `৳ ${(Number(stats?.total_asset_valuation || 0) / 10000000).toFixed(1)} Cr`, color: 'amber', icon: <CurrencyDollarIcon /> },
     ];
 
@@ -132,7 +132,7 @@ export default function AssetInventory({ auth, assets, stats, filters }) {
                                                 <Text weight="bold" style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {ast.name}
                                                 </Text>
-                                                <Text size="1" color="gray">{ast.location_description || 'Main Carriageway'}</Text>
+                                                <Text size="1" color="gray">{ast.location_description || '—'}</Text>
                                             </Table.Cell>
                                             <Table.Cell>
                                                 <Badge color="purple" variant="soft" style={{ borderRadius: 999 }}>{ast.category?.replace(/_/g, ' ').toUpperCase()}</Badge>

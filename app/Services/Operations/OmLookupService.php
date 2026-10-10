@@ -97,6 +97,8 @@ class OmLookupService
 
     /**
      * Auto-seed initial comprehensive lookups combining ASTM standards and DBEDC Concession Excel categories
+     * These are editable lookup definitions (category names and target SLA hours that the O&M team can change in the
+     * Lookups manager), not measurements; they are seeded once and only when the table is empty.
      */
     public function ensureDefaultLookupsSeeded(): void
     {

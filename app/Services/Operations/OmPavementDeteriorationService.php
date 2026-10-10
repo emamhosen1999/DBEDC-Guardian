@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  * Pavement deterioration forecast. A Markov / life-cycle forecast is only meaningful when it is fitted to the corridor's
  * own condition history (condition surveys and IRI readings over time). Until that history exists this service reports
  * what has been recorded and that no forecast can be made yet; it never returns illustrative curves, costs or sections
- * (owner rule 2026-10-08: no mock data).
+ * (owner rule 2026-10-08: no fabricated figures).
  */
 class OmPavementDeteriorationService
 {

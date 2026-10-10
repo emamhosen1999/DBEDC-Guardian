@@ -184,7 +184,7 @@ export default function ToolboxTalks({ auth, toolboxTalks = {} }) {
                                         </Flex>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1" color="gray">{t.conductor?.name || 'Supervisor'}</Text>
+                                        <Text size="1" color="gray">{t.conductor?.name || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell align="right">
                                         <Button size="1" variant="ghost" color="gray" onClick={() => setSelectedTalk(t)}>
@@ -336,7 +336,7 @@ export default function ToolboxTalks({ auth, toolboxTalks = {} }) {
                         <Flex direction="column" gap="3">
                             <Box style={{ background: 'var(--gray-3)', padding: 10, borderRadius: 6 }}>
                                 <Text size="1" color="gray">Identified Site Hazards</Text>
-                                <Text size="2" mt="1">{selectedTalk?.hazards_identified || 'Standard highway maintenance precautions briefed.'}</Text>
+                                <Text size="2" mt="1">{selectedTalk?.hazards_identified || 'None recorded'}</Text>
                             </Box>
 
                             <Box>

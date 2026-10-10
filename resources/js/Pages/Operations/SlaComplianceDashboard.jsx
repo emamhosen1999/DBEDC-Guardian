@@ -41,7 +41,7 @@ export default function SlaComplianceDashboard({ auth, dashboard }) {
 
                 {/* Compliance KPIs */}
                 <StatsCards stats={[
-                    { label: 'SLA Compliance', value: `${d.compliance_rate ?? 100}%`, icon: ShieldCheckIcon, color: complianceColor(d.compliance_rate ?? 100) },
+                    { label: 'SLA Compliance', value: d.compliance_rate == null ? '—' : `${d.compliance_rate}%`, icon: ShieldCheckIcon, color: d.compliance_rate == null ? 'gray' : complianceColor(d.compliance_rate) },
                     { label: 'Currently Breached', value: d.currently_breached ?? 0, icon: ExclamationTriangleIcon, color: d.currently_breached > 0 ? 'red' : 'green' },
                     { label: 'At Risk (< 4h)', value: d.at_risk ?? 0, icon: ClockIcon, color: d.at_risk > 0 ? 'amber' : 'green' },
                     { label: 'Resolved on Time', value: d.resolved_on_time ?? 0, icon: CheckCircleIcon, color: 'green' },

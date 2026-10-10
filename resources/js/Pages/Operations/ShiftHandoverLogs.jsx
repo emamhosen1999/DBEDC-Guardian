@@ -129,10 +129,10 @@ export default function ShiftHandoverLogs({ auth, shiftLogs, activeMetrics }) {
                                                     {log.shift_type?.toUpperCase()}
                                                 </Badge>
                                             </Table.Cell>
-                                            <Table.Cell><Text weight="bold">{log.operator?.name || 'Duty Operator'}</Text></Table.Cell>
+                                            <Table.Cell><Text weight="bold">{log.operator?.name || '—'}</Text></Table.Cell>
                                             <Table.Cell>
                                                 <Badge color={log.weather_condition === 'rain' ? 'blue' : 'gray'} variant="outline">
-                                                    {log.weather_condition?.toUpperCase() || 'CLEAR'}
+                                                    {log.weather_condition?.toUpperCase() || '—'}
                                                 </Badge>
                                             </Table.Cell>
                                             <Table.Cell style={{ fontVariantNumeric: 'tabular-nums' }}>{log.open_incidents_count}</Table.Cell>

@@ -93,7 +93,7 @@ class OmSlaService
             ->whereNotIn('status', ['rectified', 'verified_closed', 'rejected'])
             ->count();
 
-        $complianceRate = $resolved > 0 ? round($resolvedOnTime / $resolved * 100, 1) : 100;
+        $complianceRate = $resolved > 0 ? round($resolvedOnTime / $resolved * 100, 1) : null; // null = nothing resolved yet, so no rate (never a default 100%)
 
         $breachesBySeverity = OmSlaBreach::select('escalation_level')
             ->selectRaw('COUNT(*) as count')

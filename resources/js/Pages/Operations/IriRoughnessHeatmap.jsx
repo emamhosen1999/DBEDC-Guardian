@@ -37,39 +37,43 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
     const segments = profile?.segments || [];
     const alerts = profile?.deterioration_alerts || [];
 
+    const available = profile?.available === true;
+    const dash = '—';
+    const pct = (v) => (available && v != null ? `${v}%` : dash);
+
     const statsData = [
         {
-            title: 'Expressway Mean IRI',
-            value: `${profile?.average_iri ?? 2.1} m/km`,
+            title: 'Mean IRI (surveyed segments)',
+            value: available ? `${profile.average_iri} m/km` : dash,
             icon: <ArrowTrendingUpIcon style={{ width: 22, height: 22 }} />,
-            color: (profile?.average_iri || 2.1) < 2.5 ? 'green' : 'amber',
-            description: 'World Bank HDM-4 ride quality standard',
+            color: !available ? 'gray' : profile.average_iri < 2.5 ? 'green' : 'amber',
+            description: available ? `${profile.total_readings} readings over ${profile.surveyed_segments} km segment(s)` : 'No readings recorded yet',
         },
         {
             title: 'Smooth Pavement (IRI < 2.0)',
-            value: `${profile?.smooth_percentage ?? 75}%`,
+            value: pct(profile?.smooth_percentage),
             icon: <CheckBadgeIcon style={{ width: 22, height: 22 }} />,
             color: 'green',
-            description: 'Superior expressway comfort index',
+            description: 'Share of surveyed segments',
         },
         {
             title: 'Fair Condition (2.0 - 3.5)',
-            value: `${profile?.fair_percentage ?? 20}%`,
+            value: pct(profile?.fair_percentage),
             icon: <InformationCircleIcon style={{ width: 22, height: 22 }} />,
             color: 'amber',
-            description: 'Routine maintenance candidate zones',
+            description: 'Share of surveyed segments',
         },
         {
             title: 'Severe Roughness (> 3.5)',
-            value: `${profile?.rough_percentage ?? 5}%`,
+            value: pct(profile?.rough_percentage),
             icon: <ExclamationTriangleIcon style={{ width: 22, height: 22 }} />,
             color: 'red',
-            description: 'Critical mill-and-overlay required',
+            description: 'Share of surveyed segments',
         },
     ];
 
     const getConditionColor = (cond) => {
-        if (cond === 'good' || cond === 'smooth') return '#10b981'; // emerald green
+        if (cond === 'smooth') return '#10b981'; // emerald green
         if (cond === 'fair') return '#f59e0b'; // amber
         return '#ef4444'; // red
     };
@@ -91,12 +95,12 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                             <Badge color="blue" variant="soft">ASTM E1926 Class 3 Profiling</Badge>
                         </Flex>
                         <Text size="2" color="gray">
-                            Continuous 48-km linear international roughness index (IRI) aggregated from highway patrol vehicle accelerometer telemetry.
+                            Linear international roughness index (IRI) aggregated from highway patrol vehicle accelerometer telemetry.
                         </Text>
                     </Box>
                     <SegmentedControl.Root value={selectedDirection} onValueChange={handleDirectionChange} size="3">
-                        <SegmentedControl.Item value="northbound">Northbound (Joydebpur)</SegmentedControl.Item>
-                        <SegmentedControl.Item value="southbound">Southbound (Madanpur)</SegmentedControl.Item>
+                        <SegmentedControl.Item value="northbound">Northbound</SegmentedControl.Item>
+                        <SegmentedControl.Item value="southbound">Southbound</SegmentedControl.Item>
                     </SegmentedControl.Root>
                 </Flex>
 
@@ -109,9 +113,9 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                 <Panel mb="5">
                     <Flex justify="between" align="center" mb="3">
                         <Box>
-                            <Heading size="4" weight="bold">Continuous Linear 48-km Expressway Profiler</Heading>
+                            <Heading size="4" weight="bold">Linear Expressway Roughness Profile</Heading>
                             <Text size="2" color="gray">
-                                Click on any 500m segment to inspect local IRI readings, roughness class, and deterioration trends.
+                                Click on any 1 km segment to inspect local IRI readings, roughness class, and deterioration trends.
                             </Text>
                         </Box>
                         <Flex gap="3" align="center">
@@ -137,7 +141,7 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                                 const isSelected = selectedSegment?.chainage_km === seg.chainage_km;
                                 const barColor = getConditionColor(seg.condition);
                                 return (
-                                    <Tooltip key={idx} content={`${seg.chainage_label}: IRI ${seg.iri_value} m/km (${seg.condition.toUpperCase()})`}>
+                                    <Tooltip key={idx} content={`${seg.chainage_label}: IRI ${seg.iri_value} m/km (${seg.condition.toUpperCase()}), ${seg.survey_count} reading(s)`}>
                                         <Box
                                             onClick={() => setSelectedSegment(seg)}
                                             style={{
@@ -155,11 +159,14 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                                 );
                             })}
                         </Flex>
-                        <Flex justify="between" mt="2">
-                            <Text size="1" weight="medium" color="gray">Km 0+000 ({selectedDirection === 'northbound' ? 'Madanpur Origin' : 'Joydebpur Origin'})</Text>
-                            <Text size="1" weight="medium" color="gray">Km 24+000 (Kanchan Interchange)</Text>
-                            <Text size="1" weight="medium" color="gray">Km 48+000 (Expressway Terminus)</Text>
-                        </Flex>
+                        {segments.length > 0 ? (
+                            <Flex justify="between" mt="2">
+                                <Text size="1" weight="medium" color="gray">Km {segments[0].chainage_km}</Text>
+                                <Text size="1" weight="medium" color="gray">Km {segments[segments.length - 1].chainage_km + 1}</Text>
+                            </Flex>
+                        ) : (
+                            <Text size="2" color="gray">{profile?.reason || 'No IRI readings have been recorded for this carriageway yet.'}</Text>
+                        )}
                     </Box>
 
                     {/* Selected Segment Inspector Card */}
@@ -185,13 +192,13 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                                     </Box>
                                     <Box>
                                         <Text size="1" color="gray">Classification</Text>
-                                        <Badge color={selectedSegment.condition === 'good' ? 'green' : selectedSegment.condition === 'fair' ? 'amber' : 'red'}>
+                                        <Badge color={selectedSegment.condition === 'smooth' ? 'green' : selectedSegment.condition === 'fair' ? 'amber' : 'red'}>
                                             {selectedSegment.condition.toUpperCase()}
                                         </Badge>
                                     </Box>
                                     <Box>
                                         <Text size="1" color="gray">Patrol Speed</Text>
-                                        <Text size="2" weight="bold">{selectedSegment.avg_speed_kmh || 65} km/h</Text>
+                                        <Text size="2" weight="bold">{selectedSegment.avg_speed_kmh != null ? `${selectedSegment.avg_speed_kmh} km/h` : '—'}</Text>
                                     </Box>
                                     <Button size="1" variant="soft" color="gray" onClick={() => setSelectedSegment(null)}>
                                         Clear Selection
@@ -221,7 +228,7 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                                     </Flex>
                                     <Text size="2" color="gray" mb="2">{alert.recommendation}</Text>
                                     <Flex justify="between" align="center">
-                                        <Text size="1" color="gray">Surveyed via Mobile Patrol</Text>
+                                        <Text size="1" color="gray">Surveyed via patrol telemetry</Text>
                                         <Button size="1" variant="soft" color="indigo" onClick={() => router.visit(route('om.work-orders'))}>
                                             Create Work Order
                                         </Button>
@@ -235,18 +242,18 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                 {/* Detailed Segments Table */}
                 <Panel>
                     <Flex justify="between" align="center" mb="4" wrap="wrap" gap="3">
-                        <Heading size="4" weight="bold">Linear Segment Condition Breakdown (0.5 km Intervals)</Heading>
+                        <Heading size="4" weight="bold">Segment Condition Breakdown (1 km Intervals)</Heading>
                         <Flex gap="2">
                             <Button size="1" variant={conditionFilter === 'all' ? 'solid' : 'soft'} color="gray" onClick={() => setConditionFilter('all')}>
                                 All ({segments.length})
                             </Button>
-                            <Button size="1" variant={conditionFilter === 'good' ? 'solid' : 'soft'} color="green" onClick={() => setConditionFilter('good')}>
+                            <Button size="1" variant={conditionFilter === 'smooth' ? 'solid' : 'soft'} color="green" onClick={() => setConditionFilter('smooth')}>
                                 Smooth
                             </Button>
                             <Button size="1" variant={conditionFilter === 'fair' ? 'solid' : 'soft'} color="amber" onClick={() => setConditionFilter('fair')}>
                                 Fair
                             </Button>
-                            <Button size="1" variant={conditionFilter === 'poor' ? 'solid' : 'soft'} color="red" onClick={() => setConditionFilter('poor')}>
+                            <Button size="1" variant={conditionFilter === 'rough' ? 'solid' : 'soft'} color="red" onClick={() => setConditionFilter('rough')}>
                                 Rough
                             </Button>
                         </Flex>
@@ -265,7 +272,7 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
-                                {filteredSegments.slice(0, 30).map((seg, idx) => (
+                                {filteredSegments.map((seg, idx) => (
                                     <Table.Row key={idx} style={{ backgroundColor: selectedSegment?.chainage_km === seg.chainage_km ? 'var(--indigo-2)' : undefined }}>
                                         <Table.Cell>
                                             <Flex align="center" gap="2">
@@ -277,18 +284,18 @@ export default function IriRoughnessHeatmap({ auth, profile, direction = 'northb
                                             <Text weight="bold" size="2">{seg.iri_value} m/km</Text>
                                         </Table.Cell>
                                         <Table.Cell>
-                                            <Badge color={seg.condition === 'good' ? 'green' : seg.condition === 'fair' ? 'amber' : 'red'}>
+                                            <Badge color={seg.condition === 'smooth' ? 'green' : seg.condition === 'fair' ? 'amber' : 'red'}>
                                                 {seg.condition.toUpperCase()}
                                             </Badge>
                                         </Table.Cell>
                                         <Table.Cell>
-                                            <Text size="2">{seg.avg_speed_kmh || 60} km/h</Text>
+                                            <Text size="2">{seg.avg_speed_kmh != null ? `${seg.avg_speed_kmh} km/h` : '—'}</Text>
                                         </Table.Cell>
                                         <Table.Cell>
-                                            <Text size="2">{seg.survey_count || 12} accelerometer batches</Text>
+                                            <Text size="2">{seg.survey_count} reading(s)</Text>
                                         </Table.Cell>
                                         <Table.Cell>
-                                            <Text size="1" color="gray">{seg.last_surveyed_at || 'Recent patrol'}</Text>
+                                            <Text size="1" color="gray">{seg.last_surveyed_at || '—'}</Text>
                                         </Table.Cell>
                                     </Table.Row>
                                 ))}

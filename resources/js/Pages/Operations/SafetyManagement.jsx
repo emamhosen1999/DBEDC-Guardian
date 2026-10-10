@@ -143,12 +143,12 @@ export default function SafetyManagement({ auth, incidents, stats, filters }) {
 
                 {/* Safety KPIs */}
                 <StatsCards stats={[
-                    { label: 'Days Since Last Injury', value: stats?.days_since_last_injury ?? '∞', icon: HeartIcon, color: 'green' },
+                    { label: 'Days Since Last Injury', value: stats?.days_since_last_injury ?? '—', icon: HeartIcon, color: 'green' },
                     { label: 'Open Incidents', value: stats?.open_incidents ?? 0, icon: ShieldExclamationIcon, color: stats?.open_incidents > 0 ? 'red' : 'green' },
                     { label: 'Near Misses', value: stats?.near_misses ?? 0, icon: ExclamationTriangleIcon, color: 'amber' },
                     { label: 'PPE Violations', value: stats?.ppe_violations ?? 0, icon: ShieldExclamationIcon, color: stats?.ppe_violations > 0 ? 'red' : 'green' },
                     { label: 'Lost Time (hrs)', value: stats?.lost_time_hours ?? 0, icon: ClockIcon, color: 'orange' },
-                    { label: 'Toolbox Compliance', value: `${stats?.toolbox_compliance_pct ?? 100}%`, icon: CheckBadgeIcon, color: 'blue' },
+                    { label: 'Toolbox Compliance', value: stats?.toolbox_compliance_pct == null ? '—' : `${stats.toolbox_compliance_pct}%`, icon: CheckBadgeIcon, color: 'blue' },
                 ]} />
 
                 {/* Incidents Table */}

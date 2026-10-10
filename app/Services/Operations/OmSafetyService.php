@@ -53,7 +53,7 @@ class OmSafetyService
         $ppeViolations = OmSafetyIncident::where('ppe_worn', false)->count();
         $toolboxCompliance = $total > 0
             ? round(OmSafetyIncident::where('toolbox_talk_done', true)->count() / $total * 100, 1)
-            : 100;
+            : null; // no incidents on record: no compliance rate, never a default 100%
 
         // Days since last recordable incident
         $lastIncident = OmSafetyIncident::where('incident_type', 'workplace_injury')
