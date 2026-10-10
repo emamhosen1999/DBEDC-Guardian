@@ -158,6 +158,7 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | File (`resources/js/…`) | Batch | Status | Screenshots (`cyber/shots/app/`) | Notes |
 |---|---|---|---|---|
 | `Layouts/App.jsx` | 1 | verified | `app-dashboard-1440-dark.jpg`, `app-dashboard-1440-light.jpg`, `app-dashboard-390-dark.jpg`, `app-dashboard-390-light.jpg` | Pair 1:Sidebar-drawer match; zero-gutter frame measured on every shell pair. |
+| `Layouts/AppFooter.jsx` | 1 | done | `app-dashboard-1440-dark-r8.jpg` | New 2026-10-10: Cyber fixed footer (owner: "the footer is not fixed as required"). It sits under `.dl-main` inside `.dl-content`, so it is always visible and never covers content; the Aeon launcher moves above it; it is hidden on phones. Awaiting owner acceptance. |
 | `Layouts/BottomNav.jsx` | 1 | done | `app-dashboard-390-dark.jpg`, `app-dashboard-390-light.jpg` | Guardian-only phone navigation (no Cyber counterpart); Cyber tokens, real buttons. |
 | `Layouts/Footer.jsx` | 1 | done | — | Not rendered (unused legacy footer); Cyber layout has no footer. |
 | `Layouts/Header.jsx` | 1 | verified | `app-dashboard-1440-dark.jpg`, `app-dashboard-1440-light.jpg`, `app-dashboard-390-dark.jpg`, `app-dashboard-390-light.jpg` | Pair 1:Header-dropdown match; header metrics match on every shell pair. |

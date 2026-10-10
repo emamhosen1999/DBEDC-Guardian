@@ -48,6 +48,7 @@ Never judge by eye alone. Find mismatches before the owner does.
 | Check | Cyber rule (measure to confirm) |
 |---|---|
 | Regions | Header, sidebar and content meet edge to edge; thin border lines only. No outer margins between the navigation and the content. |
+| App footer | Every page has Cyber's fixed footer (`.app-footer.cyber-footer`): a 34px strip at the bottom of the content column, from the sidebar edge to the window edge, with a 1px rgba(fg,.25) top line, rgba(bg,.96) fill and 9px uppercase text in rgba(fg,.5). It always stays visible and never covers content (it sits under the scrolling main area). Real values only: company name and Guardian version. Phones show the bottom nav instead (`Layouts/AppFooter.jsx`). |
 | Grid gutters | **None.** Panels butt against each other and against the navigation; separation comes from borders only. |
 | Rows and heights (owner rule) | No gaps after widgets, vertically or horizontally. Cards in a row stretch to equal height, rows fill all 12 columns, and there's no trailing whitespace or empty cell. |
 | Borders (owner rule) | ONE border system from tokens: Cyber's card border, header separator and inner dividers. Shared edges collapse into a single line (never doubled). No mix of solid and dashed, no varying widths, and no leftover Radix or Tailwind borders, outlines or shadows inside cards. |
