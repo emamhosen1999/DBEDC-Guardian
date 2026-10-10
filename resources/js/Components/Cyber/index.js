@@ -7,3 +7,6 @@ export { default as StatTile } from './StatTile.jsx';
 export { default as CyberChart } from './CyberChart.jsx';
 export { cyberTokens, sparklineOptions, toneColor } from './chartTheme.js';
 export { default as KpiTile } from './KpiTile.jsx';
+export { default as Pagination } from './Pagination.jsx';
+export { default as Tabs } from './Tabs.jsx';
+export { default as Accordion } from './Accordion.jsx';

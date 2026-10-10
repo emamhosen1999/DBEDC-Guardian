@@ -1,51 +1,45 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Button, Callout, Flex, Text } from '@radix-ui/themes';
-import { ArrowLeftIcon, HomeIcon, LockClosedIcon } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import PageHeader from '@/Components/PageHeader';
+import { Button, Icon } from '@/Components/Cyber';
 
-/* Cyber page_404_error: HUD rules framing the code, uppercase message, actions. */
+/* Cyber page_404_error: HUD stripes framing the code, uppercase heading and message, a short rule, a row of
+   helpful links separated by 3px squares, and a BACK button. Links are the always-available pages. */
 export default function Forbidden({ message, accessType, accessPath }) {
     return (
         <App>
             <Head title="Access Denied" />
-            <PageHeader title="Access Denied" subtitle="Error 403" />
-            <div className="dl-error">
-                <div className="dl-error__frame">
-                    <div className="dl-hud-line" aria-hidden="true" />
-                    <p className="dl-error__code" aria-hidden="true" style={{ padding: '18px 0' }}>403</p>
-                    <div className="dl-hud-line" aria-hidden="true" />
+            <PageHeader upper title="Access" muted="Denied" chips={[{ value: 403, label: 'Error', tone: 'danger' }]} />
+            <div className="cy-error">
+                <div className="cy-error__content">
+                    <div className="dl-hud-line dl-hud-line--lg" aria-hidden="true" />
+                    <p className="cy-error__code" aria-hidden="true">403</p>
+                    <div className="dl-hud-line dl-hud-line--lg" aria-hidden="true" />
 
-                    <h2 className="dl-error__title" style={{ margin: '28px 0 6px' }}>Access denied</h2>
-                    <Text as="p" className="dl-error__text" mb="4">
-                        {message || "You don't have permission to access this resource."}
-                    </Text>
+                    <h2 className="cy-error__title">Access denied</h2>
+                    <p className="cy-error__text">{message || "You don't have permission to access this resource."}</p>
 
                     {(accessType || accessPath) && (
-                        <Callout.Root color="red" mb="4" style={{ textAlign: 'start' }}>
-                            <Callout.Icon><LockClosedIcon /></Callout.Icon>
-                            <Callout.Text>
-                                {accessType && <span style={{ textTransform: 'capitalize' }}>{accessType}</span>}
+                        <p className="cy-error__detail" role="note">
+                            <Icon name="lock" />
+                            <span>
+                                {accessType && <span>{accessType}</span>}
                                 {accessPath && <span style={{ opacity: 0.7 }}> ({accessPath})</span>}
-                            </Callout.Text>
-                        </Callout.Root>
+                            </span>
+                        </p>
                     )}
 
-                    <Text as="p" size="1" color="gray" mb="4" style={{ textTransform: 'uppercase' }}>
-                        If you believe you should have access, please contact your administrator.
-                    </Text>
-
-                    <Flex gap="3" justify="center" wrap="wrap">
-                        <Button variant="outline" color="gray" onClick={() => router.back()}>
-                            <ArrowLeftIcon /> Go Back
-                        </Button>
-                        <Button asChild variant="outline">
-                            <Link href={route('dashboard')}>
-                                <HomeIcon /> Dashboard
-                            </Link>
-                        </Button>
-                    </Flex>
+                    <hr className="cy-error__rule" />
+                    <p className="cy-error__text">If you believe you should have access, contact your administrator.</p>
+                    <p className="cy-error__lead">Here are some helpful links instead:</p>
+                    <ul className="cy-links">
+                        <li><Link href={route('dashboard')}>Home</Link></li>
+                        <li><Link href={route('search')}>Search</Link></li>
+                    </ul>
+                    <Button color="secondary" variant="outline" onClick={() => router.back()}>
+                        BACK
+                    </Button>
                 </div>
             </div>
         </App>

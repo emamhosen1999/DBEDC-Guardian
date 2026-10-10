@@ -4,7 +4,9 @@ import { requestJson } from '../client';
 // Query keys
 export const notificationKeys = {
   all: ['notifications'],
-  list: () => ['notifications', 'list'],
+  // With params the key is per page: paging refetches, and the header bell's unparameterised list keeps its own cache entry.
+  // invalidateQueries({ queryKey: list() }) still matches every page by prefix.
+  list: (params) => (params && Object.keys(params).length ? ['notifications', 'list', params] : ['notifications', 'list']),
   unread: () => ['notifications', 'unread'],
 };
 
@@ -20,7 +22,7 @@ export const useUnreadCount = () =>
 // Paginated notifications list (dropdown preview + View-all page)
 export const useNotificationsList = (params = {}) =>
   useQuery({
-    queryKey: notificationKeys.list(),
+    queryKey: notificationKeys.list(params),
     queryFn: () => requestJson('get', '/notifications/list', { params }),
   });
 

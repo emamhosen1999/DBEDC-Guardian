@@ -75,7 +75,13 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/install-app', function () {
-    return Inertia::render('InstallApp');
+    // Size and release date come from the APK that is actually served; with no file on disk nothing is invented.
+    $apkPath = collect([storage_path('app/public/apk/latest.apk'), public_path('apk/latest.apk')])
+        ->first(fn ($path) => is_file($path));
+
+    return Inertia::render('InstallApp', [
+        'apk' => $apkPath ? ['size_bytes' => filesize($apkPath), 'released_at' => date('Y-m-d', filemtime($apkPath))] : null,
+    ]);
 })->name('install-app');
 
 Route::get('/apk/latest.apk', [ApkDownloadController::class, 'latest'])->name('apk.download');

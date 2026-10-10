@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Head, router } from '@inertiajs/react';
 import App from '@/Layouts/App';
 import { useQueryFilters, useClampPage } from '@/Hooks/useQueryFilters';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
-import TablePagination from '@/Components/TablePagination.jsx';
 import {
     useNotificationsList,
     useUnreadCount,
@@ -11,9 +10,10 @@ import {
     useMarkAllRead,
 } from '@/api/queries/useNotificationsQuery';
 import PageHeader from '@/Components/PageHeader';
-import { Box, Flex, Text, Button, Badge, Spinner } from '@radix-ui/themes';
-import { BellIcon, CheckCircledIcon } from '@radix-ui/react-icons';
+import { Badge, Card, Icon, Pagination } from '@/Components/Cyber';
 
+/* Cyber email_inbox composition: mailbox toolbar, one list row per message (sender line, title, two-line
+   description), empty / error states in the mailbox-empty-message style, pagination under the list. */
 const NotificationsIndex = ({ title }) => {
     /* Pagination is server state, so it lives in the URL: a refresh or a copied
        link opens the same page of notifications. Rows come from react-query, so
@@ -61,84 +61,85 @@ const NotificationsIndex = ({ title }) => {
         <>
             <Head title={title ?? 'Notifications'} />
             <PageHeader
+                upper
                 title="Notifications"
-                subtitle={unreadTotal > 0 ? `${unreadTotal} unread on this page` : 'All caught up'}
+                muted="Inbox"
                 chips={[
                     { value: unreadCount, label: 'Unread', tone: unreadCount > 0 ? 'danger' : 'success' },
                     { value: isLoading ? undefined : apiPagination.total, label: 'Total', tone: 'default' },
                 ]}
-                actions={
-                    <Button size="2" variant="outline" onClick={handleMarkAllRead} disabled={markAllReadMutation.isPending}>
-                        <CheckCircledIcon /> Mark all read
-                    </Button>
-                }
             />
             <ErrorBoundary>
-                <section className="dl-card dl-card--page" aria-labelledby="notifications-list-title">
-                        <header className="dl-card__header">
-                            <h2 className="dl-card__title" id="notifications-list-title">All notifications</h2>
-                            <span className="dl-hud-line" aria-hidden="true" />
-                        </header>
+                <Card
+                    id="notifications-list"
+                    title="All notifications"
+                    flush
+                    footer={
+                        <Pagination
+                            pagination={pagination}
+                            loading={isLoading}
+                            onPageChange={f.setPage}
+                            onRowsPerPageChange={f.setPerPage}
+                            label="Notifications pagination"
+                        />
+                    }
+                >
+                    <div className="cy-mailbox-toolbar">
+                        <span className="cy-mailbox-toolbar__text">Mailboxes</span>
+                        <span className="cy-mailbox-toolbar__link is-active" aria-current="true">Inbox{unreadTotal > 0 ? ` (${unreadTotal})` : ''}</span>
+                        <button
+                            type="button"
+                            className="cy-mailbox-toolbar__link"
+                            onClick={handleMarkAllRead}
+                            disabled={markAllReadMutation.isPending}
+                        >
+                            Mark all read <Icon name="check-all" />
+                        </button>
+                    </div>
 
-                        {isLoading && (
-                            <Flex justify="center" py="6">
-                                <Spinner size="3" />
-                            </Flex>
-                        )}
+                    {isLoading && (
+                        <div className="cy-empty" role="status">
+                            <p className="cy-empty__text">Loading notifications…</p>
+                        </div>
+                    )}
 
-                        {isError && (
-                            <Flex justify="center" py="6">
-                                <Text color="red" size="2" role="alert">Failed to load notifications. Please refresh.</Text>
-                            </Flex>
-                        )}
+                    {isError && (
+                        <div className="cy-empty cy-empty--error" role="alert">
+                            <Icon name="exclamation-circle" className="cy-empty__icon" />
+                            <p className="cy-empty__title">Failed to load notifications</p>
+                            <p className="cy-empty__text">Please refresh the page.</p>
+                        </div>
+                    )}
 
-                        {!isLoading && !isError && items.length === 0 && (
-                            <Flex align="center" justify="center" direction="column" gap="1" py="6">
-                                <BellIcon style={{ width: 20, height: 20, color: 'var(--gray-a9)' }} aria-hidden="true" />
-                                <Text size="2" color="gray">All caught up</Text>
-                            </Flex>
-                        )}
+                    {!isLoading && !isError && items.length === 0 && (
+                        <div className="cy-empty">
+                            <Icon name="bell" className="cy-empty__icon" />
+                            <p className="cy-empty__title">All caught up</p>
+                            <p className="cy-empty__text">New notifications will show up here.</p>
+                        </div>
+                    )}
 
-                        {!isLoading && !isError && items.length > 0 && (
-                            <ul className="dl-list" aria-label="Notifications">
-                                {items.map((n) => (
-                                    <li key={n.id}>
-                                        <button
-                                            type="button"
-                                            className={`dl-list__item${n.read_at ? '' : ' dl-list__item--unread'}`}
-                                            onClick={() => handleItemClick(n)}
-                                        >
-                                            <Flex align="start" justify="between" gap="3">
-                                                <Flex direction="column" gap="1" style={{ minWidth: 0, flex: 1 }}>
-                                                    <Text size="2" weight={n.read_at ? 'regular' : 'bold'}>
-                                                        {n.data?.title || n.data?.message || 'Notification'}
-                                                    </Text>
-                                                    {n.data?.body && (
-                                                        <Text size="1" color="gray">{n.data.body}</Text>
-                                                    )}
-                                                    {n.created_at && (
-                                                        <Text size="1" color="gray">{new Date(n.created_at).toLocaleString()}</Text>
-                                                    )}
-                                                </Flex>
-                                                {!n.read_at && (
-                                                    <Badge color="red" variant="soft" size="1">New</Badge>
-                                                )}
-                                            </Flex>
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-
-                        <Box px="4" py="2" className="dl-card__foot">
-                            <TablePagination
-                                pagination={pagination}
-                                loading={isLoading}
-                                onPageChange={f.setPage}
-                                onRowsPerPageChange={f.setPerPage}
-                            />
-                        </Box>
-                </section>
+                    {!isLoading && !isError && items.length > 0 && (
+                        <ul className="cy-mailbox-list" aria-label="Notifications">
+                            {items.map((n) => (
+                                <li key={n.id}>
+                                    <button
+                                        type="button"
+                                        className={`cy-mailbox-item${n.read_at ? '' : ' is-unread'}`}
+                                        onClick={() => handleItemClick(n)}
+                                    >
+                                        <span className="cy-mailbox-item__sender">
+                                            <span className="cy-mailbox-item__name">{n.data?.title || n.data?.message || 'Notification'}</span>
+                                            {!n.read_at && <Badge color="danger">New</Badge>}
+                                            {n.created_at && <span className="cy-mailbox-item__time">{new Date(n.created_at).toLocaleString()}</span>}
+                                        </span>
+                                        {n.data?.body && <span className="cy-mailbox-item__desc">{n.data.body}</span>}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Card>
             </ErrorBoundary>
         </>
     );

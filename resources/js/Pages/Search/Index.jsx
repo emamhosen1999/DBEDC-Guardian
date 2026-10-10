@@ -1,16 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { MagnifyingGlassIcon } from '@radix-ui/react-icons';
-import { Badge, Button, Text, TextField } from '@radix-ui/themes';
 import App from '@/Layouts/App.jsx';
 import PageHeader from '@/Components/PageHeader';
+import { Badge, Button, Card, Icon, Tabs } from '@/Components/Cyber';
+import { panelId, tabId } from '@/Components/Cyber/Tabs.jsx';
 
+const ALL = 'all';
+const TABS_ID = 'search-groups';
+
+/* Cyber page_search_results composition: one large field with its action inside, group tabs (nav-tabs-v2),
+   then result rows (uppercase title, description, link row). Results only include records the viewer may see. */
 export default function GlobalSearch({ query = '', groups = [], minimumLength = 2 }) {
     const [value, setValue] = useState(query);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
+    const [tab, setTab] = useState(ALL);
     useEffect(() => setValue(query), [query]);
+    // A new search can drop the group that was selected: fall back to "All".
+    useEffect(() => { if (tab !== ALL && !groups.some((g) => g.key === tab)) setTab(ALL); }, [groups, tab]);
     const resultCount = groups.reduce((total, group) => total + group.items.length, 0);
+    const searched = query.length >= minimumLength;
 
     const submit = (event) => {
         event.preventDefault();
@@ -25,69 +34,78 @@ export default function GlobalSearch({ query = '', groups = [], minimumLength = 
         });
     };
 
+    const tabs = [{ key: ALL, label: 'All', count: resultCount }, ...groups.map((g) => ({ key: g.key, label: g.label, count: g.items.length }))];
+    const visible = tab === ALL ? groups : groups.filter((g) => g.key === tab);
+
     return (
         <App>
             <Head title="Search" />
             <PageHeader
-                title="Search Guardian"
+                upper
+                title="Search"
+                muted="Guardian"
                 subtitle="Results only include records you are allowed to view."
                 chips={[
-                    query.length >= minimumLength ? { value: resultCount, label: 'Results', tone: resultCount > 0 ? 'theme' : 'default' } : null,
-                    query.length >= minimumLength ? { value: groups.length, label: 'Groups', tone: 'default' } : null,
+                    searched ? { value: resultCount, label: 'Results', tone: resultCount > 0 ? 'theme' : 'default' } : null,
+                    searched ? { value: groups.length, label: 'Groups', tone: 'default' } : null,
                 ]}
             />
 
-            {/* Cyber page_search_results: one .form-control-lg with its action inside the field */}
-            <form onSubmit={submit} role="search" className="dl-search-bar">
-                <TextField.Root
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    placeholder="Employee, RFI, objection, work order, incident…"
-                    size="3"
-                    aria-label="Search Guardian"
-                    maxLength={100}
-                    autoFocus
-                >
-                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                    <TextField.Slot side="right">
-                        <Button type="submit" size="1" className="dl-btn-secondary" loading={processing} disabled={processing || value.trim().length < minimumLength}>
-                            Search
-                        </Button>
-                    </TextField.Slot>
-                </TextField.Root>
-                {error && <Text as="p" color="red" role="alert" mt="2">{error}</Text>}
+            <form onSubmit={submit} role="search" className="cy-searchbar">
+                <div className="cy-searchbar__field">
+                    <input
+                        type="text"
+                        className="cy-input cy-input--lg"
+                        value={value}
+                        onChange={(event) => setValue(event.target.value)}
+                        placeholder="Employee, RFI, objection, work order, incident…"
+                        aria-label="Search Guardian"
+                        maxLength={100}
+                        autoFocus
+                    />
+                    <Button type="submit" color="secondary" className="cy-searchbar__action" disabled={processing || value.trim().length < minimumLength} aria-busy={processing || undefined}>
+                        {processing ? 'SEARCHING…' : 'SEARCH'}
+                    </Button>
+                </div>
+                {error && <p className="cy-searchbar__hint cy-searchbar__hint--error" role="alert">{error}</p>}
                 {query.length > 0 && query.length < minimumLength && (
-                    <Text as="p" color="amber" size="2" mt="2">Enter at least {minimumLength} characters.</Text>
+                    <p className="cy-searchbar__hint cy-searchbar__hint--warn">Enter at least {minimumLength} characters.</p>
                 )}
             </form>
 
-            {query.length >= minimumLength && resultCount === 0 && (
-                <div className="dl-empty">
-                    <Text weight="medium" as="div">No accessible results for “{query}”.</Text>
-                    <Text size="2" color="gray">Try a record number, employee ID, name, location, or description.</Text>
+            {groups.length > 0 && <Tabs tabs={tabs} value={tab} onChange={setTab} idPrefix={TABS_ID} label="Result groups" />}
+
+            {searched && resultCount === 0 && (
+                <div className="cy-empty">
+                    <Icon name="search" className="cy-empty__icon" />
+                    <p className="cy-empty__title">No accessible results for “{query}”</p>
+                    <p className="cy-empty__text">Try a record number, employee ID, name, location, or description.</p>
                 </div>
             )}
 
-            {groups.map((group) => (
-                <section key={group.key} className="dl-card dl-card--page" aria-labelledby={`search-group-${group.key}`}>
-                    <header className="dl-card__header">
-                        <h2 className="dl-card__title" id={`search-group-${group.key}`}>{group.label}</h2>
-                        <span className="dl-hud-line" aria-hidden="true" />
-                        <Badge variant="soft">{group.items.length}</Badge>
-                    </header>
-                    <ul className="dl-list dl-results">
-                        {group.items.map((item) => (
-                            <li key={`${group.key}-${item.id}`}>
-                                <Link href={item.url} className="dl-list__item dl-result">
-                                    <span className="dl-result__title">{item.title}</span>
-                                    {item.subtitle && <span className="dl-result__text">{item.subtitle}</span>}
-                                    {item.meta && <span className="dl-result__meta">{item.meta}</span>}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            ))}
+            <div role="tabpanel" id={panelId(TABS_ID, tab)} aria-labelledby={tabId(TABS_ID, tab)}>
+                {visible.map((group) => (
+                    <Card
+                        key={group.key}
+                        id={`search-group-${group.key}`}
+                        title={group.label}
+                        flush
+                        actions={<Badge color="theme">{group.items.length}</Badge>}
+                    >
+                        <ul className="cy-results">
+                            {group.items.map((item) => (
+                                <li key={`${group.key}-${item.id}`}>
+                                    <Link href={item.url} className="cy-result">
+                                        <span className="cy-result__title">{item.title}</span>
+                                        {item.subtitle && <span className="cy-result__text">{item.subtitle}</span>}
+                                        {item.meta && <span className="cy-result__meta"><Icon name="link-45deg" />{item.meta}</span>}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+                ))}
+            </div>
         </App>
     );
 }

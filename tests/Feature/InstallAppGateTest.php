@@ -37,6 +37,27 @@ class InstallAppGateTest extends TestCase
     }
 
     /** @test */
+    public function install_app_page_reports_the_served_apk_size_and_never_invents_one()
+    {
+        $apkPath = storage_path('app/public/apk/latest.apk');
+        $existed = is_file($apkPath);
+        $backup = $existed ? file_get_contents($apkPath) : null;
+        if (! is_dir(dirname($apkPath))) {
+            mkdir(dirname($apkPath), 0777, true);
+        }
+        file_put_contents($apkPath, str_repeat('a', 2048));
+
+        try {
+            $this->get('/install-app')->assertOk()->assertInertia(fn ($page) => $page
+                ->component('InstallApp')
+                ->where('apk.size_bytes', 2048)
+                ->where('apk.released_at', fn ($date) => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1));
+        } finally {
+            $existed ? file_put_contents($apkPath, $backup) : unlink($apkPath);
+        }
+    }
+
+    /** @test */
     public function apk_download_endpoint_serves_file_if_exists()
     {
         // Fake the storage and create a dummy APK file
