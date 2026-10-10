@@ -128,6 +128,12 @@ $middlewareStack = ['auth', 'verified'];
 
 Route::middleware($middlewareStack)->group(function () {
 
+    // Local-only Cyber component gallery for the design conformance check (scripts/design/review/component-conformance.cjs).
+    // Never registered outside the local environment.
+    if (app()->environment('local')) {
+        Route::get('/dev/cyber-components', fn () => Inertia::render('Dev/CyberComponents'))->name('dev.cyber-components');
+    }
+
     // Firebase custom-token endpoint — lets the browser sign in to Firebase (signInWithCustomToken)
     Route::get('/firebase/token', FirebaseTokenController::class)->name('firebase.token');
 
