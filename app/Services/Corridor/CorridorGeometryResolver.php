@@ -60,6 +60,9 @@ class CorridorGeometryResolver
         }
         $features = DB::table('corridor_features')->where('geometry_id', $row->id)->orderBy('chainage_m')->get()
             ->map(fn ($f): array => $this->feature((array) $f))->all();
+        // An export may carry the centreline only (dhakabypass still flags its interchanges illustrative): keep the
+        // client survey's structures rather than an empty structures layer.
+        $features = $features !== [] ? $features : $this->client()['features'];
 
         return new CorridorGeometry($alignment, $features, [
             'key' => $row->source,

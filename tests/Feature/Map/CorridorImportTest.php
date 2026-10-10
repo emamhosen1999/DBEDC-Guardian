@@ -108,4 +108,21 @@ class CorridorImportTest extends TestCase
         $this->assertSame(12090, $after->alignment->lengthM());
         $this->assertSame('Vogra Toll Plaza', $after->features[0]['name']);
     }
+
+    public function test_an_import_without_structures_keeps_the_client_survey_structures(): void
+    {
+        $survey = (new CorridorGeometryResolver)->resolve()->features;
+        $this->assertNotEmpty($survey);
+
+        $payload = json_decode((string) file_get_contents(self::FIXTURE), true);
+        unset($payload['interchanges']);
+        $file = tempnam(sys_get_temp_dir(), 'corridor').'.json';
+        file_put_contents($file, json_encode($payload));
+        $this->assertSame(0, $this->run_import($file));
+        @unlink($file);
+
+        $after = (new CorridorGeometryResolver)->resolve();
+        $this->assertSame('dhakabypass', $after->source['key']);
+        $this->assertSame(array_column($survey, 'name'), array_column($after->features, 'name'));
+    }
 }
