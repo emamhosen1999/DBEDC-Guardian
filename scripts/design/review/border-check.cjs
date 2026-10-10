@@ -13,6 +13,7 @@ const email = raw.match(/email=(\S+)/)[1], pw = raw.match(/password=(\S+)/)[1];
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined });
   const page = await browser.newPage({ viewport: { width: Number(process.env.VW || 1440), height: Number(process.env.VH || 900) } });
+  await page.route(/react-scan/, (r) => r.abort());
   await page.goto('http://127.0.0.1:8002/login', { waitUntil: 'networkidle' });
   await page.fill('input[type=email], input[name=email]', email); await page.fill('input[type=password]', pw);
   await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle', timeout: 60000 }).catch(() => {}), page.click('button[type=submit]')]);
@@ -38,7 +39,8 @@ const email = raw.match(/email=(\S+)/)[1], pw = raw.match(/password=(\S+)/)[1];
         ['Top', 'Right', 'Bottom', 'Left'].forEach((s) => {
           if (c['border' + s + 'Width'] !== '0px' && c['border' + s + 'Style'] !== 'none') {
             const col = c['border' + s + 'Color'];
-            if (!/rgb\(77, 77, 77\)|rgba\(255, 255, 255, 0\.15\)|rgba\(0, 0, 0, 0\)/.test(col) && !el.closest('.apexcharts-canvas')) issues.push(`${title}: ${el.className?.toString().slice(0, 40)} border-${s} ${col}`);
+            // Cyber components whose toned borders are part of their spec (outline badges and buttons, alerts, inputs) are not panel borders.
+            if (!/rgb\(77, 77, 77\)|rgba\(255, 255, 255, 0\.15\)|rgba\(0, 0, 0, 0\)/.test(col) && !el.closest('.apexcharts-canvas, .cy-badge, .cy-alert, .cy-btn, .cy-input, .cy-tabs')) issues.push(`${title}: ${el.className?.toString().slice(0, 40)} border-${s} ${col}`);
           }
         });
       });

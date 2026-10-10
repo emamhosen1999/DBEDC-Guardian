@@ -1,5 +1,7 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Badge as CyBadge, Button as CyButton, Icon, StatTile } from '@/Components/Cyber';
+import { Avatar as CyAvatar } from '@/Components/Cyber/Map/Avatar.jsx';
 import { Box, Flex, Grid, Text, Heading, Badge, Separator, Skeleton, Avatar, Button, TextField, Dialog, Tooltip, Spinner } from '@radix-ui/themes';
 import {
     ClockIcon,
@@ -1080,323 +1082,147 @@ const PunchStatusCard = React.memo(() => {
 
     // ===== RENDER =====
     const rc = (c) => ({ primary: 'blue', success: 'green', warning: 'amber', danger: 'red', default: 'gray', secondary: 'violet' }[c] || 'gray');
+    // Cyber badge colours and Bootstrap Icons for the punch state (the card body is Cyber; dialogs keep Radix).
+    const cyTone = (c) => ({ primary: 'theme', success: 'success', warning: 'warning', danger: 'danger', default: 'secondary', secondary: 'secondary' }[c] || 'secondary');
+    const statusIcon = attendanceState.userOnLeave ? 'exclamation-triangle'
+        : statusConfig.text === 'Checked In' ? 'person-check'
+        : statusConfig.text === 'Checked Out' ? 'box-arrow-right' : 'clock';
+    const actionIcon = statusConfig.action === 'Check Out' ? 'box-arrow-right' : 'box-arrow-in-right';
+    const checks = [
+        isBiometricUser && { key: 'bio', tone: 'theme', icon: 'fingerprint', text: assignedDeviceName ?? 'Biometric: no device', title: assignedDeviceName ? `Assigned device: ${assignedDeviceName}` : 'No biometric device assigned yet' },
+        !isBiometricUser && usesLocationRequirement && { key: 'gps', tone: cyTone(gpsChipConfig.color), icon: 'geo-alt', text: gpsChipConfig.text, title: gpsChipConfig.tooltip, onClick: gpsChipConfig.clickable ? handleGpsChipClick : undefined, busy: locationState.status === GPS_STATUS.CHECKING },
+        !isBiometricUser && requiresNetworkValidation && { key: 'net', tone: systemState.connectionStatus.network ? 'success' : 'danger', icon: 'hdd-network', text: 'IP network', title: `WiFi/IP attendance. Network: ${systemState.connectionStatus.network ? 'online' : 'offline'}` },
+        !isBiometricUser && requiresQrCode && { key: 'qr', tone: qrCodeValue.trim() ? 'success' : 'warning', icon: 'list-check', text: 'QR', title: qrCodeValue.trim() ? 'QR code entered.' : 'QR code required.' },
+        !isBiometricUser && requiresPhotoCapture && { key: 'photo', tone: 'warning', icon: 'camera-video', text: 'Photo', title: 'Photo verification required.' },
+        !isBiometricUser && !usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && { key: 'std', tone: 'success', icon: 'shield-check', text: 'Standard', title: 'Standard attendance validation is active.' },
+    ].filter(Boolean);
+    const toggleActivity = () => setUiState(prev => ({ ...prev, expandedSections: { ...prev.expandedSections, punches: !prev.expandedSections.punches } }));
 
     return (
-        <Box style={{ height: '100%' }}>
-            <Panel tinted style={{ height: '100%', opacity: attendanceState.loading ? 0.7 : 1, display: 'flex', flexDirection: 'column', borderRadius: 16 }}>
-                <Box p={{ initial: '3', md: '4' }} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                    {/* Header: Avatar + Name + Time */}
-                    <Flex align="center" justify="between" mb={{ initial: '3', md: '4' }}>
-                        <Flex align="center" gap="3">
-                            <Box style={{ position: 'relative', display: 'inline-block' }}>
-                                <Avatar
-                                    src={user?.profile_image_url || user?.profile_image}
-                                    fallback={user?.name?.charAt(0)?.toUpperCase() || '?'}
-                                    size="3"
-                                    radius="full"
-                                />
-                                <Box style={{
-                                    position: 'absolute', bottom: 0, right: 0,
-                                    width: 10, height: 10, borderRadius: '50%',
-                                    background: statusConfig.color === 'success' ? 'var(--aero-success, var(--green-9))' : statusConfig.color === 'warning' ? 'var(--aero-warning, var(--amber-9))' : 'var(--aero-accent, var(--accent-9))',
-                                    border: '2px solid var(--color-background)',
-                                }} />
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="bold" style={{ display: 'block', color: 'var(--gray-12)' }}>{user?.name}</Text>
-                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>ID: {user?.employee_id || user?.id}</Text>
-                            </Box>
-                        </Flex>
-                        <Box style={{ textAlign: 'right' }}>
-                            <Text size={{ initial: '3', md: '4' }} weight="bold" style={{ display: 'block', color: 'var(--aero-accent, var(--accent-9))', fontVariantNumeric: 'tabular-nums', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
-                                {systemState.currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                            </Text>
-                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-9))' }}>
-                                {systemState.currentTime.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
-                            </Text>
-                        </Box>
-                    </Flex>
+        <div className="cy-punchcard" aria-busy={attendanceState.loading || undefined}>
+            {/* Who and when */}
+            <div className="cy-punchcard__head">
+                <span className="cy-punchcard__avatar">
+                    <CyAvatar name={user?.name} photo={user?.profile_image_url || user?.profile_image} />
+                    <i className="cy-punchcard__presence" data-tone={cyTone(statusConfig.color)} aria-hidden="true" />
+                </span>
+                <span className="cy-punchcard__who">
+                    <span className="cy-punchcard__name">{user?.name}</span>
+                    <span className="cy-punchcard__id">ID {user?.employee_id || user?.id}</span>
+                </span>
+                <span className="cy-punchcard__clock" aria-live="off">
+                    <span className="cy-punchcard__time">{systemState.currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                    <span className="cy-punchcard__date">{systemState.currentTime.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                </span>
+            </div>
 
-                    {/* Status Badge */}
-                    <Flex justify="center" mb={{ initial: '3', md: '4' }}>
-                        <Badge color={rc(statusConfig.color)} variant="soft" size={{ initial: '1', md: '2' }} style={{ fontWeight: 700, borderRadius: 999 }}>
-                            <Flex align="center" gap="1">{statusConfig.icon} {statusConfig.text}</Flex>
-                        </Badge>
-                    </Flex>
+            {/* Today's figures (Cyber .row-grid tiles) */}
+            <div className="dl-tiles">
+                <StatTile label="Hours today" value={attendanceState.realtimeWorkTime} tone="theme" />
+                <StatTile label="Sessions" value={workStats.sessionsToday} />
+            </div>
 
-                    {/* Work Stats */}
-                    <Grid columns="2" gap={{ initial: '2', md: '3' }} mb={{ initial: '3', md: '4' }}>
-                        <Panel tinted p="0" style={{ background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))', borderRadius: 12 }}>
-                            <Flex direction="column" align="center" p="3" gap="1">
-                                <ClockIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 20, height: 20 }} />
-                                <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', monospace`, color: 'var(--gray-12)', fontVariantNumeric: 'tabular-nums' }}>
-                                    {attendanceState.realtimeWorkTime}
-                                </Text>
-                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Hours Today</Text>
-                            </Flex>
-                        </Panel>
-                        <Panel tinted p="0" style={{ background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))', borderRadius: 12 }}>
-                            <Flex direction="column" align="center" p="3" gap="1">
-                                <HomeIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 20, height: 20 }} />
-                                <Text size="3" weight="bold" style={{ color: 'var(--gray-12)', fontFamily: `'Space Grotesk', sans-serif` }}>
-                                    {workStats.sessionsToday}
-                                </Text>
-                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Sessions</Text>
-                            </Flex>
-                        </Panel>
-                    </Grid>
+            <div className="cy-punchcard__body">
+                <div className="cy-punchcard__status" role="status">
+                    <CyBadge color={cyTone(statusConfig.color)}><Icon name={statusIcon} /> {statusConfig.text}</CyBadge>
+                </div>
 
-                    {/* Main Action Button — matching mobile GradientButton */}
-                    <Button
-                        size="3"
-                        disabled={isPunchActionDisabled}
-                        onClick={handlePunch}
-                        style={{
-                            width: '100%',
-                            height: 48,
-                            borderRadius: 999,
-                            fontWeight: 800,
-                            fontSize: 14,
-                            marginBottom: 'var(--space-3)',
-                            background: isPunchActionDisabled
-                                ? 'var(--gray-a4)'
-                                : 'linear-gradient(135deg, var(--aero-accent, #4F8CFF) 0%, var(--aero-accent-strong, #2F6BFF) 100%)',
-                            color: '#FFFFFF',
-                            border: 'none',
-                            cursor: isPunchActionDisabled ? 'not-allowed' : 'pointer',
-                            boxShadow: isPunchActionDisabled ? 'none' : '0 4px 14px rgba(79, 140, 255, 0.3)',
-                            transition: 'transform 80ms ease, opacity 150ms ease',
-                        }}
-                    >
-                        {isBiometricUser
-                            ? <Flex align="center" gap="2"><LockClosedIcon />{assignedDeviceName ? `Use ${assignedDeviceName}` : 'Use Biometric Device'}</Flex>
-                            : attendanceState.loading
-                            ? <Flex align="center" gap="2"><Spinner size="1" /> Processing...</Flex>
-                            : <Flex align="center" gap="2">{statusConfig.icon} {statusConfig.action}</Flex>
-                        }
-                    </Button>
+                <CyButton
+                    className="cy-punchcard__action"
+                    color="theme"
+                    variant={isPunchActionDisabled ? 'outline' : 'solid'}
+                    disabled={isPunchActionDisabled}
+                    onClick={handlePunch}
+                >
+                    {isBiometricUser
+                        ? <><Icon name="fingerprint" /> {assignedDeviceName ? `Use ${assignedDeviceName}` : 'Use biometric device'}</>
+                        : attendanceState.loading
+                            ? <><Icon name="arrow-repeat" className="cy-spin" /> Processing…</>
+                            : <><Icon name={actionIcon} /> {statusConfig.action}</>}
+                </CyButton>
 
-                    {/* Biometric Device Info Card */}
-                    {isBiometricUser && (
-                        <Panel tinted p="0" mb="3" style={{ background: 'var(--accent-a2)' }}>
-                            <Flex align="center" gap="3" p="3">
-                                <Flex align="center" justify="center" style={{
-                                    width: 40, height: 40, borderRadius: '50%',
-                                    background: 'var(--accent-9)', color: 'white',
-                                    flexShrink: 0,
-                                }}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
-                                        <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
-                                        <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
-                                        <path d="M2 12a10 10 0 0 1 18-6" />
-                                        <path d="M2 17c1 .5 2.31.86 3 1" />
-                                        <path d="M22 6c0 3.37-.85 6.37-2.3 9" />
-                                        <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
-                                        <path d="M8.65 22c.21-.66.45-1.32.57-2" />
-                                        <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
-                                    </svg>
-                                </Flex>
-                                <Box flex={1}>
-                                    <Text size="2" weight="medium" style={{ display: 'block', color: 'var(--accent-11)' }}>
-                                        {assignedDeviceName ?? 'Biometric Device'}
-                                    </Text>
-                                    <Text size="1" color="gray" style={{ display: 'block', marginTop: 2 }}>
-                                        {assignedDeviceName
-                                            ? 'Use this device to punch in/out'
-                                            : 'No device assigned yet — contact HR'}
-                                    </Text>
-                                </Box>
-                            </Flex>
-                        </Panel>
-                    )}
+                {isBiometricUser && (
+                    <div className="cy-alert" data-tone="theme">
+                        <Icon name="fingerprint" />
+                        <span><strong>{assignedDeviceName ?? 'Biometric device'}</strong>{assignedDeviceName ? 'Use this device to punch in and out.' : 'No device assigned yet: contact HR.'}</span>
+                    </div>
+                )}
 
-                    {/* QR Code Input */}
-                    {requiresQrCode && (
-                        <Box mb="3">
-                            <Text size="1" weight="medium" mb="1" style={{ display: 'block' }}>Attendance QR Code</Text>
-                            <TextField.Root
-                                placeholder="Scan or enter QR code"
-                                value={qrCodeValue}
-                                onChange={(e) => setQrCodeValue(e.target.value)}
-                                size="2"
-                            >
-                                <TextField.Slot><BarChartIcon /></TextField.Slot>
-                            </TextField.Root>
-                        </Box>
-                    )}
+                {requiresQrCode && (
+                    <label className="cy-punchcard__field">
+                        <span>Attendance QR code</span>
+                        <input className="cy-input" placeholder="Scan or enter the QR code" value={qrCodeValue} onChange={(e) => setQrCodeValue(e.target.value)} />
+                    </label>
+                )}
 
-                    {/* Validation Badges */}
-                    <Flex justify="center" gap="2" mb={{ initial: '3', md: '4' }} wrap="wrap">
-                        {isBiometricUser && (
-                            <Tooltip content={assignedDeviceName ? `Assigned device: ${assignedDeviceName}` : 'No biometric device assigned yet'}>
-                                <Badge color="blue" variant="soft" size="1">
-                                    <Flex align="center" gap="1">
-                                        <LockClosedIcon />
-                                        {assignedDeviceName ?? 'Biometric — No device'}
-                                    </Flex>
-                                </Badge>
-                            </Tooltip>
-                        )}
-                        {!isBiometricUser && usesLocationRequirement && (
-                            <Tooltip content={gpsChipConfig.tooltip}>
-                                <Badge
-                                    color={rc(gpsChipConfig.color)}
-                                    variant="soft"
-                                    size="1"
-                                    style={{ cursor: gpsChipConfig.clickable ? 'pointer' : 'default' }}
-                                    onClick={gpsChipConfig.clickable ? handleGpsChipClick : undefined}
-                                >
-                                    <Flex align="center" gap="1">
-                                        {locationState.status === GPS_STATUS.CHECKING ? <Spinner size="1" /> : <DrawingPinIcon />}
-                                        {gpsChipConfig.text}
-                                    </Flex>
-                                </Badge>
-                            </Tooltip>
-                        )}
-                        {!isBiometricUser && requiresNetworkValidation && (
-                            <Tooltip content={`WiFi/IP attendance. Network: ${systemState.connectionStatus.network ? 'Online' : 'Offline'}`}>
-                                <Badge color={systemState.connectionStatus.network ? 'green' : 'red'} variant="soft" size="1">
-                                    <Flex align="center" gap="1"><LightningBoltIcon /> IP Net</Flex>
-                                </Badge>
-                            </Tooltip>
-                        )}
-                        {!isBiometricUser && requiresQrCode && (
-                            <Tooltip content={qrCodeValue.trim() ? 'QR code entered.' : 'QR code required.'}>
-                                <Badge color={qrCodeValue.trim() ? 'green' : 'amber'} variant="soft" size="1">
-                                    <Flex align="center" gap="1"><BarChartIcon /> QR</Flex>
-                                </Badge>
-                            </Tooltip>
-                        )}
-                        {!isBiometricUser && requiresPhotoCapture && (
-                            <Tooltip content="Photo verification required.">
-                                <Badge color="amber" variant="soft" size="1">
-                                    <Flex align="center" gap="1"><VideoIcon /> Photo</Flex>
-                                </Badge>
-                            </Tooltip>
-                        )}
-                        {!isBiometricUser && !usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && (
-                            <Tooltip content="Standard attendance validation is active.">
-                                <Badge color="green" variant="soft" size="1">
-                                    <Flex align="center" gap="1"><LockClosedIcon /> Standard</Flex>
-                                </Badge>
-                            </Tooltip>
-                        )}
-                    </Flex>
+                <ul className="cy-punchcard__checks" aria-label="Punch requirements">
+                    {checks.map((c) => (
+                        <li key={c.key}>
+                            {c.onClick
+                                ? <button type="button" className={`cy-badge cy-badge--outline-${c.tone}`} title={c.title} onClick={c.onClick}><Icon name={c.busy ? 'arrow-repeat' : c.icon} className={c.busy ? 'cy-spin' : undefined} /> {c.text}</button>
+                                : <CyBadge color={c.tone} outline title={c.title}><Icon name={c.icon} /> {c.text}</CyBadge>}
+                        </li>
+                    ))}
+                </ul>
 
-                    {/* Location Error */}
-                    {requiresLocationForPunch && locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
-                        <Panel tinted p="0" mb="3" style={{ background: 'var(--red-a2)' }}>
-                            <Flex align="start" gap="2" p="2">
-                                <ExclamationTriangleIcon style={{ color: 'var(--red-9)', flexShrink: 0, marginTop: 2 }} />
-                                <Text size="1" color="red">{locationState.error}</Text>
-                            </Flex>
-                        </Panel>
-                    )}
+                {requiresLocationForPunch && locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
+                    <div className="cy-alert" data-tone="danger" role="alert">
+                        <Icon name="exclamation-triangle" />
+                        <span>{locationState.error}</span>
+                    </div>
+                )}
 
-                    {/* Leave Alert */}
-                    {attendanceState.userOnLeave && (
-                        <Panel tinted p="0" mb="3" style={{ background: 'var(--amber-a2)' }}>
-                            <Flex align="center" gap="2" p="3">
-                                <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', width: 20, height: 20, flexShrink: 0 }} />
-                                <Box>
-                                    <Text size="2" weight="medium" color="amber" style={{ display: 'block' }}>
-                                        On {attendanceState.userOnLeave.leave_type} Leave
-                                    </Text>
-                                    <Text size="1" color="gray">
-                                        {new Date(attendanceState.userOnLeave.from_date).toLocaleDateString()} — {new Date(attendanceState.userOnLeave.to_date).toLocaleDateString()}
-                                    </Text>
-                                </Box>
-                            </Flex>
-                        </Panel>
-                    )}
+                {attendanceState.userOnLeave && (
+                    <div className="cy-alert" data-tone="warning">
+                        <Icon name="calendar-event" />
+                        <span>
+                            <strong>On {attendanceState.userOnLeave.leave_type} leave</strong>
+                            {new Date(attendanceState.userOnLeave.from_date).toLocaleDateString()} to {new Date(attendanceState.userOnLeave.to_date).toLocaleDateString()}
+                        </span>
+                    </div>
+                )}
+            </div>
 
-                    {/* Today's Activity Collapsible */}
-                    <Box style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}>
-                        <Flex
-                            align="center" justify="between" py="3"
-                            style={{ cursor: 'pointer', userSelect: 'none' }}
-                            onClick={() => setUiState(prev => ({
-                                ...prev,
-                                expandedSections: { ...prev.expandedSections, punches: !prev.expandedSections.punches }
-                            }))}
-                        >
-                            <Flex align="center" gap="2">
-                                <CalendarIcon style={{ color: 'var(--accent-9)' }} />
-                                <Text size="2" weight="medium">Today's Activity</Text>
-                            </Flex>
-                            <Flex align="center" gap="2">
-                                <Text size="1" color="gray">{workStats.sessionsToday} sessions · {attendanceState.realtimeWorkTime}</Text>
-                                {uiState.expandedSections.punches ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                            </Flex>
-                        </Flex>
-                        {uiState.expandedSections.punches && (
-                            <Box pb="3">
-                                {attendanceState.todayPunches.length > 0 ? (
-                                    <Flex direction="column" gap="2">
-                                        {attendanceState.todayPunches.map((punch, index) => (
-                                            <Panel key={punch.id ?? punch.punchin_time ?? index} tinted p="0">
-                                                <Box p="3">
-                                                    <Grid columns="2" gap="3">
-                                                        <Box>
-                                                            <Flex align="center" gap="1" mb="1">
-                                                                <Box style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green-9)', flexShrink: 0 }} />
-                                                                <Text size="1" weight="medium" color="green">Check In</Text>
-                                                            </Flex>
-                                                            <Text size="2" weight="medium" style={{ fontFamily: 'monospace', display: 'block' }}>{formatTime(punch.punchin_time)}</Text>
-                                                            <Flex align="start" gap="1" mt="1">
-                                                                <DrawingPinIcon style={{ color: 'var(--gray-9)', flexShrink: 0, marginTop: 2, width: 12 }} />
-                                                                <Text size="1" color="gray">{formatLocation(punch.punchin_location)}</Text>
-                                                            </Flex>
-                                                        </Box>
-                                                        {punch.punchout_time ? (
-                                                            <Box>
-                                                                <Flex align="center" gap="1" mb="1">
-                                                                    <Box style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-9)', flexShrink: 0 }} />
-                                                                    <Text size="1" weight="medium" color="blue">Check Out</Text>
-                                                                </Flex>
-                                                                <Text size="2" weight="medium" style={{ fontFamily: 'monospace', display: 'block' }}>{formatTime(punch.punchout_time)}</Text>
-                                                                <Flex align="start" gap="1" mt="1">
-                                                                    <DrawingPinIcon style={{ color: 'var(--gray-9)', flexShrink: 0, marginTop: 2, width: 12 }} />
-                                                                    <Text size="1" color="gray">{formatLocation(punch.punchout_location)}</Text>
-                                                                </Flex>
-                                                            </Box>
-                                                        ) : (
-                                                            <Box>
-                                                                <Flex align="center" gap="1" mb="1">
-                                                                    <Box style={{ width: 8, height: 8, borderRadius: '50%', border: '2px solid var(--amber-9)', flexShrink: 0 }} />
-                                                                    <Text size="1" weight="medium" color="amber">Active</Text>
-                                                                </Flex>
-                                                                <Text size="2" color="amber" style={{ fontFamily: 'monospace', display: 'block' }}>--:--</Text>
-                                                                <Flex align="center" gap="1" mt="1">
-                                                                    <ClockIcon style={{ color: 'var(--amber-9)', width: 12, flexShrink: 0 }} />
-                                                                    <Text size="1" color="amber">In progress</Text>
-                                                                </Flex>
-                                                            </Box>
-                                                        )}
-                                                    </Grid>
-                                                    {punch.duration && (
-                                                        <Flex justify="end" mt="2">
-                                                            <Badge color="blue" variant="soft" size="1">{punch.duration}</Badge>
-                                                        </Flex>
-                                                    )}
-                                                </Box>
-                                            </Panel>
-                                        ))}
-                                    </Flex>
-                                ) : (
-                                    <Panel tinted p="0">
-                                        <Flex direction="column" align="center" p="4" gap="2">
-                                            <InfoCircledIcon style={{ color: 'var(--accent-9)', width: 32, height: 32 }} />
-                                            <Text size="2" color="gray">No activity recorded today</Text>
-                                        </Flex>
-                                    </Panel>
-                                )}
-                            </Box>
-                        )}
-                    </Box>
-                </Box>
-            </Panel>
+            {/* Today's activity */}
+            <div className="cy-punchcard__activity">
+                <button type="button" className="cy-punchcard__toggle" aria-expanded={!!uiState.expandedSections.punches} onClick={toggleActivity}>
+                    <span><Icon name="calendar-check" /> Today's activity</span>
+                    <span className="cy-punchcard__meta">{workStats.sessionsToday} sessions · {attendanceState.realtimeWorkTime} <Icon name="chevron-right" className="cy-punchcard__chev" /></span>
+                </button>
+                {uiState.expandedSections.punches && (
+                    attendanceState.todayPunches.length > 0 ? (
+                        <ul className="dl-list cy-punchcard__sessions">
+                            {attendanceState.todayPunches.map((punch, index) => (
+                                <li key={punch.id ?? punch.punchin_time ?? index} className="dl-list__row">
+                                    <div className="cy-punchcard__session">
+                                        <span className="cy-punchcard__leg" data-kind="in">
+                                            <span className="cy-punchcard__leg-label">Check in</span>
+                                            <span className="cy-punchcard__leg-time">{formatTime(punch.punchin_time)}</span>
+                                            <span className="cy-punchcard__leg-place"><Icon name="geo-alt" /> {formatLocation(punch.punchin_location)}</span>
+                                        </span>
+                                        {punch.punchout_time ? (
+                                            <span className="cy-punchcard__leg" data-kind="out">
+                                                <span className="cy-punchcard__leg-label">Check out</span>
+                                                <span className="cy-punchcard__leg-time">{formatTime(punch.punchout_time)}</span>
+                                                <span className="cy-punchcard__leg-place"><Icon name="geo-alt" /> {formatLocation(punch.punchout_location)}</span>
+                                            </span>
+                                        ) : (
+                                            <span className="cy-punchcard__leg" data-kind="active">
+                                                <span className="cy-punchcard__leg-label">Active</span>
+                                                <span className="cy-punchcard__leg-time">--:--</span>
+                                                <span className="cy-punchcard__leg-place"><Icon name="clock" /> In progress</span>
+                                            </span>
+                                        )}
+                                        {punch.duration && <CyBadge color="info" outline className="cy-punchcard__duration">{punch.duration}</CyBadge>}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div className="dl-empty"><span className="cy-row__sub">No activity recorded today.</span></div>
+                    )
+                )}
+            </div>
 
             {/* Session Success Dialog */}
             <Dialog.Root open={uiState.sessionDialogOpen} onOpenChange={(open) => setUiState(prev => ({ ...prev, sessionDialogOpen: open }))}>
@@ -1526,7 +1352,7 @@ const PunchStatusCard = React.memo(() => {
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
-        </Box>
+        </div>
     );
 });
 

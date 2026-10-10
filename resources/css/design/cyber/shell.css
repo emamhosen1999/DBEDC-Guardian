@@ -1642,9 +1642,10 @@ html[data-design="cyber"] .dl-section-label__text {
   text-transform: uppercase;
 }
 
+/* Transparent like the header and every panel (owner, 2026-10-10): the page background shows through; one hairline. */
 html[data-design="cyber"] .dl-footer {
-  border-top: 1px solid rgba(var(--cy-fg-rgb), 0.25);
-  background: rgba(var(--cy-bg-rgb), 0.96);
+  border-top: 1px solid var(--cy-border);
+  background: transparent;
   color: rgba(var(--cy-fg-rgb), 0.5);
   font-family: var(--cy-font);
 }

@@ -39,6 +39,11 @@ function statusChips(widgets) {
     ];
 }
 
+/** The swap inbox as a full-width Cyber row; nothing at all (not even an empty row) when nothing is waiting. */
+function SwapResponsesRow() {
+    return <div className="dl-row cy-row-optional"><div className="dl-col dl-col--12"><SwapResponses /></div></div>;
+}
+
 export default function EmployeeDashboard() {
     const { auth } = usePage().props;
     const user = auth?.user;
@@ -98,7 +103,9 @@ export default function EmployeeDashboard() {
                     </div>
                 </div>
 
-                <ErrorBoundary><SwapResponses /></ErrorBoundary>
+                <ErrorBoundary>
+                    <SwapResponsesRow />
+                </ErrorBoundary>
 
                 <div className="dl-row">
                     <div className="dl-col dl-col--8">

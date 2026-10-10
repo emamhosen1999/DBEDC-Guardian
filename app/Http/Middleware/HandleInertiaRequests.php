@@ -122,6 +122,7 @@ class HandleInertiaRequests extends Middleware
             // Application Configuration
             'app' => [
                 'name' => $companyName,
+                'copyright' => config('app.copyright'),
                 'version' => config('app.version', '1.0.0'),
                 'debug' => config('app.debug', false),
                 'environment' => config('app.env', 'production'),

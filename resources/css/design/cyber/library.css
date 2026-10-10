@@ -436,3 +436,61 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
 .dl-col > .dl-card--collapsed > .dl-card__body,
 .dl-col > .dl-card--collapsed > .dl-card__foot { display: none; }
 html[data-design="cyber"] .dl-col > .dl-card--collapsed { border-bottom: 1px solid var(--cy-border); }
+
+/* ── Punch card (Components/PunchStatusCard.jsx) ─────────────────────────────────────────────────────────────────
+   Cyber profile/widget composition: who + clock, .row-grid tiles, status, the action, requirement badges, alerts and
+   today's sessions. Sections are divided by the one solid border token (border model). */
+.cy-punchcard { display: flex; flex-direction: column; height: 100%; color: var(--cy-fg); }
+.cy-punchcard > * + * { border-top: 1px solid var(--cy-border); }
+.cy-punchcard[aria-busy='true'] { opacity: 0.75; }
+.cy-punchcard__head { display: flex; align-items: center; gap: 0.65625rem; padding: 0.65625rem 0.875rem; }
+.cy-punchcard__avatar { position: relative; flex: none; }
+.cy-punchcard__avatar .cy-avatar { width: 2.25rem; height: 2.25rem; font-size: 0.75rem; }
+.cy-punchcard__presence { position: absolute; right: -0.0625rem; bottom: -0.0625rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; box-shadow: 0 0 0 2px rgb(var(--cy-bg-rgb)); background: var(--accent-9); }
+.cy-punchcard__presence[data-tone='success'] { background: var(--green-9); }
+.cy-punchcard__presence[data-tone='warning'] { background: var(--amber-9); }
+.cy-punchcard__presence[data-tone='danger'] { background: var(--red-9); }
+.cy-punchcard__presence[data-tone='secondary'] { background: var(--cy-muted); }
+.cy-punchcard__who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cy-punchcard__name { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: var(--cy-tracking); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-punchcard__id { font-size: 0.625rem; color: var(--cy-text-muted); font-variant-numeric: tabular-nums; }
+.cy-punchcard__clock { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.cy-punchcard__time { font-size: 1.09375rem; font-weight: 600; color: var(--accent-9); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.cy-punchcard__date { font-size: 0.625rem; color: var(--cy-text-muted); text-transform: uppercase; }
+.cy-punchcard__body { display: flex; flex-direction: column; gap: 0.65625rem; padding: 0.875rem; }
+.cy-punchcard__status { display: flex; justify-content: center; }
+.cy-punchcard__status .cy-badge, .cy-punchcard__checks .cy-badge { display: inline-flex; align-items: center; gap: 0.3125rem; }
+.cy-punchcard__action { width: 100%; justify-content: center; gap: 0.4375rem; min-height: 2.346875rem; font-size: 0.78125rem; text-transform: uppercase; letter-spacing: var(--cy-tracking); }
+.cy-punchcard__field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--cy-text-muted); }
+.cy-punchcard__checks { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3125rem; margin: 0; padding: 0; list-style: none; }
+.cy-punchcard__checks button.cy-badge { cursor: pointer; font: inherit; font-size: inherit; }
+.cy-punchcard__activity { display: flex; flex-direction: column; }
+.cy-punchcard__toggle { display: flex; align-items: center; justify-content: space-between; gap: 0.4375rem; width: 100%; padding: 0.4375rem 0.875rem; border: 0; background: var(--cy-cap-bg); color: var(--cy-fg); font: inherit; font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: var(--cy-tracking); cursor: pointer; }
+.cy-punchcard__toggle > span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.cy-punchcard__toggle:focus-visible { outline: 1px solid var(--focus-8); outline-offset: -1px; }
+.cy-punchcard__meta { color: var(--cy-text-muted); font-weight: 500; text-transform: none; }
+.cy-punchcard__chev { transition: transform 0.2s ease-in-out; }
+.cy-punchcard__toggle[aria-expanded='true'] .cy-punchcard__chev { transform: rotate(90deg); }
+.cy-punchcard__sessions { border-top: 1px solid var(--cy-border); }
+.cy-punchcard__session { display: grid; grid-template-columns: 1fr 1fr auto; align-items: start; gap: 0.65625rem; }
+.cy-punchcard__leg { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.cy-punchcard__leg-label { font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; color: var(--green-11); }
+.cy-punchcard__leg[data-kind='out'] .cy-punchcard__leg-label { color: var(--accent-11); }
+.cy-punchcard__leg[data-kind='active'] .cy-punchcard__leg-label, .cy-punchcard__leg[data-kind='active'] .cy-punchcard__leg-time { color: var(--amber-11); }
+.cy-punchcard__leg-time { font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cy-punchcard__leg-place { display: inline-flex; gap: 0.25rem; font-size: 0.5625rem; color: var(--cy-text-muted); overflow: hidden; text-overflow: ellipsis; }
+
+/* Cyber .alert (Bootstrap 5.3 tokens in the kit): subtle toned background and border, emphasis text, radius 0 */
+.cy-alert { --cy-alert-tone: var(--accent-9); display: flex; align-items: flex-start; gap: 0.4375rem; padding: 0.4375rem 0.65625rem; border: 1px solid color-mix(in srgb, var(--cy-alert-tone) 40%, transparent); background: color-mix(in srgb, var(--cy-alert-tone) 14%, transparent); font-size: 0.6875rem; color: var(--cy-fg); }
+.cy-alert strong { display: block; font-weight: 600; text-transform: uppercase; font-size: 0.625rem; letter-spacing: var(--cy-tracking); }
+.cy-alert[data-tone='danger'] { --cy-alert-tone: var(--red-9); color: var(--red-11); }
+.cy-alert[data-tone='warning'] { --cy-alert-tone: var(--amber-9); color: var(--amber-11); }
+.cy-alert[data-tone='success'] { --cy-alert-tone: var(--green-9); color: var(--green-11); }
+
+.cy-spin { animation: cySpin 1s linear infinite; }
+@keyframes cySpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cy-spin { animation: none; } .cy-punchcard__chev { transition: none; } }
+
+/* A row whose only card renders nothing (e.g. the swap inbox when nothing waits) takes no space and draws no line */
+.dl-row.cy-row-optional:not(:has(.dl-card)) { display: none; }
+.cy-row__actions { display: inline-flex; flex: none; gap: 0.3125rem; }

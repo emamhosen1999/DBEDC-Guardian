@@ -55,6 +55,9 @@ return [
 
     'version' => env('APP_VERSION', '1.0.0'),
 
+    // Copyright holder shown in the app footer (owner decision, 2026-10-10).
+    'copyright' => env('APP_COPYRIGHT_HOLDER', 'Emam Hosen'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
