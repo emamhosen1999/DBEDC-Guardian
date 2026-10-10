@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { formatChainage } from './geo.js';
+import { groupColor } from './symbology.jsx';
 
 const PAD = 14;
 
@@ -54,7 +55,7 @@ export default function ChainageRuler({ alignment, layers, selectedId, onSelect,
                     </g>
                 ))}
                 {marks.map(({ f, l, from, to }) => (
-                    <g key={f.id} data-tone={f.tone}>
+                    <g key={f.id} data-tone={f.tone} style={{ '--cy-map-c': groupColor(l.group) }}>
                         {to > from
                             ? <line className="cy-ruler__span" x1={x(from)} x2={Math.max(x(Math.min(to, length)), x(from) + 2)} y1="22" y2="22" />
                             : <line className="cy-ruler__mark" x1={x(from)} x2={x(from)} y1={selectedId === f.id ? 6 : 14} y2="28" onClick={(e) => { e.stopPropagation(); onSelect(f, l); }}><title>{`${f.title} - ${formatChainage(from)}`}</title></line>}

@@ -9,3 +9,5 @@ export { default as LayerList } from './LayerList.jsx';
 export { default as LayerMenu } from './LayerMenu.jsx';
 export { default as Dialog } from './Dialog.jsx';
 export * from './geo.js';
+export { default as MapLegend } from './MapLegend.jsx';
+export * from './symbology.jsx';

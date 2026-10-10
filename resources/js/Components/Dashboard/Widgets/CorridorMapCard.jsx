@@ -164,6 +164,7 @@ export default function CorridorMapCard({ widget, onRetry }) {
                             <CorridorSvgMap
                                 alignment={payload.alignment}
                                 layers={visible}
+                                groups={payload.groups}
                                 districts={ctx.districts}
                                 context={ctx.context}
                                 selectedId={selectedId}

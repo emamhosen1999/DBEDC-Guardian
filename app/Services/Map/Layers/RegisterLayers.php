@@ -206,7 +206,7 @@ final class RegisterLayers
             ],
             [
                 'key' => 'om.tppd_claims', 'label' => 'Third-party damage claims', 'group' => 'om', 'geometry' => [MapLayer::CHAINAGE_POINT],
-                'permissions' => ['om.tppd.view'], 'tables' => ['om_tppd_claims'], 'icon' => 'cash-coin', 'tone' => 'warn',
+                'permissions' => ['om.tppd.view'], 'tables' => ['om_tppd_claims'], 'icon' => 'cash-stack', 'tone' => 'warn',
                 'fields' => ['number' => 'Claim', 'status' => 'Status', 'date' => 'Incident date', 'claimed' => 'Claimed'],
                 'open' => $notDone(), 'search' => ['claim_number'], 'span' => $span('chainage'), 'title' => $title('claim_number'),
                 'values' => fn (object $r): array => ['number' => $r->claim_number, 'status' => $ucfirst($r->status), 'date' => substr((string) $r->incident_date, 0, 10), 'claimed' => $r->claimed_amount !== null ? 'BDT '.number_format((float) $r->claimed_amount) : null],

@@ -88,8 +88,6 @@ html.light .cy-map,
 .cy-map__btn[aria-pressed='true'] { color: var(--accent-11); background: color-mix(in srgb, var(--accent-9) 18%, transparent); }
 .cy-map__btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.cy-map__legend { position: absolute; left: 0.875rem; bottom: 1.25rem; z-index: 3; display: flex; flex-wrap: wrap; gap: 0.125rem 0.75rem; max-width: calc(100% - 7rem); font-size: 0.5625rem; color: var(--cy-text-muted); text-transform: uppercase; pointer-events: none; }
-.cy-map__legend i { display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.25rem; background: var(--cy-tone, var(--cy-tone-theme)); vertical-align: -1px; }
 .cy-map__empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--cy-text-muted); font-size: 0.75rem; padding: 1rem; pointer-events: none; }
 
 /* Popup: a compact Cyber card (header strip, rows, footer link). */
@@ -178,8 +176,8 @@ html.light .cy-map,
 .cy-ruler__bar { stroke: var(--cy-border); stroke-width: 1px; vector-effect: non-scaling-stroke; }
 .cy-ruler__tick { stroke: var(--cy-text-faint); stroke-width: 1px; vector-effect: non-scaling-stroke; }
 .cy-ruler__label { fill: var(--cy-text-muted); font-size: 9px; text-anchor: middle; font-variant-numeric: tabular-nums; }
-.cy-ruler__mark { stroke: var(--cy-tone, var(--cy-tone-theme)); stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: 0.85; cursor: pointer; }
-.cy-ruler__span { stroke: var(--cy-tone, var(--cy-tone-theme)); stroke-width: 5px; opacity: 0.55; vector-effect: non-scaling-stroke; }
+.cy-ruler__mark { stroke: var(--cy-map-c, var(--cy-tone, var(--cy-tone-theme))); stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: 0.85; cursor: pointer; }
+.cy-ruler__span { stroke: var(--cy-map-c, var(--cy-tone, var(--cy-tone-theme))); stroke-width: 5px; opacity: 0.55; vector-effect: non-scaling-stroke; }
 .cy-ruler__cursor { stroke: var(--cy-fg); stroke-width: 1px; vector-effect: non-scaling-stroke; pointer-events: none; }
 .cy-ruler__readout { position: absolute; top: 0.25rem; right: 0.875rem; font-size: 0.5625rem; font-weight: 600; color: var(--cy-text-muted); font-variant-numeric: tabular-nums; pointer-events: none; }
 
@@ -219,3 +217,72 @@ html.light .cy-map,
 /* The maximized map card is opaque (the page behind it must not bleed into the map); status text may wrap. */
 html[data-design="cyber"] .cy-mapcard.dl-card--expanded { background: var(--cy-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .cy-map-side__status { display: block; font-size: 0.625rem; color: var(--cy-text-muted); white-space: normal; }
+
+/* ── Symbology (Components/Cyber/Map/symbology.jsx) ─────────────────────────────────────────────────────────────
+   Group colours: Okabe-Ito colour-blind-safe qualitative palette (Okabe & Ito, 2008), the corridor in the Cyber theme
+   colour. Glyphs are dark ink on every fill (>= 4.5:1 on all of these). A halo in the page colour separates markers
+   that touch. Status is a ring: red critical / urgent, amber needs attention. */
+.cy-mapcard, .cy-map, .cy-layermenu, .cy-ruler {
+  --cy-map-g-corridor: var(--accent-9);
+  --cy-map-g-workforce: #009e73;
+  --cy-map-g-works: #e69f00;
+  --cy-map-g-om: #56b4e9;
+  --cy-map-g-tolls: #cc79a7;
+  --cy-map-g-safety: #d55e00;
+  --cy-map-g-other: #999999;
+  --cy-map-glyph: #0a151a;
+  --cy-map-halo: rgba(var(--cy-bg-rgb), 0.92);
+}
+
+.cy-map__badge { fill: var(--cy-map-c, var(--cy-map-g-other)); stroke: var(--cy-map-halo); stroke-width: 1.5px; }
+.cy-map__glyph { fill: var(--cy-map-glyph); pointer-events: none; }
+.cy-map__ring { fill: none; stroke-width: 2.5px; }
+.cy-map__ring[data-tone='crit'] { stroke: var(--red-9); }
+.cy-map__ring[data-tone='warn'] { stroke: var(--amber-9); }
+.cy-map__marker:hover .cy-map__badge,
+.cy-map__marker:focus-visible .cy-map__badge,
+.cy-map__marker[data-selected='true'] .cy-map__badge { stroke: var(--cy-fg); stroke-width: 2px; }
+.cy-map__pulse[data-people='true'] { fill: var(--green-9); }
+
+.cy-map__cluster { fill: var(--cy-map-c, var(--cy-map-g-other)); fill-opacity: 0.9; stroke: var(--cy-map-halo); stroke-width: 3px; }
+.cy-map__cluster-n { fill: var(--cy-map-glyph); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0; pointer-events: none; }
+.cy-map__marker--cluster:hover .cy-map__cluster,
+.cy-map__marker--cluster:focus-visible .cy-map__cluster { stroke: var(--cy-fg); stroke-width: 2px; }
+.cy-map__leg { stroke: rgba(var(--cy-fg-rgb), 0.5); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+
+.cy-map__label { fill: var(--cy-fg); font-size: 10px; font-weight: 600; letter-spacing: 0; paint-order: stroke; stroke: var(--cy-map-halo); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+
+/* People: photo (or initials) in a status ring - green on duty, blue checked out */
+.cy-map__avatar-bg { fill: var(--gray-5); stroke: var(--cy-map-halo); stroke-width: 3px; }
+.cy-map__avatar-ring { fill: none; stroke: var(--gray-9); stroke-width: 2.5px; }
+.cy-map__avatar-ring[data-status='active'] { stroke: var(--green-9); }
+.cy-map__avatar-ring[data-status='completed'] { stroke: var(--blue-9); }
+.cy-map__initials { fill: var(--cy-fg); font-size: 8px; font-weight: 700; letter-spacing: 0; pointer-events: none; }
+.cy-map__marker:hover .cy-map__avatar-ring,
+.cy-map__marker[data-selected='true'] .cy-map__avatar-ring { stroke-width: 3.5px; }
+
+/* Swatches (legend, layer list): the same symbols, small */
+.cy-map__swatch { flex: none; overflow: visible; }
+.cy-map__swatch-line { stroke: var(--cy-map-c, var(--cy-map-g-other)); stroke-width: 4px; opacity: 0.8; }
+.cy-map__swatch-area { fill: color-mix(in srgb, var(--cy-map-c, var(--cy-map-g-other)) 20%, transparent); stroke: var(--cy-map-c, var(--cy-map-g-other)); stroke-dasharray: 3 2; }
+.cy-map__swatch-dot { fill: var(--cy-map-g-other); }
+.cy-map__swatch-corridor { stroke: var(--cy-map-line); stroke-width: 3px; }
+
+/* Lines and areas take their group colour too */
+.cy-map__band, .cy-map__route { stroke: var(--cy-map-c, var(--cy-tone, var(--cy-tone-theme))); }
+.cy-map__zone, .cy-map__zone-ring { stroke: var(--cy-map-c, var(--cy-tone, var(--cy-tone-info))); fill: color-mix(in srgb, var(--cy-map-c, var(--cy-tone, var(--cy-tone-info))) 14%, transparent); }
+
+/* Legend (bottom left, collapsible) */
+.cy-legend { position: absolute; left: 0.875rem; bottom: 1.5rem; z-index: 4; display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 0.25rem; max-width: min(17rem, calc(100% - 1.75rem)); }
+.cy-legend__panel { max-height: 15rem; overflow: auto; padding: 0.25rem 0; background: var(--cy-elevated); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid var(--cy-border); overscroll-behavior: contain; }
+.cy-legend__group + .cy-legend__group { border-top: 1px solid var(--cy-border-translucent); }
+.cy-legend__head { padding: 0.25rem 0.625rem 0.125rem; color: var(--cy-text-faint); font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; }
+.cy-legend__row { display: flex; align-items: center; gap: 0.4375rem; padding: 0.125rem 0.625rem; font-size: 0.625rem; color: var(--cy-fg); }
+.cy-legend__name { flex: 1; min-width: 0; }
+.cy-legend__count { color: var(--cy-text-muted); font-variant-numeric: tabular-nums; }
+
+/* Metric scale bar */
+.cy-map__scale { position: absolute; right: 3.5rem; bottom: 1.25rem; z-index: 3; display: flex; align-items: flex-end; gap: 0.375rem; font-size: 0.5625rem; font-weight: 600; color: var(--cy-map-label); pointer-events: none; }
+.cy-map__scale span { display: block; height: 0.375rem; background: linear-gradient(currentColor, currentColor) bottom / 100% 1.5px no-repeat, linear-gradient(currentColor, currentColor) left / 1.5px 100% no-repeat, linear-gradient(currentColor, currentColor) right / 1.5px 100% no-repeat; }
+
+.cy-layers__row .cy-map__swatch { margin-inline: -0.0625rem; }

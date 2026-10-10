@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { LayerSwatch } from './symbology.jsx';
+
 /**
  * The layers a viewer may see, grouped, each with its count and an on/off checkbox. Shared by the header menu and the
  * maximized card's layer panel (which adds a search box above it).
@@ -23,7 +25,7 @@ export default function LayerList({ layers, groups, hidden, onToggle, onSetAll, 
                         {rows.map((l) => (
                             <label key={l.key} className="cy-layers__row" data-tone={l.tone}>
                                 <input type="checkbox" checked={!hidden.has(l.key)} onChange={() => onToggle(l.key)} />
-                                <i aria-hidden="true" />
+                                <LayerSwatch layer={l} size={16} />
                                 <span className="cy-layers__name" title={l.source}>{l.label}</span>
                                 <span className="cy-layers__count">{l.count}</span>
                             </label>
