@@ -24,6 +24,7 @@ class ToolRegistry
         'petty_cash' => ['petty-cash.approve'],
         'quality_assurance' => ['quality.ncr.view', 'daily-works.view'],
         'asset_maintenance' => ['om.equipment.view', 'om.maintenance.view'],
+        'expressway_intelligence' => ['om.dashboard.view', 'om.incidents.view', 'om.toll.manage', 'daily-works.view'],
     ];
 
     /** @var array<string, AeonToolContract> */
@@ -104,7 +105,9 @@ class ToolRegistry
         }
 
         if ($name === 'executive_briefing') {
-            return $this->gate->denyUnlessAll($userId, ExecutiveBriefingTool::REQUIRES) === null;
+            $briefing = $this->tools['executive_briefing'] ?? null;
+
+            return $briefing instanceof ExecutiveBriefingTool && $briefing->availableTo($actor);
         }
 
         return ! isset(self::VISIBLE_WITH[$name]) || $this->access->holdsAny($actor, self::VISIBLE_WITH[$name]);

@@ -5,44 +5,26 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
+use App\Models\User;
+use App\Services\Operations\OmTollAuditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Specialized domain intelligence tool for Dhaka Bypass Expressway (DBEDC).
- * Provides chainage mapping, TMC incident tracking, toll status, and patrol logistics.
+ * Dhaka Bypass corridor facts from Guardian's own records: the jurisdiction (phase) and in-charge covering a chainage,
+ * open incidents, today's toll totals, patrol shifts and an O&M overview. No alignment, landmark or traffic figure is
+ * invented; an empty register says so.
  */
 class ExpresswayIntelligenceTool implements AeonToolContract
 {
-    public function __construct(private ToolGate $gate) {}
+    /** "Open" means the same as on the main dashboard's O&M card (OmOperations), so both always agree. */
+    private const OPEN_INCIDENT = ['detected', 'dispatched', 'on_scene'];
 
-    /** @var array<string, array{start: float, end: float, name: string, landmarks: array<string>}> */
-    private const SECTIONS = [
-        'sec_1' => [
-            'start' => 0.0,
-            'end' => 10.0,
-            'name' => 'Joydebpur to Bhulta Interchange',
-            'landmarks' => ['Joydebpur Roundabout', 'Vogra Bypass', 'Konabari Ramp', 'Ch 4+500 Weighbridge'],
-        ],
-        'sec_2' => [
-            'start' => 10.0,
-            'end' => 20.0,
-            'name' => 'Bhulta to Kanchan Bridge',
-            'landmarks' => ['Bhulta Flyover', 'Rupganj Interchange', 'Kanchan Bridge West', 'Ch 14+200 Toll Plaza'],
-        ],
-        'sec_3' => [
-            'start' => 20.0,
-            'end' => 35.0,
-            'name' => 'Kanchan to Debogram Interchange',
-            'landmarks' => ['Kanchan East', 'Purbachal Sector 30 Link', 'Debogram Junction', 'Ch 28+500 TMC Station'],
-        ],
-        'sec_4' => [
-            'start' => 35.0,
-            'end' => 48.0,
-            'name' => 'Debogram to Madanpur Interchange',
-            'landmarks' => ['Kanchpur North Link', 'Madanpur Roundabout', 'Dhaka-Chittagong Highway Merging', 'Ch 46+200 Toll Plaza'],
-        ],
-    ];
+    private const OPEN_WORK_ORDER = ['pending', 'assigned', 'in_progress'];
+
+    private const OPEN_DEFECT = ['reported', 'investigating', 'work_order_created', 'in_repair'];
+
+    public function __construct(private ToolGate $gate, private OmTollAuditService $tolls) {}
 
     public function name(): string
     {
@@ -51,7 +33,7 @@ class ExpresswayIntelligenceTool implements AeonToolContract
 
     public function description(): string
     {
-        return 'Lookup expressway chainage coordinates (Ch 0+000 to Ch 48+000), traffic incidents, patrol unit dispatches, toll plaza operations, and structure milestones for Dhaka Bypass Expressway.';
+        return 'Dhaka Bypass corridor records: which jurisdiction (phase) and in-charge cover a chainage, open incidents, today\'s toll totals, patrol shifts, and an O&M overview.';
     }
 
     public function parameters(): array
@@ -64,11 +46,7 @@ class ExpresswayIntelligenceTool implements AeonToolContract
             ],
             'chainage' => [
                 'type' => 'string',
-                'description' => 'Chainage point e.g. "Ch 14+200" or numeric km e.g. "14.2"',
-            ],
-            'section' => [
-                'type' => 'string',
-                'description' => 'Expressway section: "sec_1", "sec_2", "sec_3", "sec_4"',
+                'description' => 'Chainage, e.g. "K14+200", "Ch 14+200" or kilometres "14.2" (for chainage_lookup)',
             ],
         ];
     }
@@ -77,160 +55,197 @@ class ExpresswayIntelligenceTool implements AeonToolContract
     {
         $action = (string) ($args['action'] ?? 'overview');
 
-        // Chainage lookup is static alignment data; the rest mirror the O&M pages' permissions.
+        // Each action mirrors the permission of the page that shows the same records.
         $required = match ($action) {
-            'chainage_lookup' => null,
+            'chainage_lookup' => ['daily-works.view', 'om.dashboard.view'],
             'active_incidents' => ['om.incidents.view'],
             'toll_summary' => ['om.toll.manage', 'om.dashboard.view'],
             default => ['om.dashboard.view'],
         };
-        if ($required !== null && ($denied = $this->gate->deny($userId, $required))) {
+        if ($denied = $this->gate->deny($userId, $required)) {
             return $denied;
         }
 
         return match ($action) {
-            'chainage_lookup' => $this->lookupChainage($args),
-            'active_incidents' => $this->getActiveIncidents(),
-            'toll_summary' => $this->getTollSummary(),
-            'patrol_status' => $this->getPatrolStatus(),
-            default => $this->getExpresswayOverview(),
+            'chainage_lookup' => $this->lookupChainage((string) ($args['chainage'] ?? '')),
+            'active_incidents' => $this->activeIncidents(),
+            'toll_summary' => $this->tollSummary(),
+            'patrol_status' => $this->patrolStatus(),
+            default => $this->overview(),
         };
     }
 
-    private function lookupChainage(array $args): array
+    /** "K12+500", "Ch 12+500", "12+500" -> 12500 m; "12.5" -> 12500 m; anything else -> null. */
+    public static function chainageMeters(string $value): ?int
     {
-        $raw = (string) ($args['chainage'] ?? '0');
-        preg_match('/(\d+)(?:\+(\d+))?/', $raw, $matches);
-        $km = isset($matches[1]) ? (float) $matches[1] : 0.0;
-        $m = isset($matches[2]) ? (float) $matches[2] : 0.0;
-        $chainageVal = $km + ($m / 1000);
-
-        $matchedSection = null;
-        foreach (self::SECTIONS as $key => $sec) {
-            if ($chainageVal >= $sec['start'] && $chainageVal <= $sec['end']) {
-                $matchedSection = $sec;
-                break;
-            }
+        $value = trim($value);
+        if (preg_match('/^(?:K|CH\.?)?\s*(\d{1,3})\s*\+\s*(\d{1,3})$/i', $value, $m)) {
+            return ((int) $m[1]) * 1000 + (int) $m[2];
+        }
+        if (preg_match('/^(\d{1,3}(?:\.\d+)?)\s*(?:km)?$/i', $value, $m)) {
+            return (int) round(((float) $m[1]) * 1000);
         }
 
-        $formatted = sprintf('Ch %d+%03d', (int) $km, (int) $m);
-        $sectionName = $matchedSection['name'] ?? 'Main Expressway Alignment';
-        $landmarks = $matchedSection['landmarks'] ?? [];
+        return null;
+    }
+
+    private function lookupChainage(string $chainage): array
+    {
+        $meters = self::chainageMeters($chainage);
+        if ($meters === null) {
+            return $this->empty('Give a chainage such as K14+200 or 14.2 km.');
+        }
+        if (! Schema::hasTable('jurisdictions')) {
+            return $this->empty('No jurisdictions are recorded yet.');
+        }
+
+        $band = DB::table('jurisdictions')->get()->first(function ($j) use ($meters) {
+            $from = self::chainageMeters((string) $j->start_chainage);
+            $to = self::chainageMeters((string) $j->end_chainage);
+
+            return $from !== null && $to !== null && $meters >= $from && $meters <= $to;
+        });
+        $label = sprintf('K%d+%03d', intdiv($meters, 1000), $meters % 1000);
+
+        if ($band === null) {
+            return $this->empty("{$label} is outside every recorded jurisdiction.");
+        }
+
+        $incharge = $band->incharge ? User::query()->where('employee_id', (string) $band->incharge)->value('name') : null;
 
         return [
-            'text' => "Chainage {$formatted} is located in {$sectionName}.",
-            'blocks' => [
-                [
-                    'type' => 'entityCard',
-                    'title' => "Expressway Milestone: {$formatted}",
-                    'subtitle' => $sectionName,
-                    'fields' => [
-                        ['k' => 'Chainage', 'v' => $formatted],
-                        ['k' => 'Total Expressway Length', 'v' => '48.00 km'],
-                        ['k' => 'Nearby Landmarks', 'v' => implode(', ', $landmarks)],
-                        ['k' => 'TMC Dispatch Zone', 'v' => $chainageVal <= 24.0 ? 'Northern Sector (Joydebpur/Bhulta)' : 'Southern Sector (Kanchan/Madanpur)'],
-                    ],
+            'text' => "{$label} lies in {$band->location} ({$band->start_chainage} to {$band->end_chainage})".($incharge ? ", in-charge {$incharge}." : '.'),
+            'blocks' => [[
+                'type' => 'stats',
+                'items' => [
+                    ['k' => 'Chainage', 'v' => $label],
+                    ['k' => 'Jurisdiction', 'v' => (string) $band->location, 'd' => "{$band->start_chainage} to {$band->end_chainage}"],
+                    ['k' => 'In-charge', 'v' => $incharge ?? '—'],
                 ],
-            ],
-            'data' => [
-                'chainage' => $formatted,
-                'km' => $chainageVal,
-                'section' => $sectionName,
-                'landmarks' => $landmarks,
-            ],
+            ]],
+            'data' => ['chainage_m' => $meters, 'jurisdiction' => $band->location, 'incharge' => $incharge],
         ];
     }
 
-    private function getActiveIncidents(): array
+    private function activeIncidents(): array
     {
-        $rows = [];
-        if (Schema::hasTable('om_incidents')) {
-            $table = 'om_incidents';
-            $records = DB::table($table)->orderByDesc('id')->limit(5)->get();
-            foreach ($records as $r) {
-                $rows[] = [
-                    (string) ($r->incident_number ?? $r->id ?? '#INC'),
-                    (string) ($r->chainage ?? $r->location ?? 'Mainline'),
-                    (string) ($r->type ?? $r->category ?? 'Traffic Alert'),
-                    (string) ($r->status ?? 'Active'),
-                ];
-            }
+        if (! Schema::hasTable('om_incidents')) {
+            return $this->empty('No incidents are recorded yet.');
         }
+        $incidents = DB::table('om_incidents')->whereIn('status', self::OPEN_INCIDENT)
+            ->orderByDesc('reported_at')->limit(10)->get();
 
-        if (empty($rows)) {
-            $rows = [
-                ['INC-2026-001', 'Ch 14+200 SB', 'Stalled Truck (Assisted)', 'Resolved'],
-                ['INC-2026-002', 'Ch 28+500 NB', 'Debris on Roadway (Cleared)', 'Resolved'],
-                ['INC-2026-003', 'Ch 39+800 SB', 'Overload Alert at WIM 3', 'Active Inspection'],
-            ];
+        if ($incidents->isEmpty()) {
+            return $this->empty('There are no open incidents.');
         }
 
         return [
-            'text' => 'Retrieved latest expressway incidents and emergency dispatches.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['Incident #', 'Chainage', 'Incident Type', 'Status'],
-                    'rows' => $rows,
-                ],
-            ],
-            'data' => ['incidents' => $rows],
+            'text' => $incidents->count().' open incident'.($incidents->count() === 1 ? '' : 's').' on the corridor.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['Incident', 'Chainage', 'Type', 'Severity', 'Status', 'Reported'],
+                'rows' => $incidents->map(fn ($r) => [
+                    (string) ($r->incident_number ?: $r->title ?: '#'.$r->id),
+                    (string) ($r->chainage ?: '—'),
+                    $this->words($r->incident_type),
+                    $this->words($r->severity),
+                    $this->words($r->status),
+                    $r->reported_at ? date('d M Y H:i', strtotime((string) $r->reported_at)) : '—',
+                ])->all(),
+            ]],
+            'data' => ['open_count' => $incidents->count()],
         ];
     }
 
-    private function getTollSummary(): array
+    private function tollSummary(): array
     {
+        $toll = $this->tolls->getTollSummary();
+        $transactions = (int) ($toll['total_transactions_today'] ?? 0);
+
+        if ($transactions === 0) {
+            return $this->empty('No toll transactions have been recorded today.');
+        }
+
         return [
-            'text' => 'Dhaka Bypass Expressway Toll Operations summary.',
-            'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Active Toll Plazas', 'v' => '4 Plazas', 'dir' => 'up', 'd' => '100% Operational'],
-                        ['k' => 'ETC / FastTag Adoption', 'v' => '68.4%', 'dir' => 'up', 'd' => '+5.2% this week'],
-                        ['k' => 'Average Lane Clearance', 'v' => '3.8s', 'dir' => 'up', 'd' => 'Fast Flow'],
-                        ['k' => 'Overload Rejections', 'v' => '14 Trucks', 'dir' => 'down', 'd' => 'WIM Enforced'],
-                    ],
+            'text' => sprintf('Toll today: %s transactions, ৳ %s collected, %s%% electronic (ETC).', number_format($transactions), number_format((float) $toll['total_revenue_today']), $toll['etc_percentage']),
+            'blocks' => [[
+                'type' => 'stats',
+                'items' => [
+                    ['k' => 'Transactions today', 'v' => number_format($transactions)],
+                    ['k' => 'Revenue today', 'v' => '৳ '.number_format((float) $toll['total_revenue_today'])],
+                    ['k' => 'Electronic (ETC)', 'v' => $toll['etc_percentage'].'%', 'd' => $toll['cash_percentage'].'% cash'],
+                    ['k' => 'Unresolved shift audits', 'v' => (string) ($toll['discrepancy_audits_count'] ?? 0)],
                 ],
-            ],
-            'data' => ['status' => 'operational', 'etc_adoption' => 68.4],
+            ]],
+            'data' => $toll,
         ];
     }
 
-    private function getPatrolStatus(): array
+    private function patrolStatus(): array
     {
+        if (! Schema::hasTable('om_patrol_shifts')) {
+            return $this->empty('No patrol shifts are recorded yet.');
+        }
+        $today = now()->toDateString();
+        $shifts = DB::table('om_patrol_shifts')
+            ->where(fn ($q) => $q->where('patrol_date', $today)->orWhere('status', 'in_progress'))
+            ->orderByDesc('patrol_date')->orderBy('id')->get();
+
+        if ($shifts->isEmpty()) {
+            return $this->empty('No patrol shift is scheduled or running today.');
+        }
+
         return [
-            'text' => 'TMC Emergency Patrol & Recovery Vehicle Fleet Status.',
-            'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Patrol Units Active', 'v' => '6 Vehicles', 'dir' => 'up', 'd' => 'Full Coverage'],
-                        ['k' => 'Heavy Recovery Cranes', 'v' => '2 On Standby', 'dir' => 'up', 'd' => 'Bhulta & Kanchan'],
-                        ['k' => 'Avg Emergency Response', 'v' => '7.4 min', 'dir' => 'up', 'd' => 'Target < 10m'],
-                    ],
-                ],
-            ],
-            'data' => ['active_patrols' => 6, 'response_time_min' => 7.4],
+            'text' => $shifts->count().' patrol shift'.($shifts->count() === 1 ? '' : 's').' today or still running.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['Patrol', 'Date', 'Shift', 'Vehicle', 'Zone', 'Status'],
+                'rows' => $shifts->map(fn ($s) => [
+                    (string) ($s->call_sign ?: $s->patrol_code ?: '#'.$s->id),
+                    (string) $s->patrol_date,
+                    $this->words($s->shift_type),
+                    (string) ($s->vehicle_reg_number ?: '—'),
+                    trim(($s->assigned_zone_from ?? '').' to '.($s->assigned_zone_to ?? ''), ' to') ?: '—',
+                    $this->words($s->status),
+                ])->all(),
+            ]],
+            'data' => ['shifts' => $shifts->count()],
         ];
     }
 
-    private function getExpresswayOverview(): array
+    private function overview(): array
     {
+        $count = fn (string $table, ?callable $where = null): ?int => Schema::hasTable($table)
+            ? (int) ($where ? $where(DB::table($table)) : DB::table($table))->count()
+            : null;
+
+        $figures = array_filter([
+            'Jurisdictions' => $count('jurisdictions'),
+            'Registered assets' => $count('om_assets'),
+            'Open defects' => $count('om_defects', fn ($q) => $q->whereIn('status', self::OPEN_DEFECT)),
+            'Open incidents' => $count('om_incidents', fn ($q) => $q->whereIn('status', self::OPEN_INCIDENT)),
+            'Open work orders' => $count('om_work_orders', fn ($q) => $q->whereIn('status', self::OPEN_WORK_ORDER)),
+            'Patrols today' => $count('om_patrol_shifts', fn ($q) => $q->where('patrol_date', now()->toDateString())),
+        ], fn ($v) => $v !== null);
+
         return [
-            'text' => 'Dhaka Bypass Expressway (DBEDC) — 48 km 4-Lane Access-Controlled Expressway overview.',
-            'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Total Expressway Length', 'v' => '48.00 km'],
-                        ['k' => 'Expressway Sections', 'v' => '4 Sections'],
-                        ['k' => 'Interchanges & Flyovers', 'v' => '7 Interchanges'],
-                        ['k' => 'TMC Status', 'v' => '24/7 Live Monitoring'],
-                    ],
-                ],
-            ],
-            'data' => ['length_km' => 48.0, 'sections' => 4, 'speed_limit' => 80],
+            'text' => 'Corridor O&M records: '.collect($figures)->map(fn ($v, $k) => "{$k} {$v}")->implode(', ').'.',
+            'blocks' => [[
+                'type' => 'stats',
+                'items' => collect($figures)->map(fn ($v, $k) => ['k' => $k, 'v' => (string) $v])->values()->all(),
+            ]],
+            'data' => $figures,
         ];
+    }
+
+    private function words(?string $value): string
+    {
+        return $value ? ucfirst(str_replace('_', ' ', $value)) : '—';
+    }
+
+    /** @return array{text: string, blocks: array<int, mixed>, data: array<string, mixed>} */
+    private function empty(string $message): array
+    {
+        return ['text' => $message, 'blocks' => [], 'data' => ['empty' => true]];
     }
 }

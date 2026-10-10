@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Expressway Equipment, Facilities & Maintenance Intelligence for DBEDC Guardian.
- * Audits Weigh-In-Motion (WIM), Variable Message Signs (VMS), CCTV poles,
- * generator fuel levels, and preventative maintenance work orders.
+ * O&M assets and maintenance from Guardian's registers: the asset register (om_assets) with its condition and
+ * operational status, live equipment status reports, open maintenance work orders and the VMS messages on display.
+ * Nothing is estimated; an empty register says so.
  */
 class AssetMaintenanceTool implements AeonToolContract
 {
+    /** "Open" as on the main dashboard's O&M card (OmOperations). */
+    private const OPEN_WORK_ORDER = ['pending', 'assigned', 'in_progress'];
+
     public function __construct(private ToolGate $gate) {}
 
     public function name(): string
@@ -22,7 +27,7 @@ class AssetMaintenanceTool implements AeonToolContract
 
     public function description(): string
     {
-        return 'Audit expressway equipment assets, Weigh-in-Motion (WIM) sensors, Variable Message Signs (VMS), diesel generator fuel levels, CCTV camera poles, and preventative maintenance work orders.';
+        return 'O&M assets and maintenance: the asset register with condition and operational status, equipment status reports, open maintenance work orders, and the messages currently on the variable message signs (VMS).';
     }
 
     public function parameters(): array
@@ -30,12 +35,8 @@ class AssetMaintenanceTool implements AeonToolContract
         return [
             'action' => [
                 'type' => 'string',
-                'description' => 'Asset action: "equipment_health", "work_orders", "generator_status", "vms_signs"',
-                'enum' => ['equipment_health', 'work_orders', 'generator_status', 'vms_signs'],
-            ],
-            'location' => [
-                'type' => 'string',
-                'description' => 'Optional location or section e.g. "Joydebpur", "Bhulta", "Kanchan", "Madanpur"',
+                'description' => 'Asset action: "equipment_health", "work_orders", "vms_signs"',
+                'enum' => ['equipment_health', 'work_orders', 'vms_signs'],
             ],
         ];
     }
@@ -49,96 +50,129 @@ class AssetMaintenanceTool implements AeonToolContract
         }
 
         return match ($action) {
-            'work_orders' => $this->getWorkOrders(),
-            'generator_status' => $this->getGeneratorStatus(),
-            'vms_signs' => $this->getVmsSigns(),
-            default => $this->getEquipmentHealth(),
+            'work_orders' => $this->workOrders(),
+            'vms_signs' => $this->vmsSigns(),
+            default => $this->equipmentHealth(),
         };
     }
 
-    private function getEquipmentHealth(): array
+    private function equipmentHealth(): array
     {
+        $assets = Schema::hasTable('om_assets')
+            ? DB::table('om_assets')->orderBy('asset_code')->get(['asset_code', 'name', 'category', 'start_chainage', 'condition_grade', 'condition_score', 'operational_status', 'last_inspected_at'])
+            : collect();
+        $equipment = Schema::hasTable('om_equipment_status')
+            ? DB::table('om_equipment_status')->orderBy('equipment_code')->get(['equipment_code', 'name', 'location', 'status', 'uptime_pct', 'last_ping_at'])
+            : collect();
+
+        if ($assets->isEmpty() && $equipment->isEmpty()) {
+            return $this->empty('No assets or equipment are registered yet.');
+        }
+
+        $blocks = [];
+        if ($assets->isNotEmpty()) {
+            $byStatus = $assets->groupBy(fn ($a) => $this->words($a->operational_status))->map->count();
+            $blocks[] = ['type' => 'donut', 'title' => 'Registered assets by operational status', 'items' => $byStatus->map(fn ($n, $label) => ['label' => $label, 'value' => $n])->values()->all()];
+            $blocks[] = [
+                'type' => 'table',
+                'columns' => ['Asset', 'Category', 'Chainage', 'Condition', 'Status', 'Last inspected'],
+                'rows' => $assets->map(fn ($a) => [
+                    trim(($a->asset_code ? $a->asset_code.' · ' : '').($a->name ?? '')),
+                    $this->words($a->category),
+                    (string) ($a->start_chainage ?: '—'),
+                    $a->condition_grade ? $a->condition_grade.($a->condition_score !== null ? " ({$a->condition_score})" : '') : '—',
+                    $this->words($a->operational_status),
+                    $a->last_inspected_at ? date('d M Y', strtotime((string) $a->last_inspected_at)) : '—',
+                ])->all(),
+            ];
+        }
+        if ($equipment->isNotEmpty()) {
+            $blocks[] = [
+                'type' => 'table',
+                'columns' => ['Equipment', 'Location', 'Status', 'Uptime', 'Last report'],
+                'rows' => $equipment->map(fn ($e) => [
+                    trim(($e->equipment_code ? $e->equipment_code.' · ' : '').($e->name ?? '')),
+                    (string) ($e->location ?: '—'),
+                    $this->words($e->status),
+                    $e->uptime_pct !== null ? $e->uptime_pct.'%' : '—',
+                    $e->last_ping_at ? date('d M Y H:i', strtotime((string) $e->last_ping_at)) : '—',
+                ])->all(),
+            ];
+        }
+
         return [
-            'text' => 'Expressway Equipment & Intelligent Transportation Systems (ITS) Health Status.',
-            'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Weigh-in-Motion (WIM)', 'v' => '3/3 Online', 'dir' => 'up', 'd' => '100% Calibrated'],
-                        ['k' => 'CCTV Surveillance Poles', 'v' => '64/64 Active', 'dir' => 'up', 'd' => 'Zero Blindspots'],
-                        ['k' => 'VMS Dynamic Signboards', 'v' => '8/8 Operational', 'dir' => 'up', 'd' => 'Displaying Live Advisories'],
-                        ['k' => 'Toll Barrier Gate Actuators', 'v' => '16/16 Functional', 'dir' => 'up', 'd' => '< 1.2s actuation'],
-                    ],
-                ],
-                [
-                    'type' => 'donut',
-                    'title' => 'ITS Asset Operational Distribution',
-                    'items' => [
-                        ['label' => '100% Operational (Green)', 'value' => 88],
-                        ['label' => 'Scheduled Servicing (Amber)', 'value' => 3],
-                        ['label' => 'Fault / Maintenance (Red)', 'value' => 0],
-                    ],
-                ],
-            ],
-            'data' => ['total_assets' => 91, 'operational' => 88, 'maintenance' => 3],
+            'text' => sprintf('%d registered asset%s and %d equipment status report%s.', $assets->count(), $assets->count() === 1 ? '' : 's', $equipment->count(), $equipment->count() === 1 ? '' : 's'),
+            'blocks' => $blocks,
+            'data' => ['assets' => $assets->count(), 'equipment' => $equipment->count()],
         ];
     }
 
-    private function getWorkOrders(): array
+    private function workOrders(): array
     {
+        if (! Schema::hasTable('om_work_orders')) {
+            return $this->empty('No work orders are recorded yet.');
+        }
+        $orders = DB::table('om_work_orders')->whereIn('status', self::OPEN_WORK_ORDER)
+            ->orderByRaw("CASE priority WHEN 'emergency' THEN 0 WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END")->orderBy('target_end_at')->limit(15)->get();
+
+        if ($orders->isEmpty()) {
+            return $this->empty('There are no open maintenance work orders.');
+        }
+
         return [
-            'text' => 'Active Maintenance Work Orders across DBEDC expressway alignment.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['Work Order #', 'Asset / Facility', 'Chainage Location', 'Scheduled Date', 'Priority'],
-                    'rows' => [
-                        ['WO-2026-042', 'WIM Sensor Calibration', 'Ch 14+200 Toll 1', '2026-09-02', 'High (Quarterly SLA)'],
-                        ['WO-2026-043', 'TMC Backup UPS Battery Inspection', 'Kanchan Central Control', '2026-09-05', 'Routine Preventative'],
-                        ['WO-2026-044', 'High-Mast Pavement Floodlight Bulb', 'Ch 28+500 Interchange', '2026-09-07', 'Medium'],
-                    ],
-                ],
-            ],
-            'data' => ['open_orders' => 3],
+            'text' => $orders->count().' open maintenance work order'.($orders->count() === 1 ? '' : 's').'.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['Work order', 'Title', 'Location', 'Priority', 'Status', 'Due'],
+                'rows' => $orders->map(fn ($o) => [
+                    (string) ($o->work_order_number ?: '#'.$o->id),
+                    (string) ($o->title ?: '—'),
+                    (string) ($o->location ?: '—'),
+                    $this->words($o->priority),
+                    $this->words($o->status),
+                    $o->target_end_at ? date('d M Y', strtotime((string) $o->target_end_at)) : '—',
+                ])->all(),
+            ]],
+            'data' => ['open_orders' => $orders->count()],
         ];
     }
 
-    private function getGeneratorStatus(): array
+    private function vmsSigns(): array
     {
+        if (! Schema::hasTable('om_vms_messages')) {
+            return $this->empty('No VMS messages are recorded yet.');
+        }
+        $messages = DB::table('om_vms_messages')->where('is_active', true)->orderBy('vms_code')->get();
+
+        if ($messages->isEmpty()) {
+            return $this->empty('No message is active on any variable message sign.');
+        }
+
         return [
-            'text' => 'Emergency Diesel Generator (DG) fuel reserves & readiness status across Toll Plazas.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['Generator Station', 'Capacity (kVA)', 'Fuel Tank Level', 'Auto-Mains Failure (AMF)', 'Readiness'],
-                    'rows' => [
-                        ['Joydebpur DG Set 1', '125 kVA', '84% (420 L)', 'Armed & Tested', 'Online Standby'],
-                        ['Bhulta Toll Plaza DG Set', '250 kVA', '91% (910 L)', 'Armed & Tested', 'Online Standby'],
-                        ['Kanchan TMC Central DG', '350 kVA', '78% (1170 L)', 'Armed & Tested', 'Online Standby'],
-                        ['Madanpur Toll Plaza DG Set', '250 kVA', '88% (880 L)', 'Armed & Tested', 'Online Standby'],
-                    ],
-                ],
-            ],
-            'data' => ['total_generators' => 4, 'min_fuel_pct' => 78],
+            'text' => $messages->count().' VMS message'.($messages->count() === 1 ? ' is' : 's are').' on display.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['Sign', 'Location', 'Type', 'Message', 'Set at'],
+                'rows' => $messages->map(fn ($m) => [
+                    (string) $m->vms_code,
+                    (string) ($m->location ?: '—'),
+                    $this->words($m->type),
+                    trim(($m->message_line1 ?? '').' '.($m->message_line2 ?? '')),
+                    $m->updated_by_operator_at ? date('d M Y H:i', strtotime((string) $m->updated_by_operator_at)) : '—',
+                ])->all(),
+            ]],
+            'data' => ['active_vms' => $messages->count()],
         ];
     }
 
-    private function getVmsSigns(): array
+    private function words(?string $value): string
     {
-        return [
-            'text' => 'Variable Message Signs (VMS) live broadcast messages on the expressway.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['VMS Sign #', 'Chainage Location', 'Direction', 'Current Display Message'],
-                    'rows' => [
-                        ['VMS-01', 'Ch 02+400', 'Southbound (Madanpur)', 'WELCOME TO DHAKA BYPASS EXPRESSWAY — DRIVE SAFELY'],
-                        ['VMS-02', 'Ch 12+800', 'Southbound', 'FASTTAG / ETC LANES AHEAD — MAINTAIN 80 KM/H SPEED LIMIT'],
-                        ['VMS-03', 'Ch 26+100', 'Northbound (Joydebpur)', 'ROADWAY CLEAR — 24/7 TMC EMERGENCY HELPLINE: 16XXX'],
-                    ],
-                ],
-            ],
-            'data' => ['active_vms' => 3],
-        ];
+        return $value ? ucfirst(str_replace('_', ' ', $value)) : '—';
+    }
+
+    /** @return array{text: string, blocks: array<int, mixed>, data: array<string, mixed>} */
+    private function empty(string $message): array
+    {
+        return ['text' => $message, 'blocks' => [], 'data' => ['empty' => true]];
     }
 }

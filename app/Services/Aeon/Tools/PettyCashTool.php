@@ -5,14 +5,23 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
+use App\Models\PettyCashLoan;
+use App\Models\PettyCashTransaction;
+use App\Models\User;
+use App\Services\Access\DepartmentScope;
+use App\Services\PettyCash\PettyCashService;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Specialized Petty Cash & Expense tool for DBEDC Guardian.
- * Tracks cash vouchers, approvals, monthly budget balance, and expense categories.
+ * Petty cash for approvers: the real advances (petty_cash_loans) and their expense, reimbursement and repayment
+ * entries (petty_cash_transactions), limited to the employees the approver's department scope covers - the same
+ * rows the petty cash admin page shows. Nothing here is estimated or illustrative; empty ledgers say so.
  */
 class PettyCashTool implements AeonToolContract
 {
-    public function __construct(private ToolGate $gate) {}
+    private const RECENT_LIMIT = 10;
+
+    public function __construct(private ToolGate $gate, private DepartmentScope $scope) {}
 
     public function name(): string
     {
@@ -21,7 +30,7 @@ class PettyCashTool implements AeonToolContract
 
     public function description(): string
     {
-        return 'Query petty cash balances, expense categories, pending voucher approvals, reimbursement status, and monthly expenditure caps across DBEDC departments.';
+        return 'Petty cash advances in your scope: outstanding balances, spending by expense category this month, advances waiting for approval, and the latest ledger entries.';
     }
 
     public function parameters(): array
@@ -29,8 +38,8 @@ class PettyCashTool implements AeonToolContract
         return [
             'action' => [
                 'type' => 'string',
-                'description' => 'Petty cash action: "summary", "category_breakdown", "pending_approvals", "recent_vouchers"',
-                'enum' => ['summary', 'category_breakdown', 'pending_approvals', 'recent_vouchers'],
+                'description' => 'Petty cash action: "summary", "category_breakdown", "pending_approvals", "recent_transactions"',
+                'enum' => ['summary', 'category_breakdown', 'pending_approvals', 'recent_transactions'],
             ],
         ];
     }
@@ -39,108 +48,156 @@ class PettyCashTool implements AeonToolContract
     {
         $action = (string) ($args['action'] ?? 'summary');
 
-        // These are company-wide ledgers: approvers only. Everyone else reads their own loans via query_data.
+        // These are company ledgers: approvers only. Everyone else reads their own advances via query_data.
         if ($denied = $this->gate->deny($userId, ['petty-cash.approve'])) {
             return $denied;
         }
+        $actor = $this->gate->actor($userId);
 
         return match ($action) {
-            'category_breakdown' => $this->getCategoryBreakdown(),
-            'pending_approvals' => $this->getPendingApprovals(),
-            'recent_vouchers' => $this->getRecentVouchers(),
-            default => $this->getPettyCashSummary(),
+            'category_breakdown' => $this->categoryBreakdown($actor),
+            'pending_approvals' => $this->pendingApprovals($actor),
+            'recent_transactions', 'recent_vouchers' => $this->recentTransactions($actor),
+            default => $this->summary($actor),
         };
     }
 
-    private function getPettyCashSummary(): array
+    /** Advances whose holder the actor may see (DepartmentScope, as on the admin overview). */
+    private function loans(User $actor): Builder
     {
+        $query = PettyCashLoan::query();
+        $this->scope->applyToEmployeeOwned($query, $actor, 'user_id');
+
+        return $query;
+    }
+
+    private function transactions(User $actor): Builder
+    {
+        return PettyCashTransaction::query()->whereIn('petty_cash_loan_id', $this->loans($actor)->select('id'));
+    }
+
+    private function summary(User $actor): array
+    {
+        $active = $this->loans($actor)->where('status', 'active');
+        $activeCount = (clone $active)->count();
+        $advanced = (float) (clone $active)->sum('original_amount');
+        $outstanding = (float) (clone $active)->sum('current_balance');
+        $pending = $this->loans($actor)->where('status', 'pending_approval');
+        $pendingCount = (clone $pending)->count();
+        $pendingAmount = (float) (clone $pending)->sum('original_amount');
+        $spentThisMonth = (float) $this->transactions($actor)->where('type', 'expense')
+            ->whereDate('transaction_date', '>=', now()->startOfMonth()->toDateString())->whereDate('transaction_date', '<=', now()->toDateString())->sum('amount');
+
+        if ($activeCount === 0 && $pendingCount === 0 && ! $this->loans($actor)->exists()) {
+            return $this->empty('There are no petty cash advances in your scope yet.');
+        }
+
         return [
-            'text' => 'DBEDC Guardian Petty Cash Financial Summary.',
+            'text' => sprintf('Petty cash in your scope: %d active advance%s holding %s of %s advanced; %s spent this month; %d advance%s waiting for approval.',
+                $activeCount, $activeCount === 1 ? '' : 's', $this->bdt($outstanding), $this->bdt($advanced), $this->bdt($spentThisMonth), $pendingCount, $pendingCount === 1 ? '' : 's'),
             'blocks' => [
                 [
                     'type' => 'stats',
                     'items' => [
-                        ['k' => 'Total Monthly Allocation', 'v' => '৳ 250,000 BDT'],
-                        ['k' => 'Total Spent to Date', 'v' => '৳ 142,650 BDT', 'd' => '57.1% utilized'],
-                        ['k' => 'Available Headroom', 'v' => '৳ 107,350 BDT', 'dir' => 'up', 'd' => 'Healthy Balance'],
-                        ['k' => 'Pending Vouchers', 'v' => '3 Vouchers', 'd' => '৳ 14,200 awaiting sign-off'],
-                    ],
-                ],
-                [
-                    'type' => 'bar',
-                    'title' => 'Expenditure by Department',
-                    'items' => [
-                        ['label' => 'Expressway Site Operations & TMC', 'value' => 64500],
-                        ['label' => 'Quality Control & Lab Testing', 'value' => 38200],
-                        ['label' => 'Administration & Site Office', 'value' => 26450],
-                        ['label' => 'Vehicle Fuel & Site Maintenance', 'value' => 13500],
+                        ['k' => 'Active advances', 'v' => (string) $activeCount, 'd' => $this->bdt($advanced).' advanced'],
+                        ['k' => 'Balance still held', 'v' => $this->bdt($outstanding)],
+                        ['k' => 'Spent this month', 'v' => $this->bdt($spentThisMonth), 'd' => now()->format('F Y')],
+                        ['k' => 'Waiting for approval', 'v' => (string) $pendingCount, 'd' => $pendingCount > 0 ? $this->bdt($pendingAmount).' requested' : null],
                     ],
                 ],
             ],
             'data' => [
-                'allocation_bdt' => 250000,
-                'spent_bdt' => 142650,
-                'available_bdt' => 107350,
+                'active_count' => $activeCount,
+                'advanced_bdt' => $advanced,
+                'outstanding_bdt' => $outstanding,
+                'spent_this_month_bdt' => $spentThisMonth,
+                'pending_count' => $pendingCount,
+                'pending_bdt' => $pendingAmount,
             ],
         ];
     }
 
-    private function getCategoryBreakdown(): array
+    private function categoryBreakdown(User $actor): array
     {
+        $from = now()->startOfMonth();
+        $rows = $this->transactions($actor)->where('type', 'expense')
+            ->whereDate('transaction_date', '>=', $from->toDateString())->whereDate('transaction_date', '<=', now()->toDateString())
+            ->selectRaw('category, SUM(amount) as total')->groupBy('category')->orderByDesc('total')->get();
+
+        if ($rows->isEmpty()) {
+            return $this->empty('No petty cash expenses have been recorded in your scope in '.$from->format('F Y').'.');
+        }
+
+        $labels = PettyCashService::CATEGORIES;
+        $items = $rows->map(fn ($r) => ['label' => $labels[$r->category] ?? ($r->category ? ucfirst(str_replace('_', ' ', (string) $r->category)) : 'Uncategorised'), 'value' => round((float) $r->total, 2)])->values()->all();
+
         return [
-            'text' => 'Petty Cash expenses grouped by category.',
-            'blocks' => [
-                [
-                    'type' => 'donut',
-                    'title' => 'Expense Distribution',
-                    'items' => [
-                        ['label' => 'Site Tools & Consumables', 'value' => 45000],
-                        ['label' => 'Vehicle Fuel & Transport', 'value' => 35000],
-                        ['label' => 'Office Refreshment & Supplies', 'value' => 28000],
-                        ['label' => 'Emergency Roadway Repairs', 'value' => 22000],
-                        ['label' => 'Documentation & Printing', 'value' => 12650],
-                    ],
-                ],
-            ],
-            'data' => ['categories' => 5],
+            'text' => 'Petty cash expenses by category, '.$from->format('F Y').' to date: '.$this->bdt((float) $rows->sum('total')).' in total.',
+            'blocks' => [['type' => 'donut', 'title' => 'Expenses by category, '.$from->format('F Y'), 'items' => $items]],
+            'data' => ['month' => $from->format('Y-m'), 'categories' => $items],
         ];
     }
 
-    private function getPendingApprovals(): array
+    private function pendingApprovals(User $actor): array
     {
+        $loans = $this->loans($actor)->where('status', 'pending_approval')->with('user:employee_id,name')->orderBy('loan_date')->get();
+
+        if ($loans->isEmpty()) {
+            return $this->empty('No petty cash advances are waiting for approval in your scope.');
+        }
+
         return [
-            'text' => 'Petty Cash vouchers pending management approval.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['Voucher #', 'Claimant Staff', 'Purpose Description', 'Amount (BDT)', 'Approval Stage'],
-                    'rows' => [
-                        ['PV-2026-114', 'Md. Zahid (TMC)', 'Generator Diesel Fuel for Station 2', '৳ 6,500', 'Pending HOD Approval'],
-                        ['PV-2026-115', 'Sharmin Akter (QC)', 'Sample Cylinder Molds for Lab Test', '৳ 4,800', 'Pending Finance Review'],
-                        ['PV-2026-116', 'Kamrul Hasan (Admin)', 'Site Office Printer Cartridge', '৳ 2,900', 'Pending Final Sign-off'],
-                    ],
-                ],
-            ],
-            'data' => ['pending_count' => 3, 'pending_total_bdt' => 14200],
+            'text' => $loans->count().' petty cash advance'.($loans->count() === 1 ? ' is' : 's are').' waiting for approval.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['Employee', 'Fund', 'Amount', 'Requested on'],
+                'rows' => $loans->map(fn (PettyCashLoan $l) => [
+                    $l->user?->name ?? (string) $l->user_id,
+                    $l->fund_name ?: 'General fund',
+                    $this->bdt((float) $l->original_amount),
+                    $l->loan_date?->format('d M Y') ?? '—',
+                ])->all(),
+            ]],
+            'data' => ['pending_count' => $loans->count(), 'pending_bdt' => (float) $loans->sum('original_amount')],
         ];
     }
 
-    private function getRecentVouchers(): array
+    private function recentTransactions(User $actor): array
     {
+        $entries = $this->transactions($actor)->with('pettyCashLoan.user:employee_id,name')
+            ->orderByDesc('transaction_date')->orderByDesc('id')->limit(self::RECENT_LIMIT)->get();
+
+        if ($entries->isEmpty()) {
+            return $this->empty('No petty cash entries have been recorded in your scope yet.');
+        }
+
+        $labels = PettyCashService::CATEGORIES;
+
         return [
-            'text' => 'Recent approved Petty Cash disbursements.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['Voucher #', 'Disbursement Date', 'Category', 'Amount (BDT)', 'Status'],
-                    'rows' => [
-                        ['PV-2026-113', '2026-08-28', 'Vehicle Fuel & Toll', '৳ 3,200', 'Disbursed (Cash)'],
-                        ['PV-2026-112', '2026-08-26', 'Emergency Barricade Tape', '৳ 1,850', 'Disbursed (Cash)'],
-                        ['PV-2026-111', '2026-08-25', 'Lab Concrete Curing Tank Maintenance', '৳ 8,400', 'Disbursed (Cash)'],
-                    ],
-                ],
-            ],
-            'data' => ['recent_count' => 3],
+            'text' => 'The latest '.$entries->count().' petty cash entries in your scope.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['Date', 'Employee', 'Entry', 'Category', 'Amount'],
+                'rows' => $entries->map(fn (PettyCashTransaction $t) => [
+                    $t->transaction_date?->format('d M Y') ?? '—',
+                    $t->pettyCashLoan?->user?->name ?? '—',
+                    ucfirst(str_replace('_', ' ', (string) $t->type)),
+                    $t->category ? ($labels[$t->category] ?? (string) $t->category) : '—',
+                    $this->bdt((float) $t->amount),
+                ])->all(),
+            ]],
+            'data' => ['count' => $entries->count()],
         ];
+    }
+
+    private function bdt(float $amount): string
+    {
+        return '৳ '.number_format($amount, 0);
+    }
+
+    /** @return array{text: string, blocks: array<int, mixed>, data: array<string, mixed>} */
+    private function empty(string $message): array
+    {
+        return ['text' => $message, 'blocks' => [], 'data' => ['empty' => true]];
     }
 }

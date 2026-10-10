@@ -5,16 +5,25 @@ declare(strict_types=1);
 namespace App\Services\Aeon\Tools;
 
 use App\Contracts\Ai\AeonToolContract;
+use App\Models\DailyWork;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Specialized QC/QA tool for DBEDC Guardian.
- * Tracks Non-Conformance Reports (NCRs), Requests for Inspection (RFIs),
- * Site Objections, and Site Instructions across expressway packages.
+ * Quality registers from Guardian: non-conformance reports (quality_ncrs), RFIs (daily_works and their inspection
+ * results), RFI objections and the engineer's site instructions. Counts use the same definitions as the main
+ * dashboard's cards; each answer names the latest entry so stale registers are visible. Nothing is invented.
  */
 class QualityAssuranceTool implements AeonToolContract
 {
+    /** Closed NCRs, as on the dashboard's NCR card (QualityNcrSummary): everything else is open. */
+    private const NCR_CLOSED = ['closed', 'verified'];
+
+    /** Open RFIs, as on the dashboard's daily works card (DailyWorksSummary). */
+    private const RFI_OPEN = [DailyWork::STATUS_NEW, DailyWork::STATUS_IN_PROGRESS, DailyWork::STATUS_PENDING, DailyWork::STATUS_RESUBMISSION, DailyWork::STATUS_EMERGENCY];
+
+    private const LIST_LIMIT = 10;
+
     public function __construct(private ToolGate $gate) {}
 
     public function name(): string
@@ -24,7 +33,7 @@ class QualityAssuranceTool implements AeonToolContract
 
     public function description(): string
     {
-        return 'Audit and analyze Quality Control / Quality Assurance records: Open/Closed NCRs, pending RFIs, site objections, inspection approvals, and contractor non-conformances.';
+        return 'Quality registers: non-conformance reports (NCRs), RFI status and inspection results, RFI objections, and site instructions.';
     }
 
     public function parameters(): array
@@ -37,7 +46,8 @@ class QualityAssuranceTool implements AeonToolContract
             ],
             'status' => [
                 'type' => 'string',
-                'description' => 'Filter status: "open", "closed", "pending", "all"',
+                'description' => 'For NCR and site-instruction lists: "open" (default), "closed" or "all"',
+                'enum' => ['open', 'closed', 'all'],
             ],
         ];
     }
@@ -45,6 +55,7 @@ class QualityAssuranceTool implements AeonToolContract
     public function run(array $args, int|string|null $userId): array
     {
         $action = (string) ($args['action'] ?? 'ncr_summary');
+        $status = in_array($args['status'] ?? null, ['open', 'closed', 'all'], true) ? $args['status'] : 'open';
 
         // NCRs sit behind quality.ncr.view; RFIs, objections and site instructions behind daily-works.view.
         $required = in_array($action, ['rfi_status', 'objections_breakdown', 'site_instructions'], true) ? ['daily-works.view'] : ['quality.ncr.view'];
@@ -53,134 +64,158 @@ class QualityAssuranceTool implements AeonToolContract
         }
 
         return match ($action) {
-            'rfi_status' => $this->getRfiStatus($args),
-            'objections_breakdown' => $this->getObjectionsBreakdown($args),
-            'site_instructions' => $this->getSiteInstructions($args),
-            default => $this->getNcrSummary($args),
+            'rfi_status' => $this->rfiStatus(),
+            'objections_breakdown' => $this->objections(),
+            'site_instructions' => $this->siteInstructions($status),
+            default => $this->ncrSummary($status),
         };
     }
 
-    private function getNcrSummary(array $args): array
+    private function ncrSummary(string $status): array
     {
-        $table = null;
-        if (Schema::hasTable('quality_ncrs')) {
-            $table = 'quality_ncrs';
-        } elseif (Schema::hasTable('ncrs')) {
-            $table = 'ncrs';
-        } elseif (Schema::hasTable('ncr_registers')) {
-            $table = 'ncr_registers';
+        if (! Schema::hasTable('quality_ncrs')) {
+            return $this->empty('No NCR register exists yet.');
         }
-
-        $total = 0;
-        $open = 0;
-        $closed = 0;
-        $rows = [];
-
-        if ($table) {
-            $total = (int) DB::table($table)->count();
-            $open = (int) DB::table($table)->whereIn('status', ['open', 'pending', 'under_review'])->count();
-            $closed = (int) DB::table($table)->whereIn('status', ['closed', 'resolved', 'approved'])->count();
-
-            $recent = DB::table($table)->orderByDesc('id')->limit(5)->get();
-            foreach ($recent as $r) {
-                $rows[] = [
-                    (string) ($r->ncr_number ?? $r->id ?? '#NCR'),
-                    (string) ($r->chainage ?? $r->location ?? 'Expressway Alignment'),
-                    (string) ($r->category ?? $r->discipline ?? 'Civil/Structure'),
-                    (string) ($r->status ?? 'Open'),
-                ];
-            }
+        $base = fn () => DB::table('quality_ncrs')->whereNull('deleted_at');
+        $total = (int) $base()->count();
+        if ($total === 0) {
+            return $this->empty('No NCRs have been recorded yet.');
         }
+        $open = (int) $base()->whereNotIn('status', self::NCR_CLOSED)->count();
+        $critical = (int) $base()->whereNotIn('status', self::NCR_CLOSED)->where('severity', 'critical')->count();
+        $byStatus = $base()->selectRaw('status, COUNT(*) as n')->groupBy('status')->orderByDesc('n')->get();
+        $latest = $base()->max('detected_date');
 
-        if (empty($rows)) {
-            $total = 14;
-            $open = 3;
-            $closed = 11;
-            $rows = [
-                ['NCR-2026-088', 'Ch 12+400 NB', 'Subgrade Compaction Density', 'Open (Awaiting Re-test)'],
-                ['NCR-2026-089', 'Ch 24+150 SB', 'Concrete Slump Deviation', 'Under Review'],
-                ['NCR-2026-090', 'Ch 31+800 Culvert', 'Reinforcement Rebar Spacing', 'Open (Rectification Pending)'],
-                ['NCR-2026-085', 'Ch 08+200 NB', 'Pavement Asphalt Temperature', 'Closed'],
-                ['NCR-2026-086', 'Ch 19+900 Flyover', 'Girder Bearing Alignment', 'Closed'],
-            ];
+        $list = $base();
+        if ($status === 'open') {
+            $list->whereNotIn('status', self::NCR_CLOSED);
+        } elseif ($status === 'closed') {
+            $list->whereIn('status', self::NCR_CLOSED);
         }
+        $rows = $list->orderByDesc('detected_date')->orderByDesc('id')->limit(self::LIST_LIMIT)
+            ->get(['ncr_number', 'title', 'severity', 'status', 'detected_date']);
 
         return [
-            'text' => "NCR Summary: {$total} total recorded, {$open} currently open, {$closed} resolved.",
+            'text' => "NCR register: {$total} in total, {$open} open ({$critical} critical)".($latest ? ', latest detected '.$this->date($latest) : '').'.',
             'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Total NCRs Logged', 'v' => (string) $total],
-                        ['k' => 'Open & Pending Action', 'v' => (string) $open, 'dir' => $open > 5 ? 'down' : 'up', 'd' => 'Requires inspection'],
-                        ['k' => 'Rectified & Closed', 'v' => (string) $closed, 'dir' => 'up', 'd' => sprintf('%.1f%% resolution rate', $total > 0 ? ($closed / $total) * 100 : 100)],
-                    ],
-                ],
-                [
-                    'type' => 'table',
-                    'columns' => ['NCR Number', 'Chainage Location', 'Discipline / Component', 'QC Status'],
-                    'rows' => $rows,
-                ],
+                ['type' => 'stats', 'items' => [
+                    ['k' => 'NCRs recorded', 'v' => (string) $total],
+                    ['k' => 'Open', 'v' => (string) $open],
+                    ['k' => 'Critical open', 'v' => (string) $critical],
+                    ['k' => 'Latest detected', 'v' => $latest ? $this->date($latest) : '—'],
+                ]],
+                ['type' => 'donut', 'title' => 'NCRs by status', 'items' => $byStatus->map(fn ($r) => ['label' => $this->words($r->status), 'value' => (int) $r->n])->all()],
+                ['type' => 'table', 'columns' => ['NCR', 'Title', 'Severity', 'Status', 'Detected'], 'rows' => $rows->map(fn ($r) => [
+                    (string) ($r->ncr_number ?: '—'), (string) ($r->title ?: '—'), $this->words($r->severity), $this->words($r->status), $r->detected_date ? $this->date($r->detected_date) : '—',
+                ])->all()],
             ],
-            'data' => ['total' => $total, 'open' => $open, 'closed' => $closed],
+            'data' => ['total' => $total, 'open' => $open, 'critical_open' => $critical, 'latest_detected' => $latest],
         ];
     }
 
-    private function getRfiStatus(array $args): array
+    private function rfiStatus(): array
     {
+        if (! Schema::hasTable('daily_works')) {
+            return $this->empty('No RFI register exists yet.');
+        }
+        $base = fn () => DB::table('daily_works')->whereNull('deleted_at');
+        $total = (int) $base()->count();
+        if ($total === 0) {
+            return $this->empty('No RFIs have been recorded yet.');
+        }
+        $open = (int) $base()->whereIn('status', self::RFI_OPEN)->count();
+        $resubmission = (int) $base()->where('status', DailyWork::STATUS_RESUBMISSION)->count();
+        $passed = (int) $base()->where('inspection_result', DailyWork::INSPECTION_PASS)->count();
+        $failed = (int) $base()->where('inspection_result', DailyWork::INSPECTION_FAIL)->count();
+        $latest = $base()->max('date');
+        $byStatus = $base()->selectRaw('status, COUNT(*) as n')->groupBy('status')->orderByDesc('n')->get();
+
         return [
-            'text' => 'Requests for Inspection (RFIs) status overview across all expressway packages.',
+            'text' => "RFIs: {$total} recorded, {$open} open ({$resubmission} for resubmission); inspections recorded {$passed} pass and {$failed} fail".($latest ? '; latest RFI dated '.$this->date($latest) : '').'.',
             'blocks' => [
-                [
-                    'type' => 'stats',
-                    'items' => [
-                        ['k' => 'Total RFIs Submitted', 'v' => '128 RFIs'],
-                        ['k' => 'Approved (Passed)', 'v' => '119 Approved', 'dir' => 'up', 'd' => '93.0% First-Pass'],
-                        ['k' => 'Under Inspection Today', 'v' => '6 Active', 'dir' => 'up', 'd' => 'Scheduled'],
-                        ['k' => 'Rejected / Re-inspect', 'v' => '3 Pending', 'dir' => 'down', 'd' => 'Contractor Notice'],
-                    ],
-                ],
+                ['type' => 'stats', 'items' => [
+                    ['k' => 'RFIs recorded', 'v' => number_format($total)],
+                    ['k' => 'Open', 'v' => number_format($open), 'd' => number_format($resubmission).' for resubmission'],
+                    ['k' => 'Inspection pass / fail', 'v' => "{$passed} / {$failed}"],
+                    ['k' => 'Latest RFI', 'v' => $latest ? $this->date($latest) : '—'],
+                ]],
+                ['type' => 'bar', 'title' => 'RFIs by status', 'items' => $byStatus->map(fn ($r) => ['label' => $this->words($r->status), 'value' => (int) $r->n])->all()],
             ],
-            'data' => ['total_rfis' => 128, 'approved' => 119, 'pending' => 6, 'rejected' => 3],
+            'data' => ['total' => $total, 'open' => $open, 'resubmission' => $resubmission, 'pass' => $passed, 'fail' => $failed, 'latest' => $latest],
         ];
     }
 
-    private function getObjectionsBreakdown(array $args): array
+    private function objections(): array
     {
+        if (! Schema::hasTable('rfi_objections')) {
+            return $this->empty('No RFI objections register exists yet.');
+        }
+        $base = fn () => DB::table('rfi_objections')->whereNull('deleted_at');
+        $total = (int) $base()->count();
+        if ($total === 0) {
+            return $this->empty('No RFI objections have been raised yet.');
+        }
+        $byStatus = $base()->selectRaw('status, COUNT(*) as n')->groupBy('status')->orderByDesc('n')->get();
+        $byCategory = $base()->selectRaw('category, COUNT(*) as n')->groupBy('category')->orderByDesc('n')->get();
+
         return [
-            'text' => 'Site Objections breakdown by severity and discipline.',
+            'text' => "{$total} RFI objection".($total === 1 ? '' : 's').' recorded: '.$byStatus->map(fn ($r) => $this->words($r->status).' '.$r->n)->implode(', ').'.',
             'blocks' => [
-                [
-                    'type' => 'donut',
-                    'title' => 'Site Objections by Discipline',
-                    'items' => [
-                        ['label' => 'Structural Concrete', 'value' => 6],
-                        ['label' => 'Earthwork & Compaction', 'value' => 4],
-                        ['label' => 'Drainage & Culverts', 'value' => 3],
-                        ['label' => 'Traffic Safety & Signage', 'value' => 2],
-                    ],
-                ],
+                ['type' => 'donut', 'title' => 'Objections by status', 'items' => $byStatus->map(fn ($r) => ['label' => $this->words($r->status), 'value' => (int) $r->n])->all()],
+                ['type' => 'bar', 'title' => 'Objections by category', 'items' => $byCategory->map(fn ($r) => ['label' => $r->category ? $this->words($r->category) : 'Not categorised', 'value' => (int) $r->n])->all()],
             ],
-            'data' => ['total_objections' => 15],
+            'data' => ['total' => $total],
         ];
     }
 
-    private function getSiteInstructions(array $args): array
+    private function siteInstructions(string $status): array
     {
+        if (! Schema::hasTable('site_instructions')) {
+            return $this->empty('No site instruction register exists yet.');
+        }
+        $list = DB::table('site_instructions');
+        if ($status !== 'all') {
+            $list->where('status', $status);
+        }
+        $rows = $list->orderByDesc('issued_date')->orderByDesc('id')->limit(self::LIST_LIMIT)
+            ->get(['si_number', 'category', 'location', 'summary', 'description', 'status', 'issued_date']);
+        $counts = DB::table('site_instructions')->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+
+        if ($rows->isEmpty()) {
+            return $this->empty($status === 'all' ? 'No site instructions have been recorded yet.' : "There are no {$status} site instructions.");
+        }
+
         return [
-            'text' => 'Site Instructions (SI) issued to Contractors.',
-            'blocks' => [
-                [
-                    'type' => 'table',
-                    'columns' => ['SI #', 'Target Contractor', 'Scope Description', 'Compliance Deadline'],
-                    'rows' => [
-                        ['SI-2026-034', 'Package 1 (Civil)', 'Install retro-reflective hazard signs at Ch 14+200 ramp', 'Within 48 Hours'],
-                        ['SI-2026-035', 'Package 2 (Drainage)', 'Clear silt and debris from median box culvert Ch 22+100', 'Within 72 Hours'],
-                        ['SI-2026-036', 'Package 3 (Bridge)', 'Provide calibration certificates for batching plant load cells', 'Before Next Pour'],
-                    ],
-                ],
-            ],
-            'data' => ['active_si' => 3],
+            'text' => 'Site instructions: '.$counts->map(fn ($n, $s) => $this->words((string) $s).' '.$n)->implode(', ').'.',
+            'blocks' => [[
+                'type' => 'table',
+                'columns' => ['SI', 'Category', 'Location', 'Summary', 'Status', 'Issued'],
+                'rows' => $rows->map(fn ($r) => [
+                    (string) ($r->si_number ?: '—'),
+                    $this->words($r->category),
+                    (string) ($r->location ?: '—'),
+                    mb_strimwidth((string) ($r->summary ?: $r->description ?: '—'), 0, 90, '…'),
+                    $this->words($r->status),
+                    $r->issued_date ? $this->date($r->issued_date) : '—',
+                ])->all(),
+            ]],
+            'data' => ['counts' => $counts->all()],
         ];
+    }
+
+    private function words(?string $value): string
+    {
+        return $value ? ucfirst(str_replace(['_', '-'], ' ', $value)) : '—';
+    }
+
+    private function date(string $value): string
+    {
+        return date('d M Y', strtotime($value));
+    }
+
+    /** @return array{text: string, blocks: array<int, mixed>, data: array<string, mixed>} */
+    private function empty(string $message): array
+    {
+        return ['text' => $message, 'blocks' => [], 'data' => ['empty' => true]];
     }
 }
