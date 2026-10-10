@@ -2,6 +2,7 @@ import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Badge as CyBadge, Button as CyButton, Icon, StatTile } from '@/Components/Cyber';
 import { Avatar as CyAvatar } from '@/Components/Cyber/Map/Avatar.jsx';
+import CyDialog from '@/Components/Cyber/Map/Dialog.jsx';
 import { Box, Flex, Grid, Text, Heading, Badge, Separator, Skeleton, Avatar, Button, TextField, Dialog, Tooltip, Spinner } from '@radix-ui/themes';
 import {
     ClockIcon,
@@ -1224,134 +1225,73 @@ const PunchStatusCard = React.memo(() => {
                 )}
             </div>
 
-            {/* Session Success Dialog */}
-            <Dialog.Root open={uiState.sessionDialogOpen} onOpenChange={(open) => setUiState(prev => ({ ...prev, sessionDialogOpen: open }))}>
-                <Dialog.Content size="3" maxWidth="min(400px, 92vw)">
-                    <Dialog.Title>
-                        <Flex direction="column" align="center" gap="2">
-                            <CheckCircledIcon style={{ color: 'var(--green-9)', width: 40, height: 40 }} />
-                            Attendance Recorded
-                        </Flex>
-                    </Dialog.Title>
-                    <Dialog.Description size="2" color="gray" align="center">
-                        Your attendance has been successfully captured
-                    </Dialog.Description>
-                    <Grid columns="2" gap="3" my="3">
-                        <Panel tinted p="0">
-                            <Flex direction="column" align="center" p="3" gap="1">
-                                <GlobeIcon style={{ color: 'var(--accent-9)', width: 24, height: 24 }} />
-                                <Text size="2" weight="medium" color="blue">{systemState.sessionInfo.ip}</Text>
-                                <Text size="1" color="gray">IP Address</Text>
-                            </Flex>
-                        </Panel>
-                        <Panel tinted p="0">
-                            <Flex direction="column" align="center" p="3" gap="1">
-                                <DrawingPinIcon style={{ color: 'var(--green-9)', width: 24, height: 24 }} />
-                                <Text size="2" weight="medium" color="green">{systemState.sessionInfo.accuracy}</Text>
-                                <Text size="1" color="gray">GPS Accuracy</Text>
-                            </Flex>
-                        </Panel>
-                    </Grid>
-                    <Panel tinted p="0" mb="3">
-                        <Flex align="center" justify="center" gap="2" p="3">
-                            <ClockIcon />
-                            <Text size="2">Recorded at: {systemState.sessionInfo.timestamp}</Text>
-                        </Flex>
-                    </Panel>
-                    <Flex justify="end">
-                        <Dialog.Close>
-                            <Button color="blue" size="2" style={{ width: '100%' }}>Continue</Button>
-                        </Dialog.Close>
-                    </Flex>
-                </Dialog.Content>
-            </Dialog.Root>
+            {/* Attendance recorded (Cyber modal) */}
+            {uiState.sessionDialogOpen && (
+                <CyDialog title="Attendance recorded" onClose={() => setUiState(prev => ({ ...prev, sessionDialogOpen: false }))}>
+                    <div className="cy-modal__section">
+                        <div className="cy-alert" data-tone="success"><Icon name="check2-circle" /><span>Your attendance has been captured.</span></div>
+                    </div>
+                    <div className="dl-tiles cy-modal__tiles">
+                        <StatTile label="IP address" value={systemState.sessionInfo.ip} />
+                        <StatTile label="GPS accuracy" value={systemState.sessionInfo.accuracy} />
+                    </div>
+                    <div className="cy-modal__section"><span className="cy-row__sub"><Icon name="clock" /> Recorded at {systemState.sessionInfo.timestamp}</span></div>
+                    <div className="cy-modal__foot">
+                        <CyButton onClick={() => setUiState(prev => ({ ...prev, sessionDialogOpen: false }))}>Continue</CyButton>
+                    </div>
+                </CyDialog>
+            )}
 
-            {/* Camera Dialog */}
-            <Dialog.Root open={cameraState.isOpen} onOpenChange={(open) => { if (!open) stopCamera(); }}>
-                <Dialog.Content size="3" maxWidth="min(600px, 96vw)">
-                    <Dialog.Title>
-                        <Flex align="center" gap="2">
-                            <VideoIcon style={{ color: 'var(--accent-9)' }} />
-                            Capture Attendance Photo
-                        </Flex>
-                    </Dialog.Title>
-                    <Dialog.Description size="2" color="gray">
-                        Take a photo for verification. Location coordinates will be added automatically.
-                    </Dialog.Description>
-                    <Box mt="3" style={{ borderRadius: 'var(--radius-3)', overflow: 'hidden', background: 'black', position: 'relative' }}>
+            {/* Photo capture (Cyber modal) */}
+            {cameraState.isOpen && (
+                <CyDialog title="Capture attendance photo" onClose={stopCamera} className="cy-modal cy-modal--wide">
+                    <div className="cy-modal__section">
+                        <span className="cy-row__sub">Take a photo for verification. Location coordinates are added automatically.</span>
+                    </div>
+                    <div className="cy-camera">
                         {cameraState.capturedPhoto ? (
-                            <img
-                                src={cameraState.capturedPhoto}
-                                alt="Captured"
-                                style={{ width: '100%', height: 'auto', maxHeight: 400, objectFit: 'contain' }}
-                            />
+                            <img src={cameraState.capturedPhoto} alt="Captured attendance photo" className="cy-camera__media" />
                         ) : (
                             <>
-                                <video
-                                    ref={videoRef}
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    style={{ width: '100%', height: 'auto', maxHeight: 400, objectFit: 'contain', transform: cameraState.facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
-                                />
-                                <Button
-                                    size="1"
-                                    variant="soft"
-                                    style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.5)', color: 'white', borderRadius: '50%', padding: 8 }}
-                                    onClick={switchCamera}
-                                    disabled={!cameraState.stream || cameraState.isSwitching}
-                                >
-                                    {cameraState.isSwitching ? <Spinner size="1" /> : <ReloadIcon />}
-                                </Button>
-                                <Box style={{ position: 'absolute', top: 12, left: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(0,0,0,0.5)' }}>
-                                    <Text size="1" style={{ color: 'white' }}>{cameraState.facingMode === 'user' ? '🤳 Front' : '📷 Back'}</Text>
-                                </Box>
+                                <video ref={videoRef} autoPlay playsInline muted className="cy-camera__media" style={{ transform: cameraState.facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
+                                <button type="button" className="cy-camera__switch" onClick={switchCamera} disabled={!cameraState.stream || cameraState.isSwitching} aria-label="Switch camera">
+                                    <Icon name="arrow-repeat" className={cameraState.isSwitching ? 'cy-spin' : undefined} />
+                                </button>
+                                <span className="cy-camera__facing">{cameraState.facingMode === 'user' ? 'Front camera' : 'Back camera'}</span>
                             </>
                         )}
                         <canvas ref={canvasRef} style={{ display: 'none' }} />
                         {locationState.coordinates && (
-                            <Box style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'rgba(0,0,0,0.7)' }}>
-                                <Text size="1" style={{ color: 'white' }}>
-                                    📍 {locationState.coordinates.latitude.toFixed(6)}, {locationState.coordinates.longitude.toFixed(6)}
-                                </Text>
-                            </Box>
+                            <span className="cy-camera__coords"><Icon name="geo-alt" /> {locationState.coordinates.latitude.toFixed(6)}, {locationState.coordinates.longitude.toFixed(6)}</span>
                         )}
-                    </Box>
-                    <Panel tinted p="0" mt="3" mb="3">
-                        <Flex align="center" gap="2" p="2">
-                            <InfoCircledIcon style={{ color: 'var(--accent-9)' }} />
-                            <Text size="2">
-                                {cameraState.capturedPhoto
-                                    ? 'Review your photo. You can retake if needed.'
-                                    : 'Position yourself clearly in the frame and capture the photo.'}
-                            </Text>
-                        </Flex>
-                    </Panel>
-                    <Flex gap="2" justify="end">
-                        <Button color="red" variant="soft" onClick={stopCamera}>Cancel</Button>
+                    </div>
+                    <div className="cy-modal__section">
+                        <div className="cy-alert" data-tone="theme">
+                            <Icon name="camera-video" />
+                            <span>{cameraState.capturedPhoto ? 'Review your photo. You can retake it if needed.' : 'Position yourself clearly in the frame, then capture the photo.'}</span>
+                        </div>
+                    </div>
+                    <div className="cy-modal__foot">
+                        <CyButton variant="outline" color="secondary" onClick={stopCamera}>Cancel</CyButton>
                         {cameraState.capturedPhoto ? (
                             <>
-                                <Button color="violet" variant="soft" onClick={retakePhoto}>
-                                    <ReloadIcon /> Retake
-                                </Button>
-                                <Button color="green" disabled={attendanceState.loading} onClick={confirmPhotoAndPunch}>
+                                <CyButton variant="outline" onClick={retakePhoto}><Icon name="arrow-repeat" /> Retake</CyButton>
+                                <CyButton disabled={attendanceState.loading} onClick={confirmPhotoAndPunch}>
                                     {attendanceState.loading
-                                        ? <Flex align="center" gap="2"><Spinner size="1" /> Processing...</Flex>
-                                        : <Flex align="center" gap="2"><CheckCircledIcon /> Confirm & {statusConfig.action}</Flex>
-                                    }
-                                </Button>
+                                        ? <><Icon name="arrow-repeat" className="cy-spin" /> Processing…</>
+                                        : <><Icon name="check2-circle" /> Confirm and {statusConfig.action.toLowerCase()}</>}
+                                </CyButton>
                             </>
                         ) : (
-                            <Button color="blue" disabled={!cameraState.stream} onClick={capturePhoto}>
+                            <CyButton disabled={!cameraState.stream} onClick={capturePhoto}>
                                 {cameraState.isCapturing
-                                    ? <Flex align="center" gap="2"><Spinner size="1" /> Capturing...</Flex>
-                                    : <Flex align="center" gap="2"><VideoIcon /> Capture Photo</Flex>
-                                }
-                            </Button>
+                                    ? <><Icon name="arrow-repeat" className="cy-spin" /> Capturing…</>
+                                    : <><Icon name="camera-video" /> Capture photo</>}
+                            </CyButton>
                         )}
-                    </Flex>
-                </Dialog.Content>
-            </Dialog.Root>
+                    </div>
+                </CyDialog>
+            )}
         </div>
     );
 });

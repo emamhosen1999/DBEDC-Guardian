@@ -286,3 +286,14 @@ html[data-design="cyber"] .cy-mapcard.dl-card--expanded { background: var(--cy-b
 .cy-map__scale span { display: block; height: 0.375rem; background: linear-gradient(currentColor, currentColor) bottom / 100% 1.5px no-repeat, linear-gradient(currentColor, currentColor) left / 1.5px 100% no-repeat, linear-gradient(currentColor, currentColor) right / 1.5px 100% no-repeat; }
 
 .cy-layers__row .cy-map__swatch { margin-inline: -0.0625rem; }
+
+/* Modal extras for forms that use the shared Cyber dialog (punch photo capture, attendance recorded) */
+.cy-modal--wide { width: 36rem; }
+.cy-modal__tiles { border-bottom: 1px solid var(--cy-border-translucent); }
+.cy-modal__foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.4375rem; padding: 0.65625rem 0.875rem; }
+.cy-camera { position: relative; background: #000; border-bottom: 1px solid var(--cy-border-translucent); }
+.cy-camera__media { display: block; width: 100%; height: auto; max-height: 24rem; object-fit: contain; }
+.cy-camera__switch { position: absolute; top: 0.65625rem; right: 0.65625rem; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--cy-border); background: rgba(0, 0, 0, 0.55); color: #fff; cursor: pointer; }
+.cy-camera__switch:focus-visible { outline: 2px solid var(--accent-9); outline-offset: 1px; }
+.cy-camera__facing { position: absolute; top: 0.65625rem; left: 0.65625rem; padding: 0.125rem 0.4375rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; }
+.cy-camera__coords { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 0.25rem; padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.7); color: #fff; font-size: 0.5625rem; font-variant-numeric: tabular-nums; }
