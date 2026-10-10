@@ -129,6 +129,7 @@ Route::middleware($middlewareStack)->group(function () {
     Route::middleware(['permission:core.dashboard.view'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/command', [DashboardController::class, 'command'])->name('dashboard.command');
+        Route::get('/dashboard/map', \App\Http\Controllers\DashboardMapController::class)->name('dashboard.map');
         Route::get('/stats', [DashboardController::class, 'stats'])->name('stats');
     });
 

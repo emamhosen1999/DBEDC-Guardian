@@ -5,6 +5,7 @@ import App from '@/Layouts/App.jsx';
 import PageHeader from '@/Components/PageHeader';
 import { useCommandData } from '@/Components/Dashboard/Command/kit.jsx';
 import { KpiStrip, WidgetGrid, useWidgetPayload, statValue } from '@/Components/Dashboard/Widgets/WidgetGrid.jsx';
+import CorridorMapCard from '@/Components/Dashboard/Widgets/CorridorMapCard.jsx';
 
 function greeting() {
     const h = new Date().getHours();
@@ -34,6 +35,7 @@ export default function Dashboard({ auth }) {
     const { data: command } = useCommandData();
     const { payload: widgets, reload } = useWidgetPayload('main');
     const firstName = auth?.user?.name?.split(' ')?.[0] ?? 'Operator';
+    const corridorMap = widgets?.widgets?.find((w) => w.key === 'ops.corridor_map') ?? null;
 
     return (
         <>
@@ -46,7 +48,9 @@ export default function Dashboard({ auth }) {
                 chips={statusChips(command, widgets)}
             />
 
-            {/* Full-width "Corridor map" widget slot: directly under the PageHeader, above the KPI strip (built separately). */}
+            {/* Full-width corridor "everything map": directly under the PageHeader, above the KPI strip. Registered as the
+                main widget `ops.corridor_map` (permission core.dashboard.view); every layer inside has its own gate. */}
+            {corridorMap && <div className="dl-page"><div className="dl-row"><div className="dl-col dl-col--12"><CorridorMapCard widget={corridorMap} onRetry={reload} /></div></div></div>}
 
             <KpiStrip payload={widgets} />
             <WidgetGrid payload={widgets} onRetry={reload} />

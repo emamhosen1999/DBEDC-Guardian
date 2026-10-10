@@ -65,4 +65,11 @@ describe('Cyber Card header tools', () => {
         expect(host.querySelector('.dl-card--expanded')).toBeNull();
         expect(document.activeElement).toBe(host.querySelector('button[aria-label^="Full screen"]'));
     });
+
+    it('lets the body ask whether the card is maximized (function children)', () => {
+        mount(<Card title="Corridor map">{({ expanded }) => <p data-expanded={String(expanded)}>body</p>}</Card>);
+        expect(host.querySelector('p').getAttribute('data-expanded')).toBe('false');
+        click(host.querySelector('button[aria-label^="Full screen"]'));
+        expect(host.querySelector('p').getAttribute('data-expanded')).toBe('true');
+    });
 });

@@ -1,0 +1,12 @@
+{
+  "corridor_geometry": [
+    {"seq": 0, "lat": 23.986737, "lng": 90.362246, "chainage_m": 0},
+    {"seq": 1, "lat": 23.977568, "lng": 90.380874, "chainage_m": 2314},
+    {"seq": 2, "lat": 23.949671, "lng": 90.414551, "chainage_m": 7554},
+    {"seq": 3, "lat": 23.930211, "lng": 90.452655, "chainage_m": 12090}
+  ],
+  "corridor_geometry_source": {"source": "osm-routed", "attribution": "Test export (fixture)", "imported_at": "2026-09-05 06:16:05"},
+  "interchanges": [
+    {"code": "TP-01", "kind": "toll_plaza", "name": "Vogra Toll Plaza", "lat": 23.9753, "lng": 90.3892, "chainage_m": 3218}
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "source": "DBEDC_Corridor_Waypoints.xlsx (client-supplied; Road-Network, Toll Plazas, Bridges and Landmarks sheets)",
+  "date": "2026-09-02",
+  "attribution": "DBEDC corridor survey workbook, client-supplied 2026-09-02. Chainages are model-derived by projection onto a TomTom-routed polyline, not surveyed.",
+  "length_m": 47611,
+  "nominal_length_m": 48000,
+  "illustrative": false,
+  "waypoints": [
+    {
+      "code": "S",
+      "lat": 23.986737,
+      "lng": 90.362246,
+      "chainage_m": 0
+    },
+    {
+      "code": "2",
+      "lat": 23.977568,
+      "lng": 90.380874,
+      "chainage_m": 2314
+    },
+    {
+      "code": "3",
+      "lat": 23.949671,
+      "lng": 90.414551,
+      "chainage_m": 7554
+    },
+    {
+      "code": "4",
+      "lat": 23.930211,
+      "lng": 90.452655,
+      "chainage_m": 12090
+    },
+    {
+      "code": "5",
+      "lat": 23.834773,
+      "lng": 90.540481,
+      "chainage_m": 26799
+    },
+    {
+      "code": "6",
+      "lat": 23.785562,
+      "lng": 90.56872,
+      "chainage_m": 34973
+    },
+    {
+      "code": "7",
+      "lat": 23.731516,
+      "lng": 90.587646,
+      "chainage_m": 41371
+    },
+    {
+      "code": "8",
+      "lat": 23.6905,
+      "lng": 90.546722,
+      "chainage_m": 47611
+    }
+  ],
+  "features": [
+    {
+      "code": "TP-01",
+      "kind": "toll_plaza",
+      "name": "Vogra Toll Plaza (RHS)",
+      "lat": 23.9753671891032,
+      "lng": 90.3892799542563,
+      "chainage_m": 3218,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "TP-02",
+      "kind": "toll_plaza",
+      "name": "Vogra Toll Plaza (LHS)",
+      "lat": 23.9743656008642,
+      "lng": 90.3920315233251,
+      "chainage_m": 3706,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "TP-03",
+      "kind": "toll_plaza",
+      "name": "Mirer Bazar (A) (LHS)",
+      "lat": 23.9350313419691,
+      "lng": 90.4459478257505,
+      "chainage_m": 11365,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "TP-04",
+      "kind": "toll_plaza",
+      "name": "Mirer Bazar (RHS)",
+      "lat": 23.9235064402213,
+      "lng": 90.4598731363515,
+      "chainage_m": 13184,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "TP-05",
+      "kind": "toll_plaza",
+      "name": "Mirer Bazar (LHS)",
+      "lat": 23.9230805540177,
+      "lng": 90.461301142233,
+      "chainage_m": 13403,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "TP-06",
+      "kind": "toll_plaza",
+      "name": "Purbachal Toll Plaza (LHS)",
+      "lat": 23.8517101214179,
+      "lng": 90.5247815080999,
+      "chainage_m": 24522,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "TP-07",
+      "kind": "toll_plaza",
+      "name": "Toll plaza TP-07 (unnamed, estimated)",
+      "lat": 23.791205,
+      "lng": 90.569644,
+      "chainage_m": 34353,
+      "estimated": true,
+      "note": "Extrapolated; plus/minus 200-300 m until a field GPS fix."
+    },
+    {
+      "code": "TP-08",
+      "kind": "toll_plaza",
+      "name": "Possible plaza TP-08 (unnamed, estimated)",
+      "lat": 23.772146,
+      "lng": 90.571652,
+      "chainage_m": 36554,
+      "estimated": true,
+      "note": "Extrapolated; plus/minus 200-300 m until a field GPS fix."
+    },
+    {
+      "code": "TP-09",
+      "kind": "toll_plaza",
+      "name": "Toll plaza TP-09 (unnamed, estimated)",
+      "lat": 23.703585,
+      "lng": 90.555454,
+      "chainage_m": 45965,
+      "estimated": true,
+      "note": "Extrapolated; plus/minus 200-300 m until a field GPS fix."
+    },
+    {
+      "code": "LM-01",
+      "kind": "bridge",
+      "name": "Nagda Bridge",
+      "lat": 23.9172678221816,
+      "lng": 90.4687529262276,
+      "chainage_m": 14584,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "LM-02",
+      "kind": "bridge",
+      "name": "Ulukhola Bridge",
+      "lat": 23.8996763586372,
+      "lng": 90.481156073407,
+      "chainage_m": 16795,
+      "estimated": false,
+      "note": null
+    },
+    {
+      "code": "LM-03",
+      "kind": "bridge",
+      "name": "Kanchan Bridge",
+      "lat": 23.8362275491726,
+      "lng": 90.5457148627381,
+      "chainage_m": 27403,
+      "estimated": false,
+      "note": null
+    }
+  ]
+}

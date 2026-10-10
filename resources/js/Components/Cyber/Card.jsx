@@ -18,6 +18,7 @@ const writeMinimized = (key, value) => { try { value ? window.localStorage.setIt
  *         by one solid line each, as Cyber's .card-body.border-bottom / .row-grid.border-bottom
  * href    drill-down link, drawn as the first header tool (an icon, like Cyber's .card-header-btn links)
  * tools   minimize + maximize buttons (default on). There is deliberately NO close tool.
+ * children  may be a function ({ expanded, collapsed }) => node, for content that lays itself out differently when maximized
  * id      stable card id: the minimized state is remembered per viewer under it. Maximized is never stored.
  */
 export default function Card({ title, sub, actions, href, children, footer, flush = false, tools = true, id, className = '', ...props }) {
@@ -81,7 +82,7 @@ export default function Card({ title, sub, actions, href, children, footer, flus
             )}
             <div className={`dl-card__body${flush ? ' dl-card__body--flush' : ''}`} id={bodyId}>
                 {sub && <span className="dl-card__sub dl-card__sub--padded">{sub}</span>}
-                {children}
+                {typeof children === 'function' ? children({ expanded, collapsed }) : children}
             </div>
             {footer && <footer className="dl-card__foot">{footer}</footer>}
         </section>

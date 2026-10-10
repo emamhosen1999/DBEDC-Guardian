@@ -313,7 +313,9 @@ class WidgetAnalyticsTest extends TestCase
                 if (! preg_match('/\.(php|jsx?)$/', $name) || str_contains($name, '__tests__') || str_ends_with($name, 'Cyber/icons.js')) {
                     continue;
                 }
-                $source = file_get_contents($name);
+                // A constant that is not data (a scale ladder, a palette) can be declared on one line that says why:
+                // `// not-data: <reason>`. Only that line is skipped; everything else is still checked.
+                $source = preg_replace('/^.*\bnot-data:\s*\S.*$/m', '', file_get_contents($name));
                 if (preg_match('/Math\.random|faker|lorem ipsum|sample data|dummy data|mock data|placeholder data/i', $source)
                     || preg_match('/\[\s*(?:-?\d+(?:\.\d+)?\s*,\s*){4,}-?\d+(?:\.\d+)?\s*\]/', $source)) {
                     $offenders[] = $root === $name ? $root : str_replace(base_path().'/', '', $name);

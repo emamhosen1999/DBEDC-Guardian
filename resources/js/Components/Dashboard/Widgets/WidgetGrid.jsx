@@ -267,7 +267,7 @@ export function WidgetGrid({ payload, skip = [], onRetry }) {
             </div>
         );
     }
-    const widgets = payload.widgets.filter((w) => !skip.includes(w.key) && w.type !== 'command');
+    const widgets = payload.widgets.filter((w) => !skip.includes(w.key) && w.type !== 'command' && w.type !== 'corridor_map');
     const rows = packRows(widgets);
     return (
         <div className="dl-page">

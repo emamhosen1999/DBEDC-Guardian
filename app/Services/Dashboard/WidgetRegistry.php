@@ -41,6 +41,7 @@ class WidgetRegistry
         Widgets\UpcomingHolidays::class,
         Widgets\MyAssets::class,
         // Main dashboard - the organisation within the viewer's DepartmentScope.
+        Widgets\CorridorMap::class,
         Widgets\PendingApprovals::class,
         Widgets\TeamToday::class,
         Widgets\TeamTrend::class,
