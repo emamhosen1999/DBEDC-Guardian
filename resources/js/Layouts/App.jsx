@@ -17,6 +17,7 @@ import { TranslationProvider } from '@/Contexts/TranslationContext';
 import { GlobalAutoTranslator } from '@/Contexts/GlobalAutoTranslator';
 import { AppStateProvider } from '@/Contexts/AppStateContext';
 import { useVersionManager } from '@/Hooks/useVersionManager.js';
+import AppFooter from './AppFooter.jsx';
 import FloatingAeon from '@/aeon/FloatingAeon';
 
 import '@/utils/serviceWorkerManager.js';
@@ -201,6 +202,8 @@ const App = React.memo(({ children }) => {
                         </PageContent>
                       </ErrorBoundary>
                     </main>
+
+                    {!isPhone && <AppFooter />}
                   </div>
                 </div>
 

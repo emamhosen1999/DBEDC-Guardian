@@ -68,6 +68,35 @@
   overscroll-behavior: contain;
 }
 
+/* App footer (.app-footer.cyber-footer): a 34px strip under the scrolling main area, so it stays on screen from the
+   sidebar edge to the window edge without covering content. Phones show the bottom nav instead. */
+.dl-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.875rem;
+  height: 2.125rem;
+  min-height: 2.125rem;
+  padding: 0 0.875rem;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.03125rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dl-footer__copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The Aeon launcher sits above the footer strip, not on it */
+.dl-app:not(.dl-app--phone) .aeon-fab-container {
+  bottom: calc(24px + 2.125rem);
+}
+
 .dl-app__backdrop {
   display: none;
 }
@@ -1611,6 +1640,13 @@ html[data-design="cyber"] .dl-section-label__text {
   letter-spacing: var(--cy-tracking);
   line-height: 1.5;
   text-transform: uppercase;
+}
+
+html[data-design="cyber"] .dl-footer {
+  border-top: 1px solid rgba(var(--cy-fg-rgb), 0.25);
+  background: rgba(var(--cy-bg-rgb), 0.96);
+  color: rgba(var(--cy-fg-rgb), 0.5);
+  font-family: var(--cy-font);
 }
 
 /* Cards */
