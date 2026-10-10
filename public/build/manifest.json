@@ -741,8 +741,8 @@
       "_react-icons.esm-BKV74WK2.js"
     ]
   },
-  "_WidgetGrid-CBzbVkGr.js": {
-    "file": "assets/js/WidgetGrid-CBzbVkGr.js",
+  "_WidgetGrid-EXjuTpQj.js": {
+    "file": "assets/js/WidgetGrid-EXjuTpQj.js",
     "name": "WidgetGrid",
     "imports": [
       "_vendor-radix-DBnMBWZ2.js",
@@ -1077,7 +1077,7 @@
     "src": "public/assets/images/logo.png"
   },
   "resources/css/app.css": {
-    "file": "assets/css/app-BsbFhu9f.css",
+    "file": "assets/css/app-2K1jv_ML.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -2242,7 +2242,7 @@
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/js/Dashboard-IjdbfucP.js",
+    "file": "assets/js/Dashboard-Bfx2zbSz.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isEntry": true,
@@ -2254,7 +2254,7 @@
       "_PageHeader-CBaTSTWm.js",
       "_useQuery-BHyCeLkR.js",
       "_vendor-utils-DhthdLsc.js",
-      "_WidgetGrid-CBzbVkGr.js",
+      "_WidgetGrid-EXjuTpQj.js",
       "_preload-helper-BfFHrpNk.js",
       "_useMediaQuery-C3j6Uz_7.js",
       "_react-icons.esm-BKV74WK2.js",
@@ -2361,7 +2361,7 @@
     ]
   },
   "resources/js/Pages/EmployeeDashboard.jsx": {
-    "file": "assets/js/EmployeeDashboard-DSMA0djG.js",
+    "file": "assets/js/EmployeeDashboard-43AcA_Wx.js",
     "name": "EmployeeDashboard",
     "src": "resources/js/Pages/EmployeeDashboard.jsx",
     "isEntry": true,
@@ -2378,7 +2378,7 @@
       "_react-icons.esm-BKV74WK2.js",
       "_toastUtils-DVK6PBmd.js",
       "_vendor-utils-DhthdLsc.js",
-      "_WidgetGrid-CBzbVkGr.js",
+      "_WidgetGrid-EXjuTpQj.js",
       "resources/js/Pages/Attendance/Components/MyRequests.jsx",
       "resources/js/Pages/Attendance/Components/SwapResponses.jsx",
       "_OvertimeRequestForm-DladO1dO.js",
@@ -4808,7 +4808,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-BDM4fCVD.js",
+    "file": "assets/js/app-DNu13MVG.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -4944,7 +4944,7 @@
       "resources/js/Pages/UserDevices.jsx"
     ],
     "css": [
-      "assets/css/app-BsbFhu9f.css"
+      "assets/css/app-2K1jv_ML.css"
     ],
     "assets": [
       "assets/woff2/roboto-cyrillic-ext-300-normal-DIxttMbC.woff2",
