@@ -32,6 +32,15 @@ describe('Cyber Card header tools', () => {
         expect(host.querySelector('[aria-label*="lose"], [aria-label*="emove"]')).toBeNull();
     });
 
+    it('draws the drill-down as the first header tool, an icon link with an accessible name', () => {
+        mount(<Card title="Team today" href="/attendance"><p>body</p></Card>);
+        const tools = [...host.querySelectorAll('.dl-card__tools > *')];
+        expect(tools.map((t) => t.tagName)).toEqual(['A', 'BUTTON', 'BUTTON']);
+        expect(tools[0].getAttribute('href')).toBe('/attendance');
+        expect(tools[0].getAttribute('aria-label')).toBe('Open Team today');
+        expect(host.querySelector('.dl-card__sub')).toBeNull();
+    });
+
     it('remembers the minimized state per viewer, but never the maximized state', () => {
         mount(<Card id="widget:team.today" title="Team today"><p>body</p></Card>);
         click(host.querySelector('button[aria-label^="Collapse"]'));

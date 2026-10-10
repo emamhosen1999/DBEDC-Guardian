@@ -252,19 +252,23 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
 }
 
 /* Chart panels inside widget cards: a card's charts sit side by side where there is room and stack where there is not,
-   joined edge to edge with ONE divider token (the negative margin hides the outer lines). */
+   joined edge to edge with the same solid divider as tiles (Cyber .row-grid). The negative margin hides the outer lines:
+   the section above closes with its own bottom border. */
+/* Wrapping flex rather than an auto-fit grid: a panel left alone on the last line grows to the full width, so no row is
+   half closed and every divider runs edge to edge. */
 .cy-chartgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   overflow: hidden;
   flex: 1;
 }
 .cy-chartpanel {
+  flex: 1 1 15rem;
   min-width: 0;
   padding: 0.4375rem 0.875rem 0.21875rem;
   margin: -1px 0 0 -1px;
-  border-top: 1px solid var(--cy-border-translucent);
-  border-inline-start: 1px solid var(--cy-border-translucent);
+  border-top: 1px solid var(--cy-border);
+  border-inline-start: 1px solid var(--cy-border);
 }
 .cy-chartpanel__title {
   display: flex;
@@ -278,7 +282,9 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
   text-transform: uppercase;
 }
 .cy-chartpanel__title small { font-size: 0.546875rem; font-weight: 500; color: var(--gray-a11); text-transform: none; }
-.cy-chartpanel .dl-list { margin-inline: -0.875rem; }
+/* the oldest-items list under a chart is its own section: it opens with the divider and runs to the panel's edge */
+.cy-chartpanel .dl-list { margin-inline: -0.875rem; border-top: 1px solid var(--cy-border); }
+.cy-chartpanel:has(> .dl-list:last-child) { padding-bottom: 0; }
 
 /* Calendar heat strip */
 .cy-heat__grid {
@@ -344,6 +350,8 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
 /* each chart panel is a column; its chart centres in the room left */
 .cy-chartpanel { display: flex; flex-direction: column; }
 .cy-chartpanel > .cy-chart { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+/* the chart centres in the room left; "View data" stays on the panel's bottom edge instead of floating under it */
+.cy-chartpanel > .cy-chart > .cy-chart__canvas { margin-block: auto; }
 .dl-card__foot { margin-top: auto; }
 
 /* Twelve-column spans for packed rows */
@@ -367,7 +375,6 @@ a.cy-stat:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px
   display: grid;
   grid-template-columns: repeat(420, minmax(0, 1fr));
   border-bottom: 1px solid var(--cy-border);
-  border-inline-end: 1px solid var(--cy-border);
   overflow: hidden;
 }
 

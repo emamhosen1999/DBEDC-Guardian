@@ -986,6 +986,10 @@
   cursor: pointer;
 }
 
+a.dl-card__tool {
+  text-decoration: none;
+}
+
 .dl-card__tool svg {
   width: 0.625rem;
   height: 0.625rem;
@@ -1092,6 +1096,11 @@ html[data-design="cyber"] .dl-search-bar .rt-TextFieldRoot {
 .dl-tile {
   min-width: 0;
   padding: 0.4375rem 0.875rem;
+}
+
+/* An odd tile out takes the whole last row, so every row line runs edge to edge (Cyber's rows are full .row-grid). */
+.dl-tile:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 /* ── Bottom navigation (≤768px) ────────────────────────────────────────── */
@@ -1589,12 +1598,6 @@ html[data-design="cyber"] .dl-row {
   border-bottom: 1px solid var(--cy-border);
 }
 
-/* The page's grid is outlined on its right edge too, so every card shows all four sides (the left edge is the
-   sidebar's border, the top the header's or the row above's). */
-html[data-design="cyber"] .dl-page > .dl-row {
-  border-inline-end: 1px solid var(--cy-border);
-}
-
 html[data-design="cyber"] .dl-section-label {
   border-bottom: 1px solid var(--cy-border);
   background: var(--cy-cap-bg);
@@ -1659,6 +1662,18 @@ html[data-design="cyber"] .dl-card--expanded {
   background: rgba(var(--cy-bg-rgb), 0.5);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+}
+
+/* Sections of an edge-to-edge card body (tiles, list, chart grid, map, table) are divided by ONE solid line, as
+   Cyber's .row-grid.border-bottom / .card-body.border-bottom / .h-200px.border-bottom. The last section has none: the
+   card closes with its footer, the row's bottom border and the column's end border (Cyber .row.g-0.border-bottom >
+   .col-lg-4.border-lg-end), never with a line floating inside the card. */
+html[data-design="cyber"] .dl-card__body--flush > :not(:last-child) {
+  border-bottom: 1px solid var(--cy-border);
+}
+
+html[data-design="cyber"] .dl-card__body--flush > .dl-empty:last-child {
+  border-bottom: 0;
 }
 
 /* Tiles and list rows inside cards */

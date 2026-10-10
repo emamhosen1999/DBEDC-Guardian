@@ -103,7 +103,7 @@ export default function EmployeeDashboard() {
                 <div className="dl-row">
                     <div className="dl-col dl-col--8">
                         <ErrorBoundary>
-                            <Card id="employee:my-requests" title="My requests" sub="Swaps, regularizations, overtime" flush>
+                            <Card id="employee:my-requests" title="My requests" flush>
                                 <MyRequests />
                             </Card>
                         </ErrorBoundary>

@@ -124,12 +124,15 @@ const clock = (iso) => {
     return d && !Number.isNaN(d.getTime()) ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null;
 };
 
-/** Freshness line every card carries: when its numbers were computed (and, for registers, when they last changed). */
+/**
+ * Footer line every card carries: whose data it is (the viewer's scope), and when its numbers were computed (and, for
+ * registers, when they last changed). Cyber cards have no subtitle row, so the scope lives here.
+ */
 function Freshness({ widget }) {
     const when = clock(widget.as_of);
-    const extra = widget.data?.freshness;
-    if (!when && !extra) return null;
-    return <span className="cy-fresh">{extra ? `${extra} · ` : ''}{when ? `updated ${when}` : ''}</span>;
+    const parts = [widget.data?.scope?.label, widget.data?.freshness, when ? `updated ${when}` : null].filter(Boolean);
+    if (!parts.length) return null;
+    return <span className="cy-fresh">{parts.join(' · ')}</span>;
 }
 
 /** One registry widget as a Cyber card: figures, then its charts, then a freshness footer. */
@@ -141,10 +144,9 @@ export function WidgetCard({ widget, onRetry }) {
             <Card
                 id={`widget:${widget.key}`}
                 title={widget.title}
-                sub={data?.scope?.label}
+                href={widget.href ?? undefined}
                 flush
                 footer={<Freshness widget={widget} />}
-                actions={widget.href ? <Button as={Link} href={widget.href} variant="outline" size="sm">Open <Icon name="arrow-up-right" /></Button> : null}
             >
                 {error ? (
                     <div className="dl-empty">

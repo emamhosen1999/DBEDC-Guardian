@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import Icon from './Icon.jsx';
 
 /* Minimized state is remembered per viewer and per card (localStorage may be blocked: always guarded). */
@@ -12,13 +12,15 @@ const writeMinimized = (key, value) => { try { value ? window.localStorage.setIt
  * footer. Structure and measurements are the dashboard's .dl-card (shell.css), so every Cyber
  * panel in the app stays identical; this component adds Bootstrap Icons tools and a11y wiring.
  *
- *   <Card title="Team today" sub="Whole organization" actions={<Button …/>} flush>…</Card>
+ *   <Card title="Team today" href="/attendance" actions={<Button …/>} flush>…</Card>
  *
- * flush   body without padding (tables, tile grids, lists - edge to edge as on Cyber)
+ * flush   body without padding (tables, tile grids, lists - edge to edge as on Cyber); its sections are divided
+ *         by one solid line each, as Cyber's .card-body.border-bottom / .row-grid.border-bottom
+ * href    drill-down link, drawn as the first header tool (an icon, like Cyber's .card-header-btn links)
  * tools   minimize + maximize buttons (default on). There is deliberately NO close tool.
  * id      stable card id: the minimized state is remembered per viewer under it. Maximized is never stored.
  */
-export default function Card({ title, sub, actions, children, footer, flush = false, tools = true, id, className = '', ...props }) {
+export default function Card({ title, sub, actions, href, children, footer, flush = false, tools = true, id, className = '', ...props }) {
     const bodyId = useId();
     const viewer = usePage().props?.auth?.user?.employee_id;
     const storageKey = id ? storageKeyFor(viewer, id) : null;
@@ -56,14 +58,23 @@ export default function Card({ title, sub, actions, children, footer, flush = fa
                     {title && <h3 className="dl-card__title" title={typeof title === 'string' ? title : undefined}>{title}</h3>}
                     <span className="dl-hud-line" aria-hidden="true" />
                     {actions && <div className="dl-card__actions">{actions}</div>}
-                    {tools && (
+                    {(tools || href) && (
                         <div className="dl-card__tools">
-                            <button type="button" className="dl-card__tool" onClick={toggleCollapsed} aria-expanded={!collapsed} aria-controls={bodyId} aria-label={collapsed ? `Show ${label}` : `Collapse ${label}`}>
-                                <Icon name="dash-lg" />
-                            </button>
-                            <button ref={expandRef} type="button" className="dl-card__tool" onClick={() => setExpanded((e) => !e)} aria-pressed={expanded} aria-label={expanded ? `Exit full screen: ${label}` : `Full screen: ${label}`}>
-                                <Icon name={expanded ? 'fullscreen-exit' : 'fullscreen'} />
-                            </button>
+                            {href && (
+                                <Link href={href} className="dl-card__tool" aria-label={`Open ${label}`} title="Open">
+                                    <Icon name="arrow-up-right" />
+                                </Link>
+                            )}
+                            {tools && (
+                                <>
+                                    <button type="button" className="dl-card__tool" onClick={toggleCollapsed} aria-expanded={!collapsed} aria-controls={bodyId} aria-label={collapsed ? `Show ${label}` : `Collapse ${label}`}>
+                                        <Icon name="dash-lg" />
+                                    </button>
+                                    <button ref={expandRef} type="button" className="dl-card__tool" onClick={() => setExpanded((e) => !e)} aria-pressed={expanded} aria-label={expanded ? `Exit full screen: ${label}` : `Full screen: ${label}`}>
+                                        <Icon name={expanded ? 'fullscreen-exit' : 'fullscreen'} />
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                 </header>

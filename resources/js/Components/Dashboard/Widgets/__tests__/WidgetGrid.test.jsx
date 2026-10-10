@@ -37,7 +37,8 @@ describe('WidgetGrid', () => {
     it('renders real figures, scope, drill-down links and a per-card error state', () => {
         mount(<WidgetGrid payload={payload} />);
         expect(host.textContent).toContain('Team today');
-        expect(host.textContent).toContain('Whole organization');
+        expect(host.querySelector('.cy-fresh')?.textContent).toContain('Whole organization');
+        expect(host.querySelector('.dl-card__sub')).toBeNull();
         expect(host.textContent).toContain('12');
         expect(host.querySelector('a[href="/attendance"]')).not.toBeNull();
         expect(host.textContent).toContain('temporarily unavailable');
