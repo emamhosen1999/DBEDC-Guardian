@@ -1,0 +1,1 @@
+import{j as r}from"./vendor-radix-BB7JiM0k.js";import"./vendor-inertia-D6Pop4fS.js";function f({color:e="theme",outline:a=!1,soft:t=!1,className:s="",children:n,...i}){const o=a?`cy-badge--outline-${e}`:t?`cy-badge--soft cy-badge--${e}`:`cy-badge--${e}`;return r.jsx("span",{className:["cy-badge",o,s].filter(Boolean).join(" "),...i,children:n})}export{f as B};
