@@ -1,15 +1,12 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
-import { Box, Flex, Text, Tabs, Skeleton } from '@radix-ui/themes';
-import {
-    ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
-    DesktopIcon, SymbolIcon, UpdateIcon, BarChartIcon
-} from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import dayjs from 'dayjs';
+import PageHeader from '@/Components/PageHeader';
+import { Tabs } from '@/Components/Cyber';
+import { panelId, tabId } from '@/Components/Cyber/Tabs';
 
 import DailyTimesheetTab  from './DailyTimesheetTab';
 const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
@@ -21,6 +18,23 @@ const ApprovalsInbox     = lazy(() => import('./Components/ApprovalsInbox'));
 const BiometricPanel     = lazy(() => import('@/Components/AdminUnified/BiometricPanel'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 
+/* Id prefix of the tab list: tab and panel ids stay stable across renders. */
+const TABS_ID = 'attendance';
+
+/* Second, lighter half of the two-tone header: what the open tab is. */
+const TAB_MUTED = {
+    timesheet: 'Timesheet', monthly: 'Calendar', analytics: 'Analytics', approvals: 'Approvals',
+    roster: 'Roster', shifts: 'Shifts', settings: 'Settings', biometric: 'Devices',
+};
+
+/* Loading state while a tab's chunk arrives (Cyber's empty-state box, announced to screen readers). */
+const TabLoading = () => (
+    <div className="cy-empty" role="status"><p className="cy-empty__text">Loading…</p></div>
+);
+
+/* The roster, analytics, approvals, shift, settings and biometric tabs keep their own layouts for now (batch A2);
+   they sit in the new shell with the page gutter their own markup expects. */
+const LegacyTab = ({ children }) => <div className="cy-legacy-tab">{children}</div>;
 
 /* ── optional: mark-as-present modals (keep your existing) ── */
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
@@ -35,7 +49,6 @@ import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 const AttendancePage = ({ title, departments = [], designations = [], devices = [], biometricEmployees = [] }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
-    const isDesktop = useMediaQuery('(min-width: 1025px)');
 
     /* Each tab is a distinct view with its own data, so it belongs in the URL:
        /attendance?tab=roster survives a refresh and can be shared. */
@@ -86,267 +99,169 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
 
     /* tab definitions */
     const tabs = [
-        { value: 'timesheet', label: 'Daily Timesheet', icon: <ClockIcon />    },
-        { value: 'monthly',   label: 'Monthly Calendar', icon: <CalendarIcon /> },
-        { value: 'analytics', label: 'Analytics', icon: <BarChartIcon /> },
-        ...(canManage
-            ? [{ value: 'approvals', label: 'Approvals', icon: <CheckCircledIcon /> }]
-            : []
-        ),
-        ...(canRoster
-            ? [{ value: 'roster',   label: 'Roster',   icon: <LayersIcon /> }]
-            : []
-        ),
-        ...(canRoster
-            ? [{ value: 'shifts',   label: 'Shift Management', icon: <SymbolIcon /> }]
-            : []
-        ),
-        ...(canSettings
-            ? [{ value: 'settings', label: 'Settings', icon: <GearIcon /> }]
-            : []
-        ),
-        ...(canSettings
-            ? [{ value: 'biometric', label: 'Biometric Devices', icon: <DesktopIcon /> }]
-            : []
-        ),
+        { key: 'timesheet', label: 'Daily Timesheet' },
+        { key: 'monthly',   label: 'Monthly Calendar' },
+        { key: 'analytics', label: 'Analytics' },
+        ...(canManage ? [{ key: 'approvals', label: 'Approvals' }] : []),
+        ...(canRoster ? [{ key: 'roster',   label: 'Roster' }] : []),
+        ...(canRoster ? [{ key: 'shifts',   label: 'Shift Management' }] : []),
+        ...(canSettings ? [{ key: 'settings',  label: 'Settings' }] : []),
+        ...(canSettings ? [{ key: 'biometric', label: 'Biometric Devices' }] : []),
     ];
 
-    /* A URL can name a tab this user may not open — a stale link, or a permission
+    /* A URL can name a tab this user may not open - a stale link, or a permission
        revoked since. Fall back to the first tab rather than render nothing. */
-    const activeTab = tabs.some(t => t.value === f.values.tab) ? f.values.tab : tabs[0].value;
+    const activeTab = tabs.some(t => t.key === f.values.tab) ? f.values.tab : tabs[0].key;
+
+    /* Header chips: the open tab reports its own figures (the timesheet its day partition, the calendar its month);
+       the date chip is the shell's. A tab that has nothing to report adds nothing. */
+    const [reported, setReported] = useState({});
+    const report = useCallback((tab, chips) => {
+        setReported((prev) => (JSON.stringify(prev[tab]) === JSON.stringify(chips) ? prev : { ...prev, [tab]: chips }));
+    }, []);
+    const reportTimesheet = useCallback((chips) => report('timesheet', chips), [report]);
+    const reportMonthly = useCallback((chips) => report('monthly', chips), [report]);
+
+    const dateChip = activeTab === 'monthly'
+        ? { value: dayjs(selectedMonth + '-01').format('MMM YYYY'), label: 'Month', tone: 'theme' }
+        : activeTab === 'settings' || activeTab === 'biometric' ? null
+            : { value: dayjs(selectedDate).format('D MMM YYYY'), label: 'Date', tone: 'theme' };
+    const headerChips = [...(reported[activeTab] ?? []), dateChip];
+
+    const panel = (key) => ({
+        role: 'tabpanel',
+        id: panelId(TABS_ID, key),
+        'aria-labelledby': tabId(TABS_ID, key),
+        hidden: activeTab !== key,
+    });
 
     /* ── render ───────────────────────────────────────────── */
     return (
         <>
             <Head title={title || 'Attendance'} />
 
-            <Flex justify="center" p="4">
-                <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel>
+            {/* Cyber page header: two-tone title, the open tab's figures as chips (first five, the rest under "+N") */}
+            <PageHeader upper title="Attendance" muted={TAB_MUTED[activeTab]} chips={headerChips} />
 
-                        {/* ══ PAGE HEADER ════════════════════════════════ */}
-                        <Box mb="4">
-                            <Flex
-                                direction={{ initial: 'column', md: 'row' }}
-                                align={{ initial: 'start', md: 'center' }}
-                                justify="between"
-                                gap="4"
-                            >
-                                {/* title + subtitle */}
-                                <Flex align="center" gap="3">
-                                    <Box
-                                        p={{ initial: '2', md: '3' }}
-                                        style={{
-                                            background: 'var(--blue-a3)',
-                                            border: '1px solid var(--blue-a5)',
-                                            borderRadius: 12,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                        }}
-                                    >
-                                        <ClockIcon
-                                            width={isDesktop ? 26 : 20}
-                                            height={isDesktop ? 26 : 20}
-                                            color="var(--blue-9)"
-                                        />
-                                    </Box>
-                                    <Box>
-                                        <Text
-                                            size={{ initial: '4', sm: '5', md: '6' }}
-                                            weight="bold"
-                                            as="div"
-                                            style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, letterSpacing: '-0.02em', color: 'var(--gray-12)' }}
-                                        >
-                                            Attendance
-                                        </Text>
-                                        <Text
-                                            size={{ initial: '1', md: '2' }}
-                                            style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}
-                                            as="div"
-                                        >
-                                            Daily timesheet, monthly calendar and settings
-                                        </Text>
-                                    </Box>
-                                </Flex>
+            <Tabs tabs={tabs} value={activeTab} onChange={setActiveTab} idPrefix={TABS_ID} label="Attendance sections" className="cy-tabs--scroll" />
 
-                                {/* header action buttons */}
-                                <Flex align="center" gap="2" wrap="wrap">
-                                    {/* context-aware date badge */}
-                                    {activeTab !== 'settings' && activeTab !== 'biometric' && (
-                                        <Flex
-                                            align="center"
-                                            gap="2"
-                                            px="3"
-                                            py="1"
-                                            style={{
-                                                background: 'var(--aero-surface, var(--gray-2))',
-                                                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                                                borderRadius: 999,
-                                            }}
-                                        >
-                                            <CalendarIcon style={{ color: 'var(--aero-accent, var(--blue-9))', width: 14, height: 14 }} />
-                                            <Text size="1" weight="bold" style={{ color: 'var(--gray-12)', fontVariantNumeric: 'tabular-nums' }}>
-                                                {activeTab === 'monthly'
-                                                    ? dayjs(selectedMonth + '-01').format('MMM YYYY')
-                                                    : dayjs(selectedDate).format('MMM D, YYYY')}
-                                            </Text>
-                                        </Flex>
-                                    )}
-                                </Flex>
-                            </Flex>
-                        </Box>
+            {/* Every tab stays mounted (its filters live in the URL under their own prefix); only the open one shows. */}
+            <div {...panel('timesheet')}>
+                <ErrorBoundary>
+                    <DailyTimesheetTab
+                        selectedDate={selectedDate}
+                        onDateChange={handleDateChange}
+                        isActive={activeTab === 'timesheet'}
+                        departments={departments}
+                        designations={designations}
+                        onSummary={reportTimesheet}
+                    />
+                </ErrorBoundary>
+            </div>
 
+            <div {...panel('monthly')}>
+                <ErrorBoundary>
+                    <Suspense fallback={<TabLoading />}>
+                        <MonthlyCalendarTab
+                            selectedMonth={selectedMonth}
+                            onMonthChange={handleMonthChange}
+                            departments={departments}
+                            onSummary={reportMonthly}
+                        />
+                    </Suspense>
+                </ErrorBoundary>
+            </div>
 
+            <div {...panel('analytics')}>
+                <LegacyTab>
+                    <ErrorBoundary>
+                        <Suspense fallback={<TabLoading />}>
+                            {/* Only fetches while visible; the tab stays mounted like the others. */}
+                            <AnalyticsTab
+                                month={selectedMonth}
+                                onMonthChange={handleMonthChange}
+                                departments={departments}
+                                canViewTeam={isSuperAdmin || auth.permissions?.includes('attendance.view') || false}
+                                isActive={activeTab === 'analytics'}
+                                isMobile={isMobile}
+                            />
+                        </Suspense>
+                    </ErrorBoundary>
+                </LegacyTab>
+            </div>
 
-                        {/* ══ TABS ═══════════════════════════════════════ */}
-                        <Tabs.Root
-                            value={activeTab}
-                            onValueChange={setActiveTab}
-                        >
-                            <Tabs.List
-                                style={{
-                                    marginBottom: 'var(--space-4)',
-                                    overflowX: 'auto',
-                                    display: 'flex',
-                                    flexWrap: 'nowrap',
-                                    scrollbarWidth: 'none', // hide scrollbar Firefox
-                                    msOverflowStyle: 'none', // hide scrollbar IE/Edge
-                                }}
-                                className="hide-scrollbar"
-                            >
-                                {tabs.map(tab => (
-                                    <Tabs.Trigger key={tab.value} value={tab.value}>
-                                        <Flex align="center" gap="2">
-                                            {tab.icon}
-                                            <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap' }}>
-                                                {tab.label}
-                                            </Text>
-                                        </Flex>
-                                    </Tabs.Trigger>
-                                ))}
-                            </Tabs.List>
+            {canManage && (
+                <div {...panel('approvals')}>
+                    <LegacyTab>
+                        <ErrorBoundary>
+                            <Suspense fallback={<TabLoading />}>
+                                <ApprovalsInbox />
+                            </Suspense>
+                        </ErrorBoundary>
+                    </LegacyTab>
+                </div>
+            )}
 
-                            {/* ── Daily Timesheet Tab ───────────────────── */}
-                            <Box mt="4" style={{ display: activeTab === 'timesheet' ? 'block' : 'none' }}>
-                                <ErrorBoundary>
-                                    <DailyTimesheetTab
-                                        selectedDate={selectedDate}
-                                        onDateChange={handleDateChange}
-                                        isActive={activeTab === 'timesheet'}
-                                        departments={departments}
-                                        designations={designations}
-                                    />
-                                </ErrorBoundary>
-                            </Box>
+            {canRoster && (
+                <div {...panel('roster')}>
+                    <LegacyTab>
+                        <ErrorBoundary>
+                            <Suspense fallback={<TabLoading />}>
+                                <RosterTab
+                                    departments={departments}
+                                    month={selectedMonth}
+                                    onMonthChange={handleMonthChange}
+                                    isActive={activeTab === 'roster'}
+                                />
+                            </Suspense>
+                        </ErrorBoundary>
+                    </LegacyTab>
+                </div>
+            )}
 
-                            {/* ── Monthly Calendar Tab ──────────────────── */}
-                            <Box mt="4" style={{ display: activeTab === 'monthly' ? 'block' : 'none' }}>
-                                <ErrorBoundary>
-                                    <Suspense fallback={<Skeleton height="400px" />}>
-                                        <MonthlyCalendarTab
-                                            selectedMonth={selectedMonth}
-                                            onMonthChange={handleMonthChange}
-                                            departments={departments}
-                                        />
-                                    </Suspense>
-                                </ErrorBoundary>
-                            </Box>
+            {canRoster && (
+                <div {...panel('shifts')}>
+                    <LegacyTab>
+                        <ErrorBoundary>
+                            <Suspense fallback={<TabLoading />}>
+                                <ShiftsSettings />
+                            </Suspense>
+                        </ErrorBoundary>
+                    </LegacyTab>
+                </div>
+            )}
 
-                            {/* ── Analytics Tab ─────────────────────────── */}
-                            <Box mt="4" style={{ display: activeTab === 'analytics' ? 'block' : 'none' }}>
-                                <ErrorBoundary>
-                                    <Suspense fallback={<Skeleton height="400px" />}>
-                                        {/* Only fetches while visible; the tab stays mounted like the others. */}
-                                        <AnalyticsTab
-                                            month={selectedMonth}
-                                            onMonthChange={handleMonthChange}
-                                            departments={departments}
-                                            canViewTeam={isSuperAdmin || auth.permissions?.includes('attendance.view') || false}
-                                            isActive={activeTab === 'analytics'}
-                                            isMobile={isMobile}
-                                        />
-                                    </Suspense>
-                                </ErrorBoundary>
-                            </Box>
+            {canSettings && (
+                <div {...panel('settings')}>
+                    <LegacyTab>
+                        <ErrorBoundary>
+                            <Suspense fallback={<TabLoading />}>
+                                <SettingsTab />
+                            </Suspense>
+                        </ErrorBoundary>
+                    </LegacyTab>
+                </div>
+            )}
 
-                            {/* ── Approvals Tab ─────────────────────────── */}
-                            {canManage && (
-                                <Box mt="4" style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
-                                    <ErrorBoundary>
-                                        <Suspense fallback={<Skeleton height="400px" />}>
-                                            <ApprovalsInbox />
-                                        </Suspense>
-                                    </ErrorBoundary>
-                                </Box>
-                            )}
-
-                            {/* ── Roster Tab ────────────────────────────── */}
-                            {canRoster && (
-                                <Box mt="4" style={{ display: activeTab === 'roster' ? 'block' : 'none' }}>
-                                    <ErrorBoundary>
-                                        <Suspense fallback={<Skeleton height="400px" />}>
-                                            <RosterTab
-                                                departments={departments}
-                                                month={selectedMonth}
-                                                onMonthChange={handleMonthChange}
-                                                isActive={activeTab === 'roster'}
-                                            />
-                                        </Suspense>
-                                    </ErrorBoundary>
-                                </Box>
-                            )}
-
-                            {/* ── Shifts Tab ────────────────────────────── */}
-                            {canRoster && (
-                                <Box mt="4" style={{ display: activeTab === 'shifts' ? 'block' : 'none' }}>
-                                    <ErrorBoundary>
-                                        <Suspense fallback={<Skeleton height="400px" />}>
-                                            <ShiftsSettings />
-                                        </Suspense>
-                                    </ErrorBoundary>
-                                </Box>
-                            )}
-
-                            {/* ── Settings Tab ──────────────────────────── */}
-                            {canSettings && (
-                                <Box mt="4" style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
-                                    <ErrorBoundary>
-                                        <Suspense fallback={<Skeleton height="400px" />}>
-                                            <SettingsTab />
-                                        </Suspense>
-                                    </ErrorBoundary>
-                                </Box>
-                            )}
-
-                            {/* ── Biometric Devices Tab ───────────────── */}
-                            {canSettings && (
-                                <Box mt="4" style={{ display: activeTab === 'biometric' ? 'block' : 'none' }}>
-                                    <ErrorBoundary>
-                                        <Suspense fallback={<Skeleton height="400px" />}>
-                                            <BiometricPanel
-                                                initialDevices={devices}
-                                                employees={biometricEmployees}
-                                                isMobile={isMobile}
-                                                tick={0}
-                                                onCountChange={() => {}}
-                                                onSetHeaderActions={() => {}}
-                                                isActive={activeTab === 'biometric'}
-                                            />
-                                        </Suspense>
-                                    </ErrorBoundary>
-                                </Box>
-                            )}
-                        </Tabs.Root>
-
-                    </Panel>
-                </Box>
-            </Flex>
-            <style dangerouslySetInnerHTML={{__html: `
-                .hide-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
-            `}} />
+            {canSettings && (
+                <div {...panel('biometric')}>
+                    <LegacyTab>
+                        <ErrorBoundary>
+                            <Suspense fallback={<TabLoading />}>
+                                <BiometricPanel
+                                    initialDevices={devices}
+                                    employees={biometricEmployees}
+                                    isMobile={isMobile}
+                                    tick={0}
+                                    onCountChange={() => {}}
+                                    onSetHeaderActions={() => {}}
+                                    isActive={activeTab === 'biometric'}
+                                />
+                            </Suspense>
+                        </ErrorBoundary>
+                    </LegacyTab>
+                </div>
+            )}
         </>
     );
 };

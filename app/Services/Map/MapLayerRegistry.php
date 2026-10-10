@@ -4,6 +4,7 @@ namespace App\Services\Map;
 
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Corridor\CorridorGeometry;
 use App\Services\Corridor\CorridorGeometryResolver;
 use App\Services\Dashboard\RouteAccess;
 use App\Services\Map\Layers\AttendancePunchesLayer;
@@ -155,16 +156,10 @@ class MapLayerRegistry
             ];
         }
 
-        $alignment = $geometry->alignment;
-
         return [
             'generated_at' => now()->toIso8601String(),
             'filter' => $filter->toArray(),
-            'alignment' => [
-                'points' => array_map(fn (array $p): array => [round($p['lat'], 6), round($p['lng'], 6), $p['chainage_m']], $alignment->simplified(400)),
-                'length_m' => $alignment->lengthM(),
-                'source' => $geometry->source,
-            ],
+            'alignment' => $this->alignmentOf($geometry),
             'groups' => self::GROUPS,
             'layers' => $layers,
             'summary' => [
@@ -176,6 +171,29 @@ class MapLayerRegistry
                 'unplaced' => $unplaced,
                 'excluded' => count(self::EXCLUDED),
             ],
+        ];
+    }
+
+    /**
+     * The corridor centreline as the map draws it. Any screen that shows the corridor map with its own data (the
+     * Attendance timesheet map) takes the line from here, so there is one shape and one source.
+     *
+     * @return array{points: array<int, array<int, float|int>>, length_m: int|float, source: mixed}
+     */
+    public function alignmentPayload(): array
+    {
+        return $this->alignmentOf($this->geometry->resolve());
+    }
+
+    /** @return array{points: array<int, array<int, float|int>>, length_m: int|float, source: mixed} */
+    private function alignmentOf(CorridorGeometry $geometry): array
+    {
+        $alignment = $geometry->alignment;
+
+        return [
+            'points' => array_map(fn (array $p): array => [round($p['lat'], 6), round($p['lng'], 6), $p['chainage_m']], $alignment->simplified(400)),
+            'length_m' => $alignment->lengthM(),
+            'source' => $geometry->source,
         ];
     }
 

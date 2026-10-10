@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box } from '@radix-ui/themes';
-import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, CalendarIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
-import StatsCards from '@/Components/StatsCards';
+import { StatStrip } from '@/Components/Cyber';
 
 export default function AttendanceOverview({ date, mode = 'daily', month, scope = 'all' }) {
     const [stats, setStats] = useState(null);
@@ -47,16 +45,14 @@ export default function AttendanceOverview({ date, mode = 'daily', month, scope 
         return () => { isMounted = false; };
     }, [date, mode, month, isMonthly, isSelf]);
 
+    // A figure still loading shows a dash (undefined), never a zero that looks like data.
+    const figure = (value) => (loading ? undefined : value ?? 0);
     const statItems = [
-        { key: 'present', title: 'Present', value: stats?.present ?? 0, icon: <CheckCircledIcon />, color: 'green', isLoading: loading },
-        { key: 'absent', title: 'Absent', value: stats?.absent ?? 0, icon: <CrossCircledIcon />, color: 'red', isLoading: loading },
-        { key: 'late', title: 'Late Arrivals', value: stats?.late ?? 0, icon: <ExclamationTriangleIcon />, color: 'amber', isLoading: loading },
-        { key: 'leave', title: 'On Leave', value: stats?.on_leave ?? 0, icon: <CalendarIcon />, color: 'cyan', isLoading: loading },
+        { key: 'present', label: 'Present', value: figure(stats?.present), tone: 'good' },
+        { key: 'absent', label: 'Absent', value: figure(stats?.absent), tone: (stats?.absent ?? 0) > 0 ? 'crit' : 'neutral' },
+        { key: 'late', label: 'Late arrivals', value: figure(stats?.late), tone: (stats?.late ?? 0) > 0 ? 'warn' : 'neutral' },
+        { key: 'leave', label: 'On leave', value: figure(stats?.on_leave), tone: 'info' },
     ];
 
-    return (
-        <Box mb="5">
-            <StatsCards stats={statItems} columns={{ initial: '1', sm: '2', md: '4' }} />
-        </Box>
-    );
+    return <StatStrip items={statItems} label={isMonthly ? 'Monthly attendance overview' : 'Daily attendance overview'} busy={loading} />;
 }

@@ -26,6 +26,7 @@ use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\HolidayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\UpcomingShiftService;
+use App\Services\Map\MapLayerRegistry;
 use App\Traits\HandlesApiExceptions;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -496,11 +497,17 @@ class AttendanceController extends Controller
                 ];
             });
 
-            return response()->json([
+            $payload = [
                 'success' => true,
                 'locations' => $locations,
                 'attendance_type_configs' => $attendanceTypeConfigs,
-            ]);
+            ];
+            // Opt-in (the web timesheet map draws the corridor behind the punches); other callers get the same body as before.
+            if ($request->boolean('with_alignment')) {
+                $payload['alignment'] = app(MapLayerRegistry::class)->alignmentPayload();
+            }
+
+            return response()->json($payload);
         } catch (HttpException $e) {
             throw $e;
         } catch (\Exception $e) {

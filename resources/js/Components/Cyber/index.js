@@ -10,3 +10,5 @@ export { default as KpiTile } from './KpiTile.jsx';
 export { default as Pagination } from './Pagination.jsx';
 export { default as Tabs } from './Tabs.jsx';
 export { default as Accordion } from './Accordion.jsx';
+export { Toolbar, ToolbarGroup, Field, Select, IconButton } from './Toolbar.jsx';
+export { default as StatStrip } from './StatStrip.jsx';

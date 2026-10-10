@@ -1,0 +1,188 @@
+/* ==========================================================================
+   Cyber - Attendance admin page (toolbar, data table, partition rows, monthly matrix).
+   Compositions follow table_elements / table_plugins (card + flush table), widgets (stat strip) and calendar
+   (body + sidebar, border-start). Borders are the two tokens only: --cy-border (section / row lines) and
+   --cy-border-translucent (inner dividers). Everything below the shell header is gutter-less.
+   ========================================================================== */
+
+/* ---- Toolbar: one row of filters on the left, tools on the right (Cyber .card-body toolbar) ---------------------- */
+.cy-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4375rem;
+  padding: 0.4375rem 0.875rem;
+  font-size: 0.625rem;
+  letter-spacing: var(--cy-tracking);
+}
+.cy-toolbar__group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4375rem; min-width: 0; }
+.cy-toolbar__group--end { margin-inline-start: auto; }
+.cy-toolbar__note { color: var(--cy-text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* a labelled control: text field with a leading glyph */
+.cy-tool { position: relative; display: inline-flex; align-items: center; min-width: 0; }
+.cy-tool > .cy-icon { position: absolute; inset-inline-start: 0.5rem; color: var(--cy-text-faint); pointer-events: none; }
+.cy-tool > .cy-input { width: 12.5rem; padding-inline-start: 1.75rem; font-size: 0.625rem; }
+.cy-tool > .cy-input[type='month'], .cy-tool > .cy-input[type='date'] { width: 10rem; }
+.cy-input--sm, .cy-select--sm { min-height: 1.71875rem; font-size: 0.625rem; }
+.cy-select--sm { font-weight: 500; letter-spacing: var(--cy-tracking); max-width: 100%; }
+.cy-toolbar .cy-btn { white-space: nowrap; }
+.cy-btn--icon { padding-inline: 0.4375rem; }
+
+/* the tabs of the page shell and of a card: scrollable on a phone instead of wrapping into many rows */
+@media (max-width: 767.98px) {
+  .cy-tabs--scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .cy-tabs--scroll::-webkit-scrollbar { display: none; }
+  .cy-tabs--scroll .cy-tabs__tab { white-space: nowrap; flex: none; }
+  .cy-tool > .cy-input { width: 100%; }
+  .cy-tool { flex: 1 1 100%; }
+  .cy-toolbar__group { flex: 1 1 100%; }
+  .cy-toolbar__group--end { margin-inline-start: 0; }
+  .cy-toolbar .cy-select { flex: 1 1 8rem; }
+}
+.cy-tabs__count[data-tone='success'] { color: var(--green-11); }
+.cy-tabs__count[data-tone='danger'] { color: var(--red-11); }
+.cy-tabs__count[data-tone='theme'] { color: var(--accent-11); }
+
+/* ---- Data table (Cyber .table inside an edge-to-edge card body) -------------------------------------------------- */
+.cy-dt { overflow: auto; max-height: min(34rem, calc(100vh - 22rem)); }
+.cy-dt--tall { max-height: min(42rem, calc(100vh - 16rem)); }
+.cy-dt .cy-table { min-width: 32rem; }
+.cy-dt .cy-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: rgba(var(--cy-bg-rgb), 0.96);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--cy-border);
+  white-space: nowrap;
+}
+.cy-dt .cy-table td { vertical-align: middle; padding-block: 0.4375rem; }
+.cy-dt .cy-table tbody tr:hover { background: var(--gray-a3); }
+.cy-dt .cy-table tbody tr:last-child td { border-bottom: 0; }
+.cy-table .cy-num { text-align: end; font-variant-numeric: tabular-nums; }
+.cy-table .cy-nowrap { white-space: nowrap; }
+.cy-table td.cy-cell--empty { padding: 0; }
+
+/* the person in a table row or list: photo (or initials), name, id / sub line */
+.cy-who { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.cy-who .cy-avatar { width: 1.5rem; height: 1.5rem; font-size: 0.5625rem; }
+.cy-who__text { min-width: 0; display: flex; flex-direction: column; }
+.cy-who__name { font-weight: 600; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-who__sub { color: var(--cy-text-muted); font-size: 0.5625rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* punch time cell: coloured glyph + time, or an editable time button for correctors */
+.cy-punchlist { display: flex; flex-direction: column; gap: 0.1875rem; }
+.cy-punch { display: inline-flex; align-items: center; gap: 0.3125rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cy-punch--in > .cy-icon { color: var(--green-11); }
+.cy-punch--out > .cy-icon { color: var(--red-11); }
+.cy-linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-11); cursor: pointer; letter-spacing: inherit; }
+.cy-linkbtn:hover { text-decoration: underline; }
+.cy-linkbtn:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px; }
+.cy-muted { color: var(--cy-text-muted); }
+.cy-sub { display: block; color: var(--cy-text-muted); font-size: 0.5625rem; }
+.cy-timeedit { display: inline-flex; align-items: center; gap: 0.25rem; }
+.cy-timeedit .cy-input { width: 6.5rem; min-height: 1.5rem; padding-block: 0.1875rem; font-size: 0.625rem; }
+.cy-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; padding: 0; border: 1px solid var(--cy-border); background: transparent; color: var(--cy-fg); cursor: pointer; }
+.cy-iconbtn:hover { border-color: var(--cy-border-hover); }
+.cy-iconbtn:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 1px; }
+.cy-iconbtn--danger { color: var(--red-11); }
+.cy-iconbtn--good { color: var(--green-11); }
+.cy-actions { display: inline-flex; align-items: center; gap: 0.3125rem; }
+
+/* ---- Partition rows (Absent / Upcoming / Off-Leave): one hairline between rows, no boxes ------------------------- */
+.cy-rows { margin: 0; padding: 0; list-style: none; max-height: min(34rem, calc(100vh - 22rem)); overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+.cy-rows > li { display: flex; align-items: center; gap: 0.625rem; padding: 0.4375rem 0.875rem; min-width: 0; border-bottom: 1px solid var(--cy-border-translucent); }
+.cy-rows > li:hover { background: var(--gray-a3); }
+.cy-rows__main { flex: 1; min-width: 0; }
+.cy-rows__detail { display: flex; align-items: center; gap: 0.3125rem; margin-top: 0.125rem; font-size: 0.5625rem; flex-wrap: wrap; }
+.cy-empty--flat { padding: 2.625rem 0.875rem; }
+
+/* ---- Monthly matrix (a roster x day grid; Cyber calendar's body + sidebar composition) ------------------------- */
+.cy-split { display: flex; align-items: stretch; min-width: 0; }
+.cy-split__main { flex: 1 1 0; min-width: 0; }
+.cy-split__side { flex: 0 0 20rem; width: 20rem; min-width: 0; border-inline-start: 1px solid var(--cy-border); }
+@media (max-width: 991.98px) {
+  .cy-split { flex-direction: column; }
+  .cy-split__side { flex-basis: auto; width: auto; border-inline-start: 0; border-top: 1px solid var(--cy-border); }
+}
+.cy-legendrow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.875rem; padding: 0.4375rem 0.875rem; font-size: 0.5625rem; color: var(--cy-text-muted); text-transform: uppercase; letter-spacing: var(--cy-tracking); }
+.cy-legendrow__item { display: inline-flex; align-items: center; gap: 0.3125rem; }
+
+.cy-cal { max-height: min(36rem, calc(100vh - 20rem)); overflow: auto; }
+.cy-cal .cy-table { min-width: max-content; }
+.cy-cal .cy-table th, .cy-cal .cy-table td { padding: 0.21875rem 0.125rem; text-align: center; }
+.cy-cal .cy-table th:first-child, .cy-cal .cy-table td:first-child {
+  position: sticky; inset-inline-start: 0; z-index: 1; text-align: start; min-width: 11rem; max-width: 13.75rem; padding-inline: 0.875rem 0.4375rem;
+  background: rgba(var(--cy-bg-rgb), 0.96); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.cy-cal .cy-table thead th { position: sticky; top: 0; z-index: 2; background: rgba(var(--cy-bg-rgb), 0.96); border-bottom: 1px solid var(--cy-border); }
+.cy-cal .cy-table thead th:first-child { z-index: 3; }
+.cy-cal .cy-table tbody tr:hover td { background: var(--gray-a3); }
+.cy-cal .cy-table tbody tr:hover td:first-child { background: rgba(var(--cy-bg-rgb), 0.96); }
+.cy-cal__day { display: flex; flex-direction: column; align-items: center; min-width: 1.5rem; line-height: 1.15; }
+.cy-cal__dow { font-size: 0.5rem; font-weight: 500; color: var(--cy-text-faint); }
+.cy-cal .is-weekend { background: color-mix(in srgb, var(--amber-9) 9%, transparent); }
+.cy-cal .is-weekend .cy-cal__dow { color: var(--amber-11); }
+.cy-cal .cy-table th.cy-cal__leave, .cy-cal .cy-table td.cy-cal__leave { min-width: 2.5rem; padding-inline: 0.4375rem; }
+
+.cy-mark { display: inline-grid; place-items: center; width: 1.125rem; height: 1.125rem; border: 1px solid var(--cy-border-translucent); font-size: 0.5625rem; font-weight: 800; line-height: 1; cursor: default; }
+.cy-mark[data-status='√'] { color: var(--green-11); background: color-mix(in srgb, var(--green-9) 14%, transparent); }
+.cy-mark[data-status='▼'] { color: var(--red-11); background: color-mix(in srgb, var(--red-9) 14%, transparent); }
+.cy-mark[data-status='#'] { color: var(--amber-11); background: color-mix(in srgb, var(--amber-9) 14%, transparent); }
+.cy-mark[data-status='/'] { color: var(--accent-11); background: color-mix(in srgb, var(--accent-9) 14%, transparent); }
+.cy-mark[data-status='·'] { color: var(--cy-text-faint); }
+.cy-mark[data-status='?'] { color: var(--cy-text-faint); background: var(--gray-a3); }
+.cy-mark:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 1px; }
+.cy-leavecount { font-variant-numeric: tabular-nums; }
+.cy-leavecount[data-zero='true'] { color: var(--cy-text-faint); }
+.cy-leavecount[data-zero='false'] { color: var(--amber-11); font-weight: 700; }
+
+/* mobile month cards: a header row per employee, the month grid opens under it */
+.cy-mcard { margin: 0; padding: 0; list-style: none; }
+.cy-mcard > li { border-bottom: 1px solid var(--cy-border-translucent); }
+.cy-mcard > li:last-child { border-bottom: 0; }
+.cy-mcard__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; padding: 0.4375rem 0.875rem; background: transparent; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.cy-mcard__head:hover { background: var(--gray-a3); }
+.cy-mcard__head:focus-visible { outline: 1px solid var(--focus-8); outline-offset: -1px; }
+.cy-mcard__tags { display: inline-flex; align-items: center; gap: 0.3125rem; flex-wrap: wrap; justify-content: flex-end; }
+.cy-mcard__chev { transition: transform 0.2s ease; }
+.cy-mcard__head[aria-expanded='true'] .cy-mcard__chev { transform: rotate(180deg); }
+.cy-mcard__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.125rem; padding: 0.4375rem 0.875rem 0.875rem; }
+.cy-mcard__dow { text-align: center; font-size: 0.5rem; color: var(--cy-text-faint); text-transform: uppercase; }
+.cy-mcard__cell { display: flex; flex-direction: column; align-items: center; gap: 0.0625rem; padding: 0.125rem 0; font-size: 0.5rem; color: var(--cy-text-muted); }
+.cy-mcard__cell.is-weekend { background: color-mix(in srgb, var(--amber-9) 9%, transparent); }
+
+/* ---- Monthly sidebar: sections divided by one solid line, last has none --------------------------------------- */
+.cy-side > section { padding: 0.4375rem 0.875rem 0.875rem; border-bottom: 1px solid var(--cy-border); }
+.cy-side > section:last-child { border-bottom: 0; }
+.cy-side__title { margin: 0 0 0.4375rem; font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: var(--cy-tracking); color: var(--cy-text-muted); }
+.cy-side__figure { display: flex; align-items: baseline; gap: 0.4375rem; }
+.cy-side__figure b { font-size: 1.5625rem; font-weight: 300; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cy-side__split { display: grid; grid-template-columns: 1fr auto; gap: 0.1875rem 0.875rem; margin: 0.4375rem 0 0; font-size: 0.625rem; }
+.cy-side__split dt { color: var(--cy-text-muted); }
+.cy-side__split dd { margin: 0; text-align: end; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Timesheet map card ------------------------------------------------------------------------------------------ */
+.cy-seg { display: inline-flex; }
+.cy-seg .cy-map__btn { padding-inline: 0.5rem; }
+.cy-seg .cy-map__btn + .cy-map__btn { margin-inline-start: -1px; }
+.cy-mapcard--attendance .cy-map-stage { min-height: 28rem; height: min(40rem, 62vh); }
+
+/* Toolbar buttons use the card border token (Cyber's btn-outline-default on a card toolbar); one border system. */
+.dl-card .cy-btn--outline-default { border-color: var(--cy-border); color: var(--cy-fg); }
+.dl-card .cy-btn--outline-default:hover { border-color: var(--cy-border-hover); background: var(--gray-a3); color: var(--cy-fg); }
+.dl-card .cy-btn--outline-default[aria-pressed='true'] { background: color-mix(in srgb, var(--accent-9) 18%, transparent); }
+@keyframes cySpin { to { transform: rotate(360deg); } }
+.cy-spin { animation: cySpin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .cy-spin { animation: none; } .cy-mcard__chev { transition: none; } }
+
+/* Tabs not yet rebuilt (batch A2) keep their own markup inside the new shell, with the page gutter that markup expects. */
+.cy-legacy-tab { padding: 0.875rem; }
+
+/* Stat strip without sparklines: the tile is as tall as its two lines, not the dashboard's 116px sparkline cell. */
+.cy-kpi-strip--compact .cy-kpi-strip__cell { height: auto; min-height: 3.75rem; }
+
+/* Measured on live table_elements: cells 8px all round, rows closed by the solid border colour. */
+.cy-dt .cy-table th, .cy-dt .cy-table td { padding: 8px; }
+.cy-dt .cy-table td { border-bottom-color: var(--cy-border); }
+.cy-dt .cy-table th:first-child, .cy-dt .cy-table td:first-child { padding-inline-start: 0.875rem; }
+.cy-dt .cy-table tbody tr:last-child td { border-bottom: 0; }

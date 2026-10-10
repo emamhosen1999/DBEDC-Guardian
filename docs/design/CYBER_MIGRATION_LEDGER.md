@@ -177,16 +177,16 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Administration/SystemMonitoringEnhanced.jsx` | 5 | todo | — |  |
 | `Pages/Admin/NotificationSettings.jsx` | 5 | todo | — |  |
 | `Pages/Aeon/Index.jsx` | 4 | todo | — |  |
-| `Pages/Attendance/AbsentSidebar.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/AbsentSidebar.jsx` | 2 | todo | see manifest 2:Attendance-* | No importer anywhere (replaced by the partition tabs); not migrated, proposed for deletion. |
 | `Pages/Attendance/AnalyticsTab.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/AttendancePage.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/AttendancePage.jsx` | 2 | done | see manifest 2:Attendance-* | Shell: PageHeader (two-tone, tab figures as chips) + shared Cyber Tabs; A2 tabs sit in a padded wrapper. a1: app-attendance-timesheet-1440-dark-a1.png |
 | `Pages/Attendance/Components/ApprovalsInbox.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/Components/AssignmentManager.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/AttendanceOverview.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/AuditHistoryModal.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/Components/AttendanceOverview.jsx` | 2 | done | see manifest 2:Attendance-* | Now a StatStrip (also used by AttendanceEmployee). |
+| `Pages/Attendance/Components/AuditHistoryModal.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber Dialog + table. |
 | `Pages/Attendance/Components/CoveragePanel.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/Components/CoverageRequirementsDialog.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/MonthlySidebar.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/Components/MonthlySidebar.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber side panel with CyberChart donut / area / bar. |
 | `Pages/Attendance/Components/MyRequests.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/Components/PoliciesManager.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/Components/PunchExceptions.jsx` | 2 | todo | — |  |
@@ -196,9 +196,9 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Attendance/Components/RosterLegend.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/Components/SwapApprovals.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/Components/SwapResponses.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/DailyTimesheetTab.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/DailyTimesheetTab.jsx` | 2 | done | see manifest 2:Attendance-* | Card + toolbar + StatStrip + Cyber tabs/table/rows; map via TimesheetMap. Not yet owner-reviewed. a1: app-attendance-timesheet-* |
 | `Pages/AttendanceEmployee.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/MonthlyCalendarTab.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/MonthlyCalendarTab.jsx` | 2 | done | see manifest 2:Attendance-* | Card + toolbar + matrix + sidebar split. a1: app-attendance-monthly-* |
 | `Pages/Attendance/RosterTab.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/SettingsTab.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/ShiftsSettings.jsx` | 2 | todo | — |  |

@@ -1,15 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import {
-    Box, Flex, Text, Table, Badge, Avatar, Button,
-    TextField, ScrollArea, Skeleton, Tooltip, Select,
-} from '@radix-ui/themes';
-import {
-    CalendarIcon, ChevronLeftIcon, ChevronRightIcon,
-    CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon,
-    PersonIcon, DownloadIcon, ReloadIcon,
-} from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { showToast } from '@/utils/toastUtils';
@@ -17,18 +8,23 @@ import { handleExportResponse } from '@/utils/exportUtils';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import MonthlySidebar from './Components/MonthlySidebar';
-import TablePagination from '@/Components/TablePagination.jsx';
-import DepartmentFilter from '@/Components/Access/DepartmentFilter';
+import DepartmentSelect from './Components/DepartmentSelect';
+import { Avatar } from '@/Components/Cyber/Map/Avatar';
+import { Card, Field, Icon, IconButton, Pagination, Toolbar, ToolbarGroup } from '@/Components/Cyber';
+
+const EMPTY_LIST = [];
+const EMPTY_MAP = {};
 
 /* ── status map ───────────────────────────────────────────── */
+/* glyph is what the cell shows; the colour comes from the mark's data-status (attendance.css) */
 const STATUS_MAP = {
-    '√': { color: 'green',  bg: 'var(--green-a3)',  label: 'Present' },
-    '▼': { color: 'red',    bg: 'var(--red-a3)',    label: 'Absent'  },
-    '#': { color: 'amber',  bg: 'var(--amber-a3)',  label: 'Holiday' },
-    '/': { color: 'blue',   bg: 'var(--blue-a3)',   label: 'Leave'   },
-    '·': { color: 'gray',   bg: 'transparent',       label: 'Scheduled' },
+    '√': { label: 'Present',   glyph: '✓' },
+    '▼': { label: 'Absent',    glyph: '✗' },
+    '#': { label: 'Holiday',   glyph: 'H' },
+    '/': { label: 'Leave',     glyph: 'L' },
+    '·': { label: 'Scheduled', glyph: '–' },
 };
-const getStatus = s => STATUS_MAP[s] || { color: 'gray', bg: 'var(--gray-a3)', label: 'No data' };
+const getStatus = (s) => STATUS_MAP[s] || { label: 'No data', glyph: 'L' };
 
 /* ── helpers ──────────────────────────────────────────────── */
 const isWeekendDay = (date, weekendDays) => {
@@ -39,363 +35,147 @@ const isWeekendDay = (date, weekendDays) => {
     return weekendDays.includes(dayjs(date).format('dddd').toLowerCase());
 };
 
+const dateKeyOf = (year, month, day) => dayjs(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`).format('YYYY-MM-DD');
+
+/* One day of one employee: a square mark. The text alternative carries the date, status and punches, as the earlier
+   tooltip did. */
+const DayMark = ({ cell, dateKey }) => {
+    const raw = typeof cell === 'object' ? cell?.status || '▼' : '▼';
+    const st = getStatus(raw);
+    const detail = [
+        `${dateKey}: ${st.label}`,
+        cell?.punch_in ? `in ${cell.punch_in}` : null,
+        cell?.punch_out ? `out ${cell.punch_out}` : null,
+        cell?.total_work_hours ? `${cell.total_work_hours} hours` : null,
+        cell?.remarks ? cell.remarks : null,
+    ].filter(Boolean).join(', ');
+    return <span className="cy-mark" data-status={STATUS_MAP[raw] ? raw : '?'} role="img" aria-label={detail} title={detail}>{st.glyph}</span>;
+};
+
+const LeaveCount = ({ count }) => <span className="cy-leavecount" data-zero={count === 0}>{count}</span>;
+
+const MonthEmpty = ({ text }) => (
+    <div className="cy-empty cy-empty--flat">
+        <Icon name="calendar3" className="cy-empty__icon" />
+        <p className="cy-empty__text">{text}</p>
+    </div>
+);
+
+const MonthLoading = () => <div className="cy-empty cy-empty--flat" role="status"><p className="cy-empty__text">Loading attendance…</p></div>;
+
 /* ════════════════════════════════════════════════════════════
-   DESKTOP VIEW — horizontal scroll table
+   DESKTOP VIEW — sticky-header, sticky-first-column matrix
    ═══════════════════════════════════════════════════════════ */
 const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, weekendDays, loading }) => {
+    const colSpan = days.length + 1 + (leaveTypes?.length || 0);
     return (
-        <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-            <Table.Root size="2" style={{ minWidth: Math.max(900, 200 + days.length * 38 + (leaveTypes?.length || 0) * 64) }}>
-                <Table.Header>
-                    <Table.Row>
-                        {/* sticky employee col */}
-                        <Table.ColumnHeaderCell
-                            style={{
-                                position: 'sticky', left: 0, zIndex: 3,
-                                background: 'var(--aero-surface, var(--gray-2))',
-                                minWidth: 180, maxWidth: 220,
-                            }}
-                        >
-                            <Flex align="center" gap="2">
-                                <PersonIcon style={{ width: 14, height: 14, color: 'var(--aero-color-subtle, var(--gray-9))' }} />
-                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Employee</Text>
-                            </Flex>
-                        </Table.ColumnHeaderCell>
-
-                        {/* day columns */}
-                        {days.map(d => {
-                            const date  = dayjs(`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
-                            const wknd  = isWeekendDay(date, weekendDays);
+        <div className="cy-cal" tabIndex={0} role="region" aria-label="Monthly attendance, scrollable">
+            <table className="cy-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Employee</th>
+                        {days.map((d) => {
+                            const date = dayjs(dateKeyOf(year, month, d));
+                            const wknd = isWeekendDay(date, weekendDays);
                             return (
-                                <Table.ColumnHeaderCell
-                                    key={d}
-                                    style={{
-                                        width: 36, textAlign: 'center', padding: '6px 2px',
-                                        background: wknd ? 'var(--amber-a2)' : undefined,
-                                    }}
-                                >
-                                    <Flex direction="column" align="center" gap="0">
-                                        <Text size="1" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{d}</Text>
-                                        <Text size="1" color={wknd ? 'amber' : 'gray'} style={{ fontSize: 10 }}>
-                                            {date.format('dd')}
-                                        </Text>
-                                    </Flex>
-                                </Table.ColumnHeaderCell>
+                                <th key={d} scope="col" className={wknd ? 'is-weekend' : undefined}>
+                                    <span className="cy-cal__day"><span>{d}</span><span className="cy-cal__dow">{date.format('dd')}</span></span>
+                                </th>
                             );
                         })}
-
-                        {/* leave type columns */}
-                        {(leaveTypes || []).map(t => (
-                            <Table.ColumnHeaderCell key={t.type} style={{ width: 60, textAlign: 'center', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
-                                <Text size="1">{t.type}</Text>
-                            </Table.ColumnHeaderCell>
-                        ))}
-                    </Table.Row>
-                </Table.Header>
-
-                <Table.Body>
+                        {(leaveTypes || []).map((t) => <th key={t.type} scope="col" className="cy-cal__leave">{t.type}</th>)}
+                    </tr>
+                </thead>
+                <tbody>
                     {loading
-                        ? [...Array(7)].map((_, i) => (
-                            <Table.Row key={i}>
-                                <Table.Cell style={{ position: 'sticky', left: 0, background: 'var(--color-background)' }}>
-                                    <Flex align="center" gap="2">
-                                        <Skeleton width="28px" height="28px" style={{ borderRadius: 999 }} />
-                                        <Skeleton width="100px" height="14px" />
-                                    </Flex>
-                                </Table.Cell>
-                                {days.map(d => (
-                                    <Table.Cell key={d} style={{ textAlign: 'center' }}>
-                                        <Skeleton width="20px" height="20px" style={{ borderRadius: 999, margin: 'auto' }} />
-                                    </Table.Cell>
-                                ))}
-                                {(leaveTypes || []).map(t => (
-                                    <Table.Cell key={t.type} style={{ textAlign: 'center' }}>
-                                        <Skeleton width="24px" height="16px" style={{ margin: 'auto' }} />
-                                    </Table.Cell>
-                                ))}
-                            </Table.Row>
-                          ))
+                        ? <tr><td colSpan={colSpan}><MonthLoading /></td></tr>
                         : rows.length === 0
-                            ? (
-                                <Table.Row>
-                                    <Table.Cell colSpan={days.length + 1 + (leaveTypes?.length || 0)}>
-                                        <Flex direction="column" align="center" py="9" gap="3">
-                                            <CalendarIcon style={{ width: 32, height: 32, color: 'var(--gray-7)' }} />
-                                            <Text size="2" color="gray">No attendance records found for this period</Text>
-                                        </Flex>
-                                    </Table.Cell>
-                                </Table.Row>
-                              )
+                            ? <tr><td colSpan={colSpan}><MonthEmpty text="No attendance records found for this period" /></td></tr>
                             : rows.map((row, ri) => (
-                                <Table.Row key={row.user_id || ri}>
-                                    {/* sticky name cell */}
-                                    <Table.Cell
-                                        style={{
-                                            position: 'sticky', left: 0, zIndex: 1,
-                                            background: 'var(--color-background)',
-                                            whiteSpace: 'nowrap',
-                                            minWidth: 180, maxWidth: 220,
-                                        }}
-                                    >
-                                        <Flex align="center" gap="2">
-                                            <Avatar
-                                                src={row.profile_image_url || row.profile_image}
-                                                fallback={(row.name || '?').charAt(0).toUpperCase()}
-                                                size="1" radius="full" style={{ flexShrink: 0 }}
-                                            />
-                                            <Text
-                                                size="2"
-                                                weight="medium"
-                                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)' }}
-                                            >
-                                                {row.name || 'Unknown'}
-                                            </Text>
-                                        </Flex>
-                                    </Table.Cell>
-
-                                    {/* day cells */}
-                                    {days.map(d => {
-                                        const dateKey = dayjs(`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`).format('YYYY-MM-DD');
-                                        const cell    = row[dateKey];
-                                        const rawSt   = typeof cell === 'object' ? cell?.status || '▼' : '▼';
-                                        const st      = getStatus(rawSt);
-                                        const wknd    = isWeekendDay(dateKey, weekendDays);
-
+                                <tr key={row.user_id || ri}>
+                                    <td>
+                                        <div className="cy-who">
+                                            <Avatar name={row.name} photo={row.profile_image_url || row.profile_image} />
+                                            <span className="cy-who__text"><span className="cy-who__name">{row.name || 'Unknown'}</span></span>
+                                        </div>
+                                    </td>
+                                    {days.map((d) => {
+                                        const dateKey = dateKeyOf(year, month, d);
                                         return (
-                                            <Table.Cell
-                                                key={d}
-                                                style={{
-                                                    textAlign: 'center',
-                                                    padding: '4px 2px',
-                                                    background: wknd ? 'var(--amber-a2)' : undefined,
-                                                }}
-                                            >
-                                                <Tooltip
-                                                    content={
-                                                        <Flex direction="column" gap="1" style={{ fontSize: 12 }}>
-                                                            <Text size="1" weight="medium">{dateKey}</Text>
-                                                            <Text size="1">Status: {st.label}</Text>
-                                                            {cell?.punch_in  && <Text size="1">In: {cell.punch_in}</Text>}
-                                                            {cell?.punch_out && <Text size="1">Out: {cell.punch_out}</Text>}
-                                                            {cell?.total_work_hours && <Text size="1">Hours: {cell.total_work_hours}</Text>}
-                                                            {cell?.remarks  && <Text size="1">Remarks: {cell.remarks}</Text>}
-                                                        </Flex>
-                                                    }
-                                                >
-                                                    <Box
-                                                        style={{
-                                                            width: 22, height: 22, borderRadius: 999,
-                                                            background: st.bg,
-                                                            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            margin: 'auto', cursor: 'default',
-                                                        }}
-                                                    >
-                                                        <Text size="1" style={{ color: `var(--${st.color}-11)`, fontWeight: 800, lineHeight: 1, fontSize: 10 }}>
-                                                            {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : rawSt === '·' ? '–' : 'L'}
-                                                        </Text>
-                                                    </Box>
-                                                </Tooltip>
-                                            </Table.Cell>
+                                            <td key={d} className={isWeekendDay(dateKey, weekendDays) ? 'is-weekend' : undefined}>
+                                                <DayMark cell={row[dateKey]} dateKey={dateKey} />
+                                            </td>
                                         );
                                     })}
-
-                                    {/* leave count cells */}
-                                    {(leaveTypes || []).map(t => {
-                                        const count = leaveCounts?.[row.user_id]?.[t.type] || 0;
-                                        return (
-                                            <Table.Cell key={t.type} style={{ textAlign: 'center' }}>
-                                                <Badge
-                                                    color={count > 0 ? 'amber' : 'gray'}
-                                                    variant={count > 0 ? 'soft' : 'outline'}
-                                                    size="1"
-                                                >
-                                                    {count}
-                                                </Badge>
-                                            </Table.Cell>
-                                        );
-                                    })}
-                                </Table.Row>
-                              ))
-                    }
-                </Table.Body>
-            </Table.Root>
-        </ScrollArea>
+                                    {(leaveTypes || []).map((t) => (
+                                        <td key={t.type} className="cy-cal__leave"><LeaveCount count={leaveCounts?.[row.user_id]?.[t.type] || 0} /></td>
+                                    ))}
+                                </tr>
+                            ))}
+                </tbody>
+            </table>
+        </div>
     );
 };
 
 /* ════════════════════════════════════════════════════════════
-   MOBILE VIEW — grid calendar per employee
+   MOBILE VIEW — one row per employee, the month grid opens under it
    ═══════════════════════════════════════════════════════════ */
 const MobileEmployeeCard = ({ row, days, month, year, leaveTypes, leaveCounts, weekendDays }) => {
     const [expanded, setExpanded] = useState(false);
+    const gridId = useRef(`mcard-${row.user_id ?? Math.random().toString(36).slice(2)}`).current;
+    const firstDay = dayjs(`${year}-${String(month).padStart(2, '0')}-01`).day();
 
     return (
-        <Box
-            mb="3"
-            style={{
-                border: '1px solid var(--gray-a4)',
-                borderRadius: 'var(--radius-3)',
-                overflow: 'hidden',
-            }}
-        >
-            {/* employee header */}
-            <Flex
-                align="center"
-                justify="between"
-                px="3"
-                py="2"
-                style={{
-                    background: 'var(--gray-2)',
-                    borderBottom: '1px solid var(--gray-a3)',
-                    cursor: 'pointer',
-                }}
-                onClick={() => setExpanded(e => !e)}
-            >
-                <Flex align="center" gap="2">
-                    <Avatar
-                        src={row.profile_image_url || row.profile_image}
-                        fallback={(row.name || '?').charAt(0).toUpperCase()}
-                        size="1" radius="full"
-                    />
-                    <Text size="2" weight="medium">{row.name || 'Unknown'}</Text>
-                </Flex>
-                <Flex align="center" gap="2">
-                    {(leaveTypes || []).map(t => {
+        <li>
+            <button type="button" className="cy-mcard__head" aria-expanded={expanded} aria-controls={gridId} onClick={() => setExpanded((e) => !e)}>
+                <div className="cy-who">
+                    <Avatar name={row.name} photo={row.profile_image_url || row.profile_image} />
+                    <span className="cy-who__text"><span className="cy-who__name">{row.name || 'Unknown'}</span></span>
+                </div>
+                <span className="cy-mcard__tags">
+                    {(leaveTypes || []).map((t) => {
                         const count = leaveCounts?.[row.user_id]?.[t.type] || 0;
-                        if (count === 0) return null;
+                        return count === 0 ? null : <span key={t.type} className="cy-text-warn">{t.type}: {count}</span>;
+                    })}
+                    <Icon name="chevron-down" className="cy-mcard__chev" />
+                </span>
+            </button>
+            {expanded && (
+                <div className="cy-mcard__grid" id={gridId}>
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => <span key={d} className="cy-mcard__dow">{d}</span>)}
+                    {Array.from({ length: firstDay }, (_, i) => <span key={`b${i}`} />)}
+                    {days.map((dayNum) => {
+                        const dateKey = dateKeyOf(year, month, dayNum);
                         return (
-                            <Badge key={t.type} color="amber" variant="soft" size="1">
-                                {t.type}: {count}
-                            </Badge>
+                            <span key={dayNum} className={`cy-mcard__cell${isWeekendDay(dateKey, weekendDays) ? ' is-weekend' : ''}`}>
+                                <span>{dayNum}</span>
+                                <DayMark cell={row[dateKey]} dateKey={dateKey} />
+                            </span>
                         );
                     })}
-                    <Text size="1" color="gray">{expanded ? '▲' : '▼'}</Text>
-                </Flex>
-            </Flex>
-
-            {/* collapsible calendar grid */}
-            {expanded && (
-                <Box p="3">
-                    {/* day-of-week header */}
-                    <Flex mb="1">
-                        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-                            <Box key={d} style={{ flex: '1 1 0', textAlign: 'center' }}>
-                                <Text size="1" color="gray" weight="medium">{d}</Text>
-                            </Box>
-                        ))}
-                    </Flex>
-
-                    {/* calendar grid */}
-                    {(() => {
-                        const firstDay = dayjs(`${year}-${String(month).padStart(2,'0')}-01`).day();
-                        const totalCells = firstDay + days.length;
-                        const weeks = Math.ceil(totalCells / 7);
-                        return Array.from({ length: weeks }, (_, wi) => (
-                            <Flex key={wi} mb="1">
-                                {Array.from({ length: 7 }, (_, di) => {
-                                    const cellIdx = wi * 7 + di;
-                                    const dayNum  = cellIdx - firstDay + 1;
-                                    if (dayNum < 1 || dayNum > days.length) {
-                                        return <Box key={di} style={{ flex: '1 1 0' }} />;
-                                    }
-                                    const dateKey = dayjs(`${year}-${String(month).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`).format('YYYY-MM-DD');
-                                    const cell    = row[dateKey];
-                                    const rawSt   = typeof cell === 'object' ? cell?.status || '▼' : '▼';
-                                    const st      = getStatus(rawSt);
-                                    const wknd    = isWeekendDay(dateKey, weekendDays);
-
-                                    return (
-                                        <Box key={di} style={{ flex: '1 1 0', textAlign: 'center' }}>
-                                            <Tooltip
-                                                content={
-                                                    <Flex direction="column" gap="1">
-                                                        <Text size="1" weight="medium">{dateKey}</Text>
-                                                        <Text size="1">Status: {st.label}</Text>
-                                                        {cell?.punch_in  && <Text size="1">In: {cell.punch_in}</Text>}
-                                                        {cell?.punch_out && <Text size="1">Out: {cell.punch_out}</Text>}
-                                                    </Flex>
-                                                }
-                                            >
-                                                <Flex
-                                                    direction="column"
-                                                    align="center"
-                                                    style={{
-                                                        padding: '2px',
-                                                        borderRadius: 'var(--radius-1)',
-                                                        background: wknd ? 'var(--amber-a2)' : st.bg,
-                                                        cursor: 'default',
-                                                    }}
-                                                >
-                                                    <Text size="1" color="gray" style={{ fontSize: 9, lineHeight: 1.2 }}>{dayNum}</Text>
-                                                    <Text
-                                                        size="1"
-                                                        style={{
-                                                            color: `var(--${st.color}-11)`,
-                                                            fontWeight: 700,
-                                                            fontSize: 10,
-                                                            lineHeight: 1.2,
-                                                        }}
-                                                    >
-                                                        {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : rawSt === '·' ? '–' : 'L'}
-                                                    </Text>
-                                                </Flex>
-                                            </Tooltip>
-                                        </Box>
-                                    );
-                                })}
-                            </Flex>
-                        ));
-                    })()}
-                </Box>
+                </div>
             )}
-        </Box>
+        </li>
     );
 };
 
 const MobileMonthCalendar = ({ rows, days, month, year, leaveTypes, leaveCounts, weekendDays, loading }) => {
-    if (loading) return (
-        <Flex direction="column" gap="3">
-            {[...Array(4)].map((_, i) => (
-                <Box key={i} style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
-                    <Flex align="center" gap="2" p="3" style={{ background: 'var(--gray-2)' }}>
-                        <Skeleton width="28px" height="28px" style={{ borderRadius: '50%' }} />
-                        <Skeleton width="120px" height="14px" />
-                    </Flex>
-                </Box>
-            ))}
-        </Flex>
-    );
-
-    if (rows.length === 0) return (
-        <Flex direction="column" align="center" py="9" gap="3">
-            <CalendarIcon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
-            <Text size="2" color="gray">No attendance data for this month</Text>
-        </Flex>
-    );
-
+    if (loading) return <MonthLoading />;
+    if (rows.length === 0) return <MonthEmpty text="No attendance data for this month" />;
     return (
-        <Box>
+        <ul className="cy-mcard">
             {rows.map((row, i) => (
-                <MobileEmployeeCard
-                    key={row.user_id || i}
-                    row={row}
-                    days={days}
-                    month={month}
-                    year={year}
-                    leaveTypes={leaveTypes}
-                    leaveCounts={leaveCounts}
-                    weekendDays={weekendDays}
-                />
+                <MobileEmployeeCard key={row.user_id || i} row={row} days={days} month={month} year={year} leaveTypes={leaveTypes} leaveCounts={leaveCounts} weekendDays={weekendDays} />
             ))}
-        </Box>
+        </ul>
     );
 };
 
 /* ════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════ */
-const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) => {
+const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [], onSummary }) => {
     const { auth, url } = usePage().props;
 
     const canViewAll  = auth.permissions?.includes('attendance.view') || false;
@@ -449,7 +229,8 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
     const yearNum  = dayjs(selectedMonth + '-01').year();
     const monthNum = dayjs(selectedMonth + '-01').month() + 1;
     const daysInMonth = dayjs(selectedMonth + '-01').daysInMonth();
-    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    // Stable identity: the sidebar's charts re-draw whenever their inputs change identity.
+    const days = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => i + 1), [daysInMonth]);
 
     // React Query hooks
     const { data: monthlySummaryData, isLoading, refetch } = useAttendanceQuery.useMonthlySummary({
@@ -462,13 +243,13 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
     });
 
     // Derived state from React Query data
-    const rows = monthlySummaryData?.data || [];
+    const rows = monthlySummaryData?.data || EMPTY_LIST;
     const totalRows = monthlySummaryData?.total || 0;
     const lastPage = monthlySummaryData?.last_page || 1;
-    const leaveTypes = monthlySummaryData?.leaveTypes || [];
-    const leaveCounts = monthlySummaryData?.leaveCounts || {};
+    const leaveTypes = monthlySummaryData?.leaveTypes || EMPTY_LIST;
+    const leaveCounts = monthlySummaryData?.leaveCounts || EMPTY_MAP;
     const settings = monthlySummaryData?.settings || null;
-    const weekendDays = settings?.weekend_days || [];
+    const weekendDays = settings?.weekend_days || EMPTY_LIST;
 
     /* export */
     const exportFile = useCallback(async (type) => {
@@ -491,172 +272,112 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
         onMonthChange(newMonth);
     };
 
+    /* The page header shows the month's size as chips; reported by value so the effect never loops. */
+    const summaryKey = JSON.stringify([isLoading ? null : totalRows, daysInMonth]);
+    useEffect(() => {
+        onSummary?.([
+            { value: isLoading ? undefined : totalRows, label: 'Employees', tone: 'theme' },
+            { value: daysInMonth, label: 'Days', tone: 'default' },
+        ]);
+    }, [summaryKey, onSummary]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const footer = (lastPage > 1 || currentPage > 1) && !isLoading ? (
+        <Pagination
+            pagination={{ currentPage, perPage, total: totalRows }}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={(v) => setPerPage(v)}
+            loading={isLoading}
+            label="Monthly calendar pagination"
+        />
+    ) : null;
+
     /* ── render ─────────────────────────────────────────────── */
     return (
-        <Box>
-            {/* Toolbar */}
-            <Flex justify="between" align="center" gap="3" mb="4" wrap="wrap">
-                {/* left: month nav + search */}
-                <Flex gap="2" align="center" wrap="wrap">
-                    <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(-1)}>
-                        <ChevronLeftIcon />
-                    </Button>
+        <div className="dl-page">
+            <div className="dl-row">
+                <div className="dl-col dl-col--12">
+                    <Card id="attendance-monthly" title="Monthly calendar" flush footer={footer}>
+                        {/* Toolbar */}
+                        <Toolbar label="Monthly calendar filters">
+                            {/* left: month nav + search + department */}
+                            <ToolbarGroup>
+                                <IconButton icon="chevron-left" label="Previous month" onClick={() => goMonth(-1)} />
+                                <Field icon="calendar3" type="month" label="Month" value={selectedMonth} onChange={(e) => onMonthChange(e.target.value)} />
+                                <IconButton icon="chevron-right" label="Next month" onClick={() => goMonth(1)} />
 
-                    <TextField.Root
-                        type="month"
-                        size="2"
-                        value={selectedMonth}
-                        onChange={e => onMonthChange(e.target.value)}
-                        style={{ width: 160 }}
-                    >
-                        <TextField.Slot>
-                            <CalendarIcon />
-                        </TextField.Slot>
-                    </TextField.Root>
+                                {isAdminView && (
+                                    <Field icon="search" type="search" label="Search employee…" value={employeeQuery} onChange={(e) => setEmployeeQuery(e.target.value)} />
+                                )}
 
-                    <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(1)}>
-                        <ChevronRightIcon />
-                    </Button>
+                                {isAdminView && (
+                                    <DepartmentSelect value={selectedDepartmentId || 'all'} onChange={setSelectedDepartmentId} departments={departments} />
+                                )}
+                            </ToolbarGroup>
 
-                    {isAdminView && (
-                        <TextField.Root
-                            size="2"
-                            placeholder="Search employee…"
-                            value={employeeQuery}
-                            onChange={e => setEmployeeQuery(e.target.value)}
-                            style={{ width: 200 }}
-                        >
-                            <TextField.Slot>
-                                <PersonIcon />
-                            </TextField.Slot>
-                        </TextField.Root>
-                    )}
+                            {/* right: stats toggle + refresh + export (admin only) */}
+                            <ToolbarGroup end>
+                                {isAdminView && (
+                                    <button type="button" className="cy-btn cy-btn--outline-default" aria-pressed={sidebarOpen} onClick={() => setSidebarOpen(!sidebarOpen)}>
+                                        <Icon name="layout-sidebar-inset-reverse" /> {sidebarOpen ? 'Hide stats' : 'Show stats'}
+                                    </button>
+                                )}
 
-                    {isAdminView && (
-                        <DepartmentFilter
-                            attendance
-                            value={selectedDepartmentId || 'all'}
-                            onChange={setSelectedDepartmentId}
-                            departments={departments}
-                            width="auto"
-                            minWidth="150px"
-                        />
-                    )}
+                                <IconButton icon="arrow-clockwise" label="Refresh" onClick={() => refetch()} />
+                                {isAdminView && (
+                                    <>
+                                        <button type="button" className="cy-btn cy-btn--outline-default" disabled={isLoading || downloading !== ''} onClick={() => exportFile('excel')}>
+                                            <Icon name="file-earmark-excel" /> {downloading === 'excel' ? 'Exporting…' : 'Excel'}
+                                        </button>
+                                        <button type="button" className="cy-btn cy-btn--outline-default" disabled={isLoading || downloading !== ''} onClick={() => exportFile('pdf')}>
+                                            <Icon name="file-earmark-pdf" /> {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
+                                        </button>
+                                    </>
+                                )}
+                            </ToolbarGroup>
+                        </Toolbar>
 
+                        {/* Legend */}
+                        <ul className="cy-legendrow" aria-label="Legend" style={{ margin: 0, listStyle: 'none' }}>
+                            {Object.entries(STATUS_MAP).map(([k, v]) => (
+                                <li key={k} className="cy-legendrow__item"><span className="cy-mark" data-status={k} aria-hidden="true">{v.glyph}</span>{v.label}</li>
+                            ))}
+                            <li className="cy-legendrow__item"><span className="cy-mark is-weekend" data-status="?" aria-hidden="true" style={{ background: 'color-mix(in srgb, var(--amber-9) 18%, transparent)' }} />Weekend</li>
+                        </ul>
 
-                </Flex>
-
-                {/* right: refresh + export (admin only) */}
-                <Flex gap="2" align="center" wrap="wrap">
-                    {isAdminView && (
-                        <Tooltip content={sidebarOpen ? "Hide Stats Sidebar" : "Show Stats Sidebar"}>
-                            <Button
-                                size="2"
-                                variant={sidebarOpen ? "soft" : "solid"}
-                                color="blue"
-                                onClick={() => setSidebarOpen(!sidebarOpen)}
-                            >
-                                {sidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-                                <Text size="2" weight="medium">
-                                    {sidebarOpen ? 'Hide Stats' : 'Show Stats'}
-                                </Text>
-                            </Button>
-                        </Tooltip>
-                    )}
-
-                    <Tooltip content="Refresh">
-                        <Button size="2" variant="soft" color="gray" onClick={() => refetch()}>
-                            <ReloadIcon />
-                        </Button>
-                    </Tooltip>
-                    {isAdminView && (
-                        <>
-                            <Button
-                                size="2" variant="soft" color="green"
-                                disabled={isLoading || downloading !== ''}
-                                onClick={() => exportFile('excel')}
-                            >
-                                <DownloadIcon />
-                                {downloading === 'excel' ? 'Exporting…' : 'Excel'}
-                            </Button>
-                            <Button
-                                size="2" variant="soft" color="red"
-                                disabled={isLoading || downloading !== ''}
-                                onClick={() => exportFile('pdf')}
-                            >
-                                <DownloadIcon />
-                                {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
-                            </Button>
-                        </>
-                    )}
-                </Flex>
-            </Flex>
-
-            {/* Legend */}
-            <Flex gap="3" mb="3" wrap="wrap">
-                {Object.entries(STATUS_MAP).map(([k, v]) => (
-                    <Flex key={k} align="center" gap="1">
-                        <Box style={{ width: 12, height: 12, borderRadius: '50%', background: v.bg, border: `1px solid var(--${v.color}-a6)` }} />
-                        <Text size="1" color="gray">{v.label}</Text>
-                    </Flex>
-                ))}
-                <Flex align="center" gap="1">
-                    <Box style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--amber-a2)', border: '1px solid var(--amber-a6)' }} />
-                    <Text size="1" color="gray">Weekend</Text>
-                </Flex>
-            </Flex>
-
-            {/* Table / Cards */}
-            <Flex direction={isMobile ? 'column' : 'row'} gap="3" align="stretch">
-                <Box style={{ flex: '1 1 0', minWidth: 0 }}>
-                    {isMobile
-                        ? <MobileMonthCalendar
-                            rows={rows} days={days} month={monthNum} year={yearNum}
-                            leaveTypes={leaveTypes} leaveCounts={leaveCounts}
-                            weekendDays={weekendDays} loading={isLoading}
-                          />
-                        : <DesktopMonthTable
-                            rows={rows} days={days} month={monthNum} year={yearNum}
-                            leaveTypes={leaveTypes} leaveCounts={leaveCounts}
-                            weekendDays={weekendDays} loading={isLoading}
-                          />
-                    }
-                    {(lastPage > 1 || currentPage > 1) && !isLoading && (
-                        <Box mt="4">
-                            <TablePagination
-                                pagination={{ currentPage, perPage, total: totalRows }}
-                                onPageChange={setCurrentPage}
-                                onRowsPerPageChange={(v) => setPerPage(v)}
-                                loading={isLoading}
-                            />
-                        </Box>
-                    )}
-                </Box>
-                {isAdminView && sidebarOpen && (
-                    <Box
-                        style={{
-                            width: isMobile ? '100%' : '320px',
-                            flexShrink: 0,
-                            borderRadius: 'var(--radius-3)',
-                            border: '1px solid var(--gray-a4)',
-                            overflow: 'hidden',
-                        }}
-                    >
-                        <MonthlySidebar
-                            rows={rows}
-                            days={days}
-                            monthNum={monthNum}
-                            yearNum={yearNum}
-                            leaveTypes={leaveTypes}
-                            leaveCounts={leaveCounts}
-                            isLoading={isLoading}
-                        />
-                    </Box>
-                )}
-            </Flex>
-        </Box>
+                        {/* Table / cards, with the stats sidebar */}
+                        <div className="cy-split">
+                            <div className="cy-split__main">
+                                {isMobile
+                                    ? <MobileMonthCalendar
+                                        rows={rows} days={days} month={monthNum} year={yearNum}
+                                        leaveTypes={leaveTypes} leaveCounts={leaveCounts}
+                                        weekendDays={weekendDays} loading={isLoading}
+                                      />
+                                    : <DesktopMonthTable
+                                        rows={rows} days={days} month={monthNum} year={yearNum}
+                                        leaveTypes={leaveTypes} leaveCounts={leaveCounts}
+                                        weekendDays={weekendDays} loading={isLoading}
+                                      />}
+                            </div>
+                            {isAdminView && sidebarOpen && (
+                                <aside className="cy-split__side" aria-label="Monthly analytics">
+                                    <MonthlySidebar
+                                        rows={rows}
+                                        days={days}
+                                        monthNum={monthNum}
+                                        yearNum={yearNum}
+                                        leaveTypes={leaveTypes}
+                                        leaveCounts={leaveCounts}
+                                        isLoading={isLoading}
+                                    />
+                                </aside>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            </div>
+        </div>
     );
 };
 
 export default MonthlyCalendarTab;
-

@@ -3,12 +3,13 @@ import React, { useId, useRef } from 'react';
 /**
  * Cyber .nav-tabs.nav-tabs-v2 as WAI-ARIA tabs (arrow keys, Home/End). The caller renders the panel and gives it
  * `id={panelId(tabsId, key)}` / `aria-labelledby={tabId(tabsId, key)}`; `idPrefix` makes those ids stable.
- *   tabs = [{ key, label, count }]
+ *   tabs = [{ key, label, count, tone }]   (tone colours the count: success | danger | theme)
+ * className adds a modifier to the tab list, e.g. `cy-tabs--scroll` (one scrollable row on a phone).
  */
 export const tabId = (prefix, key) => `${prefix}-tab-${key}`;
 export const panelId = (prefix, key) => `${prefix}-panel-${key}`;
 
-export default function Tabs({ tabs, value, onChange, idPrefix, label }) {
+export default function Tabs({ tabs, value, onChange, idPrefix, label, className = '' }) {
     const auto = useId();
     const prefix = idPrefix ?? auto;
     const refs = useRef({});
@@ -24,7 +25,7 @@ export default function Tabs({ tabs, value, onChange, idPrefix, label }) {
         else if (event.key === 'End') { event.preventDefault(); move(tabs.length - 1); }
     };
     return (
-        <div className="cy-tabs" role="tablist" aria-label={label}>
+        <div className={className ? `cy-tabs ${className}` : 'cy-tabs'} role="tablist" aria-label={label}>
             {tabs.map((tab, index) => {
                 const selected = tab.key === value;
                 return (
@@ -42,7 +43,7 @@ export default function Tabs({ tabs, value, onChange, idPrefix, label }) {
                         onKeyDown={(e) => onKeyDown(e, index)}
                     >
                         {tab.label}
-                        {tab.count !== undefined && <span className="cy-tabs__count">{tab.count}</span>}
+                        {tab.count !== undefined && <span className="cy-tabs__count" data-tone={tab.tone}>{tab.count}</span>}
                     </button>
                 );
             })}
