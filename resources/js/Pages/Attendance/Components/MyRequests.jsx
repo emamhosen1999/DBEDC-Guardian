@@ -35,7 +35,7 @@ function Rows({ loading, rows, empty }) {
                             <span className="cy-row__title">{r.title}</span>
                             {r.sub && <span className="cy-row__sub">{r.sub}</span>}
                         </div>
-                        <Badge color={r.tone}>{r.status}</Badge>
+                        <Badge color={r.tone} soft>{r.status}</Badge>
                     </div>
                 </li>
             ))}

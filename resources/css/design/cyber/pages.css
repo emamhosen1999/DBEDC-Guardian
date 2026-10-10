@@ -152,7 +152,7 @@
   border: 0;
   border-bottom: 3px solid transparent;
   background: none;
-  color: rgba(var(--cy-fg-rgb), 0.75);
+  color: var(--cy-fg);
   font: inherit;
   letter-spacing: var(--cy-tracking);
   text-align: start;
@@ -203,14 +203,23 @@
 .cy-pagination__link[aria-current='page'] { background: rgba(var(--cy-fg-rgb), 0.15); color: var(--cy-fg); }
 
 .cy-select {
-  padding: 0.21875rem 0.4375rem;
+  /* Cyber .form-select: .328125rem 1.8375rem .328125rem .6125rem, .625rem / 600 / 1.5, chevron at right .6125rem */
+  --cy-select-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba%28255, 255, 255, 0.5%29' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  display: block;
+  padding: 0.328125rem 1.8375rem 0.328125rem 0.6125rem;
   border: 1px solid var(--cy-border);
   border-radius: 0;
-  background: transparent;
+  background: transparent var(--cy-select-chevron) no-repeat right 0.6125rem center / 16px 12px;
   color: var(--cy-fg);
   font: inherit;
+  font-size: 0.625rem;
   font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: var(--cy-tracking);
+  -webkit-appearance: none;
+  appearance: none;
 }
+html.light .cy-select { --cy-select-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba%2810, 21, 26, 0.5%29' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e"); }
 
 .cy-select option { background: var(--cy-bg); color: var(--cy-fg); }
 .cy-select:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px; }
@@ -255,13 +264,14 @@
 /* ---- .accordion (install steps) --------------------------------------------------------------------------- */
 .cy-accordion { margin: 0; padding: 0; list-style: none; border: 1px solid var(--cy-border); }
 .cy-accordion__item + .cy-accordion__item { border-top: 1px solid var(--cy-border); }
-.cy-accordion__button { display: flex; align-items: center; gap: 0.65625rem; width: 100%; padding: 0.6125rem 0.875rem; border: 0; background: none; color: var(--cy-fg); font: inherit; font-weight: 600; text-align: start; text-transform: uppercase; cursor: pointer; }
+.cy-accordion__button { display: flex; align-items: center; gap: 0.65625rem; width: 100%; padding: 0.4375rem 0.875rem; border: 0; background: none; color: var(--cy-fg); font: inherit; font-size: 0.625rem; font-weight: 600; line-height: 1.2; text-align: start; cursor: pointer; }
 .cy-accordion__button:hover { background: rgba(var(--cy-fg-rgb), 0.075); }
 .cy-accordion__button:focus-visible { outline: 1px solid var(--focus-8); outline-offset: -1px; }
-.cy-accordion__item.is-open .cy-accordion__button { background: var(--accent-a2); }
+/* Cyber .accordion-button:not(.collapsed): body colour at 15% and an inset bottom line in the border colour */
+.cy-accordion__item.is-open .cy-accordion__button { background: rgba(var(--cy-fg-rgb), 0.15); box-shadow: inset 0 -1px 0 var(--cy-border); }
 .cy-accordion__num { flex: none; color: var(--cy-text-faint); font-variant-numeric: tabular-nums; }
 .cy-accordion__title { flex: 1; min-width: 0; }
-.cy-accordion__chevron { flex: none; transition: transform 0.2s ease-in-out; }
+.cy-accordion__chevron { flex: none; width: 0.875rem; height: 0.875rem; transition: transform 0.2s ease-in-out; }
 .cy-accordion__item.is-open .cy-accordion__chevron { transform: rotate(180deg); }
 .cy-accordion__panel { margin: 0; padding: 0.4375rem 0.875rem 0.875rem 2.625rem; color: rgba(var(--cy-fg-rgb), 0.75); }
 .cy-accordion__panel[hidden] { display: none; }

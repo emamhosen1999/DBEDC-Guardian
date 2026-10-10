@@ -26,7 +26,7 @@ export default function CyberComponents() {
                                 <Button size="sm" variant="outline" data-conf="btn-sm">Small</Button>
                                 <Badge data-conf="badge-theme">Theme</Badge>
                                 <Badge color="success">Success</Badge>
-                                <Badge color="warning" outline>Warning</Badge>
+                                <Badge color="warning" outline data-conf="badge-outline">Warning</Badge>
                             </div>
                         </Card>
                     </div>

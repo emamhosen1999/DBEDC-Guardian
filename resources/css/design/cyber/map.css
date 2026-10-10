@@ -182,10 +182,12 @@ html.light .cy-map,
 .cy-ruler__readout { position: absolute; top: 0.25rem; right: 0.875rem; font-size: 0.5625rem; font-weight: 600; color: var(--cy-text-muted); font-variant-numeric: tabular-nums; pointer-events: none; }
 
 /* Modal + lightbox (officer detail, punch photos). */
-.cy-modal-backdrop { position: fixed; inset: 0; z-index: 1060; display: grid; place-items: center; padding: 1rem; background: var(--cy-backdrop); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
-.cy-modal { width: 28rem; max-width: 100%; max-height: 100%; overflow: auto; background: var(--cy-elevated); border: 1px solid var(--cy-border); color: var(--cy-fg); font-size: 0.75rem; }
-.cy-modal__head { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem 0.25rem 0.875rem; border-bottom: 1px solid var(--cy-border-translucent); background: var(--cy-cap-bg); }
-.cy-modal__head h2 { flex: 1; margin: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+/* Cyber .modal-backdrop (#0a151a at 50%, blur 6px) and .modal-content / .modal-header (app.min.css) */
+.cy-modal-backdrop { position: fixed; inset: 0; z-index: 1060; display: grid; place-items: center; padding: 1rem; background: rgba(var(--cy-bg-rgb), 0.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.cy-modal { width: 31.25rem; max-width: 100%; max-height: 100%; overflow: auto; background: transparent; border: 1px solid var(--cy-border-translucent); color: var(--cy-fg); font-size: 0.625rem; line-height: 1.5; }
+.cy-modal__head { position: relative; display: flex; align-items: center; gap: 0.5rem; padding: 0.875rem; border-bottom: 1px solid var(--cy-border); background: transparent; }
+.cy-modal__head h2 { flex: 1; margin: 0; font-size: 0.78125rem; font-weight: 600; line-height: 1.5; }
+.cy-modal__head .cy-pop__close { padding: 0.546875rem 0.65625rem; margin: -0.546875rem -0.65625rem -0.546875rem 0; }
 .cy-modal__section { padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--cy-border-translucent); }
 .cy-modal__photos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .cy-modal__photo { display: grid; gap: 0.25rem; font-size: 0.5625rem; text-transform: uppercase; color: var(--cy-text-faint); }

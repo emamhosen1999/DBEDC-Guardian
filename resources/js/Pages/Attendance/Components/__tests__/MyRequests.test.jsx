@@ -36,7 +36,7 @@ describe('MyRequests (Cyber)', () => {
         expect(tabs[0]).toContain('Regularizations');
         expect(host.textContent).toContain('01 Oct 2026');
         expect(host.textContent).toContain('missing punch');
-        expect(host.querySelector('.cy-badge--warning')?.textContent).toBe('pending');
+        expect(host.querySelector('.cy-badge--soft.cy-badge--warning')?.textContent).toBe('pending');
 
         await act(async () => { host.querySelectorAll('[role=tab]')[1].click(); });
         expect(host.textContent).toContain('No overtime requests yet.');

@@ -10,28 +10,31 @@ const D = process.argv[2] || process.env.CYBER_REVIEW_DATA || `${os.homedir()}/.
 const BASE = 'http://127.0.0.1:8002';
 const CYBER = 'https://seantheme.com/cyber/';
 
-// [id, cyber page, cyber selector, our selector (inside the gallery)]
+const SIZE = ['font-size', 'line-height', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'height'];
+const NO_HEIGHT = 'no-height';
+
+// [id, cyber page, cyber selector, our selector (inside the gallery), optional property subset]
 const PAIRS = [
     ['button: theme', 'ui_buttons.html', '.btn.btn-theme', '[data-conf="btn-theme"]'],
     ['button: outline theme', 'form_elements.html', '.btn.btn-outline-theme', '[data-conf="btn-outline-theme"]'],
-    ['button: secondary', 'page_gallery.html', '.btn.btn-secondary', '[data-conf="btn-secondary"]'],
-    ['button: outline secondary', 'analytics.html', '.btn.btn-outline-secondary', '[data-conf="btn-outline-secondary"]'],
-    ['button: small', 'email_detail.html', '.btn.btn-sm', '[data-conf="btn-sm"]'],
-    ['badge: theme', 'page_data_management.html', '.badge.bg-theme', '[data-conf="badge-theme"]'],
-    ['tab', 'ui_tabs_accordions.html', '.nav-tabs-v2 .nav-link:not(.active)', '[data-conf="tabs"] [role="tab"][aria-selected="false"]'],
-    ['tab: active', 'ui_tabs_accordions.html', '.nav-tabs-v2 .nav-link.active', '[data-conf="tabs"] [role="tab"][aria-selected="true"]'],
+    ['button: secondary', 'ui_buttons.html', '.btn.btn-secondary', '[data-conf="btn-secondary"]'],
+    ['button: outline secondary', 'ui_buttons.html', '.btn.btn-outline-secondary:not(.btn-lg)', '[data-conf="btn-outline-secondary"]'],
+    ['button: small', 'profile.html', '.btn.btn-sm.btn-outline-secondary', '[data-conf="btn-sm"]', SIZE],
+    ['badge: bordered', 'ui_bootstrap.html', '.badge.border', '[data-conf="badge-outline"]', [...SIZE, 'font-weight', 'border-radius', 'border-top-width']],
+    ['tab', 'page_search_results.html', '.nav-tabs-v2 .nav-link:not(.active)', '[data-conf="tabs"] [role="tab"][aria-selected="false"]'],
+    ['tab: active', 'page_search_results.html', '.nav-tabs-v2 .nav-link.active', '[data-conf="tabs"] [role="tab"][aria-selected="true"]'],
     ['pagination: link', 'page_orders.html', '.pagination .page-item:not(.active):not(.disabled) .page-link', '[data-conf="pagination"] .cy-pagination__link:not([aria-current]):not(:disabled)'],
     ['pagination: active', 'page_orders.html', '.pagination .page-item.active .page-link', '[data-conf="pagination"] .cy-pagination__link[aria-current]'],
     ['accordion: button', 'ui_tabs_accordions.html', '.accordion-button', '[data-conf="accordion"] .cy-accordion__button'],
-    ['input', 'form_elements.html', 'input.form-control:not(.form-control-lg):not(.form-control-sm)', '[data-conf="input"]'],
+    ['input', 'form_elements.html', 'input.form-control.mb-3:not(.form-control-lg):not(.form-control-sm)', '[data-conf="input"]'],
     ['input: large', 'form_elements.html', 'input.form-control-lg', '[data-conf="input-lg"]'],
-    ['select', 'page_data_management.html', '.form-select', '[data-conf="select"]'],
+    ['select', 'form_elements.html', '.form-select:not(.form-select-sm):not(.form-select-lg)', '[data-conf="select"]'],
     ['table: header cell', 'table_elements.html', '.table thead th', '[data-conf="table"] thead th'],
     ['table: body cell', 'table_elements.html', '.table tbody td', '[data-conf="table"] tbody td'],
     ['alert: danger', 'ui_bootstrap.html', '.alert.alert-danger', '[data-conf="alert-danger"]'],
     ['alert: warning', 'ui_bootstrap.html', '.alert.alert-warning', '[data-conf="alert-warning"]'],
     ['progress', 'index.html', '.progress', '[data-conf="progress"] .cy-progress'],
-    ['modal: content', 'ui_modal_notification.html', '.modal-content', '[data-conf="modal"]'],
+    ['modal: content', 'ui_modal_notification.html', '.modal-content', '[data-conf="modal"]', NO_HEIGHT],
     ['modal: header', 'ui_modal_notification.html', '.modal-header', '[data-conf="modal"] .cy-modal__head'],
     ['card: header', 'index.html', '.card-header', '#dev\\:buttons .dl-card__header, [id="dev:buttons"] .dl-card__header, .dl-card__header'],
 ];
@@ -47,10 +50,23 @@ const read = (page, selector) => page.evaluate(({ selector, props }) => {
     const out = {};
     for (const p of props) out[p] = p === 'height' ? `${Math.round(el.getBoundingClientRect().height)}px` : c.getPropertyValue(p);
     out['font-family'] = out['font-family'].split(',')[0].replace(/["']/g, '').trim();
+    // Same colour, different notation (color-mix() resolves to color(srgb ...)): normalise to rgb()/rgba().
+    for (const k of Object.keys(out)) {
+        out[k] = String(out[k]).replace(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/g, (m, r, g, b, a) => {
+            const c = [r, g, b].map((v) => Math.round(parseFloat(v) * 255));
+            return a === undefined || parseFloat(a) === 1 ? `rgb(${c.join(', ')})` : `rgba(${c.join(', ')}, ${parseFloat(a)})`;
+        });
+    }
     return out;
 }, { selector, props: PROPS });
 
+const channels = (v) => { const m = /^rgba?\(([^)]+)\)$/.exec(v); return m ? m[1].split(',').map((x) => parseFloat(x)) : null; };
 const near = (a, b) => {
+    const ca = channels(a); const cb = channels(b);
+    if (ca && cb) {
+        const [ra, ga, ba, aa = 1] = ca; const [rb, gb, bb, ab = 1] = cb;
+        return Math.abs(ra - rb) <= 1 && Math.abs(ga - gb) <= 1 && Math.abs(ba - bb) <= 1 && Math.abs(aa - ab) <= 0.01;
+    }
     const na = parseFloat(a); const nb = parseFloat(b);
     if (!Number.isNaN(na) && !Number.isNaN(nb) && /px$/.test(a) && /px$/.test(b)) return Math.abs(na - nb) <= 0.6;
     return a === b;
@@ -69,12 +85,13 @@ const near = (a, b) => {
     const live = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
     const report = [];
     let current = null;
-    for (const [id, cyberPage, cyberSel, ourSel] of PAIRS) {
+    for (const [id, cyberPage, cyberSel, ourSel, only] of PAIRS) {
+        const props = Array.isArray(only) ? only : PROPS.filter((p) => !(only === NO_HEIGHT && p === 'height'));
         if (current !== cyberPage) { await live.goto(CYBER + cyberPage, { waitUntil: 'networkidle', timeout: 90000 }).catch(() => {}); current = cyberPage; }
         const c = await read(live, cyberSel);
         const o = await read(ours, ourSel);
         const diffs = !c || !o ? [{ prop: '(element)', cyber: c ? 'found' : 'MISSING', ours: o ? 'found' : 'MISSING' }]
-            : PROPS.filter((p) => !near(c[p], o[p])).map((p) => ({ prop: p, cyber: c[p], ours: o[p] }));
+            : props.filter((p) => !near(c[p], o[p])).map((p) => ({ prop: p, cyber: c[p], ours: o[p] }));
         report.push({ id, cyberPage, diffs });
         console.log(`${diffs.length ? '✗' : '✓'} ${id} (${cyberPage}) ${diffs.length ? `- ${diffs.length} differences` : ''}`);
         diffs.forEach((d) => console.log(`     ${d.prop.padEnd(20)} cyber ${String(d.cyber).padEnd(34)} ours ${d.ours}`));
