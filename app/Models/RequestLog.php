@@ -28,7 +28,12 @@ class RequestLog extends Model
         'duration_ms' => 'integer',
     ];
 
-    public $timestamps = false;
+    /**
+     * created_at is stamped by the application (app timezone, like every other table), never by the column's
+     * CURRENT_TIMESTAMP default: the production database runs on the server's own zone (US Eastern), which put
+     * these rows 10-11 hours behind the rest of the system. There is no updated_at column.
+     */
+    public const UPDATED_AT = null;
 
     public function user(): BelongsTo
     {
