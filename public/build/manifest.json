@@ -741,8 +741,8 @@
       "_react-icons.esm-BKV74WK2.js"
     ]
   },
-  "_WidgetGrid-BbrBwNrk.js": {
-    "file": "assets/js/WidgetGrid-BbrBwNrk.js",
+  "_WidgetGrid-BKQOy54z.js": {
+    "file": "assets/js/WidgetGrid-BKQOy54z.js",
     "name": "WidgetGrid",
     "imports": [
       "_vendor-radix-CitQZNGx.js",
@@ -1077,7 +1077,7 @@
     "src": "public/assets/images/logo.png"
   },
   "resources/css/app.css": {
-    "file": "assets/css/app-B3WPMa7d.css",
+    "file": "assets/css/app-fPcnIgE4.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -2254,7 +2254,7 @@
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/js/Dashboard-TYAWarjv.js",
+    "file": "assets/js/Dashboard-Cqbc_E02.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isEntry": true,
@@ -2266,7 +2266,7 @@
       "_PageHeader-BBrZtll8.js",
       "_useQuery-DvsgeQRy.js",
       "_vendor-utils-DhthdLsc.js",
-      "_WidgetGrid-BbrBwNrk.js",
+      "_WidgetGrid-BKQOy54z.js",
       "_preload-helper-BfFHrpNk.js",
       "_ErrorBoundary-ynSHhvWL.js",
       "_useMediaQuery-C3j6Uz_7.js",
@@ -2378,7 +2378,7 @@
     ]
   },
   "resources/js/Pages/EmployeeDashboard.jsx": {
-    "file": "assets/js/EmployeeDashboard-DPiN_BqB.js",
+    "file": "assets/js/EmployeeDashboard-BR1nTfFa.js",
     "name": "EmployeeDashboard",
     "src": "resources/js/Pages/EmployeeDashboard.jsx",
     "isEntry": true,
@@ -2395,7 +2395,7 @@
       "_react-icons.esm-BKV74WK2.js",
       "_toastUtils-DVK6PBmd.js",
       "_vendor-utils-DhthdLsc.js",
-      "_WidgetGrid-BbrBwNrk.js",
+      "_WidgetGrid-BKQOy54z.js",
       "resources/js/Pages/Attendance/Components/MyRequests.jsx",
       "resources/js/Pages/Attendance/Components/SwapResponses.jsx",
       "_OvertimeRequestForm-BWqjGNkO.js",
@@ -4820,7 +4820,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-D0I-13gj.js",
+    "file": "assets/js/app-BRGQaSqr.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -4956,7 +4956,7 @@
       "resources/js/Pages/UserDevices.jsx"
     ],
     "css": [
-      "assets/css/app-B3WPMa7d.css"
+      "assets/css/app-fPcnIgE4.css"
     ],
     "assets": [
       "assets/woff2/roboto-cyrillic-ext-300-normal-DIxttMbC.woff2",
