@@ -23,6 +23,7 @@ use App\Models\UserDevice;
 use App\Models\WorkLocation;
 use App\Services\DeviceAuthService;
 use Illuminate\Console\Command;
+use Illuminate\Console\Prohibitable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -30,8 +31,14 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
+/**
+ * Writes real records (and a device registration outside the transaction) and relies on a rollback to remove them.
+ * Production has MyISAM tables that ignore the rollback, so AppServiceProvider prohibits this command there.
+ */
 class DeepE2ECrudAudit extends Command
 {
+    use Prohibitable;
+
     protected $signature = 'audit:e2e-crud';
     protected $description = 'Deep automated testing of all tab sections, buttons, CRUD operations, and backend services';
 
@@ -41,6 +48,10 @@ class DeepE2ECrudAudit extends Command
 
     public function handle(): int
     {
+        if ($this->isProhibited()) {
+            return self::FAILURE;
+        }
+
         $this->info('=====================================================================');
         $this->info('   DBEDC GUARDIAN: DEEP END-TO-END CRUD & BACKEND AUDIT SUITE       ');
         $this->info('=====================================================================');

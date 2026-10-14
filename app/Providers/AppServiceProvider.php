@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\DeepE2ECrudAudit;
 use App\Contracts\Ai\AiProvider;
 use App\Listeners\RecordAccessAudit;
 use App\Models\Jurisdiction;
@@ -116,6 +117,9 @@ class AppServiceProvider extends ServiceProvider
         Event::subscribe(RecordAccessAudit::class);
 
         Model::preventLazyLoading(! $this->app->isProduction());
+
+        // Its rollback cannot undo writes to production's MyISAM tables.
+        DeepE2ECrudAudit::prohibit($this->app->isProduction());
 
         foreach ([
             OmAsset::class,
