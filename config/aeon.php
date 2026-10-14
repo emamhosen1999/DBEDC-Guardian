@@ -100,11 +100,9 @@ PROMPT,
         'gemini' => [
             'api_key' => env('GEMINI_API_KEY', env('AEON_GEMINI_KEY')),
             'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
-            'fallback_models' => [
-                'gemini-2.0-flash',
-                'gemini-1.5-flash',
-                'gemini-1.5-pro',
-            ],
+            // Tried in order when the primary is busy (429/503) or failing. Google retired 2.0 and 1.5 (404); keep these
+            // on the primary's generation so tool calls replay the same way. Comma-separated in the env.
+            'fallback_models' => env('GEMINI_FALLBACK_MODELS', 'gemini-2.5-flash-lite,gemini-2.5-pro'),
             // text-embedding-004 was retired (404 since early 2026); gemini-embedding-001 is its successor.
             'embed_model' => env('GEMINI_EMBED_MODEL', 'gemini-embedding-001'),
             // Requested vector size (768, 1536 or 3072). Changing it or the model needs `aeon:index --fresh`.
