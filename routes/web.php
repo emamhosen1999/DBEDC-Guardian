@@ -978,6 +978,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:jurisdiction.create'])->post('/jurisdictions/add', [JurisdictionController::class, 'addJurisdiction'])->name('addJurisdiction');
     Route::middleware(['permission:jurisdiction.delete'])->post('/jurisdictions/delete', [JurisdictionController::class, 'deleteJurisdiction'])->name('deleteJurisdiction');
     Route::middleware(['permission:jurisdiction.update'])->post('/jurisdictions/update', [JurisdictionController::class, 'updateJurisdiction'])->name('updateJurisdiction');
+
+    // Jurisdictions, historical (as-of dates, versions, team, handovers). Same permission names as the policy and the UI.
+    Route::middleware(['permission:jurisdiction.view'])->group(function () {
+        Route::get('/jurisdictions/overview', [JurisdictionController::class, 'overview'])->name('jurisdictions.overview');
+        Route::get('/jurisdictions/map/print', [\App\Http\Controllers\JurisdictionMapController::class, 'print'])->name('jurisdictions.map.print');
+        Route::get('/jurisdictions/{jurisdiction}/timeline', [JurisdictionController::class, 'timeline'])->whereNumber('jurisdiction')->withTrashed()->name('jurisdictions.timeline');
+        Route::get('/jurisdictions/{jurisdiction}/handovers', [\App\Http\Controllers\JurisdictionTeamController::class, 'handovers'])->whereNumber('jurisdiction')->name('jurisdictions.handovers');
+        Route::get('/jurisdictions/{jurisdiction}/handovers/{handover}/report', [\App\Http\Controllers\JurisdictionMapController::class, 'handoverReport'])->whereNumber(['jurisdiction', 'handover'])->name('jurisdictions.handover.report');
+    });
+    Route::middleware(['permission:jurisdiction.create'])->get('/jurisdictions/geofences', [JurisdictionController::class, 'geofences'])->name('jurisdictions.geofences');
+    Route::middleware(['permission:jurisdiction.restructure'])->group(function () {
+        Route::post('/jurisdictions/{jurisdiction}/split', [JurisdictionController::class, 'split'])->whereNumber('jurisdiction')->name('jurisdictions.split');
+        Route::post('/jurisdictions/{jurisdiction}/merge', [JurisdictionController::class, 'merge'])->whereNumber('jurisdiction')->name('jurisdictions.merge');
+    });
+    Route::middleware(['permission:jurisdiction.retire'])->post('/jurisdictions/{jurisdiction}/retire', [JurisdictionController::class, 'retire'])->whereNumber('jurisdiction')->name('jurisdictions.retire');
+    Route::middleware(['permission:jurisdiction.restore'])->post('/jurisdictions/{jurisdiction}/restore', [JurisdictionController::class, 'restore'])->whereNumber('jurisdiction')->withTrashed()->name('jurisdictions.restore');
+    Route::middleware(['permission:jurisdiction.team.manage'])->prefix('/jurisdictions/{jurisdiction}/team')->whereNumber('jurisdiction')->group(function () {
+        Route::post('/members', [\App\Http\Controllers\JurisdictionTeamController::class, 'add'])->name('jurisdictions.team.add');
+        Route::post('/in-charge', [\App\Http\Controllers\JurisdictionTeamController::class, 'inCharge'])->name('jurisdictions.team.in-charge');
+        Route::post('/members/{member}/role', [\App\Http\Controllers\JurisdictionTeamController::class, 'role'])->whereNumber('member')->name('jurisdictions.team.role');
+        Route::post('/members/{member}/remove', [\App\Http\Controllers\JurisdictionTeamController::class, 'remove'])->whereNumber('member')->name('jurisdictions.team.remove');
+        Route::get('/suggestions', [\App\Http\Controllers\JurisdictionTeamController::class, 'suggestions'])->name('jurisdictions.team.suggestions');
+        Route::get('/handovers/{handover}/transfer-preview', [\App\Http\Controllers\JurisdictionTeamController::class, 'transferPreview'])->whereNumber('handover')->name('jurisdictions.handover.preview');
+        Route::post('/handovers/{handover}/transfer', [\App\Http\Controllers\JurisdictionTeamController::class, 'transfer'])->whereNumber('handover')->name('jurisdictions.handover.transfer');
+    });
 });
 
 // Redirect old routes to unified admin page

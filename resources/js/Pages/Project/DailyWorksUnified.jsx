@@ -63,6 +63,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     
     // Role-based access control
     const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
+    const canViewJurisdictions = Array.isArray(auth.permissions) && auth.permissions.includes('jurisdiction.view');
 
     console.log('[DailyWorksUnified Props] auth:', auth);
     console.log('[DailyWorksUnified Props] allData:', allData);
@@ -1116,7 +1117,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                         <ExclamationTriangleIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                                         Objections
                                     </Tabs.Trigger>
-                                    {userIsAdmin && (
+                                    {canViewJurisdictions && (
                                         <Tabs.Trigger value="jurisdictions">
                                             <SewingPinIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                                             Jurisdictions
@@ -1317,16 +1318,11 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                     </Box>
                                 </Tabs.Content>
 
-                                {/* Jurisdictions Tab (admin only) */}
-                                {userIsAdmin && (
+                                {/* Jurisdictions Tab: gated on jurisdiction.view, the same permission the routes and policy use. The tab
+                                    fetches its own data (as-of date, period) and reads its abilities from the server. */}
+                                {canViewJurisdictions && (
                                     <Tabs.Content value="jurisdictions">
-                                        <Box mt="5">
-                                            <JurisdictionsManager
-                                                jurisdictions={jurisdictions}
-                                                users={users}
-                                                canManage={userIsAdmin}
-                                            />
-                                        </Box>
+                                        <JurisdictionsManager employees={users} />
                                     </Tabs.Content>
                                 )}
                             </Tabs.Root>

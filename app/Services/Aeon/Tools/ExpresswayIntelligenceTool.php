@@ -99,9 +99,10 @@ class ExpresswayIntelligenceTool implements AeonToolContract
             return $this->empty('No jurisdictions are recorded yet.');
         }
 
-        $band = DB::table('jurisdictions')->get()->first(function ($j) use ($meters) {
-            $from = self::chainageMeters((string) $j->start_chainage);
-            $to = self::chainageMeters((string) $j->end_chainage);
+        // Live jurisdictions only; numeric bounds (start_m / end_m), the display strings for a row written before they existed.
+        $band = DB::table('jurisdictions')->whereNull('deleted_at')->where('kind', 'section')->get()->first(function ($j) use ($meters) {
+            $from = $j->start_m ?? self::chainageMeters((string) $j->start_chainage);
+            $to = $j->end_m ?? self::chainageMeters((string) $j->end_chainage);
 
             return $from !== null && $to !== null && $meters >= $from && $meters <= $to;
         });

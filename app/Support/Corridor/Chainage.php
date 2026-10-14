@@ -69,6 +69,41 @@ final class Chainage
         return ['from' => min($metres), 'to' => max($metres)];
     }
 
+    /**
+     * A register location as a span: a strict point or span first (span()), else the kilometre-only form the site
+     * registers use for yards and plazas ("K27", "K30 YARD", "K13 TOLL STATION", "K-40"), read as the kilometre mark
+     * itself (K27 = K27+000). A free-text location with no single kilometre token, or with a number glued to it
+     * ("K17-396", "K03-500-K03-520"), is NOT guessed: null.
+     *
+     * @return array{from: int, to: int}|null
+     */
+    public static function locationSpan(int|float|string|null $value): ?array
+    {
+        $span = self::span($value);
+        if ($span !== null || ! is_string($value)) {
+            return $span;
+        }
+        if (preg_match_all('/(?<![A-Za-z])(?:SC|DZ|C|Z)?K(?:M)?\s*-?\s*(\d{1,2})(?!\s*[+\-.]?\s*\d)/i', $value, $found) !== 1) {
+            return null;
+        }
+        $m = (int) $found[1][0] * 1000;
+
+        return $m <= self::MAX_M ? ['from' => $m, 'to' => $m] : null;
+    }
+
+    /**
+     * One chainage token as the validators spell it ("K05+900", "SCK0+260", "CK0+189.220", "K30") to metres.
+     * Metres are read as metres (K5+90 is K5+090, never K5+900). Null when there is no K<km> in the text.
+     */
+    public static function token(?string $text): ?int
+    {
+        if ($text === null || preg_match('/[A-Z]*K\s*(\d+)(?:\s*\+\s*(\d+(?:\.\d+)?))?/i', $text, $m) !== 1) {
+            return null;
+        }
+
+        return (int) $m[1] * 1000 + (int) floor((float) ($m[2] ?? 0));
+    }
+
     /** Decimal kilometres (om_iri_readings.chainage_km) to metres. */
     public static function fromKm(int|float|string|null $km): ?int
     {

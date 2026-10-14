@@ -3,45 +3,28 @@
 namespace App\Traits;
 
 use App\Models\Jurisdiction;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
+use App\Services\Corridor\ChainageResolver;
+use App\Services\Jurisdiction\JurisdictionTeamService;
 use Illuminate\Support\Facades\Log;
 
 trait JurisdictionMatcher
 {
-    /**
-     * Cached jurisdictions collection
-     */
-    private ?Collection $cachedJurisdictions = null;
-
-    /**
-     * Get jurisdictions with caching
-     */
-    protected function getJurisdictions(): Collection
-    {
-        if ($this->cachedJurisdictions === null) {
-            // Cache jurisdictions for 5 minutes to reduce DB queries during bulk imports
-            $this->cachedJurisdictions = Cache::remember('jurisdictions_all', 300, function () {
-                return Jurisdiction::all();
-            });
-        }
-
-        return $this->cachedJurisdictions;
-    }
-
-    /**
-     * Clear the cached jurisdictions
-     */
+    /** Drop the cached jurisdiction versions (kept for callers of the old name). */
     protected function clearJurisdictionCache(): void
     {
-        $this->cachedJurisdictions = null;
-        Cache::forget('jurisdictions_all');
+        app(ChainageResolver::class)->forget();
+    }
+
+    /** The in-charge of $jurisdiction on $date (the team rows), falling back to the mirrored current in-charge. */
+    protected function inChargeFor(Jurisdiction $jurisdiction, ?string $date = null): ?string
+    {
+        return app(JurisdictionTeamService::class)->inChargeAsOf($jurisdiction->id, $date) ?? ($jurisdiction->incharge !== null ? (string) $jurisdiction->incharge : null);
     }
 
     /**
-     * Find jurisdiction for a given location string
+     * Find the jurisdiction for a location string AS OF a work date (null = today). Same start-or-end rule as ever.
      */
-    protected function findJurisdictionForLocation(string $location): ?Jurisdiction
+    protected function findJurisdictionForLocation(string $location, ?string $date = null): ?Jurisdiction
     {
         // Regex for extracting start and end chainages
         // Matches patterns like: K30+560-K30+570, K24+800, K13 TOLL STATION
@@ -61,42 +44,13 @@ trait JurisdictionMatcher
             return null;
         }
 
-        $startChainageFormatted = $this->formatChainageToFloat($startChainage);
-        $endChainageFormatted = $endChainage ? $this->formatChainageToFloat($endChainage) : null;
-
-        $jurisdictions = $this->getJurisdictions();
-
-        foreach ($jurisdictions as $jurisdiction) {
-            $formattedStartJurisdiction = $this->formatChainageToFloat($jurisdiction->start_chainage);
-            $formattedEndJurisdiction = $this->formatChainageToFloat($jurisdiction->end_chainage);
-
-            // Check if the start chainage is within the jurisdiction's range
-            if ($startChainageFormatted >= $formattedStartJurisdiction &&
-                $startChainageFormatted <= $formattedEndJurisdiction) {
-                Log::debug('JurisdictionMatcher: Match found for start chainage', [
-                    'location' => $location,
-                    'jurisdiction' => $formattedStartJurisdiction.'-'.$formattedEndJurisdiction,
-                ]);
-
-                return $jurisdiction;
-            }
-
-            // If an end chainage exists, check if it's within the jurisdiction's range
-            if ($endChainageFormatted &&
-                $endChainageFormatted >= $formattedStartJurisdiction &&
-                $endChainageFormatted <= $formattedEndJurisdiction) {
-                Log::debug('JurisdictionMatcher: Match found for end chainage', [
-                    'location' => $location,
-                    'jurisdiction' => $formattedStartJurisdiction.'-'.$formattedEndJurisdiction,
-                ]);
-
-                return $jurisdiction;
-            }
+        // Numbers and band test live in the one resolver, as of the work's date; this trait only cuts the tokens out of the text.
+        $jurisdiction = app(ChainageResolver::class)->forTokens($startChainage, $endChainage, $date);
+        if ($jurisdiction === null) {
+            Log::debug('JurisdictionMatcher: No jurisdiction found', ['location' => $location]);
         }
 
-        Log::debug('JurisdictionMatcher: No jurisdiction found', ['location' => $location]);
-
-        return null;
+        return $jurisdiction;
     }
 
     /**

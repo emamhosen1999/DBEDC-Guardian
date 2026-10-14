@@ -575,3 +575,37 @@ html.light .cy-btn--success, html.light .cy-btn--danger { color: #fff; }
 .cy-btn--outline-success:hover, .cy-btn--outline-danger:hover { background: var(--cy-btn-tone); color: #000; }
 html.light .cy-btn--outline-success:hover, html.light .cy-btn--outline-danger:hover { color: #fff; }
 .cy-icon--flip { transform: rotate(180deg); }
+
+/* ── Tree (Cyber .file-tree, file_manager.html) and Timeline (list-group rows with a dot) — jurisdiction batch ───────────── */
+.file-tree { position: relative; }
+.file-tree .file-node { position: relative; padding-inline-start: 1.09375rem; }
+.file-tree .file-node .file-link { text-decoration: none; padding: 0.21875rem 0; color: var(--cy-fg); position: relative; border-radius: 8px; display: flex; gap: 0.4375rem; cursor: pointer; }
+.file-tree .file-node .file-link > *:hover, .file-tree .file-node .file-link > *:focus { opacity: 0.75; }
+.file-tree .file-node .file-link .file-info { display: flex; gap: 0.2625rem; flex: 1; min-width: 0; }
+.file-tree .file-node .file-link .file-icon { font-size: 0.78125rem; width: 0.875rem; display: flex; align-items: center; justify-content: center; }
+.file-tree .file-node .file-link .file-text { flex: 1; min-width: 0; }
+.file-tree .file-node.has-sub > .file-link .file-arrow__btn { position: absolute; top: 50%; margin-top: -0.46875rem; width: 0.875rem; display: flex; justify-content: center; left: -0.875rem; cursor: pointer; }
+.file-tree .file-node.has-sub > .file-link .file-arrow__btn .cy-icon { width: 0.625rem; height: 0.625rem; align-self: center; }
+.file-tree .file-node.selected > .file-link { font-weight: 700; }
+.file-tree .file-node.selected > .file-link > .file-info { opacity: 1; }
+.file-tree .file-tree { display: none; }
+.file-tree .file-node.has-sub.expand > .file-tree { display: block; }
+.file-tree .file-node:focus-visible { outline: none; }
+.file-tree .file-node:focus-visible > .file-link { outline: 1px solid var(--focus-8); outline-offset: 1px; }
+
+.cy-timeline { list-style: none; margin: 0; padding: 0; }
+.cy-timeline__item { position: relative; display: flex; gap: 0.4375rem; padding: 0.4375rem 0.875rem; color: var(--cy-fg); border-bottom: 1px solid var(--cy-border); }
+.cy-timeline__item:last-child { border-bottom-width: 0; }
+.cy-timeline__item::before { content: ""; position: absolute; left: calc(0.875rem + 0.3125rem - 0.5px); top: 1.5rem; bottom: -0.4375rem; width: 1px; background: var(--cy-border); }
+.cy-timeline__item:last-child::before { display: none; }
+.cy-timeline__dot { flex: none; width: 0.625rem; height: 0.625rem; margin-top: 0.3125rem; border-radius: 50%; background: var(--cy-tl, var(--cy-text-faint)); display: inline-grid; place-items: center; }
+.cy-timeline__item[data-tone='theme'] { --cy-tl: var(--cy-tone-theme); }
+.cy-timeline__item[data-tone='success'] { --cy-tl: var(--cy-tone-good, #82ff9b); }
+.cy-timeline__item[data-tone='warning'] { --cy-tl: var(--cy-tone-warn, #f0e442); }
+.cy-timeline__item[data-tone='danger'] { --cy-tl: var(--cy-tone-crit, #ff9999); }
+.cy-timeline__item[data-tone='info'] { --cy-tl: var(--cy-tone-info, #56b4e9); }
+.cy-timeline__body { min-width: 0; flex: 1; }
+.cy-timeline__head { display: flex; gap: 0.4375rem; align-items: center; flex-wrap: wrap; }
+.cy-timeline__title { font-weight: 600; }
+.cy-timeline__date, .cy-timeline__detail { display: block; color: var(--cy-text-faint); font-size: 0.6875rem; }
+.cy-timeline__empty { margin: 0; padding: 0.875rem; color: var(--cy-text-faint); }

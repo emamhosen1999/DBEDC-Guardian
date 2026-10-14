@@ -135,7 +135,7 @@ class DailyWorkPaginationService
 
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
-            $hasJurisdiction = Jurisdiction::where('incharge', $uid)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $uid)->exists();
 
             if ($hasJurisdiction) {
                 return $baseQuery->where('incharge', $uid);

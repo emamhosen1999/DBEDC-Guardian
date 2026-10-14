@@ -56,7 +56,7 @@ class RolePermissionService
                 'holidays.view', 'holidays.create', 'holidays.update', 'holidays.delete',
                 'leaves.view', 'leaves.create', 'leaves.update', 'leaves.delete', 'leaves.approve', 'leaves.analytics',
                 'leave-settings.view', 'leave-settings.update',
-                'jurisdiction.view', 'jurisdiction.create', 'jurisdiction.update', 'jurisdiction.delete',
+                'jurisdiction.view', 'jurisdiction.create', 'jurisdiction.update', 'jurisdiction.delete', 'jurisdiction.team.manage', 'jurisdiction.restructure', 'jurisdiction.retire', 'jurisdiction.restore', 'jurisdiction.history.correct',
             ],
             'description' => 'Human resources and employee management',
             'category' => 'human_resources',

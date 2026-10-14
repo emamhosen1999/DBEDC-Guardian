@@ -227,7 +227,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Office/Branch location management',
                     'icon' => 'MapPinIcon',
                     'route_prefix' => '/hr/jurisdictions',
-                    'permissions' => ['jurisdiction.view', 'jurisdiction.create', 'jurisdiction.update', 'jurisdiction.delete'],
+                    'permissions' => ['jurisdiction.view', 'jurisdiction.create', 'jurisdiction.update', 'jurisdiction.delete', 'jurisdiction.team.manage', 'jurisdiction.restructure', 'jurisdiction.retire', 'jurisdiction.restore', 'jurisdiction.history.correct'],
                     'components' => [
                         ['code' => 'JURISDICTIONS_LIST', 'name' => 'Jurisdictions List Page', 'type' => 'page', 'route_name' => 'jurisdictions.index', 'permissions' => ['jurisdiction.view']],
                         ['code' => 'CREATE_JURIS_BTN', 'name' => 'Create Jurisdiction', 'type' => 'action', 'permissions' => ['jurisdiction.create']],

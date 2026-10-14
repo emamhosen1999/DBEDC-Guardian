@@ -13,3 +13,5 @@ export { default as Accordion } from './Accordion.jsx';
 export { Toolbar, ToolbarGroup, Field, Select, IconButton } from './Toolbar.jsx';
 export { default as StatStrip } from './StatStrip.jsx';
 export { FormField, Input, Textarea, SelectInput, Checkbox, Switch, Alert, Segmented, DateInput, DateRange } from './Form.jsx';
+export { default as Tree } from './Tree.jsx';
+export { default as Timeline } from './Timeline.jsx';

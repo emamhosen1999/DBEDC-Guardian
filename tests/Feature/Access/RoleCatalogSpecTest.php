@@ -125,7 +125,7 @@ class RoleCatalogSpecTest extends TestCase
     {
         $sizes = ['Employee' => 28, 'Daily Works Contributor' => 4, 'Daily Works Manager' => 6, 'Quality Contributor' => 6, 'Quality Manager' => 15,
             'O&M Director' => 26, 'Maintenance Inspector' => 13, 'TMC Operator' => 11, 'Highway Patrol Officer' => 12, 'Line Manager' => 5,
-            'Department Manager' => 31, 'Department Admin' => 52, 'HR Manager' => 240];
+            'Department Manager' => 31, 'Department Admin' => 52, 'HR Manager' => 245];
         foreach ($sizes as $role => $size) {
             $this->assertCount($size, $this->held($role), "{$role} holds {$size} permissions");
         }

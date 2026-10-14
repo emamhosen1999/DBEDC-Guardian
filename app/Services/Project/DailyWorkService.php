@@ -837,7 +837,7 @@ class DailyWorkService
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $uid)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $uid)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge

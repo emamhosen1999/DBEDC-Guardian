@@ -13,6 +13,7 @@ use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\FinalSettlement;
 use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
+use App\Observers\ReportingLineObserver;
 use App\Observers\UserSyncEpochObserver;
 use App\Services\Access\DepartmentDefaultRoles;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -43,7 +44,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @method bool hasAllRoles(array $roles)
  * @method bool hasPermissionTo(string $permission, string $guardName = null)
  */
-#[ObservedBy([UserSyncEpochObserver::class])]
+#[ObservedBy([UserSyncEpochObserver::class, ReportingLineObserver::class])]
 class User extends Authenticatable implements HasMedia
 {
     use HasApiTokens, HasFactory, HasPushSubscriptions, HasRoles, InteractsWithMedia, Notifiable, SoftDeletes, TwoFactorAuthenticatable;

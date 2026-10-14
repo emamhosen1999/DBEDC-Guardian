@@ -33,7 +33,7 @@ class DailyWorkSummaryController extends Controller
         // Employee logic based on jurisdiction incharge
         if (! $isAdmin && in_array('Employee', $userRoles)) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
@@ -91,7 +91,7 @@ class DailyWorkSummaryController extends Controller
 
         return Inertia::render('Project/DailyWorksUnified', [
             'summary' => $summaries,
-            'jurisdictions' => Jurisdiction::all(),
+            'jurisdictions' => Jurisdiction::sections()->get(),
             'inCharges' => $inCharges,
             'overallStartDate' => $overallStartDate,
             'overallEndDate' => $overallEndDate,
@@ -112,7 +112,7 @@ class DailyWorkSummaryController extends Controller
             // Employee logic based on jurisdiction incharge
             if (! $isAdmin && in_array('Employee', $userRoles)) {
                 // Check if user is incharge of any jurisdiction
-                $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+                $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
                 if ($hasJurisdiction) {
                     // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
@@ -182,7 +182,7 @@ class DailyWorkSummaryController extends Controller
         // Employee logic based on jurisdiction incharge
         if (! $isAdmin && in_array('Employee', $userRoles)) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
@@ -544,7 +544,7 @@ class DailyWorkSummaryController extends Controller
             // Employee logic based on jurisdiction incharge
             if (! $isAdmin && in_array('Employee', $userRoles)) {
                 // Check if user is incharge of any jurisdiction
-                $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+                $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
                 if ($hasJurisdiction) {
                     // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
@@ -734,7 +734,7 @@ class DailyWorkSummaryController extends Controller
             // Query remains unfiltered to get all daily works
         } elseif (in_array('Employee', $userRoles)) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge

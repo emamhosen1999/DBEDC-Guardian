@@ -166,6 +166,9 @@ const Scene = memo(function Scene({ districts, context, layers, alignment, toWor
                 return (
                     <g key={f.id} data-tone={f.tone} style={{ '--cy-map-c': groupColor(l.group) }}>
                         <path className="cy-map__band" d={d} data-selected={selectedId === f.id} />
+                        {f.label && Number.isFinite(f.lat) && (
+                            <text className="cy-map__label cy-map__label--band" transform={`translate(${toWorld(f.lat, f.lng).x} ${toWorld(f.lat, f.lng).y}) scale(${inv})`} dy="-12" textAnchor="middle" aria-hidden="true">{f.label}</text>
+                        )}
                         <path
                             className="cy-map__hit" d={d} role="button" tabIndex={-1} aria-label={`${f.title}, ${l.label}`}
                             onClick={pick(f, l)} onPointerMove={(e) => onTip(e, f, l)} onPointerLeave={() => onTip(null)}
@@ -201,7 +204,7 @@ const Scene = memo(function Scene({ districts, context, layers, alignment, toWor
 
             {layers.map((l) => {
                 const pointFeatures = l.features.filter((f) => (f.shape === 'point' || f.shape === 'circle') && Number.isFinite(f.lat));
-                const isPeople = l.key === PEOPLE;
+                const isPeople = l.key === PEOPLE || l.people === true;
                 const groups = NEVER_CLUSTER.has(l.key)
                     ? pointFeatures.map((f) => ({ key: f.id, single: { f, p: toWorld(f.lat, f.lng) } }))
                     : clusterLayer(pointFeatures, toWorld, z);

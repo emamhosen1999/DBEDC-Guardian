@@ -2,13 +2,13 @@
 
 namespace App\Services\Map\Layers;
 
-use App\Models\Jurisdiction;
 use App\Models\User;
+use App\Services\Corridor\ChainageResolver;
 use App\Services\Corridor\CorridorGeometry;
+use App\Services\Jurisdiction\JurisdictionTeamService;
 use App\Services\Map\LayerResult;
 use App\Services\Map\MapFilter;
 use App\Services\Map\MapLayer;
-use App\Support\Corridor\Chainage;
 
 /** Project phases (jurisdictions) as chainage bands with their in-charge. Governed by jurisdiction.view. */
 final class JurisdictionsLayer extends MapLayer
@@ -40,7 +40,7 @@ final class JurisdictionsLayer extends MapLayer
 
     public function tables(): array
     {
-        return ['jurisdictions'];
+        return ['jurisdictions', 'jurisdiction_versions', 'jurisdiction_members'];
     }
 
     public function fields(): array
@@ -65,17 +65,22 @@ final class JurisdictionsLayer extends MapLayer
 
     protected function collect(User $viewer, MapFilter $filter, CorridorGeometry $geometry, LayerResult $out): void
     {
-        $rows = Jurisdiction::query()->orderBy('start_chainage')->get();
-        $names = User::query()->whereIn('employee_id', $rows->pluck('incharge')->filter()->all())->pluck('name', 'employee_id');
-        foreach ($rows as $j) {
-            $from = Chainage::parse($j->start_chainage);
-            $to = Chainage::parse($j->end_chainage);
-            if ($filter->search !== null && ! str_contains(mb_strtolower((string) $j->location), mb_strtolower($filter->search))) {
+        // Today's boundaries (jurisdiction_versions) and today's in-charge (jurisdiction_members), as plain numbers.
+        $resolver = app(ChainageResolver::class);
+        $team = app(JurisdictionTeamService::class);
+        $bands = $resolver->bands()->values();
+        $incharge = [];
+        foreach ($bands as $band) {
+            $incharge[$band['jurisdiction_id']] = $team->inChargeAsOf($band['jurisdiction_id']);
+        }
+        $names = User::query()->whereIn('employee_id', array_filter($incharge))->pluck('name', 'employee_id');
+        foreach ($bands as $band) {
+            if ($filter->search !== null && ! str_contains(mb_strtolower($band['name'].' '.($band['code'] ?? '')), mb_strtolower($filter->search))) {
                 continue;
             }
-            $this->placeSpan($out, $geometry, $from === null || $to === null ? null : ['from' => $from, 'to' => $to], $j->id, (string) $j->location, [
-                'incharge' => $names[(string) $j->incharge] ?? null,
-                'length' => $from !== null && $to !== null ? number_format(($to - $from + 1) / 1000, 1).' km' : null,
+            $this->placeSpan($out, $geometry, ['from' => $band['start_m'], 'to' => $band['end_m']], $band['jurisdiction_id'], trim(($band['code'] ? $band['code'].' ' : '').$band['name']), [
+                'incharge' => $names[(string) ($incharge[$band['jurisdiction_id']] ?? '')] ?? null,
+                'length' => number_format(($band['end_m'] - $band['start_m'] + 1) / 1000, 1).' km',
             ], 'info');
         }
     }

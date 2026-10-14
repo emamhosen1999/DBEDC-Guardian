@@ -39,14 +39,16 @@ class DailyWorkCrudService
             }
 
             // Find jurisdiction for the location
-            $jurisdiction = $this->findJurisdictionForLocation($validatedData['location']);
+            $workDate = isset($validatedData['date']) ? substr((string) $validatedData['date'], 0, 10) : null;
+            $jurisdiction = $this->findJurisdictionForLocation($validatedData['location'], $workDate);
             if (! $jurisdiction) {
                 throw ValidationException::withMessages([
                     'location' => 'No jurisdiction found for the specified location.',
                 ]);
             }
 
-            $inCharge = $jurisdiction->incharge;
+            // The in-charge on the work's own date (the team is effective-dated).
+            $inCharge = $this->inChargeFor($jurisdiction, $workDate);
 
             // Create new daily work
             $dailyWork = new DailyWork($validatedData);
@@ -87,13 +89,14 @@ class DailyWorkCrudService
 
             // Find jurisdiction for the location if location changed
             if ($dailyWork->location !== $validatedData['location']) {
-                $jurisdiction = $this->findJurisdictionForLocation($validatedData['location']);
+                $workDate = isset($validatedData['date']) ? substr((string) $validatedData['date'], 0, 10) : substr((string) $dailyWork->date, 0, 10);
+                $jurisdiction = $this->findJurisdictionForLocation($validatedData['location'], $workDate);
                 if (! $jurisdiction) {
                     throw ValidationException::withMessages([
                         'location' => 'No jurisdiction found for the specified location.',
                     ]);
                 }
-                $validatedData['incharge'] = $jurisdiction->incharge;
+                $validatedData['incharge'] = $this->inChargeFor($jurisdiction, $workDate);
             }
 
             // Capture the pre-update status so we only announce a REAL transition.

@@ -41,7 +41,7 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
@@ -96,7 +96,7 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update works where they are incharge
@@ -138,7 +138,7 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can delete works where they are incharge
@@ -196,7 +196,7 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update status of works where they are incharge
@@ -254,7 +254,7 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update inspection details of works where they are incharge
@@ -309,7 +309,7 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can assign users to works where they are incharge

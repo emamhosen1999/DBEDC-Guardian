@@ -67,7 +67,7 @@ class ExportDailyWorkSummary implements ShouldQueue
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
 
             if (! $isAdmin && in_array('Employee', $userRoles)) {
-                $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+                $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
                 if ($hasJurisdiction) {
                     $query->where('incharge', $user->id);
                 } else {

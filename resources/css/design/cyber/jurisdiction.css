@@ -1,0 +1,133 @@
+/* ==========================================================================
+   Jurisdictions tab, team tree, history timeline and the printable map / handover report.
+   Everything on screen is built from the Cyber component library (Card, Badge, Tabs, Form, Dialog, Tree, Timeline);
+   this file only places them and holds the jurisdiction-specific bits: band colours, the print sheet.
+   ========================================================================== */
+
+/* Band colours: the Okabe-Ito colour-blind-safe palette the corridor map already uses (map.css --cy-map-g-*). */
+:root {
+  --jr-c-blue: #0072b2;
+  --jr-c-orange: #e69f00;
+  --jr-c-green: #009e73;
+  --jr-c-vermillion: #d55e00;
+  --jr-c-sky: #56b4e9;
+  --jr-c-purple: #cc79a7;
+  --jr-c-yellow: #f0e442;
+}
+html[data-design="cyber"] .jr-swatch { display: inline-block; width: 0.625rem; height: 0.625rem; margin-inline-end: 0.4375rem; background: var(--jr-c, var(--cy-map-g-other)); flex: none; }
+
+/* Page */
+.jr-tab { display: flex; flex-direction: column; min-width: 0; }
+.jr-tab .dl-page-head { border-bottom: 1px solid var(--cy-border); }
+.jr-toolbar-note { color: var(--cy-text-faint); font-size: 0.6875rem; }
+.jr-asof-banner { display: flex; align-items: center; gap: 0.4375rem; padding: 0.4375rem 0.875rem; border-bottom: 1px solid var(--cy-border); }
+.jr-map .cy-map-stage { height: 24rem; }
+.jr-map .cy-map__label--band { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+.jr-coverage { position: relative; display: flex; height: 0.75rem; margin: 0.4375rem 0.875rem; border: 1px solid var(--cy-border); }
+.jr-coverage > span { display: block; height: 100%; background: var(--jr-c, var(--cy-map-g-other)); }
+.jr-coverage > span[data-gap='true'] { background: repeating-linear-gradient(45deg, transparent 0 4px, var(--cy-border) 4px 5px); }
+.jr-coverage > span[data-overlap='true'] { background: var(--cy-tone-crit); }
+
+/* List + detail */
+.jr-list { list-style: none; margin: 0; padding: 0; }
+.jr-list__row { display: flex; align-items: center; gap: 0.4375rem; width: 100%; padding: 0.4375rem 0.875rem; border: 0; border-bottom: 1px solid var(--cy-border-translucent, var(--cy-border)); background: transparent; color: var(--cy-fg); text-align: start; cursor: pointer; }
+.jr-list__row:hover { background: rgba(var(--cy-fg-rgb), 0.05); }
+.jr-list__row[aria-current='true'] { background: rgba(var(--cy-fg-rgb), 0.1); }
+.jr-list__row:focus-visible { outline: 1px solid var(--focus-8); outline-offset: -1px; }
+.jr-list__main { flex: 1; min-width: 0; display: grid; }
+.jr-list__main strong, .jr-list__main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jr-list__main small { color: var(--cy-text-faint); font-size: 0.6875rem; }
+.jr-person { display: flex; align-items: center; gap: 0.4375rem; min-width: 0; }
+.jr-person__text { display: grid; min-width: 0; }
+.jr-person__text small { color: var(--cy-text-faint); font-size: 0.6875rem; }
+.jr-person__works { margin-inline-start: auto; flex: none; }
+.jr-detail__section { padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--cy-border); }
+.jr-detail__section:last-child { border-bottom-width: 0; }
+.jr-detail__title { margin: 0 0 0.4375rem; font-size: 0.5625rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cy-text-faint); }
+.jr-detail__actions { display: flex; flex-wrap: wrap; gap: 0.4375rem; }
+.jr-upcoming { display: flex; flex-wrap: wrap; gap: 0.4375rem; }
+.jr-kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.1875rem 0.875rem; margin: 0; }
+.jr-kv dt { color: var(--cy-text-faint); }
+.jr-kv dd { margin: 0; }
+.jr-empty { padding: 1.3125rem 0.875rem; color: var(--cy-text-faint); text-align: center; }
+.jr-pick { display: grid; gap: 0.4375rem; }
+.jr-suggest { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.jr-suggest li { display: flex; align-items: center; gap: 0.4375rem; }
+.jr-preview { max-height: 14rem; overflow: auto; border: 1px solid var(--cy-border); }
+
+/* ==========================================================================
+   Print sheet: a fixed LIGHT palette whatever the screen theme, vector SVG, A3 landscape by default, A4 on request.
+   ========================================================================== */
+.jmp-body { margin: 0; background: #e8ecef; color: #0b1a22; }
+.jmp-controls { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #0a151a; color: #fff; }
+.jmp-controls label { display: inline-flex; align-items: center; gap: 0.375rem; font: 12px/1.4 Inter, system-ui, sans-serif; }
+.jmp-controls select, .jmp-controls input { font: 12px Inter, system-ui, sans-serif; padding: 0.25rem 0.375rem; }
+.jmp-controls .jmp-spacer { flex: 1; }
+.jmp-controls button { font: 600 12px Inter, system-ui, sans-serif; padding: 0.375rem 0.875rem; background: #fff; color: #0a151a; border: 1px solid #fff; cursor: pointer; }
+.jmp-controls a { color: #fff; font: 12px Inter, system-ui, sans-serif; }
+.jmp-stack { display: grid; justify-content: center; gap: 1rem; padding: 1rem; }
+
+.jmp-sheet {
+  --jp-ink: #0b1a22; --jp-mute: #4a5a63; --jp-line: #9aa7ae; --jp-paper: #ffffff; --jp-road: #0b1a22; --jp-grid: #d5dce0;
+  position: relative; box-sizing: border-box; background: var(--jp-paper); color: var(--jp-ink);
+  font: 9px/1.35 Inter, "Helvetica Neue", Arial, sans-serif; font-variant-numeric: tabular-nums;
+  display: flex; flex-direction: column; padding: 8mm; overflow: hidden; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+.jmp-sheet[data-paper='A3'] { width: 420mm; height: 297mm; }
+.jmp-sheet[data-paper='A4'] { width: 297mm; height: 210mm; padding: 6mm; font-size: 7px; }
+.jmp-sheet--portrait { width: 210mm !important; height: 297mm !important; font-size: 9px !important; padding: 10mm !important; }
+.jmp-head { display: grid; grid-template-columns: 1fr auto; gap: 6mm; border-bottom: 1.5px solid var(--jp-ink); padding-bottom: 2mm; }
+.jmp-head h1 { margin: 0; font-size: 2.1em; letter-spacing: 0.04em; text-transform: uppercase; }
+.jmp-head h1 span { font-weight: 300; }
+.jmp-head p { margin: 0.5mm 0 0; color: var(--jp-mute); }
+.jmp-title-block { display: grid; grid-template-columns: repeat(2, auto); gap: 0 5mm; border: 1px solid var(--jp-ink); padding: 1.5mm 3mm; font-size: 0.95em; }
+.jmp-title-block dt { color: var(--jp-mute); text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.06em; }
+.jmp-title-block dd { margin: 0 0 0.6mm; font-weight: 600; }
+.jmp-frame { position: relative; flex: 1; min-height: 0; border: 1px solid var(--jp-ink); margin-top: 3mm; display: flex; }
+.jmp-map { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+.jmp-map > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.jmp-ruler { display: block; flex: none; width: 100%; height: 15mm; border-top: 1px solid #0b1a22; }
+.jmp-row { display: flex; flex: 1; min-height: 0; }
+.jmp-frame text { font-family: Inter, "Helvetica Neue", Arial, sans-serif; fill: var(--jp-ink); }
+.jmp-legend { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 1mm 5mm; padding: 1.5mm 3mm; border-top: 1px solid var(--jp-ink); background: #fff; font-size: 0.95em; }
+.jmp-legend h2 { margin: 0; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.08em; color: var(--jp-mute); }
+.jmp-legend svg { width: 14mm; height: 3.5mm; }
+.jmp-legend div { display: flex; align-items: center; gap: 2mm; }
+.jmp-foot { display: flex; justify-content: space-between; gap: 6mm; margin-top: 2mm; padding-top: 1.5mm; border-top: 1px solid var(--jp-line); color: var(--jp-mute); font-size: 0.9em; }
+.jmp-panels { display: grid; grid-template-columns: repeat(var(--jmp-cols, 3), 1fr); gap: 3mm; margin-top: 3mm; }
+.jmp-panel { border: 1px solid var(--jp-ink); padding: 2mm 3mm; break-inside: avoid; }
+.jmp-panel h3 { margin: 0 0 1mm; font-size: 1.2em; display: flex; align-items: baseline; gap: 2mm; }
+.jmp-panel h3 span { font-weight: 400; color: var(--jp-mute); }
+.jmp-panel dl { display: grid; grid-template-columns: auto 1fr; gap: 0 3mm; margin: 0 0 1.5mm; }
+.jmp-panel dt { color: var(--jp-mute); }
+.jmp-panel dd { margin: 0; }
+.jmp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1mm; margin: 1.5mm 0; }
+.jmp-kpis div { border: 1px solid var(--jp-line); padding: 0.8mm 1.5mm; }
+.jmp-kpis strong { display: block; font-size: 1.3em; }
+.jmp-kpis small { color: var(--jp-mute); text-transform: uppercase; font-size: 0.75em; }
+.jmp-tree, .jmp-tree ul { list-style: none; margin: 0; padding: 0 0 0 3.2mm; }
+.jmp-tree { padding-left: 0; }
+.jmp-tree li { margin: 0.6mm 0; position: relative; }
+.jmp-tree li > div { display: flex; align-items: center; gap: 1.5mm; }
+.jmp-tree li > div > b { margin-left: auto; font-weight: 600; }
+.jmp-tree ul { border-left: 1px solid var(--jp-line); margin-left: 1.6mm; }
+.jmp-avatar { width: 4.2mm; height: 4.2mm; border-radius: 50%; border: 0.4mm solid var(--jp-ink); object-fit: cover; flex: none; background: #dfe5e8; display: inline-grid; place-items: center; font-size: 0.7em; font-weight: 700; overflow: hidden; }
+.jmp-table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
+.jmp-table th, .jmp-table td { border: 1px solid var(--jp-line); padding: 0.8mm 1.5mm; text-align: left; vertical-align: top; }
+.jmp-table th { background: #eef1f3; text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.05em; }
+.jmp-sign { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12mm; margin-top: 14mm; }
+.jmp-sign div { border-top: 1px solid var(--jp-ink); padding-top: 1.5mm; }
+
+@page { margin: 0; }
+@media print {
+  html, body, .jmp-body { background: #ffffff !important; }
+  .jmp-controls, .no-print { display: none !important; }
+  .jmp-stack { display: block; padding: 0; gap: 0; }
+  .jmp-sheet { box-shadow: none; break-after: page; page-break-after: always; margin: 0; }
+  .jmp-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .jmp-sheet, .jmp-sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (max-width: 800px) { .jmp-stack { justify-content: start; overflow-x: auto; } }
+
+/* Band colours of the non-section kinds (neutral, so a facility or an area never competes with a section). */
+:root { --jr-c-facility: #8a9aa3; --jr-c-area: #b3a58a; }

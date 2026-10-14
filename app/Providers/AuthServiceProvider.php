@@ -10,6 +10,7 @@ use App\Models\HRM\Asset;
 use App\Models\HRM\HrDocument;
 use App\Models\HRM\Offboarding;
 use App\Models\HRM\Onboarding;
+use App\Models\Jurisdiction;
 use App\Models\SafetyIncident;
 use App\Models\SafetyInspection;
 use App\Models\SafetyTraining;
@@ -21,6 +22,7 @@ use App\Policies\CompetencyPolicy;
 use App\Policies\DailyWorkPolicy;
 use App\Policies\DocumentCategoryPolicy;
 use App\Policies\HrDocumentPolicy;
+use App\Policies\JurisdictionPolicy;
 use App\Policies\OffboardingPolicy;
 use App\Policies\OnboardingPolicy;
 use App\Policies\SafetyIncidentPolicy;
@@ -42,6 +44,7 @@ class AuthServiceProvider extends ServiceProvider
         User::class => UserPolicy::class,
         Asset::class => AssetPolicy::class,
         DailyWork::class => DailyWorkPolicy::class,
+        Jurisdiction::class => JurisdictionPolicy::class,
         Onboarding::class => OnboardingPolicy::class,
         Offboarding::class => OffboardingPolicy::class,
         HrDocument::class => HrDocumentPolicy::class,

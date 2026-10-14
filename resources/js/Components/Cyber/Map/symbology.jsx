@@ -21,7 +21,8 @@ export const GROUP_VAR = {
     safety: 'var(--cy-map-g-safety)',
 };
 
-export const groupColor = (group) => GROUP_VAR[group] ?? 'var(--cy-map-g-other)';
+/** `jr-<token>` groups are jurisdiction bands: each takes its own Okabe-Ito colour (--jr-c-*, jurisdiction.css). */
+export const groupColor = (group) => GROUP_VAR[group] ?? (typeof group === 'string' && group.startsWith('jr-') ? `var(--jr-c-${group.slice(3)})` : 'var(--cy-map-g-other)');
 
 export const glyphOf = (name) => BI[name] ?? BI['geo-alt'];
 

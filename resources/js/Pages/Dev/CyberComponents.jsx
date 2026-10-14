@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/react';
 
 import App from '@/Layouts/App.jsx';
 import { Accordion, Alert, Badge, Button, Card, Checkbox, FormField, Icon, Input, Pagination, Progress, StatTile, Switch, Tabs, Textarea } from '@/Components/Cyber';
+import { Timeline, Tree } from '@/Components/Cyber';
 
 /**
  * Local-only component gallery for the Cyber conformance check (scripts/design/review/component-conformance.cjs):
@@ -87,6 +88,19 @@ export default function CyberComponents() {
                         </Card>
                     </div>
                 </div>
+                <div className="dl-row">
+                    <div className="dl-col dl-col--6">
+                        <Card id="dev:tree" title="Tree" flush>
+                            <div className="jr-detail__section">
+                                <Tree data-conf="tree" label="Gallery tree" selectedId="a" items={[{ id: 'a', label: 'services', icon: 'layers', children: [{ id: 'b', label: 'app_development', icon: 'layers', children: [{ id: 'c', label: 'index.html', icon: 'file-earmark-pdf' }] }] }, { id: 'd', label: 'readme.txt', icon: 'file-earmark-pdf' }]} />
+                            </div>
+                        </Card>
+                    </div>
+                    <div className="dl-col dl-col--6">
+                        <Card id="dev:timeline" title="Timeline" flush>
+                            <Timeline data-conf="timeline" label="Gallery timeline" events={[{ id: 'e1', date: '2026-01-02', title: 'Event title', detail: 'Event detail', tone: 'theme' }, { id: 'e2', date: null, title: 'Earlier event', tone: 'secondary' }]} />
+                        </Card>
+                    </div>
                 </div>
             </div>
         </>

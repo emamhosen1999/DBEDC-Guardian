@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasChainageMetres;
 use App\Observers\DailyWorkRealtimeObserver;
 use App\Observers\DailyWorkSyncVisibilityObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -16,7 +17,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 #[ObservedBy([DailyWorkSyncVisibilityObserver::class, DailyWorkRealtimeObserver::class])]
 class DailyWork extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia, SoftDeletes;
+    use HasChainageMetres, HasFactory, InteractsWithMedia, SoftDeletes;
 
     protected $attributes = [
         'lock_version' => 0,

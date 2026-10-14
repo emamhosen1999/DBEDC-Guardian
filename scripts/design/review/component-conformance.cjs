@@ -43,6 +43,9 @@ const PAIRS = [
     ['modal: content', 'ui_modal_notification.html', '.modal-content', '[data-conf="modal"]', NO_HEIGHT],
     ['modal: header', 'ui_modal_notification.html', '.modal-header', '[data-conf="modal"] .cy-modal__head'],
     ['card: header', 'index.html', '.card-header', '#dev\\:buttons .dl-card__header, [id="dev:buttons"] .dl-card__header, .dl-card__header'],
+    ['tree: link', 'page_file_manager.html', '.file-tree .file-node .file-link', '[data-conf="tree"] .file-link'],
+    ['tree: node', 'page_file_manager.html', '.file-tree .file-node', '[data-conf="tree"] .file-node', ['padding-left']],
+    ['timeline: item', 'widgets.html', '.list-group-item', '[data-conf="timeline"] .cy-timeline__item', ['font-family', 'font-size', 'font-weight', 'line-height', 'color', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left']],
 ];
 
 const PROPS = ['font-family', 'font-size', 'font-weight', 'letter-spacing', 'line-height', 'text-transform', 'color', 'background-color',

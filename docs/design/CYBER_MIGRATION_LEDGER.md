@@ -275,6 +275,7 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Profile/Partials/UpdateProfileInformationForm.jsx` | 3 | todo | — |  |
 | `Pages/Profile/UserProfile.jsx` | 3 | todo | — |  |
 | `Pages/Project/DailyWorksUnified.jsx` | 4 | todo | — |  |
+| `Pages/Project/Jurisdictions/JurisdictionsManager.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/components/ObjectionAccordionItem.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/components/ObjectionsFiltersBar.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/components/ObjectionsStatsSection.jsx` | 4 | todo | — |  |
@@ -497,3 +498,7 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Components/UpdatesCards.jsx` | 5 | todo | — |  |
 | `Components/UserDevicesModalRadix.jsx` | 3 | todo | — |  |
 | `Components/UserLocationsCard.jsx` | 2 | todo | — |  |
+| `Pages/Project/Jurisdictions/JurisdictionsManager.jsx` (rebuilt, Jurisdictions batch 2026-10-14) | 4 | done | see manifest P:Jurisdictions | Cyber tab: page header + chips, toolbar, map card, list + detail with team tree and history, coverage, retired list. Built only from the Cyber library (Card, Badge, Tabs, Form, Dialog, Tree, Timeline). |
+| `Pages/Project/Jurisdictions/JurisdictionMapPrint.jsx`, `PrintMapSvg.jsx`, `HandoverReportPrint.jsx` | 4 | done | see manifest P:Jurisdictions-Print | Bare print views: A3/A4 landscape vector map, fixed light print palette with greyscale patterns, title block, panels flowing to page 2; A4 portrait handover report. |
+| `Components/Cyber/Tree.jsx` | 1 | done | conformance: tree link, tree node | Cyber `.file-tree` as a WAI-ARIA tree (roving tabindex, arrow keys). New library component. |
+| `Components/Cyber/Timeline.jsx` | 1 | done | conformance: timeline item | Cyber `.list-group-item` rows with a dot and line (Cyber has no timeline widget). New library component. |

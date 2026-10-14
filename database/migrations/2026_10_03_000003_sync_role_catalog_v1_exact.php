@@ -122,7 +122,7 @@ return new class extends Migration
             'job-interviews.delete', 'job-interviews.update', 'job-interviews.view', 'job-offers.approve',
             'job-offers.create', 'job-offers.delete', 'job-offers.update', 'job-offers.view', 'jobs.create', 'jobs.delete',
             'jobs.update', 'jobs.view', 'jurisdiction.create', 'jurisdiction.delete', 'jurisdiction.update',
-            'jurisdiction.view', 'leave-settings.update', 'leave-settings.view', 'leave.own.create', 'leave.own.delete',
+            'jurisdiction.view', 'jurisdiction.team.manage', 'jurisdiction.restructure', 'jurisdiction.retire', 'jurisdiction.restore', 'jurisdiction.history.correct', 'leave-settings.update', 'leave-settings.view', 'leave.own.create', 'leave.own.delete',
             'leave.own.update', 'leave.own.view', 'leaves.analytics', 'leaves.approve', 'leaves.create', 'leaves.delete',
             'leaves.manage', 'leaves.update', 'leaves.view', 'letters.create', 'letters.delete', 'letters.update',
             'letters.view', 'performance-analytics.view', 'performance-reviews.approve', 'performance-reviews.create',

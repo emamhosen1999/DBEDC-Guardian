@@ -165,3 +165,8 @@ Schedule::command('aeon:index')
 // Request logs older than the retention window (config request-logs.retention_days, 30) are archived to gzip
 // NDJSON first, then deleted in primary-key chunks so the table is never locked for long.
 Schedule::command('request-logs:prune --archive')->dailyAt('03:30')->withoutOverlapping();
+
+// Jurisdictions are historical: a dated change takes effect by date range, but the current-value mirror older readers use
+// is refreshed daily, and reporting-line changes that bypassed model events are recorded (employee_reporting_lines).
+Schedule::command('jurisdictions:sync-current')->dailyAt('00:10');
+Schedule::command('org:sync-reporting-lines')->dailyAt('00:15');

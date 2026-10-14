@@ -98,7 +98,7 @@ class DailyWorkController extends Controller
 
         return Inertia::render('Project/DailyWorks', [
             'allData' => $allData,
-            'jurisdictions' => Jurisdiction::with('inchargeUser:employee_id,name')->get(),
+            'jurisdictions' => Jurisdiction::sections()->with('inchargeUser:employee_id,name')->get(),
             'users' => $users,
             'title' => 'Daily Works',
             'reports' => $reports,
@@ -159,7 +159,7 @@ class DailyWorkController extends Controller
         $summaryQuery = DailyWork::with(['inchargeUser', 'assignedUser']);
 
         if (! $isAdmin && in_array('Employee', $user->roles->pluck('name')->toArray())) {
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 $summaryQuery->where('incharge', $user->id);
@@ -189,7 +189,7 @@ class DailyWorkController extends Controller
 
         return Inertia::render('Project/DailyWorksUnified', [
             'allData' => $allData,
-            'jurisdictions' => Jurisdiction::with('inchargeUser:employee_id,name')->get(),
+            'jurisdictions' => Jurisdiction::sections()->with('inchargeUser:employee_id,name')->get(),
             'users' => $users,
             'title' => 'Daily Works Unified',
             'reports' => $reports,

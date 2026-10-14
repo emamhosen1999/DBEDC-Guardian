@@ -259,8 +259,8 @@ class DailyWorkImportService
                 $skipped++;
             }
 
-            $jurisdiction = $this->findJurisdictionForLocation($location);
-            $autoInchargeId = $jurisdiction?->incharge;
+            $jurisdiction = $this->findJurisdictionForLocation($location, is_string($date) ? substr($date, 0, 10) : null);
+            $autoInchargeId = $jurisdiction ? $this->inChargeFor($jurisdiction, is_string($date) ? substr($date, 0, 10) : null) : null;
 
             $workEntry = [
                 'rfi_number' => $rfi,
@@ -411,7 +411,7 @@ class DailyWorkImportService
 
         // 2. Fall back to jurisdiction matching
         if (! $inCharge) {
-            $jurisdiction = $this->findJurisdictionForLocation($importedDailyWork[4]);
+            $jurisdiction = $this->findJurisdictionForLocation($importedDailyWork[4], substr($date, 0, 10));
 
             if (! $jurisdiction) {
                 Log::warning('No jurisdiction found for location: '.$importedDailyWork[4]);
@@ -419,7 +419,7 @@ class DailyWorkImportService
                 return ['processed' => false, 'summary' => $inChargeSummary];
             }
 
-            $inCharge = (string) $jurisdiction->incharge;
+            $inCharge = (string) $this->inChargeFor($jurisdiction, substr($date, 0, 10));
         }
 
         // Validate the resolved incharge actually exists

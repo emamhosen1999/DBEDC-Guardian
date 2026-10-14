@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Console\Commands\DeepE2ECrudAudit;
 use App\Contracts\Ai\AiProvider;
 use App\Listeners\RecordAccessAudit;
-use App\Models\Jurisdiction;
 use App\Models\OmAsset;
 use App\Models\OmAssetConditionSurvey;
 use App\Models\OmDefect;
@@ -45,12 +44,12 @@ use App\Services\Aeon\RagService;
 use App\Services\Aeon\Tools\NavigateTool;
 use App\Services\Aeon\Tools\PrepareOperationTool;
 use App\Services\Aeon\Tools\ToolRegistry;
+use App\Services\Corridor\ChainageResolver;
 use App\Services\FeatureFlagService;
 use App\Services\Notification\NotificationChannelResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
@@ -157,82 +156,27 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         Validator::extend('custom_location', function ($attribute, $value, $parameters, $validator) {
-            // Regex for validating chainage format with optional text afterwards
+            // Format gate, unchanged: a chainage such as K05+900, K05+900-K06+400 or K30 (any letters before the K, text after).
             $chainageRegex = '/([A-Z]*K[0-9]+(?:\+[0-9]+(?:\.[0-9]+)?)?)-([A-Z]*K[0-9]+(?:\+[0-9]+(?:\.[0-9]+)?)?)|([A-Z]*K[0-9]+)(.*)/';
 
-            // Check if the location value matches the chainage format
             if (! preg_match($chainageRegex, $value, $matches)) {
                 $validator->errors()->add($attribute, 'DailyWork has an invalid location format: '.$value);
 
                 return false; // Invalid format
-            } else {
-                // Extract start and end chainages, if available
-                $startChainage = $matches[1] === '' ? $matches[0] : $matches[1]; // e.g., K05+900 or K30
-                $endChainage = $matches[2] === '' ? null : $matches[2]; // e.g., K06+400 (optional)
-
-                // Convert chainages to a comparable string format for jurisdiction check
-                $startChainageFormatted = $this->formatChainage($startChainage);
-                $endChainageFormatted = $endChainage ? $this->formatChainage($endChainage) : null;
             }
+            $startChainage = $matches[1] === '' ? $matches[0] : $matches[1]; // e.g., K05+900 or K30
+            $endChainage = $matches[2] === '' ? null : $matches[2]; // e.g., K06+400 (optional)
 
-            // Retrieve all jurisdictions
-            $jurisdictions = Jurisdiction::all();
-
-            // Check for jurisdiction based on the formatted chainages
-            $jurisdictionFound = false;
-            Log::info($matches);
-            Log::info('Chainage: '.$startChainageFormatted.'-'.($endChainageFormatted ?? 'N/A'));
-
-            foreach ($jurisdictions as $jurisdiction) {
-                $formattedStartJurisdiction = $this->formatChainage($jurisdiction->start_chainage);
-                $formattedEndJurisdiction = $this->formatChainage($jurisdiction->end_chainage);
-
-                // Check if the start chainage is within the jurisdiction's range
-                if ($startChainageFormatted >= $formattedStartJurisdiction && $startChainageFormatted <= $formattedEndJurisdiction) {
-                    Log::info('Jurisdiction: '.$formattedStartJurisdiction.'-'.$formattedEndJurisdiction);
-                    $jurisdictionFound = true;
-                    break; // Stop checking once a match is found
-                }
-
-                // If an end chainage exists, check if it's within the jurisdiction's range
-                if ($endChainageFormatted &&
-                    $endChainageFormatted >= $formattedStartJurisdiction &&
-                    $endChainageFormatted <= $formattedEndJurisdiction) {
-                    Log::info('Jurisdiction: '.$formattedStartJurisdiction.'-'.$formattedEndJurisdiction);
-                    $jurisdictionFound = true;
-                    break; // Stop checking once a match is found
-                }
-            }
-
-            // If no jurisdiction is found, add an error
-            if (! $jurisdictionFound) {
+            // The jurisdiction check is numeric and as of the work's date (ChainageResolver), not a string comparison.
+            $data = $validator->getData();
+            $date = is_string($data['date'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}/', $data['date']) === 1 ? substr($data['date'], 0, 10) : null;
+            if (app(ChainageResolver::class)->forTokens($startChainage, $endChainage, $date) === null) {
                 $validator->errors()->add($attribute, 'The location must have a valid jurisdiction for the specified chainage: '.$value);
 
                 return false; // Invalid jurisdiction
             }
 
-            return true; // Return true if valid and jurisdiction exists
+            return true;
         });
-    }
-
-    private function formatChainage($chainage)
-    {
-        // Check if the chainage includes a range or just a single chainage
-        if (preg_match('/([A-Z]*K)([0-9]+)(?:\+([0-9]+(?:\.[0-9]+)?))?/', $chainage, $matches)) {
-            $kilometers = $matches[2]; // e.g., '14' from 'K14'
-            $meters = $matches[3] ?? '000'; // Default to '0' if no meters are provided
-
-            // Return a numeric format: kilometers and meters (with decimal if present)
-            return $kilometers.$meters; // Remove decimal for sorting
-        }
-
-        // If the chainage is just a single K and number (e.g., 'K30'), format accordingly
-        if (preg_match('/([A-Z]*K)([0-9]+)/', $chainage, $matches)) {
-            $kilometers = $matches[2]; // e.g., '30'
-
-            return $kilometers.'000'; // Assume no meters are present
-        }
-
-        return $chainage; // Return the chainage unchanged if it doesn't match the expected format
     }
 }
