@@ -105,8 +105,10 @@ PROMPT,
                 'gemini-1.5-flash',
                 'gemini-1.5-pro',
             ],
-            'embed_model' => env('GEMINI_EMBED_MODEL', 'text-embedding-004'),
-            'embed_dims' => 768,
+            // text-embedding-004 was retired (404 since early 2026); gemini-embedding-001 is its successor.
+            'embed_model' => env('GEMINI_EMBED_MODEL', 'gemini-embedding-001'),
+            // Requested vector size (768, 1536 or 3072). Changing it or the model needs `aeon:index --fresh`.
+            'embed_dims' => (int) env('GEMINI_EMBED_DIMS', 768),
             'endpoint' => env('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta'),
             'temperature' => 0.3,
             'max_tokens' => 4096,

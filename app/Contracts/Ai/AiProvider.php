@@ -26,6 +26,7 @@ interface AiProvider
 
     /**
      * Generate vector embeddings for text chunks.
+     * Options: `task` => 'document' | 'query' (retrieval task type, for providers that support one).
      *
      * @param  array<int, string>  $texts
      * @param  array<string, mixed>  $options

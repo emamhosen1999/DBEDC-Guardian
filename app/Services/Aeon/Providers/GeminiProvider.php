@@ -127,7 +127,7 @@ class GeminiProvider implements AiProvider
                 for ($i = 0; $i <= $attempts; $i++) {
                     $res = Http::withHeaders(['x-goog-api-key' => $this->key])
                         ->timeout($this->timeout)
-                        ->post("{$this->endpoint}/models/{$model}:generateContent?key={$this->key}", $payload);
+                        ->post("{$this->endpoint}/models/{$model}:generateContent", $payload);
 
                     if (! in_array($res->status(), [429, 503], true)) {
                         break;
@@ -186,30 +186,46 @@ class GeminiProvider implements AiProvider
         return AiChatResult::failed('Gemini is currently unavailable (Status: '.($lastStatus ?? 'Offline').')', $this->model);
     }
 
+    /**
+     * Options: `task` is 'document' (text being indexed) or 'query' (text being searched for), sent as Gemini's
+     * retrieval task type so query and document vectors are optimised for each other.
+     */
     public function embed(array $texts, array $options = []): array
     {
         if (empty($this->key) || empty($texts)) {
             return array_fill(0, count($texts), []);
         }
 
-        $cfg = config('aeon.providers.gemini');
-        $embedModel = (string) ($cfg['embed_model'] ?? 'text-embedding-004');
+        $cfg = (array) config('aeon.providers.gemini', []);
+        $embedModel = (string) ($cfg['embed_model'] ?? 'gemini-embedding-001');
+        $dims = (int) ($cfg['embed_dims'] ?? 0);
+        $task = match ($options['task'] ?? null) {
+            'document' => 'RETRIEVAL_DOCUMENT',
+            'query' => 'RETRIEVAL_QUERY',
+            default => null,
+        };
         $out = [];
 
         foreach ($texts as $text) {
             try {
                 $res = Http::withHeaders(['x-goog-api-key' => $this->key])
                     ->timeout($this->timeout)
-                    ->post("{$this->endpoint}/models/{$embedModel}:embedContent?key={$this->key}", [
-                        'content' => [
-                            'parts' => [
-                                ['text' => (string) $text],
-                            ],
-                        ],
-                    ]);
+                    ->post("{$this->endpoint}/models/{$embedModel}:embedContent", array_filter([
+                        'content' => ['parts' => [['text' => (string) $text]]],
+                        'taskType' => $task,
+                        'outputDimensionality' => $dims > 0 ? $dims : null,
+                    ]));
 
-                $values = (array) data_get($res->json(), 'embedding.values', []);
-                $out[] = $values;
+                if ($res->failed()) {
+                    // A retired model answers 404 here; say so instead of handing back an empty vector silently.
+                    Log::warning('Aeon Gemini embed call failed', [
+                        'model' => $embedModel,
+                        'status' => $res->status(),
+                        'error' => mb_substr((string) data_get($res->json(), 'error.message', ''), 0, 300),
+                    ]);
+                }
+
+                $out[] = (array) data_get($res->json(), 'embedding.values', []);
             } catch (\Throwable $e) {
                 Log::error('Aeon Gemini embed failed', ['error' => $e->getMessage()]);
                 $out[] = [];
@@ -228,7 +244,7 @@ class GeminiProvider implements AiProvider
         try {
             return Http::withHeaders(['x-goog-api-key' => $this->key])
                 ->timeout(5)
-                ->get("{$this->endpoint}/models?key={$this->key}")
+                ->get("{$this->endpoint}/models")
                 ->successful();
         } catch (\Throwable) {
             return false;

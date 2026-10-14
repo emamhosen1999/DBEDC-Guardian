@@ -33,7 +33,7 @@ class RagService
         }
 
         try {
-            $embeddings = $this->provider->embed([$query]);
+            $embeddings = $this->provider->embed([$query], ['task' => 'query']);
             $queryVector = $embeddings[0] ?? [];
             if (empty($queryVector)) {
                 return [];
@@ -52,7 +52,8 @@ class RagService
                 }
 
                 $vector = $row->vector;
-                if (! is_array($vector) || empty($vector)) {
+                // A vector from another model or size is not comparable; it waits for the next re-index.
+                if (! is_array($vector) || count($vector) !== count($queryVector)) {
                     continue;
                 }
 

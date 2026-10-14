@@ -45,7 +45,7 @@ class IndexingService
                 continue;
             }
 
-            $vectors = $this->provider->embed([$chunk['text']]);
+            $vectors = $this->provider->embed([$chunk['text']], ['task' => 'document']);
             $vector = $vectors[0] ?? [];
 
             if (empty($vector)) {
