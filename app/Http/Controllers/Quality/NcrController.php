@@ -28,7 +28,8 @@ class NcrController extends Controller
     {
         $rows = QualityNCR::query()
             ->with(['department:id,name', 'assignee:employee_id,name', 'reporter:employee_id,name'])
-            ->orderByRaw("FIELD(status,'action_in_progress','under_review','open','action_assigned','verified','closed')")
+            // Same order as MySQL's FIELD(), written portably (CASE) so the register also runs on SQLite in tests
+            ->orderByRaw("CASE status WHEN 'action_in_progress' THEN 1 WHEN 'under_review' THEN 2 WHEN 'open' THEN 3 WHEN 'action_assigned' THEN 4 WHEN 'verified' THEN 5 WHEN 'closed' THEN 6 ELSE 0 END")
             ->orderByDesc('detected_date')
             ->get()
             ->map(fn (QualityNCR $n) => $this->present($n));
@@ -41,7 +42,9 @@ class NcrController extends Controller
                 'severities' => self::SEVERITIES,
                 'statuses' => self::STATUSES,
                 'departments' => DB::table('departments')->orderBy('name')->get(['id', 'name']),
-                'users' => User::orderBy('name')->limit(200)->get(['id', 'name']),
+                // users are keyed by employee_id (there is no users.id column); the page reads {id, name}
+                'users' => User::orderBy('name')->limit(200)->get(['employee_id', 'name'])
+                    ->map(fn (User $u) => ['id' => $u->employee_id, 'name' => $u->name])->values(),
             ],
             'can' => [
                 'create' => $request->user()->can('quality.ncr.create'),

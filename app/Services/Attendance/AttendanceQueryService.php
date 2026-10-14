@@ -303,7 +303,8 @@ class AttendanceQueryService
         $roster = app(RosterService::class);
         $parsedDate = Carbon::parse($date);
 
-        return collect($attendances)->map(function ($attendance) use ($roster, $parsedDate) {
+        // An attendance whose employee no longer exists (deleted record) is skipped, never allowed to fail the list.
+        return collect($attendances)->filter(fn ($attendance) => $attendance->user !== null)->map(function ($attendance) use ($roster, $parsedDate) {
             $shift = $roster->resolveShift($attendance->user_id, $parsedDate);
             $start = $shift ? Carbon::parse($shift->start_time) : null;
 
@@ -339,7 +340,7 @@ class AttendanceQueryService
     {
         $attendances = $this->attendanceRepository->getAbsentUsersForDate($date, $filters);
 
-        return $attendances->map(function ($attendance) {
+        return $attendances->filter(fn ($attendance) => $attendance->user !== null)->values()->map(function ($attendance) {
             return [
                 'id' => $attendance->id,
                 'user_id' => $attendance->user_id,

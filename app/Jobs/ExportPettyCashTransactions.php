@@ -48,7 +48,8 @@ class ExportPettyCashTransactions implements ShouldQueue
             $loan = PettyCashLoan::findOrFail($this->loanId);
 
             // Fetch transaction history
-            $transactions = $pettyCashService->getTransactionHistory($loan, 1, 10000); // Higher limit for background task
+            // One page large enough for the whole loan (the second argument is the filters array, not a page number)
+            $transactions = $pettyCashService->getTransactionHistory($loan, ['page' => 1, 'per_page' => 10000]);
 
             $filePath = Storage::disk('public')->path('exports/'.$this->filename);
 

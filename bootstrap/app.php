@@ -28,6 +28,7 @@ use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
+use Psr\Log\LogLevel;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
@@ -103,6 +104,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // and its reasoning.
         //
         $exceptions->stopIgnoring(ValidationException::class);
+        // Reported (the reporter filters 422s itself) but logged as INFO: a wrong password or an out-of-range field
+        // is the client's input, not a server fault, and must not fill laravel.log with ERROR lines.
+        $exceptions->level(ValidationException::class, LogLevel::INFO);
         $exceptions->dontReportDuplicates();
 
         $exceptions->report(function (Throwable $e) {
