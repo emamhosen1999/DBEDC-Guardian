@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, Flex, Box, Select, TextField, Button, Text, IconButton, Separator, Checkbox } from '@radix-ui/themes';
-import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
+import { Alert, Button, Checkbox, DateRange, FormField, Icon, Input, SelectInput } from '@/Components/Cyber';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
-import DateTimePicker from '@/Components/DateTimePicker';
 
 const emptyGraceTier = () => ({ upto_minutes: 15, outcome: 'late' });
 
@@ -174,263 +173,125 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null,
         }
     };
 
+    if (!open) return null;
+
+    const close = () => { setError(''); onOpenChange(false); };
+    /* A numeric field: label above, optional placeholder / step. */
+    const num = (id, label, value, onChange, extra = {}) => (
+        <FormField label={label} htmlFor={id}>
+            <Input id={id} type="number" min="0" value={value} onChange={e => onChange(e.target.value)} {...extra} />
+        </FormField>
+    );
+
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v) setError(''); onOpenChange(v); }}>
-            <Dialog.Content maxWidth="560px">
-                <Dialog.Title>{isEdit ? 'Edit Policy' : 'New Policy'}</Dialog.Title>
-                <Flex direction="column" gap="3">
-                    <Box>
-                        <Text size="1" color="gray" as="div" mb="1">Name *</Text>
-                        <TextField.Root placeholder="Policy name" value={form.name} onChange={e => set('name', e.target.value)} />
-                    </Box>
+        <Dialog title={isEdit ? 'Edit Policy' : 'New Policy'} onClose={close} className="cy-modal cy-modal--wide">
+            <div className="cy-modal__section cy-stack">
+                <FormField label="Name" htmlFor="policy-name" required>
+                    <Input id="policy-name" placeholder="Policy name" value={form.name} onChange={e => set('name', e.target.value)} />
+                </FormField>
 
-                    <Select.Root value={form.scope_type} onValueChange={v => { set('scope_type', v); set('scope_id', ''); }}>
-                        <Select.Trigger placeholder="Scope" />
-                        <Select.Content>
-                            <Select.Item value="org">Whole organization</Select.Item>
-                            <Select.Item value="department">Department</Select.Item>
-                            <Select.Item value="designation">Designation</Select.Item>
-                            <Select.Item value="user">Employee</Select.Item>
-                        </Select.Content>
-                    </Select.Root>
+                <FormField label="Scope" htmlFor="policy-scope">
+                    <SelectInput
+                        id="policy-scope"
+                        value={form.scope_type}
+                        onChange={v => { set('scope_type', v); set('scope_id', ''); }}
+                        options={[{ value: 'org', label: 'Whole organization' }, { value: 'department', label: 'Department' }, { value: 'designation', label: 'Designation' }, { value: 'user', label: 'Employee' }]}
+                    />
+                </FormField>
 
-                    {form.scope_type !== 'org' && (
-                        <Box>
-                            <Text size="1" color="gray" as="div" mb="1">{form.scope_type === 'user' ? 'Employee' : 'Scope target'}</Text>
-                            <Select.Root value={form.scope_id} onValueChange={value => set('scope_id', value)}>
-                                <Select.Trigger placeholder={`Select ${form.scope_type}`} style={{ width: '100%' }} />
-                                <Select.Content>
-                                    {scopeOptions.map(option => (
-                                        <Select.Item key={option.value} value={option.value}>{option.label}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                    )}
-
-                    <Box>
-                        <DateTimePicker
-                            mode="dateRange"
-                            label="Effective from * → Effective to"
-                            value={{ start: form.effective_from, end: form.effective_to }}
-                            onChange={({ start, end }) => { set('effective_from', start); set('effective_to', end); }}
+                {form.scope_type !== 'org' && (
+                    <FormField label={form.scope_type === 'user' ? 'Employee' : 'Scope target'} htmlFor="policy-target">
+                        <SelectInput
+                            id="policy-target"
+                            value={form.scope_id}
+                            onChange={value => set('scope_id', value)}
+                            options={[{ value: '', label: `Select ${form.scope_type}`, disabled: true }, ...scopeOptions]}
                         />
-                    </Box>
+                    </FormField>
+                )}
 
-                    <Flex gap="3" wrap="wrap">
-                        <Box style={{ flex: '1 1 200px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Punch strictness</Text>
-                            <Select.Root value={form.punch_strictness} onValueChange={v => set('punch_strictness', v)}>
-                                <Select.Trigger />
-                                <Select.Content>
-                                    <Select.Item value="warn">Warn</Select.Item>
-                                    <Select.Item value="flag">Flag</Select.Item>
-                                    <Select.Item value="restrict">Restrict</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Box style={{ flex: '1 1 200px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Outside window (minutes)</Text>
-                            <TextField.Root
-                                type="number"
-                                min="0"
-                                max="1440"
-                                value={form.outside_window_minutes}
-                                onChange={e => set('outside_window_minutes', e.target.value)}
-                            />
-                        </Box>
-                    </Flex>
+                <FormField label="Effective from * to Effective to">
+                    <DateRange
+                        startLabel="Effective from"
+                        endLabel="Effective to"
+                        value={{ start: form.effective_from, end: form.effective_to }}
+                        onChange={({ start, end }) => { set('effective_from', start); set('effective_to', end); }}
+                    />
+                </FormField>
 
-                    <Separator size="4" />
+                <div className="cy-formgrid">
+                    <FormField label="Punch strictness" htmlFor="policy-strict">
+                        <SelectInput id="policy-strict" value={form.punch_strictness} onChange={v => set('punch_strictness', v)} options={[{ value: 'warn', label: 'Warn' }, { value: 'flag', label: 'Flag' }, { value: 'restrict', label: 'Restrict' }]} />
+                    </FormField>
+                    {num('policy-outside', 'Outside window (minutes)', form.outside_window_minutes, v => set('outside_window_minutes', v), { max: '1440' })}
+                </div>
+            </div>
 
-                    <Box>
-                        <Flex justify="between" align="center" mb="2">
-                            <Text size="2" weight="medium">Grace tiers (late arrival)</Text>
-                            <Button size="1" variant="soft" onClick={addGraceTier}>
-                                <PlusIcon /> Add tier
-                            </Button>
-                        </Flex>
-                        {graceTiers.length === 0 && (
-                            <Text size="1" color="gray">No grace tiers configured.</Text>
-                        )}
-                        <Flex direction="column" gap="2">
-                            {graceTiers.map((tier, idx) => (
-                                <Flex key={idx} gap="2" align="center">
-                                    <TextField.Root
-                                        size="1"
-                                        type="number"
-                                        min="0"
-                                        value={tier.upto_minutes}
-                                        onChange={e => updateGraceTier(idx, 'upto_minutes', e.target.value)}
-                                        style={{ flex: '1 1 120px' }}
-                                    >
-                                        <TextField.Slot><Text size="1" color="gray">Up to (min)</Text></TextField.Slot>
-                                    </TextField.Root>
-                                    <Select.Root value={tier.outcome} onValueChange={v => updateGraceTier(idx, 'outcome', v)}>
-                                        <Select.Trigger />
-                                        <Select.Content>
-                                            <Select.Item value="present">Present</Select.Item>
-                                            <Select.Item value="late">Late</Select.Item>
-                                            <Select.Item value="half_day">Half day</Select.Item>
-                                        </Select.Content>
-                                    </Select.Root>
-                                    <IconButton size="1" variant="ghost" color="red" onClick={() => removeGraceTier(idx)}>
-                                        <TrashIcon />
-                                    </IconButton>
-                                </Flex>
-                            ))}
-                        </Flex>
-                    </Box>
+            <fieldset className="cy-modal__section cy-stack cy-fieldset">
+                <div className="cy-label cy-label--row">
+                    <legend className="cy-legend">Grace tiers (late arrival)</legend>
+                    <Button size="sm" color="default" variant="outline" onClick={addGraceTier}><Icon name="plus-lg" /> Add tier</Button>
+                </div>
+                {graceTiers.length === 0 && <span className="cy-muted">No grace tiers configured.</span>}
+                {graceTiers.map((tier, idx) => (
+                    <div key={idx} className="cy-tierrow">
+                        <FormField label="Up to (min)" htmlFor={`policy-tier-${idx}`}>
+                            <Input id={`policy-tier-${idx}`} type="number" min="0" value={tier.upto_minutes} onChange={e => updateGraceTier(idx, 'upto_minutes', e.target.value)} />
+                        </FormField>
+                        <FormField label="Outcome" htmlFor={`policy-tier-out-${idx}`}>
+                            <SelectInput id={`policy-tier-out-${idx}`} value={tier.outcome} onChange={v => updateGraceTier(idx, 'outcome', v)} options={[{ value: 'present', label: 'Present' }, { value: 'late', label: 'Late' }, { value: 'half_day', label: 'Half day' }]} />
+                        </FormField>
+                        <button type="button" className="cy-iconbtn cy-iconbtn--danger" onClick={() => removeGraceTier(idx)} aria-label={`Remove grace tier ${idx + 1}`}><Icon name="trash" /></button>
+                    </div>
+                ))}
+            </fieldset>
 
-                    <Separator size="4" />
+            <fieldset className="cy-modal__section cy-stack cy-fieldset">
+                <legend className="cy-legend">Rounding</legend>
+                <div className="cy-formgrid">
+                    <FormField label="Strategy" htmlFor="policy-round">
+                        <SelectInput id="policy-round" value={rounding.strategy} onChange={v => setRounding(r => ({ ...r, strategy: v }))} options={[{ value: 'none', label: 'None' }, { value: 'nearest', label: 'Nearest' }, { value: 'quarter_hour', label: 'Quarter hour' }, { value: 'seven_minute', label: 'Seven minute' }]} />
+                    </FormField>
+                    {rounding.strategy !== 'none' && (
+                        <>
+                            <FormField label="Unit (minutes)" htmlFor="policy-unit">
+                                <Input id="policy-unit" type="number" min="1" value={rounding.unit_minutes} onChange={e => setRounding(r => ({ ...r, unit_minutes: e.target.value }))} />
+                            </FormField>
+                            <FormField label="Direction" htmlFor="policy-dir">
+                                <SelectInput id="policy-dir" value={rounding.direction} onChange={v => setRounding(r => ({ ...r, direction: v }))} options={[{ value: 'nearest', label: 'Nearest' }, { value: 'up', label: 'Up' }, { value: 'down', label: 'Down' }]} />
+                            </FormField>
+                        </>
+                    )}
+                </div>
+            </fieldset>
 
-                    <Box>
-                        <Text size="2" weight="medium" as="div" mb="2">Rounding</Text>
-                        <Flex gap="3" wrap="wrap">
-                            <Box style={{ flex: '1 1 160px' }}>
-                                <Text size="1" color="gray" as="div" mb="1">Strategy</Text>
-                                <Select.Root value={rounding.strategy} onValueChange={v => setRounding(r => ({ ...r, strategy: v }))}>
-                                    <Select.Trigger />
-                                    <Select.Content>
-                                        <Select.Item value="none">None</Select.Item>
-                                        <Select.Item value="nearest">Nearest</Select.Item>
-                                        <Select.Item value="quarter_hour">Quarter hour</Select.Item>
-                                        <Select.Item value="seven_minute">Seven minute</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                            {rounding.strategy !== 'none' && (
-                                <>
-                                    <Box style={{ flex: '1 1 140px' }}>
-                                        <Text size="1" color="gray" as="div" mb="1">Unit (minutes)</Text>
-                                        <TextField.Root
-                                            type="number"
-                                            min="1"
-                                            value={rounding.unit_minutes}
-                                            onChange={e => setRounding(r => ({ ...r, unit_minutes: e.target.value }))}
-                                        />
-                                    </Box>
-                                    <Box style={{ flex: '1 1 140px' }}>
-                                        <Text size="1" color="gray" as="div" mb="1">Direction</Text>
-                                        <Select.Root value={rounding.direction} onValueChange={v => setRounding(r => ({ ...r, direction: v }))}>
-                                            <Select.Trigger />
-                                            <Select.Content>
-                                                <Select.Item value="nearest">Nearest</Select.Item>
-                                                <Select.Item value="up">Up</Select.Item>
-                                                <Select.Item value="down">Down</Select.Item>
-                                            </Select.Content>
-                                        </Select.Root>
-                                    </Box>
-                                </>
-                            )}
-                        </Flex>
-                    </Box>
+            <fieldset className="cy-modal__section cy-stack cy-fieldset">
+                <legend className="cy-legend">Breaks</legend>
+                <div className="cy-formgrid">
+                    {num('policy-meal', 'Unpaid meal (minutes)', breaks.unpaid_meal_minutes, v => setBreak('unpaid_meal_minutes', v), { placeholder: 'e.g. 30' })}
+                    {num('policy-meal-th', 'Meal threshold (minutes)', breaks.meal_threshold_minutes, v => setBreak('meal_threshold_minutes', v), { placeholder: 'e.g. 360' })}
+                </div>
+                <span className="cy-formtext">Leave blank to inherit defaults.</span>
+            </fieldset>
 
-                    <Separator size="4" />
+            <fieldset className="cy-modal__section cy-stack cy-fieldset">
+                <legend className="cy-legend">Overtime</legend>
+                <div className="cy-formgrid">
+                    {num('policy-ot-daily', 'Daily threshold (minutes)', overtime.daily_threshold_minutes, v => setOt('daily_threshold_minutes', v), { placeholder: 'e.g. 480' })}
+                    {num('policy-ot-mult', 'Daily multiplier', overtime.daily_multiplier, v => setOt('daily_multiplier', v), { step: '0.01', placeholder: 'e.g. 1.5' })}
+                    {num('policy-ot-double', 'Double-time threshold (minutes)', overtime.double_time_threshold_minutes, v => setOt('double_time_threshold_minutes', v), { placeholder: 'e.g. 720' })}
+                    {num('policy-ot-double-mult', 'Double-time multiplier', overtime.double_time_multiplier, v => setOt('double_time_multiplier', v), { step: '0.01', placeholder: 'e.g. 2.0' })}
+                </div>
+                <Checkbox checked={overtime.require_preauthorization} onCheckedChange={v => setOt('require_preauthorization', !!v)} label="Require pre-authorization for overtime" />
+                <span className="cy-formtext">Leave blank to inherit defaults.</span>
+            </fieldset>
 
-                    {/* Breaks sub-editor */}
-                    <Box>
-                        <Text size="2" weight="medium" as="div" mb="2">Breaks</Text>
-                        <Flex gap="3" wrap="wrap">
-                            <Box style={{ flex: '1 1 180px' }}>
-                                <Text size="1" color="gray" as="div" mb="1">Unpaid meal (minutes)</Text>
-                                <TextField.Root
-                                    type="number"
-                                    min="0"
-                                    placeholder="e.g. 30"
-                                    value={breaks.unpaid_meal_minutes}
-                                    onChange={e => setBreak('unpaid_meal_minutes', e.target.value)}
-                                />
-                            </Box>
-                            <Box style={{ flex: '1 1 180px' }}>
-                                <Text size="1" color="gray" as="div" mb="1">Meal threshold (minutes)</Text>
-                                <TextField.Root
-                                    type="number"
-                                    min="0"
-                                    placeholder="e.g. 360"
-                                    value={breaks.meal_threshold_minutes}
-                                    onChange={e => setBreak('meal_threshold_minutes', e.target.value)}
-                                />
-                            </Box>
-                        </Flex>
-                        <Text size="1" color="gray" mt="1" as="div">Leave blank to inherit defaults.</Text>
-                    </Box>
+            {error && <div className="cy-modal__section"><Alert tone="danger">{error}</Alert></div>}
 
-                    <Separator size="4" />
-
-                    {/* Overtime sub-editor */}
-                    <Box>
-                        <Text size="2" weight="medium" as="div" mb="2">Overtime</Text>
-                        <Flex direction="column" gap="3">
-                            <Flex gap="3" wrap="wrap">
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="1" color="gray" as="div" mb="1">Daily threshold (minutes)</Text>
-                                    <TextField.Root
-                                        type="number"
-                                        min="0"
-                                        placeholder="e.g. 480"
-                                        value={overtime.daily_threshold_minutes}
-                                        onChange={e => setOt('daily_threshold_minutes', e.target.value)}
-                                    />
-                                </Box>
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="1" color="gray" as="div" mb="1">Daily multiplier</Text>
-                                    <TextField.Root
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder="e.g. 1.5"
-                                        value={overtime.daily_multiplier}
-                                        onChange={e => setOt('daily_multiplier', e.target.value)}
-                                    />
-                                </Box>
-                            </Flex>
-                            <Flex gap="3" wrap="wrap">
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="1" color="gray" as="div" mb="1">Double-time threshold (minutes)</Text>
-                                    <TextField.Root
-                                        type="number"
-                                        min="0"
-                                        placeholder="e.g. 720"
-                                        value={overtime.double_time_threshold_minutes}
-                                        onChange={e => setOt('double_time_threshold_minutes', e.target.value)}
-                                    />
-                                </Box>
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="1" color="gray" as="div" mb="1">Double-time multiplier</Text>
-                                    <TextField.Root
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder="e.g. 2.0"
-                                        value={overtime.double_time_multiplier}
-                                        onChange={e => setOt('double_time_multiplier', e.target.value)}
-                                    />
-                                </Box>
-                            </Flex>
-                            <Flex align="center" gap="2">
-                                <Checkbox
-                                    checked={overtime.require_preauthorization}
-                                    onCheckedChange={v => setOt('require_preauthorization', !!v)}
-                                />
-                                <Text size="2">Require pre-authorization for overtime</Text>
-                            </Flex>
-                        </Flex>
-                        <Text size="1" color="gray" mt="1" as="div">Leave blank to inherit defaults.</Text>
-                    </Box>
-
-                    {error && <Text color="red" size="2">{error}</Text>}
-
-                    <Flex justify="end" gap="2" mt="2">
-                        <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button onClick={save} disabled={saving || !form.name || !form.effective_from || (form.scope_type !== 'org' && !form.scope_id)}>
-                            {saving ? 'Saving…' : 'Save'}
-                        </Button>
-                    </Flex>
-                </Flex>
-            </Dialog.Content>
-        </Dialog.Root>
+            <div className="cy-modal__foot">
+                <Button color="default" variant="outline" size="sm" onClick={close} disabled={saving}>Cancel</Button>
+                <Button size="sm" onClick={save} disabled={saving || !form.name || !form.effective_from || (form.scope_type !== 'org' && !form.scope_id)}>{saving ? 'Saving…' : 'Save'}</Button>
+            </div>
+        </Dialog>
     );
 }

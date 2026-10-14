@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Dialog, Flex, Box, Text, Button, TextField, Select, Table, IconButton } from '@radix-ui/themes';
-import { TrashIcon } from '@radix-ui/react-icons';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
+import { Button, DateInput, FormField, Icon, Input, SelectInput } from '@/Components/Cyber';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
-import DateTimePicker from '@/Components/DateTimePicker';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -47,79 +46,58 @@ export default function CoverageRequirementsDialog({ open, onOpenChange }) {
 
     const canAdd = form.work_location_id && form.shift_id && form.required_headcount !== '';
 
+    if (!open) return null;
+
     return (
-        <Dialog.Root open={open} onOpenChange={onOpenChange}>
-            <Dialog.Content maxWidth="720px">
-                <Dialog.Title>Coverage requirements</Dialog.Title>
-                <Dialog.Description size="2" color="gray" mb="3">
+        <Dialog title="Coverage requirements" onClose={() => onOpenChange?.(false)} className="cy-modal cy-modal--wide">
+            <div className="cy-modal__section">
+                <p className="cy-formtext">
                     Required headcount per post &amp; shift. Leave weekday/date empty for an all-days rule; set weekday for a recurring day, or date for a one-off override. Role optional.
-                </Dialog.Description>
+                </p>
+                <div className="cy-formgrid">
+                    <FormField label="Location" htmlFor="cov-loc">
+                        <SelectInput id="cov-loc" value={form.work_location_id} onChange={v => set('work_location_id', v)} options={[{ value: '', label: 'Location', disabled: true }, ...locations.map(l => ({ value: String(l.id), label: l.name }))]} />
+                    </FormField>
+                    <FormField label="Shift" htmlFor="cov-shift">
+                        <SelectInput id="cov-shift" value={form.shift_id} onChange={v => set('shift_id', v)} options={[{ value: '', label: 'Shift', disabled: true }, ...shifts.map(s => ({ value: String(s.id), label: s.code }))]} />
+                    </FormField>
+                    <FormField label="Role (opt)" htmlFor="cov-role">
+                        <SelectInput id="cov-role" value={form.designation_id || 'any'} onChange={v => set('designation_id', v === 'any' ? '' : v)} options={[{ value: 'any', label: 'Any (total)' }, ...designations.map(d => ({ value: String(d.id), label: d.title }))]} />
+                    </FormField>
+                    <FormField label="Count" htmlFor="cov-count">
+                        <Input id="cov-count" type="number" min="0" value={form.required_headcount} onChange={e => set('required_headcount', e.target.value)} />
+                    </FormField>
+                    <FormField label="Weekday (opt)" htmlFor="cov-weekday">
+                        <SelectInput id="cov-weekday" value={form.weekday === '' ? 'all' : form.weekday} onChange={v => set('weekday', v === 'all' ? '' : v)} options={[{ value: 'all', label: 'All days' }, ...WEEKDAYS.map((w, i) => ({ value: String(i), label: w }))]} />
+                    </FormField>
+                    <FormField label="Date (opt)" htmlFor="cov-date">
+                        <DateInput id="cov-date" mode="date" label="Date (opt)" value={form.date} onChange={v => set('date', v)} />
+                    </FormField>
+                </div>
+                <div className="cy-formactions"><Button size="sm" disabled={!canAdd || create.isPending} onClick={() => create.mutate()}>Add</Button></div>
+            </div>
 
-                <Flex gap="2" wrap="wrap" align="end" mb="3">
-                    <Box><Text size="1" color="gray">Location</Text>
-                        <Select.Root value={form.work_location_id} onValueChange={v => set('work_location_id', v)}>
-                            <Select.Trigger placeholder="Location" />
-                            <Select.Content>{locations.map(l => <Select.Item key={l.id} value={String(l.id)}>{l.name}</Select.Item>)}</Select.Content>
-                        </Select.Root>
-                    </Box>
-                    <Box><Text size="1" color="gray">Shift</Text>
-                        <Select.Root value={form.shift_id} onValueChange={v => set('shift_id', v)}>
-                            <Select.Trigger placeholder="Shift" />
-                            <Select.Content>{shifts.map(s => <Select.Item key={s.id} value={String(s.id)}>{s.code}</Select.Item>)}</Select.Content>
-                        </Select.Root>
-                    </Box>
-                    <Box><Text size="1" color="gray">Role (opt)</Text>
-                        <Select.Root value={form.designation_id || 'any'} onValueChange={v => set('designation_id', v === 'any' ? '' : v)}>
-                            <Select.Trigger placeholder="Any" />
-                            <Select.Content><Select.Item value="any">Any (total)</Select.Item>{designations.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>)}</Select.Content>
-                        </Select.Root>
-                    </Box>
-                    <Box style={{ width: 70 }}><Text size="1" color="gray">Count</Text>
-                        <TextField.Root type="number" min="0" value={form.required_headcount} onChange={e => set('required_headcount', e.target.value)} />
-                    </Box>
-                    <Box><Text size="1" color="gray">Weekday (opt)</Text>
-                        <Select.Root value={form.weekday === '' ? 'all' : form.weekday} onValueChange={v => set('weekday', v === 'all' ? '' : v)}>
-                            <Select.Trigger placeholder="All" />
-                            <Select.Content><Select.Item value="all">All days</Select.Item>{WEEKDAYS.map((w, i) => <Select.Item key={i} value={String(i)}>{w}</Select.Item>)}</Select.Content>
-                        </Select.Root>
-                    </Box>
-                    <Box><Text size="1" color="gray" mb="1">Date (opt)</Text>
-                        <DateTimePicker
-                            mode="date"
-                            value={form.date}
-                            onChange={v => set('date', v)}
-                        />
-                    </Box>
-                    <Button disabled={!canAdd || create.isPending} onClick={() => create.mutate()}>Add</Button>
-                </Flex>
-
-                <Table.Root size="1" variant="surface">
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Shift</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Count</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>When</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
+            <div className="cy-dt cy-dt--modal" tabIndex={0} role="region" aria-label="Coverage requirements, scrollable">
+                <table className="cy-table">
+                    <thead>
+                        <tr><th scope="col">Location</th><th scope="col">Shift</th><th scope="col">Role</th><th scope="col">Count</th><th scope="col">When</th><th scope="col"><span className="visually-hidden">Actions</span></th></tr>
+                    </thead>
+                    <tbody>
+                        {requirements.length === 0 && <tr><td colSpan={6} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><p className="cy-empty__text">No coverage requirements yet</p></div></td></tr>}
                         {requirements.map(r => (
-                            <Table.Row key={r.id}>
-                                <Table.Cell>{r.work_location?.name || `#${r.work_location_id}`}</Table.Cell>
-                                <Table.Cell>{r.shift?.code || `#${r.shift_id}`}</Table.Cell>
-                                <Table.Cell>{r.designation?.title || 'Any'}</Table.Cell>
-                                <Table.Cell>{r.required_headcount}</Table.Cell>
-                                <Table.Cell>{r.date ? r.date : (r.weekday === null || r.weekday === undefined ? 'All days' : WEEKDAYS[r.weekday])}</Table.Cell>
-                                <Table.Cell><IconButton size="1" color="red" variant="ghost" onClick={() => remove.mutate(r.id)}><TrashIcon /></IconButton></Table.Cell>
-                            </Table.Row>
+                            <tr key={r.id}>
+                                <td>{r.work_location?.name || `#${r.work_location_id}`}</td>
+                                <td>{r.shift?.code || `#${r.shift_id}`}</td>
+                                <td>{r.designation?.title || 'Any'}</td>
+                                <td>{r.required_headcount}</td>
+                                <td>{r.date ? r.date : (r.weekday === null || r.weekday === undefined ? 'All days' : WEEKDAYS[r.weekday])}</td>
+                                <td><button type="button" className="cy-iconbtn cy-iconbtn--danger" onClick={() => remove.mutate(r.id)} aria-label={`Remove requirement ${r.work_location?.name || r.work_location_id} ${r.shift?.code || r.shift_id}`}><Icon name="trash" /></button></td>
+                            </tr>
                         ))}
-                    </Table.Body>
-                </Table.Root>
-
-                <Flex justify="end" mt="3"><Dialog.Close><Button variant="soft" color="gray">Close</Button></Dialog.Close></Flex>
-            </Dialog.Content>
-        </Dialog.Root>
+                    </tbody>
+                </table>
+            </div>
+            <div className="cy-modal__foot"><Button color="default" variant="outline" size="sm" onClick={() => onOpenChange?.(false)}>Close</Button></div>
+        </Dialog>
     );
 }

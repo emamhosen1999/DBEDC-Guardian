@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { Box, Flex, Table, Button, Badge, Text, TextField } from '@radix-ui/themes';
-import { PlusIcon } from '@radix-ui/react-icons';
+import { Alert, Badge, Button, Card, DateRange, Icon } from '@/Components/Cyber';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import PolicyForm from '@/Forms/PolicyForm';
-import DateTimePicker from '@/Components/DateTimePicker';
 
-const statusColor = { draft: 'gray', active: 'green', archived: 'amber' };
+const statusColor = { draft: 'secondary', active: 'success', archived: 'warning' };
 
 const scopeLabel = (p, employees, departments, designations) => {
     if (p.scope_type === 'org') return 'Organization';
@@ -76,120 +74,100 @@ export default function PoliciesManager({ employees = [], departments = [], desi
     };
 
     return (
-        <Box mt="5">
-            <Flex justify="between" align="center" mb="3">
-                <Text size="3" weight="bold">Attendance Policies</Text>
-                <Button size="2" onClick={openNew}>
-                    <PlusIcon /> New policy
-                </Button>
-            </Flex>
+        <div className="dl-row">
+            <div className="dl-col dl-col--12">
+                <Card
+                    id="attendance-policies"
+                    title="Attendance policies"
+                    flush
+                    actions={<Button size="sm" onClick={openNew}><Icon name="plus-lg" /> New policy</Button>}
+                >
+                    <div className="cy-toolbar" role="group" aria-label="Preview range">
+                        <div className="cy-toolbar__group">
+                            <DateRange
+                                size="sm"
+                                startLabel="Preview from"
+                                endLabel="Preview to"
+                                value={{ start: simRange.from, end: simRange.to }}
+                                onChange={({ start, end }) => setSimRange({ from: start, to: end })}
+                            />
+                        </div>
+                        <div className="cy-toolbar__group cy-toolbar__group--end"><span className="cy-toolbar__note">Pick a date range, then use "Preview impact" on a policy row below.</span></div>
+                    </div>
 
-            <Flex gap="3" align="end" mb="3" wrap="wrap">
-                <Box>
-                    <DateTimePicker
-                        mode="dateRange"
-                        label="Preview from → Preview to"
-                        value={{ start: simRange.from, end: simRange.to }}
-                        onChange={({ start, end }) => setSimRange({ from: start, to: end })}
-                    />
-                </Box>
-                <Text size="1" color="gray">Pick a date range, then use "Preview impact" on a policy row below.</Text>
-            </Flex>
-
-            {isLoading ? (
-                <Text size="2" color="gray">Loading policies…</Text>
-            ) : (
-                <Table.Root size="2" variant="surface">
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Scope</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Strictness</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Version</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Effective</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {policies.length === 0 && (
-                            <Table.Row>
-                                <Table.Cell colSpan={7}>
-                                    <Text color="gray" size="2">No policies yet.</Text>
-                                </Table.Cell>
-                            </Table.Row>
-                        )}
-                        {policies.map(p => (
-                            <React.Fragment key={p.id}>
-                                <Table.Row>
-                                    <Table.Cell><Text size="2">{p.name}</Text></Table.Cell>
-                                    <Table.Cell><Text size="2" color="gray">{scopeLabel(p, employees, departments, designations)}</Text></Table.Cell>
-                                    <Table.Cell><Badge variant="soft">{p.punch_strictness}</Badge></Table.Cell>
-                                    <Table.Cell><Badge color={statusColor[p.status] || 'gray'}>{p.status}</Badge></Table.Cell>
-                                    <Table.Cell><Text size="2">v{p.version}</Text></Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="2" color="gray">{p.effective_from} → {p.effective_to || '∞'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Flex gap="2" justify="end">
-                                            {p.status === 'draft' && (
-                                                <Button size="1" variant="soft" onClick={() => openEdit(p)}>Edit</Button>
-                                            )}
-                                            {p.status !== 'active' && (
-                                                <Button size="1" color="green" loading={activate.isPending} onClick={() => activate.mutate(p.id)}>
-                                                    Activate
-                                                </Button>
-                                            )}
-                                            <Button size="1" variant="soft" color="blue" loading={simulate.isPending && simPolicy === p.id} onClick={() => runSimulation(p)}>
-                                                Preview impact
-                                            </Button>
-                                        </Flex>
-                                    </Table.Cell>
-                                </Table.Row>
-                                {simPolicy === p.id && (simResult || simError) && (
-                                    <Table.Row>
-                                        <Table.Cell colSpan={7}>
-                                            {simError ? (
-                                                <Text size="2" color="red">{simError}</Text>
-                                            ) : (
-                                                <Box>
-                                                    <Text size="2" weight="medium">
-                                                        {simResult.changed}/{simResult.days} day-statuses would change
-                                                    </Text>
-                                                    {simResult.samples?.length > 0 && (
-                                                        <Box mt="2">
-                                                            <Table.Root size="1" variant="ghost">
-                                                                <Table.Header>
-                                                                    <Table.Row>
-                                                                        <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
-                                                                        <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                                                        <Table.ColumnHeaderCell>Before</Table.ColumnHeaderCell>
-                                                                        <Table.ColumnHeaderCell>After</Table.ColumnHeaderCell>
-                                                                    </Table.Row>
-                                                                </Table.Header>
-                                                                <Table.Body>
-                                                                    {simResult.samples.slice(0, 5).map((s, i) => (
-                                                                        <Table.Row key={i}>
-                                                                            <Table.Cell>#{s.user_id}</Table.Cell>
-                                                                            <Table.Cell>{s.date}</Table.Cell>
-                                                                            <Table.Cell><Badge variant="soft" color="gray">{s.before_status}</Badge></Table.Cell>
-                                                                            <Table.Cell><Badge variant="soft">{s.after_status}</Badge></Table.Cell>
-                                                                        </Table.Row>
-                                                                    ))}
-                                                                </Table.Body>
-                                                            </Table.Root>
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            )}
-                                        </Table.Cell>
-                                    </Table.Row>
+                    <div className="cy-dt" tabIndex={0} role="region" aria-label="Attendance policies, scrollable">
+                        <table className="cy-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Name</th><th scope="col">Scope</th><th scope="col">Strictness</th><th scope="col">Status</th>
+                                    <th scope="col">Version</th><th scope="col">Effective</th><th scope="col"><span className="visually-hidden">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {isLoading && (
+                                    <tr><td colSpan={7} className="cy-cell--empty"><div className="cy-empty cy-empty--flat" role="status"><p className="cy-empty__text">Loading policies…</p></div></td></tr>
                                 )}
-                            </React.Fragment>
-                        ))}
-                    </Table.Body>
-                </Table.Root>
-            )}
+                                {!isLoading && policies.length === 0 && (
+                                    <tr><td colSpan={7} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><Icon name="shield-check" className="cy-empty__icon" /><p className="cy-empty__text">No policies yet.</p></div></td></tr>
+                                )}
+                                {!isLoading && policies.map(p => (
+                                    <React.Fragment key={p.id}>
+                                        <tr>
+                                            <td>{p.name}</td>
+                                            <td className="cy-muted">{scopeLabel(p, employees, departments, designations)}</td>
+                                            <td><Badge soft color="secondary">{p.punch_strictness}</Badge></td>
+                                            <td><Badge soft color={statusColor[p.status] || 'secondary'}>{p.status}</Badge></td>
+                                            <td>v{p.version}</td>
+                                            <td className="cy-muted cy-nowrap">{p.effective_from} → {p.effective_to || '∞'}</td>
+                                            <td>
+                                                <span className="cy-actions">
+                                                    {p.status === 'draft' && (
+                                                        <Button size="sm" color="default" variant="outline" onClick={() => openEdit(p)} aria-label={`Edit policy ${p.name}`}>Edit</Button>
+                                                    )}
+                                                    {p.status !== 'active' && (
+                                                        <Button size="sm" color="success" loading={activate.isPending} onClick={() => activate.mutate(p.id)} aria-label={`Activate policy ${p.name}`}>Activate</Button>
+                                                    )}
+                                                    <Button size="sm" color="theme" variant="outline" loading={simulate.isPending && simPolicy === p.id} onClick={() => runSimulation(p)} aria-label={`Preview impact of policy ${p.name}`}>Preview impact</Button>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {simPolicy === p.id && (simResult || simError) && (
+                                            <tr>
+                                                <td colSpan={7} className="cy-simrow">
+                                                    {simError ? (
+                                                        <Alert tone="danger">{simError}</Alert>
+                                                    ) : (
+                                                        <div role="status">
+                                                            <b>{simResult.changed}/{simResult.days} day-statuses would change</b>
+                                                            {simResult.samples?.length > 0 && (
+                                                                <table className="cy-table cy-table--inner">
+                                                                    <thead>
+                                                                        <tr><th scope="col">User</th><th scope="col">Date</th><th scope="col">Before</th><th scope="col">After</th></tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {simResult.samples.slice(0, 5).map((s, i) => (
+                                                                            <tr key={i}>
+                                                                                <td>#{s.user_id}</td>
+                                                                                <td>{s.date}</td>
+                                                                                <td><Badge soft color="secondary">{s.before_status}</Badge></td>
+                                                                                <td><Badge soft color="theme">{s.after_status}</Badge></td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </div>
 
             <PolicyForm
                 open={formOpen}
@@ -200,6 +178,6 @@ export default function PoliciesManager({ employees = [], departments = [], desi
                 departments={departments}
                 designations={designations}
             />
-        </Box>
+        </div>
     );
 }

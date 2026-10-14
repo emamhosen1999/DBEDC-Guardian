@@ -178,30 +178,34 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Admin/NotificationSettings.jsx` | 5 | todo | — |  |
 | `Pages/Aeon/Index.jsx` | 4 | todo | — |  |
 | `Pages/Attendance/AbsentSidebar.jsx` | 2 | todo | see manifest 2:Attendance-* | No importer anywhere (replaced by the partition tabs); not migrated, proposed for deletion. |
-| `Pages/Attendance/AnalyticsTab.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/AttendancePage.jsx` | 2 | done | see manifest 2:Attendance-* | Shell: PageHeader (two-tone, tab figures as chips) + shared Cyber Tabs; A2 tabs sit in a padded wrapper. a1: app-attendance-timesheet-1440-dark-a1.png |
-| `Pages/Attendance/Components/ApprovalsInbox.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/AssignmentManager.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/AnalyticsTab.jsx` | 2 | done | see manifest 2:Attendance-* | Stat strip + CyberChart (ApexCharts) panels in flush cards; pair analytics.html / chart_apex.html. a2: app-attendance-analytics-1440-dark-a2.png |
+| `Pages/Attendance/AttendancePage.jsx` | 2 | done | see manifest 2:Attendance-* | Shell: PageHeader (two-tone, tab figures as chips) + shared Cyber Tabs; Only the Biometric Devices panel still sits in the padded legacy wrapper (A3). a1: app-attendance-timesheet-1440-dark-a1.png |
+| `Pages/Attendance/Components/ApprovalsInbox.jsx` | 2 | done | see manifest 2:Attendance-* | One flush Card: Segmented status, Cyber Tabs with counts, tables, Pagination; reject reason in a Cyber dialog (was window.prompt). |
+| `Pages/Attendance/Components/AssignmentManager.jsx` | 2 | done | see manifest 2:Attendance-* | Flush Card + table; delete confirms in a Cyber dialog (was confirm()). |
 | `Pages/Attendance/Components/AttendanceOverview.jsx` | 2 | done | see manifest 2:Attendance-* | Now a StatStrip (also used by AttendanceEmployee). |
 | `Pages/Attendance/Components/AuditHistoryModal.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber Dialog + table. |
-| `Pages/Attendance/Components/CoveragePanel.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/CoverageRequirementsDialog.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/Components/CoveragePanel.jsx` | 2 | done | see manifest 2:Attendance-* | Flush Card + Cyber table; cell tones unchanged (coverageCellDisplay.js). |
+| `Pages/Attendance/Components/CoverageRequirementsDialog.jsx` | 2 | done | see manifest 2:Attendance-* | Shared Cyber Dialog + form controls + table. |
 | `Pages/Attendance/Components/MonthlySidebar.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber side panel with CyberChart donut / area / bar. |
 | `Pages/Attendance/Components/MyRequests.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/PoliciesManager.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/PunchExceptions.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/RosterCalendar.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/RosterCellPopover.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/RosterEmployeeView.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/RosterLegend.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/Components/SwapApprovals.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/Components/PoliciesManager.jsx` | 2 | done | see manifest 2:Attendance-* | Flush Card, DateRange, table with the preview-impact row. |
+| `Pages/Attendance/Components/PunchExceptions.jsx` | 2 | done | see manifest 2:Attendance-* | Table + Badge soft; reject reason in a Cyber dialog. |
+| `Pages/Attendance/Components/RosterCalendar.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber table, 24 h timeline per cell, square flat chips; chip maths untouched. a2: app-attendance-roster-1440-dark-a2.png |
+| `Pages/Attendance/Components/RosterCellPopover.jsx` | 2 | done | see manifest 2:Attendance-* | Cell editor is now the shared Cyber Dialog (was a Radix popover anchored to an empty span). |
+| `Pages/Attendance/Components/RosterEmployeeView.jsx` | 2 | done | see manifest 2:Attendance-* | Month grid as a Cyber table with button cells. |
+| `Pages/Attendance/Components/RosterLegend.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber legend row. |
+| `Pages/Attendance/Components/SwapApprovals.jsx` | 2 | done | see manifest 2:Attendance-* | Table + Badge soft + Alert for compliance warnings. |
 | `Pages/Attendance/Components/SwapResponses.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/DailyTimesheetTab.jsx` | 2 | done | see manifest 2:Attendance-* | Card + toolbar + StatStrip + Cyber tabs/table/rows; map via TimesheetMap. Not yet owner-reviewed. a1: app-attendance-timesheet-* |
 | `Pages/AttendanceEmployee.jsx` | 2 | todo | — |  |
 | `Pages/Attendance/MonthlyCalendarTab.jsx` | 2 | done | see manifest 2:Attendance-* | Card + toolbar + matrix + sidebar split. a1: app-attendance-monthly-* |
-| `Pages/Attendance/RosterTab.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/SettingsTab.jsx` | 2 | todo | — |  |
-| `Pages/Attendance/ShiftsSettings.jsx` | 2 | todo | — |  |
+| `Pages/Attendance/RosterTab.jsx` | 2 | done | see manifest 2:Attendance-* | Cards: coverage + roster; Toolbar, Segmented view, Pagination footer; all hooks, URL state and realtime refresh unchanged. |
+| `Pages/Attendance/SettingsTab.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber Tabs, Cards per section, shared Dialog for the type / waypoint / polygon modals; validWaypoints stays memoised. |
+| `Pages/Attendance/ShiftsSettings.jsx` | 2 | done | see manifest 2:Attendance-* | Cyber Tabs + flush Cards + tables; delete confirms in a Cyber dialog. |
+| `Components/Cyber/Form.jsx` | 2 | done | component-conformance 28/28 | New library: FormField, Input, Textarea, SelectInput, Checkbox, Switch, Alert, Segmented, DateInput, DateRange (Cyber form_elements values). |
+| `Components/Access/DepartmentFieldCyber.jsx` | 2 | done | see manifest 2:Attendance-Settings | Cyber twin of DepartmentField (same props, same scope rules) for the shift and pattern forms. |
+| `Pages/Attendance/Components/ConfirmDialog.jsx` | 2 | done | see manifest 2:Attendance-* | Replaces confirm(). |
+| `Pages/Attendance/Components/RejectReasonDialog.jsx` | 2 | done | see manifest 2:Attendance-Roster | Replaces window.prompt for rejection reasons (reason required). |
 | `Pages/Auth/ChangePassword.jsx` | 1 | owner-accepted | `app-change-password-1440-dark.jpg`, `app-change-password-1440-light.jpg`, `app-change-password-390-dark.jpg`, `app-change-password-390-light.jpg` | Pair 1:ChangePassword: match at 1440/390, dark/light. |
 | `Pages/Auth/ForgotPassword.jsx` | 1 | owner-accepted | `app-forgot-password-1440-dark.jpg`, `app-forgot-password-1440-light.jpg`, `app-forgot-password-390-dark.jpg`, `app-forgot-password-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:ForgotPassword. |
 | `Pages/Auth/Login.jsx` | 1 | owner-accepted | `app-login-1440-dark.jpg`, `app-login-1440-light.jpg`, `app-login-390-dark.jpg`, `app-login-390-light.jpg` | Pending owner decision on the proposed contrast exception (.62 vs Cyber .5 secondary text, manifest suggestions); otherwise 0 open mismatches. Pair 1:Login. |
@@ -271,7 +275,6 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Pages/Profile/Partials/UpdateProfileInformationForm.jsx` | 3 | todo | — |  |
 | `Pages/Profile/UserProfile.jsx` | 3 | todo | — |  |
 | `Pages/Project/DailyWorksUnified.jsx` | 4 | todo | — |  |
-| `Pages/Project/Jurisdictions/JurisdictionsManager.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/components/ObjectionAccordionItem.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/components/ObjectionsFiltersBar.jsx` | 4 | todo | — |  |
 | `Pages/Project/Objections/components/ObjectionsStatsSection.jsx` | 4 | todo | — |  |
@@ -327,13 +330,13 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Forms/PettyCashLoanForm.jsx` | 3 | todo | — |  |
 | `Forms/PettyCashReimbursementForm.jsx` | 3 | todo | — |  |
 | `Forms/PettyCashRepaymentForm.jsx` | 3 | todo | — |  |
-| `Forms/PolicyForm.jsx` | 3 | todo | — |  |
+| `Forms/PolicyForm.jsx` | 3 | done | see manifest 2:Attendance-* | Cyber Dialog + form controls (used by the Attendance policies). |
 | `Forms/ProfileForm.jsx` | 3 | todo | — |  |
 | `Forms/RegularizationForm.jsx` | 3 | todo | — |  |
-| `Forms/RotationPatternForm.jsx` | 3 | todo | — |  |
+| `Forms/RotationPatternForm.jsx` | 3 | done | see manifest 2:Attendance-* | Cyber Dialog + form controls. |
 | `Forms/SalaryInformationForm.jsx` | 3 | todo | — |  |
-| `Forms/ShiftAssignmentForm.jsx` | 3 | todo | — |  |
-| `Forms/ShiftForm.jsx` | 3 | todo | — |  |
+| `Forms/ShiftAssignmentForm.jsx` | 3 | done | see manifest 2:Attendance-* | Cyber Dialog + form controls. |
+| `Forms/ShiftForm.jsx` | 3 | done | see manifest 2:Attendance-* | Cyber Dialog + form controls; the version-impact confirm is a second Cyber dialog. |
 | `Forms/SwapRequestForm.jsx` | 3 | todo | — |  |
 
 ### Tables (11)
@@ -472,7 +475,7 @@ scratchpad `cyber/shots/`: `app/`, `live/`, `frames/`, `compare.json`, `manifest
 | `Components/RadixThemeDrawer.jsx` | 1 | done | — | Radius locked while Cyber is active. |
 | `Components/RadixThemeShell.jsx` | 1 | done | — | Unchanged; Theme root made transparent by tokens.css. |
 | `Components/RadixToaster.jsx` | 1 | done | — | Toast surface/type read Cyber token hooks (.toast). |
-| `Components/SearchableMultiSelect.jsx` | 3 | todo | — |  |
+| `Components/SearchableMultiSelect.jsx` | 3 | done | see manifest 2:Attendance-* | Inline Cyber panel (no popover); only ShiftAssignmentForm used it. |
 | `Components/SearchFilterBar.jsx` | 3 | todo | — |  |
 | `Components/SessionExpiredModal.jsx` | 5 | todo | — |  |
 | `Components/StatisticCard.jsx` | 3 | todo | — |  |

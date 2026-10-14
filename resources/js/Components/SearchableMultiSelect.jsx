@@ -1,14 +1,11 @@
 /**
  * SearchableMultiSelect.jsx
- * A searchable, multi-select dropdown built with Radix Popover + Checkbox.
- * Supports badge-based selected display, search filtering, and select-all.
+ * A searchable multi-select in Cyber form controls: a field-like disclosure button that shows the picks as badges and
+ * opens an inline panel (search, select-all / clear, a checkbox list). Inline rather than a floating popover so it
+ * never clips inside a modal. Same props as before.
  */
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import {
-    Badge, Box, Button, Checkbox, Flex, Popover,
-    ScrollArea, Separator, Text, TextField,
-} from '@radix-ui/themes';
-import { ChevronDownIcon, Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
+import React, { useState, useMemo, useRef, useEffect, useId } from 'react';
+import { Badge, Button, Checkbox, FormField, Icon, Input } from '@/Components/Cyber';
 
 export default function SearchableMultiSelect({
     options = [],          // [{ value: string|number, label: string }]
@@ -18,17 +15,20 @@ export default function SearchableMultiSelect({
     label,
     maxDisplay = 3,        // max badges to show before "+N more"
     disabled = false,
-    size = '2',
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const inputRef = useRef(null);
+    const panelId = useId();
+    const triggerId = useId();
 
     useEffect(() => {
         if (open) {
             setSearch('');
-            setTimeout(() => inputRef.current?.focus(), 50);
+            const t = setTimeout(() => inputRef.current?.focus(), 50);
+            return () => clearTimeout(t);
         }
+        return undefined;
     }, [open]);
 
     const filtered = useMemo(() => {
@@ -52,119 +52,50 @@ export default function SearchableMultiSelect({
     [selected, options]);
 
     return (
-        <Box>
-            {label && <Text size="2" weight="medium" as="div" mb="1">{label}</Text>}
-            <Popover.Root open={open} onOpenChange={setOpen}>
-                <Popover.Trigger disabled={disabled}>
-                    <Button
-                        variant="surface"
-                        color="gray"
-                        size={size}
-                        style={{
-                            width: '100%',
-                            justifyContent: 'space-between',
-                            fontWeight: 'normal',
-                            minHeight: 36,
-                            cursor: disabled ? 'default' : 'pointer',
-                        }}
-                    >
-                        <Flex gap="1" wrap="wrap" align="center" style={{ flex: 1, overflow: 'hidden' }}>
-                            {selected.length === 0 ? (
-                                <Text size="2" color="gray">{placeholder}</Text>
-                            ) : (
-                                <>
-                                    {selectedLabels.slice(0, maxDisplay).map((l, i) => (
-                                        <Badge key={i} size="1" variant="soft" color="blue">{l}</Badge>
-                                    ))}
-                                    {selected.length > maxDisplay && (
-                                        <Badge size="1" variant="outline" color="gray">
-                                            +{selected.length - maxDisplay} more
-                                        </Badge>
-                                    )}
-                                </>
-                            )}
-                        </Flex>
-                        <ChevronDownIcon style={{ flexShrink: 0 }} />
-                    </Button>
-                </Popover.Trigger>
+        <FormField label={label} htmlFor={triggerId}>
+            <button
+                id={triggerId}
+                type="button"
+                className="cy-input cy-multiselect__trigger"
+                disabled={disabled}
+                aria-expanded={open}
+                aria-controls={panelId}
+                onClick={() => setOpen(o => !o)}
+            >
+                <span className="cy-multiselect__picks">
+                    {selected.length === 0 ? (
+                        <span className="cy-muted">{placeholder}</span>
+                    ) : (
+                        <>
+                            {selectedLabels.slice(0, maxDisplay).map((l, i) => <Badge key={i} soft color="info">{l}</Badge>)}
+                            {selected.length > maxDisplay && <Badge outline color="secondary">+{selected.length - maxDisplay} more</Badge>}
+                        </>
+                    )}
+                </span>
+                <Icon name="chevron-down" className={open ? 'cy-icon--flip' : ''} />
+            </button>
 
-                <Popover.Content
-                    style={{ width: 'var(--radix-popover-trigger-width)', minWidth: 240, padding: 0 }}
-                    align="start"
-                >
-                    {/* Search */}
-                    <Box p="2">
-                        <TextField.Root
-                            ref={inputRef}
-                            size="2"
-                            placeholder="Search…"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                        >
-                            <TextField.Slot>
-                                <MagnifyingGlassIcon style={{ width: 14, height: 14 }} />
-                            </TextField.Slot>
-                            {search && (
-                                <TextField.Slot side="right" onClick={() => setSearch('')} style={{ cursor: 'pointer' }}>
-                                    <Cross2Icon style={{ width: 12, height: 12 }} />
-                                </TextField.Slot>
-                            )}
-                        </TextField.Root>
-                    </Box>
-
-                    {/* Select all / Clear */}
-                    <Flex px="3" pb="1" gap="2">
-                        <Button size="1" variant="ghost" color="blue" onClick={selectAll} disabled={allSelected}>
-                            Select all{search ? ' filtered' : ''}
-                        </Button>
-                        <Button size="1" variant="ghost" color="red" onClick={clearAll} disabled={selected.length === 0}>
-                            Clear
-                        </Button>
-                        {selected.length > 0 && (
-                            <Text size="1" color="gray" style={{ marginLeft: 'auto', alignSelf: 'center' }}>
-                                {selected.length} selected
-                            </Text>
+            {open && (
+                <div id={panelId} className="cy-multiselect__panel">
+                    <div className="cy-multiselect__search">
+                        <Input ref={inputRef} type="search" size="sm" placeholder="Search…" aria-label={`Search ${label || 'options'}`} value={search} onChange={e => setSearch(e.target.value)} />
+                    </div>
+                    <div className="cy-multiselect__bar">
+                        <Button size="sm" color="theme" variant="outline" onClick={selectAll} disabled={allSelected}>Select all{search ? ' filtered' : ''}</Button>
+                        <Button size="sm" color="danger" variant="outline" onClick={clearAll} disabled={selected.length === 0}>Clear</Button>
+                        {selected.length > 0 && <span className="cy-multiselect__count" aria-live="polite">{selected.length} selected</span>}
+                    </div>
+                    <div className="cy-multiselect__list" role="group" aria-label={label || 'Options'}>
+                        {filtered.length === 0 ? (
+                            <span className="cy-muted cy-multiselect__none">No matches found</span>
+                        ) : (
+                            filtered.map(o => (
+                                <Checkbox key={o.value} checked={selected.includes(o.value)} onCheckedChange={() => toggle(o.value)} label={o.label} />
+                            ))
                         )}
-                    </Flex>
-
-                    <Separator size="4" />
-
-                    {/* Options list */}
-                    <ScrollArea style={{ maxHeight: 240 }}>
-                        <Box px="1" py="1">
-                            {filtered.length === 0 ? (
-                                <Text size="2" color="gray" style={{ display: 'block', padding: '8px 12px' }}>
-                                    No matches found
-                                </Text>
-                            ) : (
-                                filtered.map(o => {
-                                    const checked = selected.includes(o.value);
-                                    return (
-                                        <Flex
-                                            key={o.value}
-                                            align="center"
-                                            gap="2"
-                                            px="2"
-                                            py="1"
-                                            onClick={() => toggle(o.value)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                borderRadius: 'var(--radius-1)',
-                                                background: checked ? 'var(--accent-a3)' : 'transparent',
-                                            }}
-                                            onMouseEnter={e => { if (!checked) e.currentTarget.style.background = 'var(--gray-a3)'; }}
-                                            onMouseLeave={e => { if (!checked) e.currentTarget.style.background = 'transparent'; }}
-                                        >
-                                            <Checkbox checked={checked} tabIndex={-1} />
-                                            <Text size="2">{o.label}</Text>
-                                        </Flex>
-                                    );
-                                })
-                            )}
-                        </Box>
-                    </ScrollArea>
-                </Popover.Content>
-            </Popover.Root>
-        </Box>
+                    </div>
+                </div>
+            )}
+        </FormField>
     );
 }

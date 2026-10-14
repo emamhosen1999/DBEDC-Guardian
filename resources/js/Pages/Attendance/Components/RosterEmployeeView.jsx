@@ -1,19 +1,17 @@
 import React, { useMemo } from 'react';
-import { Box, Flex, Text, Select } from '@radix-ui/themes';
-import { PersonIcon } from '@radix-ui/react-icons';
 import dayjs from 'dayjs';
+import { Badge, Icon, SelectInput } from '@/Components/Cyber';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
 /**
- * Per-employee month calendar (Saturday-start week) — a readable single-person
- * view of the roster. Uses the same design tokens + cell display logic as the
- * grid so the two views stay visually consistent.
+ * Per-employee month calendar (Saturday-start week) - a readable single-person
+ * view of the roster, built as Cyber's calendar month grid. Uses the same cell display logic as the
+ * grid so the two views stay consistent.
  *
  * roster: { [userId]: { name, days: { 'YYYY-MM-DD': { code, color, off, leave } } } }
  */
 const WEEKDAYS = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const colIndex = (d) => (dayjs(d).day() + 1) % 7; // Sat→0, Sun→1 … Fri→6
-const LINE = '1px solid var(--gray-a5)';
+const colIndex = (d) => (dayjs(d).day() + 1) % 7; // Sat -> 0, Sun -> 1 ... Fri -> 6
 
 export default function RosterEmployeeView({
     employees = [], roster = {}, days = [], holidays = {}, shifts = [],
@@ -35,7 +33,7 @@ export default function RosterEmployeeView({
             if (holidays[d]) { holiday++; return; }
             const cell = row?.days?.[d];
             if (!cell || cell.off) { off++; return; }
-            const code = cell.code || '—';
+            const code = cell.code || '-';
             counts[code] = (counts[code] || 0) + 1;
             working++;
         });
@@ -55,119 +53,64 @@ export default function RosterEmployeeView({
     const colorFor = (code) => shiftByCode[code]?.color || 'var(--accent-9)';
 
     return (
-        <Box>
-            {/* ── Person picker + summary ─────────────────────── */}
-            <Flex justify="between" align="center" wrap="wrap" gap="3" mb="4">
-                <Flex align="center" gap="2">
-                    <Text size="2" color="gray">Person</Text>
-                    <Select.Root value={selectedUserId ? String(selectedUserId) : undefined} onValueChange={(v) => onSelectUser?.(v)}>
-                        <Select.Trigger placeholder="Select employee…" style={{ minWidth: 220 }}>
-                            <Flex align="center" gap="2">
-                                <PersonIcon />
-                                {row?.name || 'Select employee…'}
-                            </Flex>
-                        </Select.Trigger>
-                        <Select.Content>
-                            {employees.map(e => (
-                                <Select.Item key={e.id} value={String(e.id)}>{e.name}</Select.Item>
-                            ))}
-                        </Select.Content>
-                    </Select.Root>
-                </Flex>
-
-                <Flex align="center" gap="2" wrap="wrap">
+        <div>
+            {/* Person picker + summary */}
+            <div className="cy-toolbar">
+                <div className="cy-toolbar__group">
+                    <SelectInput
+                        size="sm"
+                        className="cy-select--person"
+                        aria-label="Person"
+                        value={selectedUserId ? String(selectedUserId) : ''}
+                        onChange={(v) => onSelectUser?.(v)}
+                        options={[...(selectedUserId ? [] : [{ value: '', label: 'Select employee...', disabled: true }]), ...employees.map(e => ({ value: String(e.id), label: e.name }))]}
+                    />
+                </div>
+                <div className="cy-toolbar__group cy-toolbar__group--end">
                     {Object.entries(summary.counts).map(([code, n]) => (
-                        <Flex key={code} align="center" gap="1"
-                            style={{ border: LINE, borderRadius: 999, padding: '2px 10px', background: 'var(--color-panel)' }}>
-                            <Box style={{ width: 9, height: 9, borderRadius: 2, background: colorFor(code) }} />
-                            <Text size="1" weight="medium">{code}</Text>
-                            <Text size="1" weight="bold">{n}</Text>
-                        </Flex>
+                        <span key={code} className="cy-legendrow__item"><span className="cy-swatch" style={{ background: colorFor(code) }} aria-hidden="true" /><b>{code}</b> {n}</span>
                     ))}
-                    <Flex align="center" gap="1"
-                        style={{ border: LINE, borderRadius: 999, padding: '2px 10px' }}>
-                        <Box style={{ width: 9, height: 9, borderRadius: 2, border: '1px dashed var(--gray-a7)' }} />
-                        <Text size="1" weight="medium" color="gray">OFF</Text>
-                        <Text size="1" weight="bold" color="gray">{summary.off}</Text>
-                    </Flex>
-                    {summary.holiday > 0 && (
-                        <Flex align="center" gap="1"
-                            style={{ border: LINE, borderRadius: 999, padding: '2px 10px' }}>
-                            <Box style={{ width: 9, height: 9, borderRadius: 2, background: 'var(--amber-9)' }} />
-                            <Text size="1" weight="medium" color="amber">Holiday</Text>
-                            <Text size="1" weight="bold" color="amber">{summary.holiday}</Text>
-                        </Flex>
-                    )}
-                </Flex>
-            </Flex>
+                    <span className="cy-legendrow__item"><span className="cy-swatch cy-swatch--off" aria-hidden="true" />Off {summary.off}</span>
+                    {summary.holiday > 0 && <span className="cy-legendrow__item"><span className="cy-swatch" style={{ background: 'var(--amber-9)' }} aria-hidden="true" />Holiday {summary.holiday}</span>}
+                </div>
+            </div>
 
             {!row ? (
-                <Flex align="center" justify="center" py="9">
-                    <Text size="2" color="gray">Select an employee to view their schedule.</Text>
-                </Flex>
+                <div className="cy-empty cy-empty--flat"><Icon name="person-badge" className="cy-empty__icon" /><p className="cy-empty__text">Select an employee to view their schedule.</p></div>
             ) : (
-                <Box style={{ border: LINE, borderRadius: 8, overflow: 'hidden' }}>
-                    {/* Weekday header */}
-                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--gray-a2)' }}>
-                        {WEEKDAYS.map(w => (
-                            <Box key={w} style={{ padding: '8px 0', textAlign: 'center', borderRight: LINE, borderBottom: LINE }}>
-                                <Text size="2" weight="bold" color={w === 'Fri' || w === 'Sat' ? 'gray' : undefined}>{w}</Text>
-                            </Box>
-                        ))}
-                    </Box>
-
-                    {/* Weeks */}
-                    {weeks.map((week, wi) => (
-                        <Box key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-                            {week.map((d, di) => {
-                                if (!d) {
-                                    return <Box key={di} style={{ minHeight: 74, borderRight: LINE, borderBottom: LINE, background: 'var(--gray-a1)' }} />;
-                                }
-                                const cell = row.days?.[d];
-                                const disp = resolveRosterCellDisplay(cell, holidays[d]);
-                                const isOff = disp.kind === 'off';
-                                const isHoliday = disp.kind === 'holiday';
-                                const chipColor = disp.color || colorFor(disp.label);
-                                return (
-                                    <Box
-                                        key={d}
-                                        onClick={() => onCellClick?.(String(selectedUserId), d, cell)}
-                                        style={{
-                                            minHeight: 74, borderRight: LINE, borderBottom: LINE,
-                                            padding: 6, boxSizing: 'border-box',
-                                            display: 'flex', flexDirection: 'column', gap: 4,
-                                            cursor: onCellClick ? 'pointer' : 'default',
-                                            background: isHoliday ? 'var(--amber-a2)' : 'transparent',
-                                        }}
-                                    >
-                                        <Text size="1" color="gray" style={{ lineHeight: 1 }}>{dayjs(d).format('D')}</Text>
-                                        <Flex align="center" justify="center" style={{ flex: 1 }}>
-                                            {isHoliday ? (
-                                                <Text size="1" weight="bold" color="amber">HOLIDAY</Text>
-                                            ) : isOff ? (
-                                                <Box style={{
-                                                    width: '100%', textAlign: 'center', padding: '6px 0', borderRadius: 6,
-                                                    border: '1px dashed var(--gray-a6)',
-                                                }}>
-                                                    <Text size="1" weight="bold" color="gray">OFF</Text>
-                                                </Box>
-                                            ) : (
-                                                <Box style={{
-                                                    width: '100%', textAlign: 'center', padding: '6px 0', borderRadius: 6,
-                                                    background: chipColor,
-                                                    border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
-                                                }}>
-                                                    <Text size="1" weight="bold" style={{ color: '#fff' }}>{disp.label}</Text>
-                                                </Box>
-                                            )}
-                                        </Flex>
-                                    </Box>
-                                );
-                            })}
-                        </Box>
-                    ))}
-                </Box>
+                <div className="cy-cal cy-cal--month" role="region" aria-label={`Schedule of ${row.name || 'employee'}`}>
+                    <table className="cy-table cy-rostermonth">
+                        <thead>
+                            <tr>{WEEKDAYS.map(w => <th key={w} scope="col" className={w === 'Fri' || w === 'Sat' ? 'is-weekend' : undefined}>{w}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                            {weeks.map((week, wi) => (
+                                <tr key={wi}>
+                                    {week.map((d, di) => {
+                                        if (!d) return <td key={di} className="cy-rostermonth__pad" />;
+                                        const cell = row.days?.[d];
+                                        const disp = resolveRosterCellDisplay(cell, holidays[d]);
+                                        const isOff = disp.kind === 'off';
+                                        const isHoliday = disp.kind === 'holiday';
+                                        const chipColor = disp.color || colorFor(disp.label);
+                                        const label = `${dayjs(d).format('ddd D MMM')}: ${disp.tooltip}`;
+                                        return (
+                                            <td key={d} className={isHoliday ? 'is-holiday' : undefined}>
+                                                <button type="button" className="cy-rostermonth__cell" onClick={() => onCellClick?.(String(selectedUserId), d, cell)} disabled={!onCellClick} aria-label={label} title={disp.tooltip}>
+                                                    <span className="cy-rostermonth__day">{dayjs(d).format('D')}</span>
+                                                    {isHoliday ? <Badge soft color="warning">Holiday</Badge>
+                                                        : isOff ? <span className="cy-rostermonth__off">Off</span>
+                                                            : <span className={`cy-rostermonth__chip${disp.kind === 'pending' ? ' cy-chip--pending' : ''}`} style={{ background: chipColor }}>{disp.label}</span>}
+                                                </button>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
-        </Box>
+        </div>
     );
 }

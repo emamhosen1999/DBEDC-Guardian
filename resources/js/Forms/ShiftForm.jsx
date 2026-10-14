@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, AlertDialog, Flex, Box, TextField, Select, Switch, Button, Text } from '@radix-ui/themes';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
+import { Button, DateInput, FormField, Input, SelectInput, Switch } from '@/Components/Cyber';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
-import DateTimePicker from '@/Components/DateTimePicker';
-import DepartmentField from '@/Components/Access/DepartmentField';
+import DepartmentField from '@/Components/Access/DepartmentFieldCyber';
 import { usePage } from '@inertiajs/react';
 
 const DEFAULT_FORM = {
@@ -111,13 +111,20 @@ export default function ShiftForm({ open, onOpenChange, onSaved, initial = null,
         }
     };
 
+    if (!open) return null;
+
     return (
-        <Dialog.Root open={open} onOpenChange={onOpenChange}>
-            <Dialog.Content maxWidth="520px">
-                <Dialog.Title>{initial?.id ? 'Edit Shift' : 'New Shift'}</Dialog.Title>
-                <Flex direction="column" gap="3">
-                    <TextField.Root placeholder="Name" value={form.name} onChange={e => set('name', e.target.value)} />
-                    <TextField.Root placeholder="Code" value={form.code} onChange={e => set('code', e.target.value)} />
+        <>
+            <Dialog title={initial?.id ? 'Edit Shift' : 'New Shift'} onClose={() => onOpenChange(false)} className="cy-modal cy-modal--wide">
+                <div className="cy-modal__section cy-stack">
+                    <div className="cy-formgrid">
+                        <FormField label="Name" htmlFor="shift-name" required>
+                            <Input id="shift-name" placeholder="Name" value={form.name} onChange={e => set('name', e.target.value)} />
+                        </FormField>
+                        <FormField label="Code" htmlFor="shift-code" required>
+                            <Input id="shift-code" placeholder="Code" value={form.code} onChange={e => set('code', e.target.value)} />
+                        </FormField>
+                    </div>
 
                     <DepartmentField
                         label="Department"
@@ -131,109 +138,71 @@ export default function ShiftForm({ open, onOpenChange, onSaved, initial = null,
                         helper="A department-owned shift is managed by that department's admin and visible only to its schedulers."
                     />
 
-                    <Select.Root value={form.type} onValueChange={v => set('type', v)}>
-                        <Select.Trigger placeholder="Type" />
-                        <Select.Content>
-                            <Select.Item value="fixed">Fixed</Select.Item>
-                            <Select.Item value="flexible">Flexible</Select.Item>
-                            <Select.Item value="open">Open</Select.Item>
-                        </Select.Content>
-                    </Select.Root>
+                    <FormField label="Type" htmlFor="shift-type">
+                        <SelectInput id="shift-type" value={form.type} onChange={v => set('type', v)} options={[{ value: 'fixed', label: 'Fixed' }, { value: 'flexible', label: 'Flexible' }, { value: 'open', label: 'Open' }]} />
+                    </FormField>
 
-                    <Flex gap="3">
-                        <Box style={{ flex: 1 }}>
-                            <DateTimePicker
-                                mode="time"
-                                label="Start"
-                                value={form.start_time}
-                                onChange={v => set('start_time', v)}
-                            />
-                        </Box>
-                        <Box style={{ flex: 1 }}>
-                            <DateTimePicker
-                                mode="time"
-                                label="End"
-                                value={form.end_time}
-                                onChange={v => set('end_time', v)}
-                            />
-                        </Box>
-                    </Flex>
+                    <div className="cy-formgrid">
+                        <FormField label="Start" htmlFor="shift-start">
+                            <DateInput id="shift-start" mode="time" label="Start" value={form.start_time} onChange={v => set('start_time', v)} />
+                        </FormField>
+                        <FormField label="End" htmlFor="shift-end">
+                            <DateInput id="shift-end" mode="time" label="End" value={form.end_time} onChange={v => set('end_time', v)} />
+                        </FormField>
+                    </div>
 
-                    <Flex align="center" gap="2">
-                        <Switch checked={form.crosses_midnight} onCheckedChange={v => set('crosses_midnight', v)} />
-                        <Text size="2">Crosses midnight (night shift)</Text>
-                    </Flex>
+                    <Switch checked={Boolean(form.crosses_midnight)} onCheckedChange={v => set('crosses_midnight', v)} label="Crosses midnight (night shift)" />
 
-                    <Flex gap="3">
-                        <TextField.Root type="number" min="0" value={form.grace_in_minutes} onChange={e => set('grace_in_minutes', +e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">Grace in</Text></TextField.Slot>
-                        </TextField.Root>
-                        <TextField.Root type="number" min="0" value={form.grace_out_minutes} onChange={e => set('grace_out_minutes', +e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">Grace out</Text></TextField.Slot>
-                        </TextField.Root>
-                    </Flex>
+                    <div className="cy-formgrid">
+                        <FormField label="Grace in (min)" htmlFor="shift-grace-in">
+                            <Input id="shift-grace-in" type="number" min="0" value={form.grace_in_minutes} onChange={e => set('grace_in_minutes', +e.target.value)} />
+                        </FormField>
+                        <FormField label="Grace out (min)" htmlFor="shift-grace-out">
+                            <Input id="shift-grace-out" type="number" min="0" value={form.grace_out_minutes} onChange={e => set('grace_out_minutes', +e.target.value)} />
+                        </FormField>
+                    </div>
 
-                    <Flex gap="3">
-                        <TextField.Root type="number" min="0" value={form.full_day_minutes} onChange={e => set('full_day_minutes', +e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">Full day min</Text></TextField.Slot>
-                        </TextField.Root>
-                        <TextField.Root type="number" min="0" value={form.half_day_minutes} onChange={e => set('half_day_minutes', +e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">Half day min</Text></TextField.Slot>
-                        </TextField.Root>
-                        <TextField.Root type="number" min="0" value={form.min_present_minutes} onChange={e => set('min_present_minutes', +e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">Min present</Text></TextField.Slot>
-                        </TextField.Root>
-                    </Flex>
+                    <div className="cy-formgrid">
+                        <FormField label="Full day min" htmlFor="shift-full">
+                            <Input id="shift-full" type="number" min="0" value={form.full_day_minutes} onChange={e => set('full_day_minutes', +e.target.value)} />
+                        </FormField>
+                        <FormField label="Half day min" htmlFor="shift-half">
+                            <Input id="shift-half" type="number" min="0" value={form.half_day_minutes} onChange={e => set('half_day_minutes', +e.target.value)} />
+                        </FormField>
+                        <FormField label="Min present" htmlFor="shift-minp">
+                            <Input id="shift-minp" type="number" min="0" value={form.min_present_minutes} onChange={e => set('min_present_minutes', +e.target.value)} />
+                        </FormField>
+                    </div>
 
-                    <Flex align="center" gap="3">
-                        <Text size="2" color="gray">Color</Text>
-                        <TextField.Root type="color" value={form.color} onChange={e => set('color', e.target.value)} style={{ width: 80 }} />
-                    </Flex>
+                    <FormField label="Color" htmlFor="shift-color">
+                        <Input id="shift-color" type="color" className="cy-input--color" value={form.color} onChange={e => set('color', e.target.value)} />
+                    </FormField>
 
-                    <Flex align="center" gap="2">
-                        <Switch checked={form.is_active} onCheckedChange={v => set('is_active', v)} />
-                        <Text size="2">{form.is_active ? 'Active' : 'Inactive'}</Text>
-                    </Flex>
+                    <Switch checked={Boolean(form.is_active)} onCheckedChange={v => set('is_active', v)} label={form.is_active ? 'Active' : 'Inactive'} />
 
                     {isEdit && hasTimeBehaviorChange && (
-                        <Box>
-                            <DateTimePicker
-                                mode="date"
-                                label="Effective from"
-                                value={effectiveFrom}
-                                onChange={setEffectiveFrom}
-                            />
-                            <Text size="1" color="gray" mt="1" as="div">
-                                Changes apply from this date; earlier days keep the old times.
-                            </Text>
-                        </Box>
+                        <FormField label="Effective from" htmlFor="shift-effective" hint="Changes apply from this date; earlier days keep the old times.">
+                            <DateInput id="shift-effective" mode="date" label="Effective from" value={effectiveFrom} onChange={setEffectiveFrom} />
+                        </FormField>
                     )}
+                </div>
+                <div className="cy-modal__foot">
+                    <Button color="default" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+                    <Button size="sm" onClick={handleSaveClick} disabled={saving || !form.name || !form.code}>{saving ? 'Saving…' : 'Save'}</Button>
+                </div>
+            </Dialog>
 
-                    <Flex justify="end" gap="2" mt="2">
-                        <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-                        <Button onClick={handleSaveClick} disabled={saving || !form.name || !form.code}>
-                            {saving ? 'Saving…' : 'Save'}
-                        </Button>
-                    </Flex>
-                </Flex>
-            </Dialog.Content>
-
-            <AlertDialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
-                <AlertDialog.Content maxWidth="440px">
-                    <AlertDialog.Title>Confirm shift time change</AlertDialog.Title>
-                    <AlertDialog.Description size="2" color="gray">
-                        This changes the shift's times from {effectiveFrom}. Past attendance keeps the previous times (version history is kept).
-                    </AlertDialog.Description>
-                    <Flex gap="3" mt="4" justify="end">
-                        <AlertDialog.Cancel>
-                            <Button variant="soft" color="gray" disabled={saving}>Cancel</Button>
-                        </AlertDialog.Cancel>
-                        <Button onClick={performSave} disabled={saving}>
-                            {saving ? 'Saving…' : 'Confirm & save'}
-                        </Button>
-                    </Flex>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
-        </Dialog.Root>
+            {confirmOpen && (
+                <Dialog title="Confirm shift time change" onClose={() => setConfirmOpen(false)} className="cy-modal cy-modal--narrow">
+                    <div className="cy-modal__section">
+                        <p className="cy-modal__text">This changes the shift's times from {effectiveFrom}. Past attendance keeps the previous times (version history is kept).</p>
+                    </div>
+                    <div className="cy-modal__foot">
+                        <Button color="default" variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={saving}>Cancel</Button>
+                        <Button size="sm" onClick={performSave} disabled={saving}>{saving ? 'Saving…' : 'Confirm & save'}</Button>
+                    </div>
+                </Dialog>
+            )}
+        </>
     );
 }

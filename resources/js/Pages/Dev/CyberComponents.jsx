@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head } from '@inertiajs/react';
 
 import App from '@/Layouts/App.jsx';
-import { Accordion, Badge, Button, Card, Icon, Pagination, Progress, StatTile, Tabs } from '@/Components/Cyber';
+import { Accordion, Alert, Badge, Button, Card, Checkbox, FormField, Icon, Input, Pagination, Progress, StatTile, Switch, Tabs, Textarea } from '@/Components/Cyber';
 
 /**
  * Local-only component gallery for the Cyber conformance check (scripts/design/review/component-conformance.cjs):
@@ -36,6 +36,11 @@ export default function CyberComponents() {
                                 <input className="cy-input" data-conf="input" placeholder="Default input" />
                                 <input className="cy-input cy-input--lg" data-conf="input-lg" placeholder="Large input" />
                                 <select className="cy-select" data-conf="select" defaultValue="1"><option value="1">Option one</option><option value="2">Option two</option></select>
+                                <FormField label="Form label" htmlFor="dev-label-input"><Input id="dev-label-input" placeholder="Input with label" data-conf="form-input" /></FormField>
+                                <Textarea data-conf="textarea" placeholder="Textarea" rows={2} />
+                                <div data-conf="checkbox"><Checkbox label="Checkbox" checked onCheckedChange={() => {}} /></div>
+                                <div data-conf="switch"><Switch label="Switch" checked={false} onCheckedChange={() => {}} /></div>
+                                <div className="cy-actions"><Button color="success" size="sm" data-conf="btn-success">Success</Button><Button color="danger" variant="outline" size="sm" data-conf="btn-outline-danger">Outline danger</Button></div>
                             </div>
                         </Card>
                     </div>
@@ -81,6 +86,7 @@ export default function CyberComponents() {
                             </div>
                         </Card>
                     </div>
+                </div>
                 </div>
             </div>
         </>

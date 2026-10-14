@@ -32,8 +32,7 @@ const TabLoading = () => (
     <div className="cy-empty" role="status"><p className="cy-empty__text">Loading…</p></div>
 );
 
-/* The roster, analytics, approvals, shift, settings and biometric tabs keep their own layouts for now (batch A2);
-   they sit in the new shell with the page gutter their own markup expects. */
+/* The biometric devices panel keeps its own layout for now; it sits in the shell with the page gutter its markup expects. */
 const LegacyTab = ({ children }) => <div className="cy-legacy-tab">{children}</div>;
 
 /* ── optional: mark-as-present modals (keep your existing) ── */
@@ -173,73 +172,63 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
             </div>
 
             <div {...panel('analytics')}>
-                <LegacyTab>
-                    <ErrorBoundary>
-                        <Suspense fallback={<TabLoading />}>
-                            {/* Only fetches while visible; the tab stays mounted like the others. */}
-                            <AnalyticsTab
-                                month={selectedMonth}
-                                onMonthChange={handleMonthChange}
-                                departments={departments}
-                                canViewTeam={isSuperAdmin || auth.permissions?.includes('attendance.view') || false}
-                                isActive={activeTab === 'analytics'}
-                                isMobile={isMobile}
-                            />
-                        </Suspense>
-                    </ErrorBoundary>
-                </LegacyTab>
+                <ErrorBoundary>
+                    <Suspense fallback={<TabLoading />}>
+                        {/* Only fetches while visible; the tab stays mounted like the others. */}
+                        <AnalyticsTab
+                            month={selectedMonth}
+                            onMonthChange={handleMonthChange}
+                            departments={departments}
+                            canViewTeam={isSuperAdmin || auth.permissions?.includes('attendance.view') || false}
+                            isActive={activeTab === 'analytics'}
+                            isMobile={isMobile}
+                        />
+                    </Suspense>
+                </ErrorBoundary>
             </div>
 
             {canManage && (
                 <div {...panel('approvals')}>
-                    <LegacyTab>
-                        <ErrorBoundary>
-                            <Suspense fallback={<TabLoading />}>
-                                <ApprovalsInbox />
-                            </Suspense>
-                        </ErrorBoundary>
-                    </LegacyTab>
+                    <ErrorBoundary>
+                        <Suspense fallback={<TabLoading />}>
+                            <ApprovalsInbox />
+                        </Suspense>
+                    </ErrorBoundary>
                 </div>
             )}
 
             {canRoster && (
                 <div {...panel('roster')}>
-                    <LegacyTab>
-                        <ErrorBoundary>
-                            <Suspense fallback={<TabLoading />}>
-                                <RosterTab
-                                    departments={departments}
-                                    month={selectedMonth}
-                                    onMonthChange={handleMonthChange}
-                                    isActive={activeTab === 'roster'}
-                                />
-                            </Suspense>
-                        </ErrorBoundary>
-                    </LegacyTab>
+                    <ErrorBoundary>
+                        <Suspense fallback={<TabLoading />}>
+                            <RosterTab
+                                departments={departments}
+                                month={selectedMonth}
+                                onMonthChange={handleMonthChange}
+                                isActive={activeTab === 'roster'}
+                            />
+                        </Suspense>
+                    </ErrorBoundary>
                 </div>
             )}
 
             {canRoster && (
                 <div {...panel('shifts')}>
-                    <LegacyTab>
-                        <ErrorBoundary>
-                            <Suspense fallback={<TabLoading />}>
-                                <ShiftsSettings />
-                            </Suspense>
-                        </ErrorBoundary>
-                    </LegacyTab>
+                    <ErrorBoundary>
+                        <Suspense fallback={<TabLoading />}>
+                            <ShiftsSettings />
+                        </Suspense>
+                    </ErrorBoundary>
                 </div>
             )}
 
             {canSettings && (
                 <div {...panel('settings')}>
-                    <LegacyTab>
-                        <ErrorBoundary>
-                            <Suspense fallback={<TabLoading />}>
-                                <SettingsTab />
-                            </Suspense>
-                        </ErrorBoundary>
-                    </LegacyTab>
+                    <ErrorBoundary>
+                        <Suspense fallback={<TabLoading />}>
+                            <SettingsTab />
+                        </Suspense>
+                    </ErrorBoundary>
                 </div>
             )}
 

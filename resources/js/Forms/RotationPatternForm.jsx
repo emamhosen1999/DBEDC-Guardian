@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, Flex, TextField, Select, Button, Text, Box, IconButton } from '@radix-ui/themes';
-import { TrashIcon } from '@radix-ui/react-icons';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
+import { Button, FormField, Input, SelectInput } from '@/Components/Cyber';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
-import DepartmentField from '@/Components/Access/DepartmentField';
+import DepartmentField from '@/Components/Access/DepartmentFieldCyber';
 import { usePage } from '@inertiajs/react';
 
 const OFF = 'off';
@@ -90,60 +90,55 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved, initi
         }
     };
 
+    if (!open) return null;
+
     return (
-        <Dialog.Root open={open} onOpenChange={onOpenChange}>
-            <Dialog.Content maxWidth="520px">
-                <Dialog.Title>{initial ? 'Edit Rotation Pattern' : 'New Rotation Pattern'}</Dialog.Title>
-                <Flex direction="column" gap="3">
-                    <TextField.Root placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
-                    <TextField.Root placeholder="Code" value={code} onChange={e => setCode(e.target.value)} />
-                    <DepartmentField
-                        label="Department"
-                        attendance
-                        value={departmentId}
-                        onChange={setDepartmentId}
-                        departments={departments}
-                        noneLabel="Company-wide (every department)"
-                        placeholder="Company-wide"
-                        disabled={Boolean(initial) && !canMoveOwner}
-                        helper="A department's pattern can use company-wide shifts and its own."
-                    />
-                    <TextField.Root
-                        type="number" min="1" max="60"
-                        value={cycleLength}
-                        onChange={e => setCycle(+e.target.value)}
-                    >
-                        <TextField.Slot><Text size="1" color="gray">Cycle length (days)</Text></TextField.Slot>
-                    </TextField.Root>
+        <Dialog title={initial ? 'Edit Rotation Pattern' : 'New Rotation Pattern'} onClose={() => onOpenChange(false)} className="cy-modal cy-modal--wide">
+            <div className="cy-modal__section cy-stack">
+                <div className="cy-formgrid">
+                    <FormField label="Name" htmlFor="pattern-name" required>
+                        <Input id="pattern-name" placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
+                    </FormField>
+                    <FormField label="Code" htmlFor="pattern-code" required>
+                        <Input id="pattern-code" placeholder="Code" value={code} onChange={e => setCode(e.target.value)} />
+                    </FormField>
+                </div>
+                <DepartmentField
+                    label="Department"
+                    attendance
+                    value={departmentId}
+                    onChange={setDepartmentId}
+                    departments={departments}
+                    noneLabel="Company-wide (every department)"
+                    placeholder="Company-wide"
+                    disabled={Boolean(initial) && !canMoveOwner}
+                    helper="A department's pattern can use company-wide shifts and its own."
+                />
+                <FormField label="Cycle length (days)" htmlFor="pattern-cycle">
+                    <Input id="pattern-cycle" type="number" min="1" max="60" value={cycleLength} onChange={e => setCycle(+e.target.value)} />
+                </FormField>
 
-                    <Box>
-                        <Text size="2" weight="medium" as="div" mb="2">Day sequence</Text>
-                        <Flex direction="column" gap="2" style={{ maxHeight: 280, overflowY: 'auto' }}>
-                            {definition.map((day, idx) => (
-                                <Flex key={idx} align="center" gap="2">
-                                    <Text size="1" color="gray" style={{ width: 48 }}>Day {idx + 1}</Text>
-                                    <Select.Root value={String(day)} onValueChange={v => setDay(idx, v)}>
-                                        <Select.Trigger style={{ flex: 1 }} />
-                                        <Select.Content>
-                                            <Select.Item value={OFF}>Off</Select.Item>
-                                            {shifts.map(s => (
-                                                <Select.Item key={s.id} value={String(s.id)}>{s.name} ({s.code})</Select.Item>
-                                            ))}
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Flex>
-                            ))}
-                        </Flex>
-                    </Box>
-
-                    <Flex justify="end" gap="2" mt="2">
-                        <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-                        <Button onClick={save} disabled={saving || !name || !code}>
-                            {saving ? 'Saving…' : 'Save'}
-                        </Button>
-                    </Flex>
-                </Flex>
-            </Dialog.Content>
-        </Dialog.Root>
+                <fieldset className="cy-fieldset">
+                    <legend className="cy-label">Day sequence</legend>
+                    <div className="cy-sequence">
+                        {definition.map((day, idx) => (
+                            <div key={idx} className="cy-sequence__row">
+                                <label className="cy-sequence__day" htmlFor={`pattern-day-${idx}`}>Day {idx + 1}</label>
+                                <SelectInput
+                                    id={`pattern-day-${idx}`}
+                                    value={String(day)}
+                                    onChange={v => setDay(idx, v)}
+                                    options={[{ value: OFF, label: 'Off' }, ...shifts.map(s => ({ value: String(s.id), label: `${s.name} (${s.code})` }))]}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </fieldset>
+            </div>
+            <div className="cy-modal__foot">
+                <Button color="default" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+                <Button size="sm" onClick={save} disabled={saving || !name || !code}>{saving ? 'Saving…' : 'Save'}</Button>
+            </div>
+        </Dialog>
     );
 }

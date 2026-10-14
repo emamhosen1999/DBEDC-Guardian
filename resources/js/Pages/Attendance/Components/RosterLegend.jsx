@@ -1,5 +1,4 @@
 import React from 'react';
-import { Flex, Box, Text } from '@radix-ui/themes';
 
 /**
  * Shared shift legend for the roster views (grid + per-employee).
@@ -9,25 +8,15 @@ import { Flex, Box, Text } from '@radix-ui/themes';
 export default function RosterLegend({ shifts = [], showHoliday = false }) {
     if (!shifts.length) return null;
     return (
-        <Flex align="center" gap="4" wrap="wrap" mb="3" px="1">
-            <Text size="1" color="gray" weight="medium">Legend</Text>
+        <div className="cy-legendrow" role="group" aria-label="Roster legend">
             {shifts.map(s => (
-                <Flex key={s.id} align="center" gap="1">
-                    <Box style={{ width: 12, height: 12, borderRadius: 3, background: s.color || 'var(--accent-9)', flexShrink: 0 }} />
-                    <Text size="1" weight="bold">{s.code}</Text>
-                    <Text size="1" color="gray">{s.name}</Text>
-                </Flex>
+                <span key={s.id} className="cy-legendrow__item">
+                    <span className="cy-swatch" style={{ background: s.color || 'var(--accent-9)' }} aria-hidden="true" />
+                    <b>{s.code}</b> {s.name}
+                </span>
             ))}
-            <Flex align="center" gap="1">
-                <Box style={{ width: 12, height: 12, borderRadius: 3, border: '1px dashed var(--gray-a7)', flexShrink: 0 }} />
-                <Text size="1" color="gray">Off</Text>
-            </Flex>
-            {showHoliday && (
-                <Flex align="center" gap="1">
-                    <Box style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--amber-9)', flexShrink: 0 }} />
-                    <Text size="1" color="gray">Holiday</Text>
-                </Flex>
-            )}
-        </Flex>
+            <span className="cy-legendrow__item"><span className="cy-swatch cy-swatch--off" aria-hidden="true" />Off</span>
+            {showHoliday && <span className="cy-legendrow__item"><span className="cy-swatch" style={{ background: 'var(--amber-9)' }} aria-hidden="true" />Holiday</span>}
+        </div>
     );
 }

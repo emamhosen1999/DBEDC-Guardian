@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import { Box, Flex, Table, Button, Badge, Text, IconButton, Tabs } from '@radix-ui/themes';
-import { Pencil1Icon, TrashIcon, PlusIcon, LayersIcon, SymbolIcon } from '@radix-ui/react-icons';
+import { Badge, Button, Card, Icon, Pagination, Tabs } from '@/Components/Cyber';
+import { panelId, tabId } from '@/Components/Cyber/Tabs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
@@ -9,7 +9,9 @@ import { showToast } from '@/utils/toastUtils';
 import ShiftForm from '@/Forms/ShiftForm';
 import RotationPatternForm from '@/Forms/RotationPatternForm';
 import AssignmentManager from '@/Pages/Attendance/Components/AssignmentManager';
-import TablePagination from '@/Components/TablePagination.jsx';
+import ConfirmDialog from '@/Pages/Attendance/Components/ConfirmDialog';
+
+const TABS_ID = 'attendance-shifts';
 
 export default function ShiftsSettings() {
     const { auth, employees = [], departments = [], designations = [] } = usePage().props;
@@ -68,8 +70,10 @@ export default function ShiftsSettings() {
         qc.invalidateQueries({ queryKey: ['rotation-patterns'] });
     };
 
+    /* What is awaiting delete confirmation: { kind: 'shift' | 'pattern', row } */
+    const [deleting, setDeleting] = useState(null);
     const remove = async (s) => {
-        if (!confirm(`Delete shift "${s.name}"? This cannot be undone.`)) return;
+        setDeleting(null);
         try {
             await requestJson('delete', `/attendance/shifts/${s.id}`);
             showToast.success('Shift deleted.');
@@ -80,7 +84,7 @@ export default function ShiftsSettings() {
     };
 
     const removePattern = async (p) => {
-        if (!confirm(`Delete rotation pattern "${p.name}"? This cannot be undone.`)) return;
+        setDeleting(null);
         try {
             await requestJson('delete', `/attendance/rotation-patterns/${p.id}`);
             showToast.success('Rotation pattern deleted.');
@@ -96,20 +100,20 @@ export default function ShiftsSettings() {
             const isLast = idx === definition.length - 1;
             if (day === null || day === undefined) {
                 return (
-                    <Flex key={idx} align="center" style={{ display: 'inline-flex' }}>
-                        <Badge color="gray">Off</Badge>
-                        {!isLast && <Text size="1" color="gray" mx="1">→</Text>}
-                    </Flex>
+                    <span key={idx} className="cy-seq">
+                        <Badge soft color="secondary">Off</Badge>
+                        {!isLast && <span className="cy-seq__arrow" aria-hidden="true">→</span>}
+                    </span>
                 );
             }
             const shiftObj = shifts.find(s => s.id === day);
             return (
-                <Flex key={idx} align="center" style={{ display: 'inline-flex' }}>
-                    <Badge style={{ background: shiftObj?.color || undefined, color: shiftObj?.color ? '#fff' : undefined }}>
+                <span key={idx} className="cy-seq">
+                    <Badge style={{ background: shiftObj?.color || undefined, borderColor: shiftObj?.color || undefined, color: shiftObj?.color ? '#fff' : undefined }}>
                         {shiftObj ? shiftObj.code : `Shift #${day}`}
                     </Badge>
-                    {!isLast && <Text size="1" color="gray" mx="1">→</Text>}
-                </Flex>
+                    {!isLast && <span className="cy-seq__arrow" aria-hidden="true">→</span>}
+                </span>
             );
         });
     };
@@ -117,225 +121,133 @@ export default function ShiftsSettings() {
     const paginatedShifts = shifts.slice((shiftsPage - 1) * shiftsPerPage, shiftsPage * shiftsPerPage);
     const paginatedPatterns = patterns.slice((patternsPage - 1) * patternsPerPage, patternsPage * patternsPerPage);
 
+    const subTabs = [
+        { key: 'shifts', label: 'Shifts' },
+        { key: 'patterns', label: 'Rotation Patterns' },
+        { key: 'assignments', label: 'Shift Assignments' },
+    ];
+    const panel = (key) => ({ role: 'tabpanel', id: panelId(TABS_ID, key), 'aria-labelledby': tabId(TABS_ID, key) });
+    const emptyRow = (cols, icon, text, hint) => (
+        <tr><td colSpan={cols} className="cy-cell--empty">
+            <div className="cy-empty cy-empty--flat"><Icon name={icon} className="cy-empty__icon" /><p className="cy-empty__text">{text}</p>{hint && <p className="cy-empty__text">{hint}</p>}</div>
+        </td></tr>
+    );
+    const rowActions = (row, label, onEdit, onDelete) => canEditRow(row) && (
+        <span className="cy-actions">
+            <button type="button" className="cy-iconbtn" onClick={onEdit} aria-label={`Edit ${label}`} title="Edit"><Icon name="pencil" /></button>
+            <button type="button" className="cy-iconbtn cy-iconbtn--danger" onClick={onDelete} aria-label={`Delete ${label}`} title="Delete"><Icon name="trash" /></button>
+        </span>
+    );
+    const shiftCols = 5 + (isGlobalUser ? 1 : 0) + (showActions ? 1 : 0);
+    const patternCols = 6 + (isGlobalUser ? 1 : 0) + (showActions ? 1 : 0);
+
     return (
-        <Box mt="4">
-            <Tabs.Root value={activeSubTab} onValueChange={setActiveSubTab}>
-                <Tabs.List size="2" mb="4">
-                    <Tabs.Trigger value="shifts">Shifts</Tabs.Trigger>
-                    <Tabs.Trigger value="patterns">Rotation Patterns</Tabs.Trigger>
-                    <Tabs.Trigger value="assignments">Shift Assignments</Tabs.Trigger>
-                </Tabs.List>
+        <>
+            <Tabs tabs={subTabs} value={activeSubTab} onChange={setActiveSubTab} idPrefix={TABS_ID} label="Shift management sections" className="cy-tabs--scroll" />
 
-                {/* Shifts Sub-tab */}
-                <Tabs.Content value="shifts">
-                    <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                        <Flex align="center" gap="2">
-                            <LayersIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
-                            <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Manage Shifts</Text>
-                        </Flex>
-                        {canAdd && (
-                            <Button size="2" color="blue" onClick={() => { setEditing(null); setOpen(true); }} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                <PlusIcon /> Add shift
-                            </Button>
-                        )}
-                    </Flex>
+            {activeSubTab === 'shifts' && (
+                <div className="dl-page" {...panel('shifts')}>
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <Card
+                                id="attendance-shifts-list"
+                                title="Manage shifts"
+                                flush
+                                actions={canAdd ? <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}><Icon name="plus-lg" /> Add shift</Button> : null}
+                                footer={shifts.length > shiftsPerPage || shiftsPage > 1 ? <Pagination pagination={{ currentPage: shiftsPage, perPage: shiftsPerPage, total: shifts.length }} onPageChange={setShiftsPage} onRowsPerPageChange={setShiftsPerPage} /> : null}
+                            >
+                                <div className="cy-dt" tabIndex={0} role="region" aria-label="Shifts, scrollable">
+                                    <table className="cy-table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Name</th><th scope="col">Code</th><th scope="col">Window</th><th scope="col">Owner</th><th scope="col">Status</th>
+                                                {isGlobalUser && <th scope="col">Created by</th>}
+                                                {showActions && <th scope="col"><span className="visually-hidden">Actions</span></th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {isLoading ? emptyRow(shiftCols, 'clock', 'Loading shifts…')
+                                                : shifts.length === 0 ? emptyRow(shiftCols, 'clock', 'No shifts yet.', canAdd ? 'Click Add shift above to create one.' : null)
+                                                    : paginatedShifts.map(s => (
+                                                        <tr key={s.id}>
+                                                            <td><b>{s.name}</b></td>
+                                                            <td><Badge style={{ background: s.color || undefined, borderColor: s.color || undefined, color: s.color ? '#fff' : undefined }}>{s.code}</Badge></td>
+                                                            <td className="cy-muted cy-nowrap">{s.start_time}–{s.end_time}{s.crosses_midnight ? ' (+1)' : ''}</td>
+                                                            <td><Badge soft color={s.department ? 'info' : 'secondary'}>{s.department?.name || 'Company-wide'}</Badge></td>
+                                                            <td><Badge soft color={s.is_active ? 'success' : 'secondary'}>{s.is_active ? 'Active' : 'Inactive'}</Badge></td>
+                                                            {isGlobalUser && <td className="cy-muted">{s.creator?.name || 'System'}</td>}
+                                                            {showActions && <td>{rowActions(s, `shift ${s.name}`, () => { setEditing(s); setOpen(true); }, () => setDeleting({ kind: 'shift', row: s }))}</td>}
+                                                        </tr>
+                                                    ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                    {isLoading ? (
-                        <Text size="2" color="gray">Loading shifts…</Text>
-                    ) : shifts.length === 0 ? (
-                        <Flex direction="column" align="center" py="5" gap="2">
-                            <Text size="2" color="gray">No shifts yet.</Text>
-                            {canAdd && <Text size="1" color="gray">Click Add shift above to create one.</Text>}
-                        </Flex>
-                    ) : (
-                        <Box>
-                            <Table.Root size="2">
-                                <Table.Header>
-                                    <Table.Row>
-                                        <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Window</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Owner</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                        {isGlobalUser && <Table.ColumnHeaderCell>Created By</Table.ColumnHeaderCell>}
-                                        {showActions && <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>}
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {paginatedShifts.map(s => (
-                                        <Table.Row key={s.id}>
-                                            <Table.Cell>
-                                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>{s.name}</Text>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge style={{ background: s.color || undefined, color: s.color ? '#fff' : undefined, borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>
-                                                    {s.code}
-                                                </Badge>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>
-                                                    {s.start_time}–{s.end_time}{s.crosses_midnight ? ' (+1)' : ''}
-                                                </Text>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge color={s.department ? 'blue' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>
-                                                    {s.department?.name || 'Company-wide'}
-                                                </Badge>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge color={s.is_active ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
-                                                    {s.is_active ? 'Active' : 'Inactive'}
-                                                </Badge>
-                                            </Table.Cell>
-                                            {isGlobalUser && (
-                                                <Table.Cell>
-                                                    <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{s.creator?.name || 'System'}</Text>
-                                                </Table.Cell>
-                                            )}
-                                            {showActions && (
-                                                <Table.Cell>
-                                                    {canEditRow(s) && (
-                                                        <Flex gap="1" justify="end">
-                                                            <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditing(s); setOpen(true); }} aria-label={`Edit shift ${s.name}`}>
-                                                                <Pencil1Icon />
-                                                            </IconButton>
-                                                            <IconButton size="1" variant="ghost" color="red" onClick={() => remove(s)} aria-label={`Delete shift ${s.name}`}>
-                                                                <TrashIcon />
-                                                            </IconButton>
-                                                        </Flex>
-                                                    )}
-                                                </Table.Cell>
-                                            )}
-                                        </Table.Row>
-                                    ))}
-                                </Table.Body>
-                            </Table.Root>
-                            
-                            {shifts.length > 0 && (
-                                <Box mt="4">
-                                    <TablePagination
-                                        pagination={{ currentPage: shiftsPage, perPage: shiftsPerPage, total: shifts.length }}
-                                        onPageChange={setShiftsPage}
-                                        onRowsPerPageChange={setShiftsPerPage}
-                                    />
-                                </Box>
-                            )}
-                        </Box>
-                    )}
-                </Tabs.Content>
+            {activeSubTab === 'patterns' && (
+                <div className="dl-page" {...panel('patterns')}>
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <Card
+                                id="attendance-patterns-list"
+                                title="Rotation patterns"
+                                flush
+                                actions={canAdd ? <Button size="sm" onClick={() => { setEditingPattern(null); setPatternOpen(true); }}><Icon name="plus-lg" /> Add pattern</Button> : null}
+                                footer={patterns.length > patternsPerPage || patternsPage > 1 ? <Pagination pagination={{ currentPage: patternsPage, perPage: patternsPerPage, total: patterns.length }} onPageChange={setPatternsPage} onRowsPerPageChange={setPatternsPerPage} /> : null}
+                            >
+                                <div className="cy-dt" tabIndex={0} role="region" aria-label="Rotation patterns, scrollable">
+                                    <table className="cy-table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Name</th><th scope="col">Code</th><th scope="col">Cycle length</th><th scope="col">Sequence preview</th><th scope="col">Owner</th><th scope="col">Status</th>
+                                                {isGlobalUser && <th scope="col">Created by</th>}
+                                                {showActions && <th scope="col"><span className="visually-hidden">Actions</span></th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {patternsLoading ? emptyRow(patternCols, 'arrow-repeat', 'Loading rotation patterns…')
+                                                : patterns.length === 0 ? emptyRow(patternCols, 'arrow-repeat', 'No rotation patterns yet.', canAdd ? 'Click Add pattern above to create one.' : null)
+                                                    : paginatedPatterns.map(p => (
+                                                        <tr key={p.id}>
+                                                            <td><b>{p.name}</b></td>
+                                                            <td><Badge soft color="info">{p.code}</Badge></td>
+                                                            <td className="cy-nowrap">{p.cycle_length_days} days</td>
+                                                            <td><span className="cy-seqrow">{formatSequence(p.definition)}</span></td>
+                                                            <td><Badge soft color={p.department ? 'info' : 'secondary'}>{p.department?.name || 'Company-wide'}</Badge></td>
+                                                            <td><Badge soft color={p.is_active ? 'success' : 'secondary'}>{p.is_active ? 'Active' : 'Inactive'}</Badge></td>
+                                                            {isGlobalUser && <td className="cy-muted">{p.creator?.name || 'System'}</td>}
+                                                            {showActions && <td>{rowActions(p, `pattern ${p.name}`, () => { setEditingPattern(p); setPatternOpen(true); }, () => setDeleting({ kind: 'pattern', row: p }))}</td>}
+                                                        </tr>
+                                                    ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                {/* Rotation Patterns Sub-tab */}
-                <Tabs.Content value="patterns">
-                    <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                        <Flex align="center" gap="2">
-                            <SymbolIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
-                            <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Rotation Patterns</Text>
-                        </Flex>
-                        {canAdd && (
-                            <Button size="2" color="blue" onClick={() => { setEditingPattern(null); setPatternOpen(true); }} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                <PlusIcon /> Add pattern
-                            </Button>
-                        )}
-                    </Flex>
+            {activeSubTab === 'assignments' && (
+                <div className="dl-page" {...panel('assignments')}>
+                    <AssignmentManager employees={employees} departments={departments} designations={designations} />
+                </div>
+            )}
 
-                    {patternsLoading ? (
-                        <Text size="2" color="gray">Loading rotation patterns…</Text>
-                    ) : patterns.length === 0 ? (
-                        <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--dl-border-color, rgba(0,0,0,0.1))', borderRadius: 14 }}>
-                            <Text size="2" color="gray">No rotation patterns yet.</Text>
-                            {canAdd && <Text size="1" color="gray">Click Add pattern above to create one.</Text>}
-                        </Flex>
-                    ) : (
-                        <Box>
-                            <Table.Root size="2">
-                                <Table.Header>
-                                    <Table.Row>
-                                        <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Cycle Length</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Sequence Preview</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Owner</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                        {isGlobalUser && <Table.ColumnHeaderCell>Created By</Table.ColumnHeaderCell>}
-                                        {showActions && <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>}
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {paginatedPatterns.map(p => (
-                                        <Table.Row key={p.id}>
-                                            <Table.Cell>
-                                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>{p.name}</Text>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge color="blue" variant="soft" style={{ borderRadius: 999 }}>{p.code}</Badge>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Text size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{p.cycle_length_days} days</Text>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Flex gap="1" wrap="wrap" align="center">
-                                                    {formatSequence(p.definition)}
-                                                </Flex>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge color={p.department ? 'blue' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>
-                                                    {p.department?.name || 'Company-wide'}
-                                                </Badge>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge color={p.is_active ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
-                                                    {p.is_active ? 'Active' : 'Inactive'}
-                                                </Badge>
-                                            </Table.Cell>
-                                            {isGlobalUser && (
-                                                <Table.Cell>
-                                                    <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{p.creator?.name || 'System'}</Text>
-                                                </Table.Cell>
-                                            )}
-                                            {showActions && (
-                                                <Table.Cell>
-                                                    {canEditRow(p) && (
-                                                        <Flex gap="1" justify="end">
-                                                            <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }} aria-label={`Edit pattern ${p.name}`}>
-                                                                <Pencil1Icon />
-                                                            </IconButton>
-                                                            <IconButton size="1" variant="ghost" color="red" onClick={() => removePattern(p)} aria-label={`Delete pattern ${p.name}`}>
-                                                                <TrashIcon />
-                                                            </IconButton>
-                                                        </Flex>
-                                                    )}
-                                                </Table.Cell>
-                                            )}
-                                        </Table.Row>
-                                    ))}
-                                </Table.Body>
-                            </Table.Root>
-
-                            {patterns.length > 0 && (
-                                <Box mt="4">
-                                    <TablePagination
-                                        pagination={{ currentPage: patternsPage, perPage: patternsPerPage, total: patterns.length }}
-                                        onPageChange={setPatternsPage}
-                                        onRowsPerPageChange={setPatternsPerPage}
-                                    />
-                                </Box>
-                            )}
-                        </Box>
-                    )}
-                </Tabs.Content>
-
-                {/* Assignments Sub-tab */}
-                <Tabs.Content value="assignments">
-                    <AssignmentManager
-                        employees={employees}
-                        departments={departments}
-                        designations={designations}
-                    />
-                </Tabs.Content>
-            </Tabs.Root>
-
+            {deleting && (
+                <ConfirmDialog
+                    title={deleting.kind === 'shift' ? 'Delete shift' : 'Delete rotation pattern'}
+                    message={deleting.kind === 'shift' ? `Delete shift "${deleting.row.name}"? This cannot be undone.` : `Delete rotation pattern "${deleting.row.name}"? This cannot be undone.`}
+                    onClose={() => setDeleting(null)}
+                    onConfirm={() => (deleting.kind === 'shift' ? remove(deleting.row) : removePattern(deleting.row))}
+                />
+            )}
             <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} departments={departments} />
             <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} initial={editingPattern} onSaved={refresh} departments={departments} />
-        </Box>
+        </>
     );
 }

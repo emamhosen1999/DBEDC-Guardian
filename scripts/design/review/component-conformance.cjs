@@ -33,6 +33,12 @@ const PAIRS = [
     ['table: body cell', 'table_elements.html', '.table tbody td', '[data-conf="table"] tbody td'],
     ['alert: danger', 'ui_bootstrap.html', '.alert.alert-danger', '[data-conf="alert-danger"]'],
     ['alert: warning', 'ui_bootstrap.html', '.alert.alert-warning', '[data-conf="alert-warning"]'],
+    ['form label', 'form_elements.html', 'label.form-label', '.cy-label', [...SIZE, 'font-weight', 'margin-bottom', 'color']],
+    ['textarea', 'form_elements.html', 'textarea.form-control', '[data-conf="textarea"]', ['font-size', 'line-height', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'border-top-width', 'border-top-color', 'border-radius', 'font-weight', 'color']],
+    ['checkbox', 'form_elements.html', '.form-check-input[type="checkbox"]:checked', '[data-conf="checkbox"] input', ['width', 'height', 'border-top-width', 'border-radius', 'background-color']],
+    ['switch', 'form_elements.html', '.form-switch .form-check-input:not(:checked)', '[data-conf="switch"] input', ['width', 'height', 'border-radius']],
+    ['button: success', 'ui_buttons.html', '.btn.btn-success:not(.btn-lg)', '[data-conf="btn-success"]', ['background-color', 'color', 'border-top-color', 'font-weight']],
+    ['button: outline danger', 'ui_buttons.html', '.btn.btn-outline-danger:not(.btn-lg)', '[data-conf="btn-outline-danger"]', ['color', 'border-top-color', 'font-weight']],
     ['progress', 'index.html', '.progress', '[data-conf="progress"] .cy-progress'],
     ['modal: content', 'ui_modal_notification.html', '.modal-content', '[data-conf="modal"]', NO_HEIGHT],
     ['modal: header', 'ui_modal_notification.html', '.modal-header', '[data-conf="modal"] .cy-modal__head'],
@@ -42,6 +48,8 @@ const PAIRS = [
 const PROPS = ['font-family', 'font-size', 'font-weight', 'letter-spacing', 'line-height', 'text-transform', 'color', 'background-color',
     'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'border-top-width', 'border-top-style', 'border-top-color',
     'border-bottom-width', 'border-bottom-color', 'border-left-width', 'border-left-color', 'border-radius', 'height', 'box-shadow'];
+// read in addition to PROPS; only the pairs that name them compare them (a box's width depends on its layout slot).
+const READ = [...PROPS, 'width', 'margin-bottom'];
 
 const read = (page, selector) => page.evaluate(({ selector, props }) => {
     const el = [...document.querySelectorAll(selector)].find((e) => e.getClientRects().length) || document.querySelector(selector);
@@ -58,7 +66,7 @@ const read = (page, selector) => page.evaluate(({ selector, props }) => {
         });
     }
     return out;
-}, { selector, props: PROPS });
+}, { selector, props: READ });
 
 const channels = (v) => { const m = /^rgba?\(([^)]+)\)$/.exec(v); return m ? m[1].split(',').map((x) => parseFloat(x)) : null; };
 const near = (a, b) => {

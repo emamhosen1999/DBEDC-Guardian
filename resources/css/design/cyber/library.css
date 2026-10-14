@@ -516,3 +516,62 @@ html.light .cy-alert { --cy-alert-base: #fff; --cy-alert-border-mix: 40%; }
 /* A row whose only card renders nothing (e.g. the swap inbox when nothing waits) takes no space and draws no line */
 .dl-row.cy-row-optional:not(:has(.dl-card)) { display: none; }
 .cy-row__actions { display: inline-flex; flex: none; gap: 0.3125rem; }
+
+/* ---- Form controls (form_elements.html): label, textarea, checkbox, switch, text, invalid ------------------------ */
+.cy-formfield { display: block; min-width: 0; }
+.cy-label { display: block; margin-bottom: 0.5rem; color: var(--cy-fg); font-size: 0.625rem; font-weight: 500; letter-spacing: var(--cy-tracking); line-height: 1.5; }
+.cy-formtext { margin: 0.25rem 0 0; font-size: 0.875em; color: var(--cy-text-faint); }
+.cy-formtext--error { color: var(--red-11); }
+.cy-select--block { width: 100%; }
+.cy-textarea { min-height: calc(1.5em + 0.65625rem + 2px); height: auto; resize: vertical; }
+.cy-input:disabled, .cy-select:disabled { opacity: 0.5; cursor: default; }
+.cy-input.is-invalid, .cy-select.is-invalid { border-color: var(--red-9); }
+.cy-input.is-invalid:focus { box-shadow: 0 0 0 1px var(--red-9); }
+.cy-input[type='date'], .cy-input[type='time'], .cy-input[type='month'] { color-scheme: dark; }
+html.light .cy-input[type='date'], html.light .cy-input[type='time'], html.light .cy-input[type='month'] { color-scheme: light; }
+
+/* .form-check / .form-switch: 1.3em box, translucent fill when checked, square (radius 0); the switch is a 2.3em pill */
+.cy-check { display: flex; align-items: flex-start; gap: 0.5em; min-height: 1.3em; margin-bottom: 0.125rem; font-size: 0.625rem; line-height: 1.5; }
+.cy-check__input {
+  flex-shrink: 0; width: 1.3em; height: 1.3em; margin: 0.1em 0 0; vertical-align: top; font-size: 0.625rem;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background: transparent no-repeat center / contain; border: 1px solid var(--cy-border); border-radius: 0;
+}
+.cy-check__input:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px; border-color: var(--cy-border-hover); }
+.cy-check__input:checked { background-color: rgba(var(--cy-fg-rgb), 0.15); border-color: rgba(var(--cy-fg-rgb), 0.15); background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e"); }
+html.light .cy-check__input:checked { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230a151a' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e"); }
+.cy-check__input:indeterminate { background-color: rgba(var(--cy-fg-rgb), 0.15); border-color: rgba(var(--cy-fg-rgb), 0.15); background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e"); }
+.cy-check__input:disabled { pointer-events: none; opacity: 0.5; }
+.cy-check__input:disabled + .cy-check__label { cursor: default; opacity: 0.5; }
+.cy-check__label { cursor: pointer; color: var(--cy-fg); }
+.cy-check--switch .cy-check__input { width: 2.3em; border-radius: 2.3em; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255, 255, 255, 0.25%29'/%3e%3c/svg%3e"); background-position: left center; background-size: contain; }
+html.light .cy-check--switch .cy-check__input { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%2810, 21, 26, 0.25%29'/%3e%3c/svg%3e"); }
+.cy-check--switch .cy-check__input:checked { background-position: right center; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23FFFFFF'/%3e%3c/svg%3e"); }
+html.light .cy-check--switch .cy-check__input:checked { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%230a151a'/%3e%3c/svg%3e"); }
+
+/* alert with a dismiss control */
+.cy-alert__body { flex: 1; min-width: 0; }
+.cy-alert__close { flex: none; display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; opacity: 0.75; }
+.cy-alert__close:hover { opacity: 1; }
+.cy-alert__close:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 1px; }
+
+/* a date range: two fields with a joiner */
+.cy-daterange { display: flex; align-items: center; gap: 0.4375rem; flex-wrap: wrap; }
+.cy-daterange .cy-input { width: auto; flex: 1 1 8rem; }
+.cy-daterange__sep { color: var(--cy-text-faint); font-size: 0.5625rem; text-transform: uppercase; }
+
+/* segmented outline buttons share borders */
+.cy-seg > .cy-btn + .cy-btn { margin-inline-start: -1px; }
+
+/* .btn-success / .btn-danger / .btn-outline-success / .btn-outline-danger (Cyber: #82ff9b / #ff9999 on black text) */
+.cy-btn--success, .cy-btn--outline-success { --cy-btn-tone: #82ff9b; --cy-btn-tone-hover: #a1ffb4; }
+.cy-btn--danger, .cy-btn--outline-danger { --cy-btn-tone: #ff9999; --cy-btn-tone-hover: #ffb3b3; }
+html.light .cy-btn--success, html.light .cy-btn--outline-success { --cy-btn-tone: var(--green-11); --cy-btn-tone-hover: var(--green-10); }
+html.light .cy-btn--danger, html.light .cy-btn--outline-danger { --cy-btn-tone: var(--red-11); --cy-btn-tone-hover: var(--red-10); }
+.cy-btn--success, .cy-btn--danger { background: var(--cy-btn-tone); border-color: var(--cy-btn-tone); color: #000; }
+html.light .cy-btn--success, html.light .cy-btn--danger { color: #fff; }
+.cy-btn--success:hover, .cy-btn--danger:hover { background: var(--cy-btn-tone-hover); border-color: var(--cy-btn-tone-hover); }
+.cy-btn--outline-success, .cy-btn--outline-danger { border-color: var(--cy-btn-tone); color: var(--cy-btn-tone); }
+.cy-btn--outline-success:hover, .cy-btn--outline-danger:hover { background: var(--cy-btn-tone); color: #000; }
+html.light .cy-btn--outline-success:hover, html.light .cy-btn--outline-danger:hover { color: #fff; }
+.cy-icon--flip { transform: rotate(180deg); }

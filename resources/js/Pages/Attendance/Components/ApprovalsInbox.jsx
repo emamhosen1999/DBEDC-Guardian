@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import { Box, Flex, Table, Button, Badge, Text, Checkbox, SegmentedControl, Tabs } from '@radix-ui/themes';
+import { Badge, Button, Card, Checkbox, Pagination, Segmented, Tabs } from '@/Components/Cyber';
+import { panelId, tabId } from '@/Components/Cyber/Tabs';
+import RejectReasonDialog from './RejectReasonDialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import PunchExceptions from './PunchExceptions';
 import SwapApprovals from './SwapApprovals';
-import TablePagination from '@/Components/TablePagination.jsx';
 
-const statusColor = { pending: 'amber', approved: 'green', rejected: 'red', cancelled: 'gray' };
+const statusColor = { pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'secondary' };
+const TABS_ID = 'attendance-approvals';
 
 function formatMinutes(mins) {
     if (!mins) return '—';
@@ -59,11 +61,9 @@ export default function ApprovalsInbox() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ['regularizations'] }),
     });
 
-    const handleRegReject = (id) => {
-        const reason = window.prompt('Reason for rejection:');
-        if (!reason || !reason.trim()) return;
-        regReject.mutate({ id, reason: reason.trim() });
-    };
+    /* Rejecting asks for a reason in a dialog: { kind: 'reg' | 'ot', id } while it is open. */
+    const [rejecting, setRejecting] = useState(null);
+    const handleRegReject = (id) => setRejecting({ kind: 'reg', id });
 
     /* ── Overtime ──────────────────────────────────────────── */
     const { data: otData, isLoading: otLoading } = useQuery({
@@ -83,10 +83,12 @@ export default function ApprovalsInbox() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ['overtime'] }),
     });
 
-    const handleOtReject = (id) => {
-        const reason = window.prompt('Reason for rejection:');
-        if (!reason || !reason.trim()) return;
-        otReject.mutate({ id, reason: reason.trim() });
+    const handleOtReject = (id) => setRejecting({ kind: 'ot', id });
+    const confirmReject = (reason) => {
+        const target = rejecting;
+        setRejecting(null);
+        if (!target) return;
+        (target.kind === 'reg' ? regReject : otReject).mutate({ id: target.id, reason });
     };
 
     /* per-row comp-off checkbox state */
@@ -100,233 +102,132 @@ export default function ApprovalsInbox() {
     const paginatedRegs = regs.slice((regPage - 1) * itemsPerPage, regPage * itemsPerPage);
     const paginatedOts = ots.slice((otPage - 1) * itemsPerPage, otPage * itemsPerPage);
 
+    const subTabs = [
+        { key: 'regularizations', label: 'Regularizations', ...(regs.length > 0 ? { count: regs.length, tone: 'danger' } : {}) },
+        { key: 'overtime', label: 'Overtime', ...(ots.length > 0 ? { count: ots.length, tone: 'danger' } : {}) },
+        { key: 'swaps', label: 'Swap Requests' },
+        { key: 'exceptions', label: 'Punch Exceptions' },
+    ];
+    const activeSub = subTabs.some(t => t.key === subTab) ? subTab : 'regularizations';
+    const panel = (key) => ({ role: 'tabpanel', id: panelId(TABS_ID, key), 'aria-labelledby': tabId(TABS_ID, key) });
+    const emptyRow = (cols, text) => (
+        <tr><td colSpan={cols} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><p className="cy-empty__text">{text}</p></div></td></tr>
+    );
+    const approvalActions = (pending, onApprove, onReject, approveBusy, rejectBusy, who) => pending && (
+        <span className="cy-actions">
+            <Button size="sm" color="success" loading={approveBusy} onClick={onApprove} aria-label={`Approve ${who}`}>Approve</Button>
+            <Button size="sm" color="danger" variant="outline" loading={rejectBusy} onClick={onReject} aria-label={`Reject ${who}`}>Reject</Button>
+        </span>
+    );
+
     /* ── render ───────────────────────────────────────────── */
     return (
-        <Box>
-            {/* ── Status filter ───────────────────────────── */}
-            <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                <Flex align="center" gap="3">
-                    <Text size="2" weight="medium" color="gray">Status</Text>
-                    <SegmentedControl.Root value={statusFilter} onValueChange={setStatusFilter} size="1">
-                        <SegmentedControl.Item value="pending">Pending</SegmentedControl.Item>
-                        <SegmentedControl.Item value="approved">Approved</SegmentedControl.Item>
-                        <SegmentedControl.Item value="rejected">Rejected</SegmentedControl.Item>
-                        <SegmentedControl.Item value="all">All</SegmentedControl.Item>
-                    </SegmentedControl.Root>
-                </Flex>
-            </Flex>
-
-            {/* ── Sub-tabs ────────────────────────────────── */}
-            <Tabs.Root value={subTab} onValueChange={setSubTab}>
-                <Tabs.List style={{ marginBottom: 'var(--space-3)' }}>
-                    <Tabs.Trigger value="regularizations">
-                        Regularizations
-                        {regs.length > 0 && (
-                            <Badge color="red" variant="solid" size="1" style={{ marginLeft: 6 }}>
-                                {regs.length}
-                            </Badge>
-                        )}
-                    </Tabs.Trigger>
-                    <Tabs.Trigger value="overtime">
-                        Overtime
-                        {ots.length > 0 && (
-                            <Badge color="red" variant="solid" size="1" style={{ marginLeft: 6 }}>
-                                {ots.length}
-                            </Badge>
-                        )}
-                    </Tabs.Trigger>
-                    <Tabs.Trigger value="swaps">Swap Requests</Tabs.Trigger>
-                    <Tabs.Trigger value="exceptions">Punch Exceptions</Tabs.Trigger>
-                </Tabs.List>
-
-                {/* Regularizations Tab */}
-                <Tabs.Content value="regularizations">
-                    <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
-                        <Table.Root size="2" variant="ghost">
-                            <Table.Header>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell>Requester</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Punch-in</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Punch-out</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                                {regLoading && (
-                                    <Table.Row>
-                                        <Table.Cell colSpan={8}>
-                                            <Text color="gray" size="2">Loading…</Text>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                )}
-                                {!regLoading && regs.length === 0 && (
-                                    <Table.Row>
-                                        <Table.Cell colSpan={8}>
-                                            <Text color="gray" size="2">No {emptyLabel}regularization requests.</Text>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                )}
-                                {paginatedRegs.map(r => (
-                                    <Table.Row key={r.id}>
-                                        <Table.Cell><Text weight="medium">{r.user?.name || `#${r.user_id}`}</Text></Table.Cell>
-                                        <Table.Cell>{r.date}</Table.Cell>
-                                        <Table.Cell><Badge color="gray" variant="soft">{r.type || '—'}</Badge></Table.Cell>
-                                        <Table.Cell>{r.requested_punchin || '—'}</Table.Cell>
-                                        <Table.Cell>{r.requested_punchout || '—'}</Table.Cell>
-                                        <Table.Cell style={{ maxWidth: 200, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                            {r.reason || '—'}
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color={statusColor[r.status] || 'gray'}>{r.status}</Badge>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            {r.status === 'pending' && (
-                                                <Flex gap="2">
-                                                    <Button
-                                                        size="1"
-                                                        color="green"
-                                                        loading={regApprove.isPending}
-                                                        onClick={() => regApprove.mutate({ id: r.id })}
-                                                    >
-                                                        Approve
-                                                    </Button>
-                                                    <Button
-                                                        size="1"
-                                                        color="red"
-                                                        variant="soft"
-                                                        loading={regReject.isPending}
-                                                        onClick={() => handleRegReject(r.id)}
-                                                    >
-                                                        Reject
-                                                    </Button>
-                                                </Flex>
-                                            )}
-                                        </Table.Cell>
-                                    </Table.Row>
-                                ))}
-                            </Table.Body>
-                        </Table.Root>
-                        {regs.length > itemsPerPage && (
-                            <Box p="2" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                                <TablePagination
-                                    pagination={{ currentPage: regPage, perPage: itemsPerPage, total: regs.length }}
-                                    onPageChange={setRegPage}
-                                    onRowsPerPageChange={() => {}}
-                                    loading={regLoading}
+        <div className="dl-page">
+            <div className="dl-row">
+                <div className="dl-col dl-col--12">
+                    <Card id="attendance-approvals" title="Approvals" flush>
+                        <div className="cy-toolbar" role="toolbar" aria-label="Approvals filters">
+                            <div className="cy-toolbar__group">
+                                <Segmented
+                                    label="Status"
+                                    value={statusFilter}
+                                    onChange={setStatusFilter}
+                                    options={[{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }, { value: 'all', label: 'All' }]}
                                 />
-                            </Box>
-                        )}
-                    </Box>
-                </Tabs.Content>
+                            </div>
+                        </div>
 
-                {/* Overtime Tab */}
-                <Tabs.Content value="overtime">
-                    <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
-                        <Table.Root size="2" variant="ghost">
-                            <Table.Header>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell>Requester</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Duration</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Grant Comp-off</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                                {otLoading && (
-                                    <Table.Row>
-                                        <Table.Cell colSpan={7}>
-                                            <Text color="gray" size="2">Loading…</Text>
-                                        </Table.Cell>
-                                    </Table.Row>
+                        <Tabs tabs={subTabs} value={activeSub} onChange={setSubTab} idPrefix={TABS_ID} label="Approval types" className="cy-tabs--scroll" />
+
+                        {activeSub === 'regularizations' && (
+                            <div {...panel('regularizations')}>
+                                <div className="cy-dt" tabIndex={0} role="region" aria-label="Regularization requests, scrollable">
+                                    <table className="cy-table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Requester</th><th scope="col">Date</th><th scope="col">Type</th><th scope="col">Punch-in</th>
+                                                <th scope="col">Punch-out</th><th scope="col">Reason</th><th scope="col">Status</th><th scope="col"><span className="visually-hidden">Actions</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {regLoading && emptyRow(8, 'Loading…')}
+                                            {!regLoading && regs.length === 0 && emptyRow(8, `No ${emptyLabel}regularization requests.`)}
+                                            {paginatedRegs.map(r => (
+                                                <tr key={r.id}>
+                                                    <td><b>{r.user?.name || `#${r.user_id}`}</b></td>
+                                                    <td className="cy-nowrap">{r.date}</td>
+                                                    <td><Badge soft color="secondary">{r.type || '—'}</Badge></td>
+                                                    <td>{r.requested_punchin || '—'}</td>
+                                                    <td>{r.requested_punchout || '—'}</td>
+                                                    <td className="cy-wrap">{r.reason || '—'}</td>
+                                                    <td><Badge soft color={statusColor[r.status] || 'secondary'}>{r.status}</Badge></td>
+                                                    <td>{approvalActions(r.status === 'pending', () => regApprove.mutate({ id: r.id }), () => handleRegReject(r.id), regApprove.isPending, regReject.isPending, r.user?.name || `#${r.user_id}`)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {regs.length > itemsPerPage && (
+                                    <div className="cy-card-foot-inline">
+                                        <Pagination pagination={{ currentPage: regPage, perPage: itemsPerPage, total: regs.length }} onPageChange={setRegPage} loading={regLoading} label="Regularization pages" />
+                                    </div>
                                 )}
-                                {!otLoading && ots.length === 0 && (
-                                    <Table.Row>
-                                        <Table.Cell colSpan={7}>
-                                            <Text color="gray" size="2">No {emptyLabel}overtime requests.</Text>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                )}
-                                {paginatedOts.map(o => (
-                                    <Table.Row key={o.id}>
-                                        <Table.Cell><Text weight="medium">{o.user?.name || `#${o.user_id}`}</Text></Table.Cell>
-                                        <Table.Cell>{o.date}</Table.Cell>
-                                        <Table.Cell>{formatMinutes(o.requested_minutes)}</Table.Cell>
-                                        <Table.Cell style={{ maxWidth: 200, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                            {o.reason || '—'}
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            {o.status === 'pending' ? (
-                                                <Flex align="center" gap="2">
-                                                    <Checkbox
-                                                        checked={!!compOff[o.id]}
-                                                        onCheckedChange={() => toggleCompOff(o.id)}
-                                                    />
-                                                    <Text size="2">Grant comp-off</Text>
-                                                </Flex>
-                                            ) : (
-                                                o.grant_comp_off ? <Badge color="green">Granted</Badge> : '—'
-                                            )}
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color={statusColor[o.status] || 'gray'}>{o.status}</Badge>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            {o.status === 'pending' && (
-                                                <Flex gap="2">
-                                                    <Button
-                                                        size="1"
-                                                        color="green"
-                                                        loading={otApprove.isPending}
-                                                        onClick={() => otApprove.mutate({ id: o.id, grant_comp_off: !!compOff[o.id] })}
-                                                    >
-                                                        Approve
-                                                    </Button>
-                                                    <Button
-                                                        size="1"
-                                                        color="red"
-                                                        variant="soft"
-                                                        loading={otReject.isPending}
-                                                        onClick={() => handleOtReject(o.id)}
-                                                    >
-                                                        Reject
-                                                    </Button>
-                                                </Flex>
-                                            )}
-                                        </Table.Cell>
-                                    </Table.Row>
-                                ))}
-                            </Table.Body>
-                        </Table.Root>
-                        {ots.length > itemsPerPage && (
-                            <Box p="2" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                                <TablePagination
-                                    pagination={{ currentPage: otPage, perPage: itemsPerPage, total: ots.length }}
-                                    onPageChange={setOtPage}
-                                    onRowsPerPageChange={() => {}}
-                                    loading={otLoading}
-                                />
-                            </Box>
+                            </div>
                         )}
-                    </Box>
-                </Tabs.Content>
 
-                {/* Swap Requests Tab */}
-                <Tabs.Content value="swaps">
-                    <SwapApprovals status={statusFilter} />
-                </Tabs.Content>
+                        {activeSub === 'overtime' && (
+                            <div {...panel('overtime')}>
+                                <div className="cy-dt" tabIndex={0} role="region" aria-label="Overtime requests, scrollable">
+                                    <table className="cy-table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Requester</th><th scope="col">Date</th><th scope="col">Duration</th><th scope="col">Reason</th>
+                                                <th scope="col">Grant comp-off</th><th scope="col">Status</th><th scope="col"><span className="visually-hidden">Actions</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {otLoading && emptyRow(7, 'Loading…')}
+                                            {!otLoading && ots.length === 0 && emptyRow(7, `No ${emptyLabel}overtime requests.`)}
+                                            {paginatedOts.map(o => (
+                                                <tr key={o.id}>
+                                                    <td><b>{o.user?.name || `#${o.user_id}`}</b></td>
+                                                    <td className="cy-nowrap">{o.date}</td>
+                                                    <td>{formatMinutes(o.requested_minutes)}</td>
+                                                    <td className="cy-wrap">{o.reason || '—'}</td>
+                                                    <td>
+                                                        {o.status === 'pending' ? (
+                                                            <Checkbox checked={!!compOff[o.id]} onCheckedChange={() => toggleCompOff(o.id)} label="Grant comp-off" />
+                                                        ) : (
+                                                            o.grant_comp_off ? <Badge soft color="success">Granted</Badge> : '—'
+                                                        )}
+                                                    </td>
+                                                    <td><Badge soft color={statusColor[o.status] || 'secondary'}>{o.status}</Badge></td>
+                                                    <td>{approvalActions(o.status === 'pending', () => otApprove.mutate({ id: o.id, grant_comp_off: !!compOff[o.id] }), () => handleOtReject(o.id), otApprove.isPending, otReject.isPending, o.user?.name || `#${o.user_id}`)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {ots.length > itemsPerPage && (
+                                    <div className="cy-card-foot-inline">
+                                        <Pagination pagination={{ currentPage: otPage, perPage: itemsPerPage, total: ots.length }} onPageChange={setOtPage} loading={otLoading} label="Overtime pages" />
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
-                {/* Punch Exceptions Tab */}
-                <Tabs.Content value="exceptions">
-                    <PunchExceptions />
-                </Tabs.Content>
-            </Tabs.Root>
-        </Box>
+                        {activeSub === 'swaps' && <div {...panel('swaps')}><SwapApprovals status={statusFilter} /></div>}
+                        {activeSub === 'exceptions' && <div {...panel('exceptions')}><PunchExceptions /></div>}
+                    </Card>
+                </div>
+            </div>
+            {rejecting && (
+                <RejectReasonDialog
+                    title={rejecting.kind === 'reg' ? 'Reject regularization' : 'Reject overtime request'}
+                    onClose={() => setRejecting(null)}
+                    onConfirm={confirmReject}
+                />
+            )}
+        </div>
     );
 }

@@ -1,19 +1,13 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import { Box, Flex, Text, Button, TextField, Select, Separator, Badge, IconButton, Spinner, ScrollArea, Checkbox, Switch, Table, Tooltip, Tabs } from '@radix-ui/themes';
-import {
-    GearIcon, ClockIcon, CalendarIcon, PersonIcon,
-    PlusIcon, TrashIcon, Pencil1Icon, CheckCircledIcon,
-    CrossCircledIcon, MagnifyingGlassIcon, GlobeIcon,
-    LockClosedIcon, MobileIcon, SewingPinIcon, DesktopIcon,
-    ArrowUpIcon, ArrowDownIcon
-} from '@radix-ui/react-icons';
+import { Badge, Button, Card, Checkbox, DateInput, FormField, Icon, Input, Switch, Tabs } from '@/Components/Cyber';
+import { panelId, tabId } from '@/Components/Cyber/Tabs';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import PoliciesManager from './Components/PoliciesManager';
-import DateTimePicker from '@/Components/DateTimePicker';
+import ConfirmDialog from './Components/ConfirmDialog';
 import { fetchRoadRouteGeometry } from '@/Components/TeamMap/roadRoutingService';
 
 /* ── map imports (Leaflet) ───────────────────── */
@@ -28,15 +22,17 @@ L.Icon.Default.mergeOptions({
     shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+
 /* ── helpers ──────────────────────────────────────────────── */
 const getBaseSlug = slug => (slug || '').replace(/_\d+$/, '');
 
+/* tone: the Cyber badge colour; hue: the token family of the category glyph */
 const CATEGORY_META = {
-    geo_polygon:    { title: 'Geo Polygon',    icon: <GlobeIcon />,     color: 'amber'  },
-    wifi_ip:        { title: 'WiFi / IP',       icon: <LockClosedIcon />, color: 'violet' },
-    route_waypoint: { title: 'Route Waypoint', icon: <SewingPinIcon />, color: 'blue'   },
-    qr_code:        { title: 'QR Code',         icon: <MobileIcon />,    color: 'green'  },
-    biometric:      { title: 'Biometric',       icon: <DesktopIcon />,   color: 'red', readonly: true },
+    geo_polygon:    { title: 'Geo Polygon',    icon: 'geo',        tone: 'warning',   hue: 'amber'  },
+    wifi_ip:        { title: 'WiFi / IP',       icon: 'lock',          tone: 'secondary', hue: 'violet' },
+    route_waypoint: { title: 'Route Waypoint', icon: 'geo-alt',       tone: 'info',      hue: 'blue'   },
+    qr_code:        { title: 'QR Code',         icon: 'phone',         tone: 'success',   hue: 'green'  },
+    biometric:      { title: 'Biometric',       icon: 'fingerprint',   tone: 'danger',    hue: 'red', readonly: true },
 };
 
 /* ── tiny map click handlers ────────────── */
@@ -49,61 +45,29 @@ const MapClickHandler = ({ onPick, active }) => {
     return null;
 };
 
-/* ── modal backdrop ───────────────────────────────────────── */
+/* ── modal: the shared Cyber dialog (Escape, backdrop click, focus trap and focus return come with it) ── */
 const Modal = ({ open, onClose, title, children, footer }) => {
     if (!open) return null;
     return (
-        <Box
-            style={{
-                position: 'fixed', inset: 0, zIndex: 10000,
-                background: 'rgba(0,0,0,0.65)',
-                backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16,
-            }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-        >
-            <Box
-                style={{
-                    background: 'var(--color-panel-solid, var(--color-surface, #ffffff))',
-                    border: '1px solid var(--gray-a5)',
-                    borderRadius: 'var(--radius-4)',
-                    boxShadow: 'var(--shadow-5, 0 25px 50px rgba(0,0,0,0.35))',
-                    width: '100%', maxWidth: 760,
-                    maxHeight: '92vh',
-                    display: 'flex', flexDirection: 'column',
-                    overflow: 'hidden',
-                }}
-            >
-                {/* header */}
-                <Flex
-                    align="center" justify="between" px="4" py="3"
-                    style={{ borderBottom: '1px solid var(--gray-a4)', flexShrink: 0, background: 'var(--gray-a2)' }}
-                >
-                    <Text size="3" weight="bold" style={{ color: 'var(--gray-12)' }}>{title}</Text>
-                    <IconButton size="2" variant="ghost" color="gray" onClick={onClose} style={{ cursor: 'pointer' }}>
-                        <CrossCircledIcon />
-                    </IconButton>
-                </Flex>
-
-                {/* body */}
-                <Box style={{ flex: 1, overflow: 'auto', minHeight: 0, padding: '16px' }}>
-                    {children}
-                </Box>
-
-                {/* footer */}
-                {footer && (
-                    <Flex
-                        gap="3" justify="end" px="4" py="3"
-                        style={{ borderTop: '1px solid var(--gray-a4)', flexShrink: 0, background: 'var(--gray-a2)' }}
-                    >
-                        {footer}
-                    </Flex>
-                )}
-            </Box>
-        </Box>
+        <Dialog title={title} onClose={onClose} className="cy-modal cy-modal--map">
+            <div className="cy-modal__body cy-stack">{children}</div>
+            {footer && <div className="cy-modal__foot">{footer}</div>}
+        </Dialog>
     );
 };
+
+/* A latitude / longitude row of a waypoint or polygon vertex list, with reorder and remove. */
+const CoordRow = ({ index, badge, badgeColor, item, count, onUpdate, onUp, onDown, onRemove, noun }) => (
+    <div className="cy-coordrow">
+        <Badge color={badgeColor} className="cy-coordrow__n">{badge}</Badge>
+        <Input size="sm" type="number" step="any" aria-label={`${noun} ${index + 1} latitude`} placeholder="Lat" value={item.lat} onChange={e => onUpdate(index, 'lat', e.target.value)} />
+        <Input size="sm" type="number" step="any" aria-label={`${noun} ${index + 1} longitude`} placeholder="Lng" value={item.lng} onChange={e => onUpdate(index, 'lng', e.target.value)} />
+        <button type="button" className="cy-iconbtn" onClick={() => onUp(index)} disabled={index === 0} aria-label={`Move ${noun} ${index + 1} up`}><Icon name="chevron-down" className="cy-icon--flip" /></button>
+        <button type="button" className="cy-iconbtn" onClick={() => onDown(index)} disabled={index === count - 1} aria-label={`Move ${noun} ${index + 1} down`}><Icon name="chevron-down" /></button>
+        <button type="button" className="cy-iconbtn cy-iconbtn--danger" onClick={() => onRemove(index)} aria-label={`Remove ${noun} ${index + 1}`}><Icon name="trash" /></button>
+    </div>
+);
+
 
 /* ════════════════════════════════════════════════════════════
    WAYPOINT MAP MODAL (Theme-Aware with Live Polyline & Radius)
@@ -216,139 +180,103 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
             title={`Route Waypoint Patrol Corridor — ${type?.name || ''}`}
             footer={
                 <>
-                    <Button variant="soft" color="gray" onClick={onClose}>Cancel</Button>
-                    <Button color="blue" onClick={handleSave} disabled={isMutating || validWaypoints.length < 2}>
-                        {isMutating ? <Spinner size="1" /> : null}
+                    <Button color="default" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+                    <Button size="sm" onClick={handleSave} disabled={isMutating || validWaypoints.length < 2} loading={isMutating}>
                         Save Route ({validWaypoints.length} waypoints)
                     </Button>
                 </>
             }
         >
-            <Flex direction="column" gap="4">
-                {/* Corridor Tolerance and Status */}
-                <Flex align="center" justify="between" wrap="wrap" gap="3">
-                    <Flex align="center" gap="3">
-                        <Box>
-                            <Text size="2" weight="medium" as="div" mb="1" style={{ color: 'var(--gray-12)' }}>
-                                Corridor Tolerance (meters)
-                            </Text>
-                            <TextField.Root
-                                type="number" size="2" min="10" max="2000"
-                                value={tolerance}
-                                onChange={e => setTolerance(Number(e.target.value))}
-                                style={{ width: 140 }}
+            {/* Corridor Tolerance and Status */}
+            <div className="cy-modal__row">
+                <FormField label="Corridor Tolerance (meters)" htmlFor="wp-tolerance">
+                    <Input id="wp-tolerance" type="number" min="10" max="2000" value={tolerance} onChange={e => setTolerance(Number(e.target.value))} className="cy-input--short" />
+                </FormField>
+                <Badge soft color={validWaypoints.length >= 2 ? 'success' : 'warning'}>
+                    {validWaypoints.length >= 2 ? 'Valid patrol route' : 'Need 2+ waypoints'}
+                </Badge>
+                <Button
+                    size="sm"
+                    color={picking ? 'danger' : 'theme'}
+                    variant={picking ? 'solid' : 'outline'}
+                    aria-pressed={picking}
+                    onClick={() => { setPicking(p => !p); if (!picking) showToast.info('Click anywhere on the map to add a waypoint'); }}
+                >
+                    <Icon name="plus-lg" /> {picking ? 'Cancel picking' : 'Pick on map'}
+                </Button>
+            </div>
+
+            {picking && (
+                <div className="cy-alert" data-tone="info" role="status">Live map picker active: click on the road or corridor to drop a numbered waypoint in sequence.</div>
+            )}
+
+            {/* Map Preview with Polyline and Radius */}
+            <div className="cy-modal__map">
+                <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                    {(roadCoords.length >= 2 ? roadCoords : polylineCoords).length >= 2 && (
+                        <>
+                            <Polyline
+                                positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
+                                pathOptions={{ color: '#0284c7', weight: 10, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }}
                             />
-                        </Box>
-                        <Badge color={validWaypoints.length >= 2 ? 'green' : 'amber'} variant="soft" size="2">
-                            {validWaypoints.length >= 2 ? '✅ Valid Patrol Route' : '⚠️ Need 2+ Waypoints'}
-                        </Badge>
-                    </Flex>
-                    <Button
-                        size="2"
-                        variant={picking ? 'solid' : 'soft'}
-                        color={picking ? 'red' : 'blue'}
-                        onClick={() => { setPicking(p => !p); if (!picking) showToast.info('Click anywhere on the map to add a waypoint'); }}
-                        style={{ cursor: 'pointer', fontWeight: 600 }}
-                    >
-                        <PlusIcon /> {picking ? 'Cancel Picking' : 'Pick on Map'}
-                    </Button>
-                </Flex>
+                            <Polyline
+                                positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
+                                pathOptions={{ color: '#0284c7', weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
+                            />
+                            <Polyline
+                                positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
+                                pathOptions={{ color: '#ffffff', weight: 2, opacity: 0.9, dashArray: '6, 6', lineCap: 'round', lineJoin: 'round' }}
+                            />
+                        </>
+                    )}
+                    {validWaypoints.map((w, i) => {
+                        const isStart = i === 0;
+                        const isEnd = i === validWaypoints.length - 1;
+                        const markerColor = isStart ? '#10b981' : isEnd ? '#ef4444' : '#0284c7';
+                        const pos = [parseFloat(w.lat), parseFloat(w.lng)];
 
-                {picking && (
-                    <Box px="3" py="2" style={{ background: 'var(--blue-a3)', borderRadius: 'var(--radius-2)', border: '1px solid var(--blue-a6)' }}>
-                        <Text size="2" color="blue" weight="medium">
-                            📍 Live Map Picker Active: Click on the road/corridor to drop a numbered waypoint in sequence.
-                        </Text>
-                    </Box>
-                )}
-
-                {/* Map Preview with Polyline and Radius */}
-                <Box style={{ height: 320, borderRadius: 'var(--radius-3)', overflow: 'hidden', border: '1px solid var(--gray-a5)', position: 'relative' }}>
-                    <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                        {(roadCoords.length >= 2 ? roadCoords : polylineCoords).length >= 2 && (
-                            <>
-                                <Polyline
-                                    positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
-                                    pathOptions={{ color: '#0284c7', weight: 10, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }}
+                        return (
+                            <React.Fragment key={i}>
+                                <Circle
+                                    center={pos}
+                                    radius={tolerance}
+                                    pathOptions={{ color: markerColor, fillColor: markerColor, fillOpacity: 0.12, weight: 1.5 }}
                                 />
-                                <Polyline
-                                    positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
-                                    pathOptions={{ color: '#0284c7', weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
+                                <Marker
+                                    position={pos}
+                                    icon={L.divIcon({
+                                        html: `<div style="background:${markerColor};color:white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4)">${isStart ? 'S' : isEnd ? 'E' : (i + 1)}</div>`,
+                                        className: '',
+                                        iconSize: [26, 26],
+                                        iconAnchor: [13, 13],
+                                    })}
                                 />
-                                <Polyline
-                                    positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
-                                    pathOptions={{ color: '#ffffff', weight: 2, opacity: 0.9, dashArray: '6, 6', lineCap: 'round', lineJoin: 'round' }}
-                                />
-                            </>
-                        )}
-                        {validWaypoints.map((w, i) => {
-                            const isStart = i === 0;
-                            const isEnd = i === validWaypoints.length - 1;
-                            const markerColor = isStart ? '#10b981' : isEnd ? '#ef4444' : '#0284c7';
-                            const pos = [parseFloat(w.lat), parseFloat(w.lng)];
+                            </React.Fragment>
+                        );
+                    })}
+                    <MapClickHandler active={picking} onPick={addFromMap} />
+                </MapContainer>
+            </div>
 
-                            return (
-                                <React.Fragment key={i}>
-                                    <Circle
-                                        center={pos}
-                                        radius={tolerance}
-                                        pathOptions={{ color: markerColor, fillColor: markerColor, fillOpacity: 0.12, weight: 1.5 }}
-                                    />
-                                    <Marker
-                                        position={pos}
-                                        icon={L.divIcon({
-                                            html: `<div style="background:${markerColor};color:white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4)">${isStart ? 'S' : isEnd ? 'E' : (i + 1)}</div>`,
-                                            className: '',
-                                            iconSize: [26, 26],
-                                            iconAnchor: [13, 13],
-                                        })}
-                                    />
-                                </React.Fragment>
-                            );
-                        })}
-                        <MapClickHandler active={picking} onPick={addFromMap} />
-                    </MapContainer>
-                </Box>
-
-                {/* Waypoints Sequence Table */}
-                {waypoints.length > 0 && (
-                    <Flex direction="column" gap="2">
-                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>
-                            Waypoint Sequence ({waypoints.length})
-                        </Text>
-                        <Box style={{ maxHeight: 180, overflowY: 'auto' }}>
-                            <Flex direction="column" gap="2">
-                                {waypoints.map((w, i) => (
-                                    <Flex key={i} align="center" gap="2" p="1" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a3)' }}>
-                                        <Badge color={i === 0 ? 'green' : i === waypoints.length - 1 ? 'red' : 'blue'} variant="solid" size="1" style={{ width: 24, justifyContent: 'center' }}>
-                                            {i === 0 ? 'S' : i === waypoints.length - 1 ? 'E' : (i + 1)}
-                                        </Badge>
-                                        <TextField.Root size="1" type="number" step="any" value={w.lat} onChange={e => update(i, 'lat', e.target.value)} style={{ flex: 1 }}>
-                                            <TextField.Slot><Text size="1" color="gray">Lat</Text></TextField.Slot>
-                                        </TextField.Root>
-                                        <TextField.Root size="1" type="number" step="any" value={w.lng} onChange={e => update(i, 'lng', e.target.value)} style={{ flex: 1 }}>
-                                            <TextField.Slot><Text size="1" color="gray">Lng</Text></TextField.Slot>
-                                        </TextField.Root>
-                                        <IconButton size="1" variant="ghost" color="gray" onClick={() => moveUp(i)} disabled={i === 0}>
-                                            <ArrowUpIcon />
-                                        </IconButton>
-                                        <IconButton size="1" variant="ghost" color="gray" onClick={() => moveDown(i)} disabled={i === waypoints.length - 1}>
-                                            <ArrowDownIcon />
-                                        </IconButton>
-                                        <IconButton size="1" variant="ghost" color="red" onClick={() => remove(i)}>
-                                            <TrashIcon />
-                                        </IconButton>
-                                    </Flex>
-                                ))}
-                            </Flex>
-                        </Box>
-                    </Flex>
-                )}
-            </Flex>
+            {/* Waypoints Sequence */}
+            {waypoints.length > 0 && (
+                <div role="group" aria-label={`Waypoint sequence (${waypoints.length})`}>
+                    <p className="cy-label">Waypoint sequence ({waypoints.length})</p>
+                    <div className="cy-coordlist">
+                        {waypoints.map((w, i) => (
+                            <CoordRow key={i} index={i} item={w} count={waypoints.length} noun="waypoint"
+                                badge={i === 0 ? 'S' : i === waypoints.length - 1 ? 'E' : (i + 1)}
+                                badgeColor={i === 0 ? 'success' : i === waypoints.length - 1 ? 'danger' : 'info'}
+                                onUpdate={update} onUp={moveUp} onDown={moveDown} onRemove={remove} />
+                        ))}
+                    </div>
+                </div>
+            )}
         </Modal>
     );
 };
+
 
 /* ════════════════════════════════════════════════════════════
    POLYGON MAP MODAL (Theme-Aware with Live Filled Polygon)
@@ -439,103 +367,72 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
             title={`Geofence Boundary Zone — ${type?.name || ''}`}
             footer={
                 <>
-                    <Button variant="soft" color="gray" onClick={onClose}>Cancel</Button>
-                    <Button
-                        color="amber" onClick={handleSave}
-                        disabled={isMutating || valid.length < 3}
-                    >
-                        {isMutating ? <Spinner size="1" /> : null}
+                    <Button color="default" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+                    <Button size="sm" onClick={handleSave} disabled={isMutating || valid.length < 3} loading={isMutating}>
                         Save Polygon ({valid.length}/3+ points)
                     </Button>
                 </>
             }
         >
-            <Flex direction="column" gap="4">
-                <Flex align="center" justify="between" wrap="wrap" gap="3">
-                    <Badge color={valid.length >= 3 ? 'green' : 'amber'} variant="soft" size="2">
-                        {valid.length} Coordinates {valid.length >= 3 ? '— Closed Boundary Formed' : '— Need at least 3 points'}
-                    </Badge>
-                    <Button
-                        size="2"
-                        variant={picking ? 'solid' : 'soft'}
-                        color={picking ? 'red' : 'amber'}
-                        onClick={() => { setPicking(p => !p); if (!picking) showToast.info('Click map to add a boundary vertex'); }}
-                        style={{ cursor: 'pointer', fontWeight: 600 }}
-                    >
-                        <PlusIcon /> {picking ? 'Cancel' : 'Pick on Map'}
-                    </Button>
-                </Flex>
+            <div className="cy-modal__row">
+                <Badge soft color={valid.length >= 3 ? 'success' : 'warning'}>
+                    {valid.length} coordinates {valid.length >= 3 ? '— closed boundary formed' : '— need at least 3 points'}
+                </Badge>
+                <Button
+                    size="sm"
+                    color={picking ? 'danger' : 'theme'}
+                    variant={picking ? 'solid' : 'outline'}
+                    aria-pressed={picking}
+                    onClick={() => { setPicking(p => !p); if (!picking) showToast.info('Click map to add a boundary vertex'); }}
+                >
+                    <Icon name="plus-lg" /> {picking ? 'Cancel' : 'Pick on map'}
+                </Button>
+            </div>
 
-                {picking && (
-                    <Box px="3" py="2" style={{ background: 'var(--amber-a3)', borderRadius: 'var(--radius-2)', border: '1px solid var(--amber-a6)' }}>
-                        <Text size="2" color="amber" weight="medium">
-                            📍 Live Boundary Mode: Click on the map around the toll plaza, office, or gate to draw polygon vertices.
-                        </Text>
-                    </Box>
-                )}
+            {picking && (
+                <div className="cy-alert" data-tone="warning" role="status">Live boundary mode: click on the map around the toll plaza, office, or gate to draw polygon vertices.</div>
+            )}
 
-                {/* Live Polygon Map Container */}
-                <Box style={{ height: 320, borderRadius: 'var(--radius-3)', overflow: 'hidden', border: '1px solid var(--gray-a5)' }}>
-                    <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                        {polygonCoords.length >= 3 && (
-                            <Polygon
-                                positions={polygonCoords}
-                                pathOptions={{ color: '#d97706', fillColor: '#f59e0b', fillOpacity: 0.25, weight: 2.5, dashArray: '6, 6' }}
-                            />
-                        )}
-                        {valid.map((pt, i) => (
-                            <Marker
-                                key={i}
-                                position={[parseFloat(pt.lat), parseFloat(pt.lng)]}
-                                icon={L.divIcon({
-                                    html: `<div style="background:#d97706;color:white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4)">${i + 1}</div>`,
-                                    className: '', iconSize: [26, 26], iconAnchor: [13, 13],
-                                })}
-                            />
+            {/* Live Polygon Map Container */}
+            <div className="cy-modal__map">
+                <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                    {polygonCoords.length >= 3 && (
+                        <Polygon
+                            positions={polygonCoords}
+                            pathOptions={{ color: '#d97706', fillColor: '#f59e0b', fillOpacity: 0.25, weight: 2.5, dashArray: '6, 6' }}
+                        />
+                    )}
+                    {valid.map((pt, i) => (
+                        <Marker
+                            key={i}
+                            position={[parseFloat(pt.lat), parseFloat(pt.lng)]}
+                            icon={L.divIcon({
+                                html: `<div style="background:#d97706;color:white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4)">${i + 1}</div>`,
+                                className: '', iconSize: [26, 26], iconAnchor: [13, 13],
+                            })}
+                        />
+                    ))}
+                    <MapClickHandler active={picking} onPick={addFromMap} />
+                </MapContainer>
+            </div>
+
+            {/* Points List */}
+            {points.length > 0 && (
+                <div role="group" aria-label={`Boundary vertices (${points.length})`}>
+                    <p className="cy-label">Boundary vertices ({points.length})</p>
+                    <div className="cy-coordlist">
+                        {points.map((pt, i) => (
+                            <CoordRow key={i} index={i} item={pt} count={points.length} noun="vertex" badge={i + 1} badgeColor="warning"
+                                onUpdate={update} onUp={moveUp} onDown={moveDown} onRemove={remove} />
                         ))}
-                        <MapClickHandler active={picking} onPick={addFromMap} />
-                    </MapContainer>
-                </Box>
-
-                {/* Points List */}
-                {points.length > 0 && (
-                    <Flex direction="column" gap="2">
-                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>
-                            Boundary Vertices ({points.length})
-                        </Text>
-                        <Box style={{ maxHeight: 180, overflowY: 'auto' }}>
-                            <Flex direction="column" gap="2">
-                                {points.map((pt, i) => (
-                                    <Flex key={i} align="center" gap="2" p="1" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a3)' }}>
-                                        <Badge color="amber" variant="solid" size="1" style={{ width: 24, justifyContent: 'center' }}>
-                                            {i + 1}
-                                        </Badge>
-                                        <TextField.Root size="1" type="number" step="any" value={pt.lat} onChange={e => update(i, 'lat', e.target.value)} style={{ flex: 1 }}>
-                                            <TextField.Slot><Text size="1" color="gray">Lat</Text></TextField.Slot>
-                                        </TextField.Root>
-                                        <TextField.Root size="1" type="number" step="any" value={pt.lng} onChange={e => update(i, 'lng', e.target.value)} style={{ flex: 1 }}>
-                                            <TextField.Slot><Text size="1" color="gray">Lng</Text></TextField.Slot>
-                                        </TextField.Root>
-                                        <IconButton size="1" variant="ghost" color="gray" onClick={() => moveUp(i)} disabled={i === 0}>
-                                            <ArrowUpIcon />
-                                        </IconButton>
-                                        <IconButton size="1" variant="ghost" color="gray" onClick={() => moveDown(i)} disabled={i === points.length - 1}>
-                                            <ArrowDownIcon />
-                                        </IconButton>
-                                        <IconButton size="1" variant="ghost" color="red" onClick={() => remove(i)}>
-                                            <TrashIcon />
-                                        </IconButton>
-                                    </Flex>
-                                ))}
-                            </Flex>
-                        </Box>
-                    </Flex>
-                )}
-            </Flex>
+                    </div>
+                </div>
+            )}
         </Modal>
     );
 };
+
 
 /* ════════════════════════════════════════════════════════════
    TYPE EDIT / CREATE MODAL
@@ -610,135 +507,89 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
             title={editingType?.id ? `Edit Method — ${editingType.name}` : `Create New ${CATEGORY_META[slug]?.title || 'Attendance Method'}`}
             footer={
                 <>
-                    <Button variant="soft" color="gray" onClick={onClose}>Cancel</Button>
-                    <Button color="blue" onClick={handleSave} disabled={isMutating}>
-                        {isMutating ? <Spinner size="1" /> : null}
+                    <Button color="default" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+                    <Button size="sm" onClick={handleSave} disabled={isMutating} loading={isMutating}>
                         {editingType?.id ? 'Update Method' : 'Create Method'}
                     </Button>
                 </>
             }
         >
-            <Flex direction="column" gap="4">
-                {/* name */}
-                <Box>
-                    <Text size="2" weight="medium" as="div" mb="1" style={{ color: 'var(--gray-12)' }}>
-                        Method Name *
-                    </Text>
-                    <TextField.Root
-                        size="2" placeholder="e.g. Main Plaza Geofence"
-                        value={form.name}
-                        onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                    />
-                </Box>
+            <FormField label="Method name" htmlFor="type-name" required>
+                <Input id="type-name" placeholder="e.g. Main Plaza Geofence" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+            </FormField>
 
-                {/* description */}
-                <Box>
-                    <Text size="2" weight="medium" as="div" mb="1" style={{ color: 'var(--gray-12)' }}>
-                        Description
-                    </Text>
-                    <TextField.Root
-                        size="2" placeholder="Optional description or zone instructions"
-                        value={form.description}
-                        onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                    />
-                </Box>
+            <FormField label="Description" htmlFor="type-desc">
+                <Input id="type-desc" placeholder="Optional description or zone instructions" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+            </FormField>
 
-                {/* active toggle */}
-                <Flex align="center" gap="3">
-                    <Switch
-                        checked={form.is_active}
-                        onCheckedChange={v => setForm(p => ({ ...p, is_active: v }))}
-                        size="2"
-                    />
-                    <Text size="2" weight="medium">{form.is_active ? 'Active (Officers can punch using this method)' : 'Inactive'}</Text>
-                </Flex>
+            <Switch checked={form.is_active} onCheckedChange={v => setForm(p => ({ ...p, is_active: v }))} label={form.is_active ? 'Active (Officers can punch using this method)' : 'Inactive'} />
 
-                <Separator size="4" />
+            {slug === 'wifi_ip' && (
+                <fieldset className="cy-fieldset cy-stack cy-fieldset--ruled">
+                    <legend className="cy-legend">Network whitelist configuration</legend>
+                    <FormField label="Allowed static IPs (comma-separated)" htmlFor="type-ips">
+                        <Input id="type-ips" placeholder="103.14.22.5, 182.48.80.12"
+                            value={config._tmpAllowedIps ?? (primaryIp?.allowed_ips || []).join(', ')}
+                            onChange={e => setConfig(p => ({ ...p, _tmpAllowedIps: e.target.value }))} />
+                    </FormField>
+                    <FormField label="Allowed IP ranges (CIDR, comma-separated)" htmlFor="type-ranges">
+                        <Input id="type-ranges" placeholder="192.168.1.0/24, 10.0.0.0/16"
+                            value={config._tmpAllowedRanges ?? (primaryIp?.allowed_ranges || []).join(', ')}
+                            onChange={e => setConfig(p => ({ ...p, _tmpAllowedRanges: e.target.value }))} />
+                    </FormField>
+                </fieldset>
+            )}
 
-                {/* type-specific config */}
-                {slug === 'wifi_ip' && (
-                    <Flex direction="column" gap="3">
-                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Network Whitelist Configuration</Text>
-                        <Box>
-                            <Text size="2" weight="medium" as="div" mb="1">Allowed Static IPs (comma-separated)</Text>
-                            <TextField.Root
-                                size="2" placeholder="103.14.22.5, 182.48.80.12"
-                                value={config._tmpAllowedIps ?? (primaryIp?.allowed_ips || []).join(', ')}
-                                onChange={e => setConfig(p => ({ ...p, _tmpAllowedIps: e.target.value }))}
-                            />
-                        </Box>
-                        <Box>
-                            <Text size="2" weight="medium" as="div" mb="1">Allowed IP Ranges (CIDR, comma-separated)</Text>
-                            <TextField.Root
-                                size="2" placeholder="192.168.1.0/24, 10.0.0.0/16"
-                                value={config._tmpAllowedRanges ?? (primaryIp?.allowed_ranges || []).join(', ')}
-                                onChange={e => setConfig(p => ({ ...p, _tmpAllowedRanges: e.target.value }))}
-                            />
-                        </Box>
-                    </Flex>
-                )}
+            {slug === 'route_waypoint' && (
+                <fieldset className="cy-fieldset cy-stack cy-fieldset--ruled">
+                    <legend className="cy-legend">Route configuration</legend>
+                    <FormField label="Tolerance (meters)" htmlFor="type-tolerance">
+                        <Input id="type-tolerance" type="number" min="10" max="2000" className="cy-input--short"
+                            value={primaryRoute?.tolerance || 150}
+                            onChange={e => {
+                                const routes = Array.isArray(config.routes) ? [...config.routes] : [];
+                                if (routes[0]) routes[0] = { ...routes[0], tolerance: Number(e.target.value) };
+                                setConfig(p => ({ ...p, routes }));
+                            }} />
+                    </FormField>
+                    <span className="cy-muted">Waypoints: {primaryRoute?.waypoints?.length || 0} configured — use the map button in the type list to edit on the live GIS map.</span>
+                </fieldset>
+            )}
 
-                {slug === 'route_waypoint' && (
-                    <Flex direction="column" gap="3">
-                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Route Configuration</Text>
-                        <Box>
-                            <Text size="2" weight="medium" as="div" mb="1">Tolerance (meters)</Text>
-                            <TextField.Root
-                                size="2" type="number" min="10" max="2000"
-                                style={{ width: 160 }}
-                                value={primaryRoute?.tolerance || 150}
-                                onChange={e => {
-                                    const routes = Array.isArray(config.routes) ? [...config.routes] : [];
-                                    if (routes[0]) routes[0] = { ...routes[0], tolerance: Number(e.target.value) };
-                                    setConfig(p => ({ ...p, routes }));
-                                }}
-                            />
-                        </Box>
-                        <Text size="2" color="gray">
-                            Waypoints: {primaryRoute?.waypoints?.length || 0} configured — use the map button in the type list to edit on the live GIS map.
-                        </Text>
-                    </Flex>
-                )}
+            {slug === 'qr_code' && (
+                <fieldset className="cy-fieldset cy-stack cy-fieldset--ruled">
+                    <legend className="cy-legend">QR code configuration</legend>
+                    <FormField label="Max scanning distance (meters)" htmlFor="type-maxdist">
+                        <Input id="type-maxdist" type="number" min="1" max="500" className="cy-input--short"
+                            value={config.max_distance || 50}
+                            onChange={e => setConfig(p => ({ ...p, max_distance: Number(e.target.value) }))} />
+                    </FormField>
+                    <Switch checked={config.require_location ?? false} onCheckedChange={v => setConfig(p => ({ ...p, require_location: v }))} label="Require GPS location coordinates when scanning QR code" />
+                </fieldset>
+            )}
 
-                {slug === 'qr_code' && (
-                    <Flex direction="column" gap="3">
-                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>QR Code Configuration</Text>
-                        <Box>
-                            <Text size="2" weight="medium" as="div" mb="1">Max Scanning Distance (meters)</Text>
-                            <TextField.Root
-                                size="2" type="number" min="1" max="500"
-                                style={{ width: 160 }}
-                                value={config.max_distance || 50}
-                                onChange={e => setConfig(p => ({ ...p, max_distance: Number(e.target.value) }))}
-                            />
-                        </Box>
-                        <Flex align="center" gap="3">
-                            <Switch
-                                checked={config.require_location ?? false}
-                                onCheckedChange={v => setConfig(p => ({ ...p, require_location: v }))}
-                                size="2"
-                            />
-                            <Text size="2">Require GPS location coordinates when scanning QR code</Text>
-                        </Flex>
-                    </Flex>
-                )}
-
-                {slug === 'geo_polygon' && (
-                    <Flex direction="column" gap="3">
-                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Geofence Configuration</Text>
-                        <Text size="2" color="gray">
-                            Polygon zones: {config.polygons?.length || (config.polygon?.length ? 1 : 0)} configured — click the map button in the list to draw/edit boundary points on the live GIS map.
-                        </Text>
-                    </Flex>
-                )}
-            </Flex>
+            {slug === 'geo_polygon' && (
+                <fieldset className="cy-fieldset cy-stack cy-fieldset--ruled">
+                    <legend className="cy-legend">Geofence configuration</legend>
+                    <span className="cy-muted">Polygon zones: {config.polygons?.length || (config.polygon?.length ? 1 : 0)} configured — click the map button in the list to draw/edit boundary points on the live GIS map.</span>
+                </fieldset>
+            )}
         </Modal>
     );
 };
 
+
 /* ════════════════════════════════════════════════════════════
    MAIN SETTINGS TAB
    ═══════════════════════════════════════════════════════════ */
+const TABS_ID = 'attendance-settings';
+
+const SUB_TABS = [
+    { key: 'general', label: 'General Settings' },
+    { key: 'types', label: 'Attendance Methods' },
+    { key: 'policies', label: 'Access Policies' },
+];
+
 const SettingsTab = () => {
     const {
         attendanceSettings: initSettings,
@@ -764,10 +615,6 @@ const SettingsTab = () => {
     const deleteAttendanceType = useAttendanceQuery.useDeleteAttendanceType();
     const updateAttendanceSettings = useAttendanceQuery.useUpdateAttendanceSettings();
     const isMutating = updateAttendanceType.isPending || createAttendanceType.isPending || deleteAttendanceType.isPending || updateAttendanceSettings.isPending;
-
-    /* accordion open state — all open by default */
-    const [openSections, setOpenSections] = useState(Object.keys(CATEGORY_META));
-    const toggleSection = slug => setOpenSections(p => p.includes(slug) ? p.filter(s => s !== slug) : [...p, slug]);
 
     /* modals */
     const [typeModal,    setTypeModal]    = useState({ open: false, type: null });
@@ -847,8 +694,10 @@ const SettingsTab = () => {
     const handleTypeSave = (updated, isNew) => {
         setTypes(p => isNew ? [...p, updated] : p.map(t => t.id === updated.id ? updated : t));
     };
+    /* The type awaiting delete confirmation. */
+    const [deletingType, setDeletingType] = useState(null);
     const handleTypeDelete = async t => {
-        if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return;
+        setDeletingType(null);
         try {
             await deleteAttendanceType.mutateAsync(t.id);
             setTypes(p => p.filter(x => x.id !== t.id));
@@ -858,385 +707,217 @@ const SettingsTab = () => {
         }
     };
 
+
+    const panel = (key) => ({ role: 'tabpanel', id: panelId(TABS_ID, key), 'aria-labelledby': tabId(TABS_ID, key) });
+    const subTab = SUB_TABS.some(t => t.key === activeSubTab) ? activeSubTab : 'general';
+    const statusBadge = (t) => (
+        <Badge soft color={t.is_active ? 'success' : 'secondary'}>
+            <Icon name={t.is_active ? 'check-circle' : 'x-circle'} /> {t.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+    );
+    const iconAction = (label, icon, onClick, danger = false) => (
+        <button type="button" className={`cy-iconbtn${danger ? ' cy-iconbtn--danger' : ''}`} onClick={onClick} aria-label={label} title={label}><Icon name={icon} /></button>
+    );
+
     /* ── render ─────────────────────────────────────────────── */
     return (
         <>
-            <Tabs.Root value={activeSubTab} onValueChange={setActiveSubTab}>
-                <Tabs.List
-                    style={{
-                        marginBottom: 'var(--space-4)',
-                        overflowX: 'auto',
-                        display: 'flex',
-                        flexWrap: 'nowrap',
-                    }}
-                >
-                    <Tabs.Trigger value="general">
-                        <Flex align="center" gap="2">
-                            <GearIcon />
-                            <Text size="2" weight="medium">General Settings</Text>
-                        </Flex>
-                    </Tabs.Trigger>
-                    <Tabs.Trigger value="types">
-                        <Flex align="center" gap="2">
-                            <GlobeIcon />
-                            <Text size="2" weight="medium">Attendance Methods</Text>
-                        </Flex>
-                    </Tabs.Trigger>
-                    <Tabs.Trigger value="policies">
-                        <Flex align="center" gap="2">
-                            <LockClosedIcon />
-                            <Text size="2" weight="medium">Access Policies</Text>
-                        </Flex>
-                    </Tabs.Trigger>
-                </Tabs.List>
+            <Tabs tabs={SUB_TABS} value={subTab} onChange={setActiveSubTab} idPrefix={TABS_ID} label="Attendance settings sections" className="cy-tabs--scroll" />
 
-                {/* ── General Settings Tab ───────────────────── */}
-                <Tabs.Content value="general">
-                    <Box py="3">
-                        <form onSubmit={handleGeneralSave}>
-                            <Flex direction="column" gap="5">
-                                {/* Office Timing */}
-                                <Panel>
-                                    <Flex align="center" gap="2" mb="3">
-                                        <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                        <Text size="3" weight="bold">Office Timing</Text>
-                                    </Flex>
-                                    <Flex gap="4" wrap="wrap">
-                                        <Box style={{ flex: '1 1 180px' }}>
-                                            <Text size="2" weight="medium" as="div" mb="1">Start Time</Text>
-                                            <DateTimePicker
-                                                mode="time"
-                                                size="2"
-                                                name="office_start_time"
-                                                value={settings?.office_start_time || '09:00'}
-                                                onChange={(val) => setSettings(prev => ({ ...prev, office_start_time: val }))}
-                                                clearable={false}
-                                            />
-                                        </Box>
-                                        <Box style={{ flex: '1 1 180px' }}>
-                                            <Text size="2" weight="medium" as="div" mb="1">End Time</Text>
-                                            <DateTimePicker
-                                                mode="time"
-                                                size="2"
-                                                name="office_end_time"
-                                                value={settings?.office_end_time || '18:00'}
-                                                onChange={(val) => setSettings(prev => ({ ...prev, office_end_time: val }))}
-                                                clearable={false}
-                                            />
-                                        </Box>
-                                        <Box style={{ flex: '1 1 180px' }}>
-                                            <Text size="2" weight="medium" as="div" mb="1">Break Duration (min)</Text>
-                                            <TextField.Root
-                                                type="number" size="2" name="break_time_duration"
-                                                min="0" max="480"
-                                                defaultValue={settings?.break_time_duration || 60}
-                                            />
-                                        </Box>
-                                    </Flex>
-                                </Panel>
+            {/* ── General Settings Tab ───────────────────── */}
+            {subTab === 'general' && (
+                <form onSubmit={handleGeneralSave} className="dl-page" {...panel('general')}>
+                    {/* Office Timing */}
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <Card id="attendance-settings-timing" title="Office timing" flush>
+                                <div className="cy-card-section cy-formgrid">
+                                    <FormField label="Start time" htmlFor="office_start_time">
+                                        <DateInput id="office_start_time" mode="time" label="Start time" name="office_start_time"
+                                            value={settings?.office_start_time || '09:00'}
+                                            onChange={(val) => setSettings(prev => ({ ...prev, office_start_time: val }))} required />
+                                    </FormField>
+                                    <FormField label="End time" htmlFor="office_end_time">
+                                        <DateInput id="office_end_time" mode="time" label="End time" name="office_end_time"
+                                            value={settings?.office_end_time || '18:00'}
+                                            onChange={(val) => setSettings(prev => ({ ...prev, office_end_time: val }))} required />
+                                    </FormField>
+                                    <FormField label="Break duration (min)" htmlFor="break_time_duration">
+                                        <Input id="break_time_duration" type="number" name="break_time_duration" min="0" max="480" defaultValue={settings?.break_time_duration || 60} />
+                                    </FormField>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
 
-                                {/* Attendance Policies */}
-                                <Panel>
-                                    <Flex align="center" gap="2" mb="3">
-                                        <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                        <Text size="3" weight="bold">Attendance Policies</Text>
-                                    </Flex>
-                                    <Flex direction="column" gap="4">
-                                        <Flex gap="4" wrap="wrap">
-                                            <Box style={{ flex: '1 1 180px' }}>
-                                                <Text size="2" weight="medium" as="div" mb="1">Late Mark After (min)</Text>
-                                                <TextField.Root
-                                                    type="number" size="2" name="late_mark_after"
-                                                    min="0" max="120"
-                                                    defaultValue={settings?.late_mark_after || 15}
-                                                />
-                                            </Box>
-                                            <Box style={{ flex: '1 1 180px' }}>
-                                                <Text size="2" weight="medium" as="div" mb="1">Early Leave Before (min)</Text>
-                                                <TextField.Root
-                                                    type="number" size="2" name="early_leave_before"
-                                                    min="0" max="120"
-                                                    defaultValue={settings?.early_leave_before || 30}
-                                                />
-                                            </Box>
-                                            <Box style={{ flex: '1 1 180px' }}>
-                                                <Text size="2" weight="medium" as="div" mb="1">Overtime After (min)</Text>
-                                                <TextField.Root
-                                                    type="number" size="2" name="overtime_after"
-                                                    min="0" max="480"
-                                                    defaultValue={settings?.overtime_after || 30}
-                                                />
-                                            </Box>
-                                        </Flex>
+                    {/* Attendance Policies */}
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <Card id="attendance-settings-rules" title="Attendance rules" flush>
+                                <div className="cy-card-section cy-formgrid">
+                                    <FormField label="Late mark after (min)" htmlFor="late_mark_after">
+                                        <Input id="late_mark_after" type="number" name="late_mark_after" min="0" max="120" defaultValue={settings?.late_mark_after || 15} />
+                                    </FormField>
+                                    <FormField label="Early leave before (min)" htmlFor="early_leave_before">
+                                        <Input id="early_leave_before" type="number" name="early_leave_before" min="0" max="120" defaultValue={settings?.early_leave_before || 30} />
+                                    </FormField>
+                                    <FormField label="Overtime after (min)" htmlFor="overtime_after">
+                                        <Input id="overtime_after" type="number" name="overtime_after" min="0" max="480" defaultValue={settings?.overtime_after || 30} />
+                                    </FormField>
+                                </div>
+                                <div className="cy-card-section cy-formgrid">
+                                    <Checkbox checked={autoPunchOut} onCheckedChange={v => setAutoPunchOut(!!v)} label="Enable auto punch out" />
+                                    {autoPunchOut && (
+                                        <FormField label="Auto punch out time" htmlFor="auto_punch_out_time">
+                                            <DateInput id="auto_punch_out_time" mode="time" label="Auto punch out time" name="auto_punch_out_time"
+                                                value={settings?.auto_punch_out_time || '18:00'}
+                                                onChange={(val) => setSettings(prev => ({ ...prev, auto_punch_out_time: val }))} required />
+                                        </FormField>
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
 
-                                        <Flex gap="4" wrap="wrap" align="center">
-                                            <Flex align="center" gap="2" style={{ cursor: 'pointer', height: '100%', minHeight: 32 }}>
-                                                <Checkbox
-                                                    size="2"
-                                                    checked={autoPunchOut}
-                                                    onCheckedChange={v => setAutoPunchOut(!!v)}
-                                                />
-                                                <Text size="2">Enable Auto Punch Out</Text>
-                                            </Flex>
-                                            {autoPunchOut && (
-                                                <Box style={{ flex: '1 1 180px' }}>
-                                                    <Text size="2" weight="medium" as="div" mb="1">Auto Punch Out Time</Text>
-                                                    <DateTimePicker
-                                                        mode="time"
-                                                        size="2"
-                                                        name="auto_punch_out_time"
-                                                        value={settings?.auto_punch_out_time || '18:00'}
-                                                        onChange={(val) => setSettings(prev => ({ ...prev, auto_punch_out_time: val }))}
-                                                        clearable={false}
-                                                    />
-                                                </Box>
-                                            )}
-                                        </Flex>
-                                    </Flex>
-                                </Panel>
+                    {/* Weekend */}
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <Card id="attendance-settings-weekend" title="Weekend days" flush
+                                footer={<div className="cy-footactions"><Button type="submit" loading={isMutating}>Save settings</Button></div>}>
+                                <fieldset className="cy-card-section cy-fieldset cy-checkrow">
+                                    <legend className="visually-hidden">Weekend days</legend>
+                                    {['friday', 'saturday', 'sunday'].map(day => (
+                                        <Checkbox key={day} checked={weekends[day]} onCheckedChange={v => setWeekends(p => ({ ...p, [day]: !!v }))} label={day.charAt(0).toUpperCase() + day.slice(1)} />
+                                    ))}
+                                </fieldset>
+                            </Card>
+                        </div>
+                    </div>
+                </form>
+            )}
 
-                                {/* Weekend */}
-                                <Panel>
-                                    <Flex align="center" gap="2" mb="3">
-                                        <CalendarIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                        <Text size="3" weight="bold">Weekend Days</Text>
-                                    </Flex>
-                                    <Flex gap="5" wrap="wrap">
-                                        {['friday', 'saturday', 'sunday'].map(day => (
-                                            <Flex key={day} align="center" gap="2" style={{ cursor: 'pointer' }}>
-                                                <Checkbox
-                                                    size="2"
-                                                    checked={weekends[day]}
-                                                    onCheckedChange={v => setWeekends(p => ({ ...p, [day]: !!v }))}
-                                                />
-                                                <Text size="2" style={{ textTransform: 'capitalize' }}>{day}</Text>
-                                            </Flex>
-                                        ))}
-                                    </Flex>
-                                </Panel>
+            {/* ── Attendance Types Tab ───────────────────── */}
+            {subTab === 'types' && (
+                <div className="dl-page" {...panel('types')}>
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <div className="cy-toolbar" role="search">
+                                <label className="cy-tool">
+                                    <span className="visually-hidden">Search types</span>
+                                    <Icon name="search" />
+                                    <input className="cy-input cy-input--sm" type="search" placeholder="Search types…" value={search} onChange={e => setSearch(e.target.value)} />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
 
-                                {/* save button */}
-                                <Flex justify="end">
-                                    <Button type="submit" size="2" variant="solid" color="accent" disabled={isMutating}>
-                                        {isMutating ? <Spinner size="1" /> : null}
-                                        Save Settings
-                                    </Button>
-                                </Flex>
-                            </Flex>
-                        </form>
-                    </Box>
-                </Tabs.Content>
+                    {Object.entries(CATEGORY_META).map(([slug, meta]) => {
+                        const catTypes = grouped[slug] || [];
+                        return (
+                            <div className="dl-row" key={slug}>
+                                <div className="dl-col dl-col--12">
+                                    <Card
+                                        id={`attendance-methods-${slug}`}
+                                        title={meta.title}
+                                        flush
+                                        actions={!meta.readonly ? (
+                                            <Button size="sm" color="theme" variant="outline" onClick={() => setTypeModal({ open: true, type: { id: null, slug, config: {} } })} aria-label={`Add ${meta.title} method`}>
+                                                <Icon name="plus-lg" /> Add
+                                            </Button>
+                                        ) : null}
+                                    >
+                                        <div className="cy-legendrow">
+                                            <span className="cy-legendrow__item"><Icon name={meta.icon} /><Badge soft color={meta.tone}>{catTypes.length} config{catTypes.length !== 1 ? 's' : ''}</Badge></span>
+                                            <Badge soft color="success">{catTypes.filter(t => t.is_active).length} active</Badge>
+                                            {meta.readonly && <Badge soft color="secondary">read-only</Badge>}
+                                        </div>
 
-                {/* ── Attendance Types Tab ───────────────────── */}
-                <Tabs.Content value="types">
-                    <Box py="3">
-                        <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                            <Flex align="center" gap="2">
-                                <PersonIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                                <Text size="3" weight="bold">Attendance Methods</Text>
-                            </Flex>
-                            <TextField.Root
-                                size="2" placeholder="Search types…"
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                style={{ width: 220 }}
-                            >
-                                <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                            </TextField.Root>
-                        </Flex>
-
-                        <Flex direction="column" gap="3">
-                            {Object.entries(CATEGORY_META).map(([slug, meta]) => {
-                                const catTypes = grouped[slug] || [];
-                                const isOpen   = openSections.includes(slug);
-
-                                return (
-                                    <Panel key={slug}>
-                                        {/* accordion header */}
-                                        <Flex
-                                            align="center" justify="between"
-                                            style={{ cursor: 'pointer', userSelect: 'none' }}
-                                            onClick={() => toggleSection(slug)}
-                                        >
-                                            <Flex align="center" gap="3">
-                                                <Box style={{ color: `var(--${meta.color}-9)` }}>{meta.icon}</Box>
-                                                <Box>
-                                                    <Text size="3" weight="bold">{meta.title}</Text>
-                                                    <Flex gap="2" mt="1">
-                                                        <Badge color={meta.color} variant="soft" size="1">
-                                                            {catTypes.length} config{catTypes.length !== 1 ? 's' : ''}
-                                                        </Badge>
-                                                        <Badge color="green" variant="soft" size="1">
-                                                            {catTypes.filter(t => t.is_active).length} active
-                                                        </Badge>
-                                                        {meta.readonly && (
-                                                            <Badge color="gray" variant="soft" size="1">read-only</Badge>
-                                                        )}
-                                                    </Flex>
-                                                </Box>
-                                            </Flex>
-                                            <Flex align="center" gap="2">
-                                                {!meta.readonly && (
-                                                    <Button
-                                                        size="1" variant="soft" color={meta.color}
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            setTypeModal({ open: true, type: { id: null, slug, icon: meta.icon, config: {} } });
-                                                        }}
-                                                    >
-                                                        <PlusIcon /> Add
-                                                    </Button>
-                                                )}
-                                                <Text size="2" color="gray">{isOpen ? '▲' : '▼'}</Text>
-                                            </Flex>
-                                        </Flex>
-
-                                        {/* accordion body */}
-                                        {isOpen && (
-                                            <Box mt="3">
-                                                <Separator size="4" mb="3" />
-
-                                                {/* ── biometric: readonly view with devices ── */}
-                                                {meta.readonly ? (
-                                                    catTypes.length === 0 ? (
-                                                        <Flex direction="column" align="center" py="5" gap="2">
-                                                            <Text size="2" color="gray">No biometric attendance types yet.</Text>
-                                                            <Text size="1" color="gray">Create one from the Biometric Devices admin panel and assign devices to it.</Text>
-                                                        </Flex>
-                                                    ) : (
-                                                        <>
-                                                            <Text size="1" color="gray" mb="3" as="p">
-                                                                Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
-                                                            </Text>
-                                                            <Table.Root size="2" variant="ghost">
-                                                                <Table.Header>
-                                                                    <Table.Row>
-                                                                        <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
-                                                                        <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
-                                                                        <Table.ColumnHeaderCell><Text size="2">Assigned Devices</Text></Table.ColumnHeaderCell>
-                                                                    </Table.Row>
-                                                                </Table.Header>
-                                                                <Table.Body>
-                                                                    {catTypes.map(t => (
-                                                                        <Table.Row key={t.id}>
-                                                                            <Table.Cell>
-                                                                                <Text size="2" weight="medium">{t.name}</Text>
-                                                                                {t.description && <Text size="1" color="gray" as="div">{t.description}</Text>}
-                                                                            </Table.Cell>
-                                                                            <Table.Cell>
-                                                                                <Badge
-                                                                                    color={t.is_active ? 'green' : 'gray'}
-                                                                                    variant="soft" size="1"
-                                                                                >
-                                                                                    {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
-                                                                                </Badge>
-                                                                            </Table.Cell>
-                                                                            <Table.Cell>
-                                                                                {t.biometric_devices?.length > 0 ? (
-                                                                                    <Flex gap="1" wrap="wrap">
-                                                                                        {t.biometric_devices.map(d => (
-                                                                                            <Badge key={d.id} color="red" variant="soft" size="1">
-                                                                                                {d.name}{d.location ? ` — ${d.location}` : ''}
-                                                                                            </Badge>
-                                                                                        ))}
-                                                                                    </Flex>
-                                                                                ) : (
-                                                                                    <Text size="1" color="gray">No devices assigned</Text>
-                                                                                )}
-                                                                            </Table.Cell>
-                                                                        </Table.Row>
-                                                                    ))}
-                                                                </Table.Body>
-                                                            </Table.Root>
-                                                        </>
-                                                    )
-                                                ) : (
-                                                    /* ── normal editable categories ── */
-                                                    catTypes.length === 0 ? (
-                                                        <Flex direction="column" align="center" py="5" gap="2">
-                                                            <Text size="2" color="gray">No {meta.title.toLowerCase()} types yet.</Text>
-                                                            <Text size="1" color="gray">Click Add above to create one.</Text>
-                                                        </Flex>
-                                                    ) : (
-                                                        <Table.Root size="2" variant="ghost">
-                                                            <Table.Header>
-                                                                <Table.Row>
-                                                                    <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
-                                                                    <Table.ColumnHeaderCell><Text size="2">Description</Text></Table.ColumnHeaderCell>
-                                                                    <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
-                                                                    <Table.ColumnHeaderCell style={{ textAlign: 'right' }}><Text size="2">Actions</Text></Table.ColumnHeaderCell>
-                                                                </Table.Row>
-                                                            </Table.Header>
-                                                            <Table.Body>
+                                        {meta.readonly ? (
+                                            catTypes.length === 0 ? (
+                                                <div className="cy-empty cy-empty--flat">
+                                                    <Icon name={meta.icon} className="cy-empty__icon" />
+                                                    <p className="cy-empty__text">No biometric attendance types yet.</p>
+                                                    <p className="cy-empty__text">Create one from the Biometric Devices admin panel and assign devices to it.</p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <p className="cy-formtext cy-formtext--padded">Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.</p>
+                                                    <div className="cy-dt" tabIndex={0} role="region" aria-label="Biometric attendance types, scrollable">
+                                                        <table className="cy-table">
+                                                            <thead><tr><th scope="col">Name</th><th scope="col">Status</th><th scope="col">Assigned devices</th></tr></thead>
+                                                            <tbody>
                                                                 {catTypes.map(t => (
-                                                                    <Table.Row key={t.id}>
-                                                                        <Table.Cell>
-                                                                            <Text size="2" weight="medium">{t.name}</Text>
-                                                                        </Table.Cell>
-                                                                        <Table.Cell>
-                                                                            <Text size="2" color="gray">{t.description || '—'}</Text>
-                                                                        </Table.Cell>
-                                                                        <Table.Cell>
-                                                                            <Badge color={t.is_active ? 'green' : 'gray'} variant="soft" size="1">
-                                                                                {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
-                                                                            </Badge>
-                                                                        </Table.Cell>
-                                                                        <Table.Cell>
-                                                                            <Flex gap="1" justify="end">
-                                                                                <Tooltip content="Edit">
-                                                                                    <IconButton size="1" variant="ghost" color="blue"
-                                                                                        onClick={() => setTypeModal({ open: true, type: t })}>
-                                                                                        <Pencil1Icon />
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                                {slug === 'route_waypoint' && (
-                                                                                    <Tooltip content="Configure Waypoints">
-                                                                                        <IconButton size="1" variant="ghost" color="blue"
-                                                                                            onClick={() => setWaypointModal({ open: true, type: t })}>
-                                                                                            <SewingPinIcon />
-                                                                                        </IconButton>
-                                                                                    </Tooltip>
-                                                                                )}
-                                                                                {slug === 'geo_polygon' && (
-                                                                                    <Tooltip content="Configure Polygon">
-                                                                                        <IconButton size="1" variant="ghost" color="amber"
-                                                                                            onClick={() => setPolygonModal({ open: true, type: t })}>
-                                                                                            <GlobeIcon />
-                                                                                        </IconButton>
-                                                                                    </Tooltip>
-                                                                                )}
-                                                                                <Tooltip content="Delete">
-                                                                                    <IconButton size="1" variant="ghost" color="red"
-                                                                                        onClick={() => handleTypeDelete(t)}>
-                                                                                        <TrashIcon />
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                            </Flex>
-                                                                        </Table.Cell>
-                                                                    </Table.Row>
+                                                                    <tr key={t.id}>
+                                                                        <td><b>{t.name}</b>{t.description && <span className="cy-sub">{t.description}</span>}</td>
+                                                                        <td>{statusBadge(t)}</td>
+                                                                        <td>
+                                                                            {t.biometric_devices?.length > 0 ? (
+                                                                                <span className="cy-seqrow">
+                                                                                    {t.biometric_devices.map(d => <Badge key={d.id} soft color="danger">{d.name}{d.location ? ` — ${d.location}` : ''}</Badge>)}
+                                                                                </span>
+                                                                            ) : <span className="cy-muted">No devices assigned</span>}
+                                                                        </td>
+                                                                    </tr>
                                                                 ))}
-                                                            </Table.Body>
-                                                        </Table.Root>
-                                                    )
-                                                )}
-                                            </Box>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </>
+                                            )
+                                        ) : catTypes.length === 0 ? (
+                                            <div className="cy-empty cy-empty--flat">
+                                                <Icon name={meta.icon} className="cy-empty__icon" />
+                                                <p className="cy-empty__text">No {meta.title.toLowerCase()} types yet.</p>
+                                                <p className="cy-empty__text">Click Add above to create one.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="cy-dt" tabIndex={0} role="region" aria-label={`${meta.title} methods, scrollable`}>
+                                                <table className="cy-table">
+                                                    <thead><tr><th scope="col">Name</th><th scope="col">Description</th><th scope="col">Status</th><th scope="col"><span className="visually-hidden">Actions</span></th></tr></thead>
+                                                    <tbody>
+                                                        {catTypes.map(t => (
+                                                            <tr key={t.id}>
+                                                                <td><b>{t.name}</b></td>
+                                                                <td className="cy-muted">{t.description || '—'}</td>
+                                                                <td>{statusBadge(t)}</td>
+                                                                <td>
+                                                                    <span className="cy-actions">
+                                                                        {iconAction(`Edit ${t.name}`, 'pencil', () => setTypeModal({ open: true, type: t }))}
+                                                                        {slug === 'route_waypoint' && iconAction(`Configure waypoints of ${t.name}`, 'geo-alt', () => setWaypointModal({ open: true, type: t }))}
+                                                                        {slug === 'geo_polygon' && iconAction(`Configure polygon of ${t.name}`, 'geo', () => setPolygonModal({ open: true, type: t }))}
+                                                                        {iconAction(`Delete ${t.name}`, 'trash', () => setDeletingType(t), true)}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         )}
-                                    </Panel>
-                                );
-                            })}
-                        </Flex>
-                    </Box>
-                </Tabs.Content>
+                                    </Card>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
-                {/* ── Policies Tab ───────────────────────────── */}
-                <Tabs.Content value="policies">
-                    <Box py="3">
-                        <PoliciesManager employees={employees} departments={departments} designations={designations} />
-                    </Box>
-                </Tabs.Content>
-            </Tabs.Root>
+            {/* ── Policies Tab ───────────────────────────── */}
+            {subTab === 'policies' && (
+                <div className="dl-page" {...panel('policies')}>
+                    <PoliciesManager employees={employees} departments={departments} designations={designations} />
+                </div>
+            )}
 
             {/* ── modals ─────────────────────────────────────────── */}
+            {deletingType && (
+                <ConfirmDialog
+                    title="Delete attendance method"
+                    message={`Delete "${deletingType.name}"? This cannot be undone.`}
+                    onClose={() => setDeletingType(null)}
+                    onConfirm={() => handleTypeDelete(deletingType)}
+                />
+            )}
             <TypeModal
                 open={typeModal.open}
                 onClose={() => setTypeModal({ open: false, type: null })}

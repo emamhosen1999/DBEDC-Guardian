@@ -13,7 +13,7 @@ export function pageWindow(current, last) {
  * Cyber .pagination (sm) with rows-per-page and a "from-to of total" line.
  * pagination = { currentPage, perPage, total }. Renders nothing for an empty list.
  */
-export default function Pagination({ pagination, onPageChange, onRowsPerPageChange, loading = false, perPageOptions = [10, 20, 30, 50, 100], label = 'Pagination' }) {
+export default function Pagination({ pagination, onPageChange, onRowsPerPageChange, loading = false, perPageOptions = [10, 20, 30, 50, 100], label = 'Pagination' }) { // not-data: rows-per-page choices
     if (!pagination || pagination.total <= 0) return null;
     const { currentPage, perPage, total } = pagination;
     const last = Math.max(1, Math.ceil(total / perPage));

@@ -1,10 +1,11 @@
-import React from 'react';
-import { Box, Flex, Table, Button, Badge, Text } from '@radix-ui/themes';
+import React, { useState } from 'react';
+import { Badge, Button } from '@/Components/Cyber';
+import RejectReasonDialog from './RejectReasonDialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 
-const statusColor = { provisional: 'amber', accepted: 'green', rejected: 'red' };
+const statusColor = { provisional: 'warning', accepted: 'success', rejected: 'danger' };
 
 export default function PunchExceptions() {
     const qc = useQueryClient();
@@ -30,72 +31,56 @@ export default function PunchExceptions() {
         onError: (err) => showToast.error(err?.message || 'Action failed'),
     });
 
-    const handleReject = (id) => {
-        const reason = window.prompt('Reason for rejection:');
-        if (!reason || !reason.trim()) return;
-        reject.mutate({ id, reason: reason.trim() });
-    };
+    /* The id being rejected while the reason dialog is open. */
+    const [rejectingId, setRejectingId] = useState(null);
+    const handleReject = (id) => setRejectingId(id);
 
     const exceptions = data || [];
+    const emptyRow = (text) => (
+        <tr><td colSpan={7} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><p className="cy-empty__text">{text}</p></div></td></tr>
+    );
 
     return (
-        <Box mt="5">
-            <Text size="3" weight="bold">Punch Exceptions</Text>
-            <Table.Root variant="surface" mt="2">
-                <Table.Header>
-                    <Table.Row>
-                        <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Punch-in</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Punch-out</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                    </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                    {isLoading && (
-                        <Table.Row>
-                            <Table.Cell colSpan={7}>
-                                <Text color="gray" size="2">Loading…</Text>
-                            </Table.Cell>
-                        </Table.Row>
-                    )}
-                    {!isLoading && exceptions.length === 0 && (
-                        <Table.Row>
-                            <Table.Cell colSpan={7}>
-                                <Text color="gray" size="2">No pending punch exceptions.</Text>
-                            </Table.Cell>
-                        </Table.Row>
-                    )}
-                    {exceptions.map(e => (
-                        <Table.Row key={e.id}>
-                            <Table.Cell>{e.user?.name || `#${e.user_id}`}</Table.Cell>
-                            <Table.Cell>{e.date}</Table.Cell>
-                            <Table.Cell>{e.punchin || '—'}</Table.Cell>
-                            <Table.Cell>{e.punchout || '—'}</Table.Cell>
-                            <Table.Cell style={{ maxWidth: 200, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                {e.policy_exception_reason || '—'}
-                            </Table.Cell>
-                            <Table.Cell>
-                                <Badge color={statusColor[e.policy_status] || 'gray'}>{e.policy_status}</Badge>
-                            </Table.Cell>
-                            <Table.Cell>
-                                {e.needs_approval && (
-                                    <Flex gap="2">
-                                        <Button size="1" color="green" loading={approve.isPending} onClick={() => approve.mutate(e.id)}>
-                                            Approve
-                                        </Button>
-                                        <Button size="1" color="red" variant="soft" loading={reject.isPending} onClick={() => handleReject(e.id)}>
-                                            Reject
-                                        </Button>
-                                    </Flex>
-                                )}
-                            </Table.Cell>
-                        </Table.Row>
-                    ))}
-                </Table.Body>
-            </Table.Root>
-        </Box>
+        <>
+            <div className="cy-dt" tabIndex={0} role="region" aria-label="Punch exceptions, scrollable">
+                <table className="cy-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Employee</th><th scope="col">Date</th><th scope="col">Punch-in</th><th scope="col">Punch-out</th>
+                            <th scope="col">Reason</th><th scope="col">Status</th><th scope="col"><span className="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {isLoading && emptyRow('Loading…')}
+                        {!isLoading && exceptions.length === 0 && emptyRow('No pending punch exceptions.')}
+                        {exceptions.map(e => (
+                            <tr key={e.id}>
+                                <td>{e.user?.name || `#${e.user_id}`}</td>
+                                <td className="cy-nowrap">{e.date}</td>
+                                <td>{e.punchin || '—'}</td>
+                                <td>{e.punchout || '—'}</td>
+                                <td className="cy-wrap">{e.policy_exception_reason || '—'}</td>
+                                <td><Badge soft color={statusColor[e.policy_status] || 'secondary'}>{e.policy_status}</Badge></td>
+                                <td>
+                                    {e.needs_approval && (
+                                        <span className="cy-actions">
+                                            <Button size="sm" color="success" loading={approve.isPending} onClick={() => approve.mutate(e.id)} aria-label={`Approve punch exception of ${e.user?.name || `#${e.user_id}`}`}>Approve</Button>
+                                            <Button size="sm" color="danger" variant="outline" loading={reject.isPending} onClick={() => handleReject(e.id)} aria-label={`Reject punch exception of ${e.user?.name || `#${e.user_id}`}`}>Reject</Button>
+                                        </span>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {rejectingId !== null && (
+                <RejectReasonDialog
+                    title="Reject punch exception"
+                    onClose={() => setRejectingId(null)}
+                    onConfirm={(reason) => { const id = rejectingId; setRejectingId(null); reject.mutate({ id, reason }); }}
+                />
+            )}
+        </>
     );
 }

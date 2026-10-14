@@ -8,33 +8,45 @@
  *
  * The month is the Attendance page's own month; scope and department live in
  * the URL under an `aa_` prefix (every Attendance tab stays mounted).
+ *
+ * Built from Cyber's analytics.html / chart_apex.html: a stat strip, then ApexCharts panels in flush cards (CyberChart).
+ * Every CyberChart receives memoised options: it re-draws whenever the options identity changes.
  */
 import React, { useMemo } from 'react';
-import { Box, Callout, Flex, Grid, SegmentedControl, Select, Text, TextField } from '@radix-ui/themes';
-import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import dayjs from 'dayjs';
-import {
-    Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine,
-    ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from 'recharts';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import {
-    ChartCard, DataTable, HBarList, StatTile, VizRoot, VizTooltip,
-    axisProps, deltaOf, fmt, gridProps,
-} from '@/Components/Charts/VizKit';
-import DepartmentFilter from '@/Components/Access/DepartmentFilter';
+import { Alert, Card, CyberChart, Field, IconButton, Segmented, StatStrip, Toolbar, ToolbarGroup } from '@/Components/Cyber';
+import DepartmentSelect from './Components/DepartmentSelect';
 
-// Stack order matches the order the palette was validated in.
+/* ── formatting ─────────────────────────────────────────────────────────── */
+const fmt = {
+    pct: (v, digits = 1) => (v == null ? '—' : `${Number(v).toFixed(digits)}%`),
+    num: (v, digits = 0) => (v == null ? '—' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: digits })),
+    date: (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+};
+const dayCount = (v) => fmt.num(v, 1);
+
+/* Change versus the previous period: the sign says which way, `good` says which way is an improvement. */
+function deltaOf(change, { unit = '', goodWhen = 'up', suffix = '', digits } = {}) {
+    if (change == null || Number.isNaN(Number(change))) return null;
+    const n = Number(change);
+    digits ??= Number.isInteger(n) ? 0 : 1;
+    const direction = Math.abs(n) < 0.05 ? 'flat' : n > 0 ? 'up' : 'down';
+    const sign = n > 0 ? '+' : n < 0 ? '−' : '';
+    return { direction, good: goodWhen, text: `${sign}${Math.abs(n).toFixed(digits)}${unit}${suffix}` };
+}
+
+/* Stack order and tones of the daily composition. */
 const COMPOSITION = [
-    { key: 'on_time', label: 'On time', color: 'var(--viz-ontime)' },
-    { key: 'late', label: 'Late', color: 'var(--viz-late)' },
-    { key: 'leave', label: 'On leave', color: 'var(--viz-leave)' },
-    { key: 'absent', label: 'Absent', color: 'var(--viz-absent)' },
+    { key: 'on_time', label: 'On time', tone: 'success' },
+    { key: 'late', label: 'Late', tone: 'warning' },
+    { key: 'leave', label: 'On leave', tone: 'info' },
+    { key: 'absent', label: 'Absent', tone: 'danger' },
 ];
 
-const dayCount = (v) => fmt.num(v, 1);
+const intTicks = { labels: { formatter: (v) => Math.round(v) } };
 
 export default function AnalyticsTab({ month, onMonthChange, departments = [], canViewTeam = false, isActive = true, isMobile = false }) {
     const f = useQueryFilters({
@@ -55,104 +67,114 @@ export default function AnalyticsTab({ month, onMonthChange, departments = [], c
         staleTime: 60_000,
     });
 
-    return (
-        <VizRoot stale={isFetching && !isLoading}>
-            {/* One filter row scopes every chart below. */}
-            <Flex gap="3" align="end" wrap="wrap" mb="4">
-                <Box>
-                    <Text as="label" size="1" color="gray" htmlFor="aa-month">Month</Text>
-                    <TextField.Root
-                        id="aa-month"
-                        type="month"
-                        size="2"
-                        value={month}
-                        max={dayjs().format('YYYY-MM')}
-                        onChange={(e) => e.target.value && onMonthChange?.(e.target.value)}
-                    />
-                </Box>
+    const toolbar = (
+        <Toolbar label="Analytics filters">
+            <ToolbarGroup>
+                <Field icon="calendar3" type="month" label="Month" value={month} max={dayjs().format('YYYY-MM')} onChange={(e) => e.target.value && onMonthChange?.(e.target.value)} />
                 {canViewTeam && (
-                    <Box>
-                        <Text as="div" size="1" color="gray">View</Text>
-                        <SegmentedControl.Root size="2" value={scope} onValueChange={(v) => f.set('aa_scope', v)} aria-label="Whose attendance">
-                            <SegmentedControl.Item value="team">Team</SegmentedControl.Item>
-                            <SegmentedControl.Item value="self">Me</SegmentedControl.Item>
-                        </SegmentedControl.Root>
-                    </Box>
+                    <Segmented
+                        label="Whose attendance"
+                        value={scope}
+                        onChange={(v) => f.set('aa_scope', v)}
+                        options={[{ value: 'team', label: 'Team', icon: 'people' }, { value: 'self', label: 'Me', icon: 'person-badge' }]}
+                    />
                 )}
                 {scope === 'team' && (
-                    <DepartmentFilter
-                        attendance
-                        label="Department"
-                        size="2"
-                        value={departmentId || 'all'}
-                        onChange={(v) => f.set('aa_dept', v === 'all' ? '' : v)}
-                        departments={departments}
-                        allLabel="All departments"
-                        minWidth="200px"
-                    />
+                    <DepartmentSelect value={departmentId || 'all'} onChange={(v) => f.set('aa_dept', v === 'all' ? '' : v)} departments={departments} allLabel="All departments" />
                 )}
-            </Flex>
+            </ToolbarGroup>
+            <ToolbarGroup end>
+                <IconButton icon="arrow-clockwise" label="Refresh" onClick={() => refetch()} disabled={isFetching} spin={isFetching} />
+            </ToolbarGroup>
+        </Toolbar>
+    );
 
+    return (
+        <div className="dl-page" aria-busy={isFetching || undefined}>
             {isLoading ? (
-                <Flex align="center" justify="center" p="6"><Text color="gray">Loading analytics…</Text></Flex>
+                <div className="dl-row"><div className="dl-col dl-col--12">
+                    <Card id="attendance-analytics" title="Analytics" flush>
+                        {toolbar}
+                        <div className="cy-empty cy-empty--flat" role="status"><p className="cy-empty__text">Loading analytics…</p></div>
+                    </Card>
+                </div></div>
             ) : isError || !data ? (
-                <Callout.Root color="red" role="alert">
-                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                    <Callout.Text>
-                        Analytics could not be loaded.{' '}
-                        <button type="button" onClick={() => refetch()} style={{ textDecoration: 'underline', background: 'none', border: 0, color: 'inherit', cursor: 'pointer' }}>
-                            Try again
-                        </button>
-                    </Callout.Text>
-                </Callout.Root>
+                <div className="dl-row"><div className="dl-col dl-col--12">
+                    <Card id="attendance-analytics" title="Analytics" flush>
+                        {toolbar}
+                        <div className="cy-card-alert">
+                            <Alert tone="danger" role="alert">
+                                Analytics could not be loaded.{' '}
+                                <button type="button" className="cy-linkbtn" onClick={() => refetch()}>Try again</button>
+                            </Alert>
+                        </div>
+                    </Card>
+                </div></div>
             ) : (
-                <Content data={data} isMobile={isMobile} />
+                <Content data={data} isMobile={isMobile} toolbar={toolbar} />
             )}
-        </VizRoot>
+        </div>
     );
 }
 
-function Content({ data, isMobile }) {
+function Content({ data, isMobile, toolbar }) {
     const b = data.breakdown;
     const isTeam = data.meta.scope === 'team';
     const working = useMemo(() => b.daily.filter((d) => d.expected > 0 || d.leave > 0), [b.daily]);
     const nothingYet = working.length === 0;
 
     return (
-        <Flex direction="column" gap="4">
-            <Headline data={data} isTeam={isTeam} />
+        <>
+            <div className="dl-row">
+                <div className="dl-col dl-col--12">
+                    <Card id="attendance-analytics" title={`Attendance analytics: ${data.meta.month}`} flush>
+                        {toolbar}
+                        <Headline data={data} isTeam={isTeam} />
+                    </Card>
+                </div>
+            </div>
 
-            <DailyComposition rows={working} isMobile={isMobile} empty={nothingYet} />
+            <div className="dl-row">
+                <div className="dl-col dl-col--12"><DailyComposition rows={working} isMobile={isMobile} empty={nothingYet} /></div>
+            </div>
 
-            <Grid columns={{ initial: '1', lg: '2' }} gap="4">
-                <DailyRate rows={working} target={b.rate.scheduled} empty={nothingYet} isMobile={isMobile} />
-                <Punctuality punctuality={b.punctuality} late={data.attendance.lateArrivals} />
-            </Grid>
+            <div className="dl-row">
+                <div className="dl-col dl-col--6"><DailyRate rows={working} target={b.rate.scheduled} empty={nothingYet} /></div>
+                <div className="dl-col dl-col--6"><Punctuality punctuality={b.punctuality} late={data.attendance.lateArrivals} /></div>
+            </div>
 
-            <Grid columns={{ initial: '1', md: '2' }} gap="4">
-                <WeekdayBars
-                    title="Late arrivals by weekday"
-                    rows={b.weekday}
-                    dataKey="late"
-                    color="var(--viz-late)"
-                    name="Late arrivals"
-                    empty={!data.attendance.lateArrivals}
-                    emptyText="No late arrivals this month."
-                />
-                <WeekdayBars
-                    title="Absences by weekday"
-                    rows={b.weekday}
-                    dataKey="absent"
-                    color="var(--viz-absent)"
-                    name="Absent days"
-                    empty={!data.attendance.absent}
-                    emptyText="No absences this month."
-                />
-            </Grid>
+            <div className="dl-row">
+                <div className="dl-col dl-col--6">
+                    <WeekdayBars
+                        id="attendance-analytics-late-weekday"
+                        title="Late arrivals by weekday"
+                        rows={b.weekday}
+                        dataKey="late"
+                        tone="warning"
+                        name="Late arrivals"
+                        empty={!data.attendance.lateArrivals}
+                        emptyText="No late arrivals this month."
+                    />
+                </div>
+                <div className="dl-col dl-col--6">
+                    <WeekdayBars
+                        id="attendance-analytics-absent-weekday"
+                        title="Absences by weekday"
+                        rows={b.weekday}
+                        dataKey="absent"
+                        tone="danger"
+                        name="Absent days"
+                        empty={!data.attendance.absent}
+                        emptyText="No absences this month."
+                    />
+                </div>
+            </div>
 
-            {isTeam && b.departments.length > 1 && <Departments rows={b.departments} />}
+            {isTeam && b.departments.length > 1 && (
+                <div className="dl-row"><div className="dl-col dl-col--12"><Departments rows={b.departments} /></div></div>
+            )}
             {isTeam && b.watchlist && <Watchlist watchlist={b.watchlist} />}
-        </Flex>
+        </>
     );
 }
 
@@ -164,154 +186,102 @@ function Headline({ data, isTeam }) {
     const cmp = data.comparison;
     const r = data.breakdown.rate;
 
-    return (
-        <Grid columns={{ initial: '2', sm: '4' }} gap="3">
-            <StatTile
-                label="Attendance rate"
-                value={fmt.pct(r.scheduled)}
-                delta={cmp?.rate != null && r.scheduled != null
-                    ? deltaOf(r.scheduled - cmp.rate, { unit: ' pts', goodWhen: 'up', digits: 1, suffix: ` vs ${cmp.month}` })
-                    : null}
-                sub={isTeam ? `${data.meta.totalEmployees} employees · ${data.meta.month}` : data.meta.month}
-            />
-            <StatTile
-                label="Present"
-                value={`${dayCount(r.present_on_schedule)} days`}
-                sub={
-                    `of ${dayCount(r.expected_days)} scheduled working days`
-                    + (r.off_schedule_days > 0 ? ` · +${dayCount(r.off_schedule_days)} worked on days off` : '')
-                }
-            />
-            <StatTile
-                label="Absent"
-                value={`${dayCount(a.absent)} days`}
-                delta={cmp ? deltaOf(a.absent - cmp.absent, { unit: '', goodWhen: 'down', suffix: ` vs ${cmp.month}` }) : null}
-            />
-            <StatTile
-                label="Late arrivals"
-                value={fmt.num(a.lateArrivals)}
-                delta={cmp ? deltaOf(a.lateArrivals - cmp.lateArrivals, { unit: '', goodWhen: 'down', digits: 0, suffix: ` vs ${cmp.month}` }) : null}
-                sub={a.lateArrivals ? `avg ${fmt.num(data.breakdown.punctuality.average_late_minutes, 0)} min past grace` : 'Everyone on time'}
-            />
-            <StatTile label="On leave" value={`${dayCount(a.leaves)} days`} />
-            <StatTile
-                label="Perfect attendance"
-                value={isTeam ? fmt.num(a.perfectCount) : (a.perfectCount ? 'Yes' : 'Not yet')}
-                sub={isTeam ? 'employees with no missed working day' : 'every working day attended'}
-            />
-            <StatTile label="Average hours" value={`${fmt.num(h.averageDaily, 1)} h`} sub={`per present day · ${fmt.num(h.totalWork, 0)} h total`} />
-            <StatTile label="Overtime" value={`${fmt.num(h.overtime, 1)} h`} />
-        </Grid>
-    );
+    const items = [
+        {
+            key: 'rate',
+            label: 'Attendance rate',
+            value: fmt.pct(r.scheduled),
+            delta: cmp?.rate != null && r.scheduled != null ? deltaOf(r.scheduled - cmp.rate, { unit: ' pts', goodWhen: 'up', digits: 1, suffix: ` vs ${cmp.month}` }) : null,
+            hint: isTeam ? `${data.meta.totalEmployees} employees · ${data.meta.month}` : data.meta.month,
+        },
+        {
+            key: 'present',
+            label: 'Present',
+            value: `${dayCount(r.present_on_schedule)} days`,
+            hint: `of ${dayCount(r.expected_days)} scheduled working days${r.off_schedule_days > 0 ? ` · +${dayCount(r.off_schedule_days)} worked on days off` : ''}`,
+        },
+        {
+            key: 'absent',
+            label: 'Absent',
+            value: `${dayCount(a.absent)} days`,
+            delta: cmp ? deltaOf(a.absent - cmp.absent, { goodWhen: 'down', suffix: ` vs ${cmp.month}` }) : null,
+        },
+        {
+            key: 'late',
+            label: 'Late arrivals',
+            value: fmt.num(a.lateArrivals),
+            delta: cmp ? deltaOf(a.lateArrivals - cmp.lateArrivals, { goodWhen: 'down', digits: 0, suffix: ` vs ${cmp.month}` }) : null,
+            hint: a.lateArrivals ? `avg ${fmt.num(data.breakdown.punctuality.average_late_minutes, 0)} min past grace` : 'Everyone on time',
+        },
+        { key: 'leave', label: 'On leave', value: `${dayCount(a.leaves)} days` },
+        {
+            key: 'perfect',
+            label: 'Perfect attendance',
+            value: isTeam ? fmt.num(a.perfectCount) : (a.perfectCount ? 'Yes' : 'Not yet'),
+            hint: isTeam ? 'employees with no missed working day' : 'every working day attended',
+        },
+        { key: 'avg', label: 'Average hours', value: `${fmt.num(h.averageDaily, 1)} h`, hint: `per present day · ${fmt.num(h.totalWork, 0)} h total` },
+        { key: 'ot', label: 'Overtime', value: `${fmt.num(h.overtime, 1)} h` },
+    ];
+    return <StatStrip items={items} label="Attendance figures for the month" />;
 }
 
 /* ── daily composition (stacked) ────────────────────────────────────────── */
 
 function DailyComposition({ rows, isMobile, empty }) {
+    const options = useMemo(() => (t) => ({
+        chart: { type: 'bar', height: 300, stacked: true },
+        series: COMPOSITION.map((c) => ({ name: c.label, data: rows.map((r) => r[c.key]) })),
+        xaxis: { categories: rows.map((r) => r.label), tickAmount: isMobile ? 8 : undefined, labels: { rotate: 0, hideOverlappingLabels: true } },
+        yaxis: { ...intTicks },
+        colors: COMPOSITION.map((c) => t[c.tone]),
+        fill: { type: 'solid', opacity: 1 },
+        stroke: { width: 1, colors: [t.border] },
+        dataLabels: { enabled: false },
+        plotOptions: { bar: { columnWidth: isMobile ? '80%' : '55%' } },
+        tooltip: { y: { formatter: dayCount } },
+    }), [rows, isMobile]);
+    const table = useMemo(() => ({
+        columns: ['Date', ...COMPOSITION.map((c) => c.label), 'Rate'],
+        rows: rows.map((r) => [`${fmt.date(r.date)} (${r.weekday})`, ...COMPOSITION.map((c) => dayCount(r[c.key])), fmt.pct(r.rate)]),
+    }), [rows]);
     return (
-        <ChartCard
-            title="Daily attendance"
-            subtitle="Man-days per working day: on time, late, on leave and absent"
-            legend={COMPOSITION.map((c) => ({ label: c.label, color: c.color }))}
-            empty={empty}
-            emptyText="No working days recorded for this month yet."
-            table={{
-                columns: [
-                    { key: 'date', label: 'Date', format: (v, r) => `${fmt.date(v)} (${r.weekday})` },
-                    ...COMPOSITION.map((c) => ({ key: c.key, label: c.label, align: 'right', format: dayCount })),
-                    { key: 'rate', label: 'Rate', align: 'right', format: (v) => fmt.pct(v) },
-                ],
-                rows,
-            }}
-        >
-            <Box style={{ width: '100%', height: 280 }}>
-                <ResponsiveContainer>
-                    <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '22%'}>
-                        <CartesianGrid {...gridProps} />
-                        <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={10} />
-                        <YAxis {...axisProps} axisLine={false} allowDecimals={false} width={36} />
-                        <Tooltip
-                            cursor={{ fill: 'var(--gray-a3)' }}
-                            content={
-                                <VizTooltip
-                                    labelFormatter={(label, p) => `${label} (${p[0]?.payload?.weekday ?? ''})`}
-                                    valueFormatter={dayCount}
-                                    footer={(p) => (
-                                        <Text size="1" color="gray">Rate {fmt.pct(p[0]?.payload?.rate)}</Text>
-                                    )}
-                                />
-                            }
-                        />
-                        {COMPOSITION.map((c, i) => (
-                            <Bar
-                                key={c.key}
-                                dataKey={c.key}
-                                name={c.label}
-                                stackId="day"
-                                fill={c.color}
-                                // 2px surface gap between stacked segments (secondary encoding).
-                                stroke="var(--viz-surface)"
-                                strokeWidth={2}
-                                radius={i === COMPOSITION.length - 1 ? [4, 4, 0, 0] : 0}
-                                maxBarSize={28}
-                                isAnimationActive={false}
-                            />
-                        ))}
-                    </BarChart>
-                </ResponsiveContainer>
-            </Box>
-        </ChartCard>
+        <Card id="attendance-analytics-daily" title="Daily attendance" flush footer={<span className="cy-fresh">Man-days per working day: on time, late, on leave and absent</span>}>
+            <div className="cy-chartgrid"><div className="cy-chartpanel">
+                <CyberChart options={options} table={table} label="Daily attendance, man-days per working day by outcome" empty={empty ? 'No working days recorded for this month yet.' : undefined} />
+            </div></div>
+        </Card>
     );
 }
 
 /* ── daily rate line ────────────────────────────────────────────────────── */
 
-function DailyRate({ rows, target, empty, isMobile }) {
-    const points = rows.filter((r) => r.rate != null);
+function DailyRate({ rows, target, empty }) {
+    const points = useMemo(() => rows.filter((r) => r.rate != null), [rows]);
     const low = points.reduce((m, r) => (m == null || r.rate < m.rate ? r : m), null);
-
+    const options = useMemo(() => (t) => ({
+        chart: { type: 'area', height: 260 },
+        series: [{ name: 'Attendance rate', data: points.map((r) => Number(r.rate)) }],
+        xaxis: { categories: points.map((r) => r.label), tickAmount: 8, labels: { rotate: 0, hideOverlappingLabels: true } },
+        yaxis: { min: 0, max: 100, tickAmount: 4, labels: { formatter: (v) => `${Math.round(v)}%` } },
+        colors: [t.theme],
+        legend: { show: false },
+        dataLabels: { enabled: false },
+        markers: { size: points.length <= 12 ? 3 : 0 },
+        annotations: target != null ? { yaxis: [{ y: target, borderColor: t.muted, strokeDashArray: 4, label: { text: `month ${fmt.pct(target, 0)}`, position: 'right', textAnchor: 'end', style: { color: '#000', background: t.muted, fontSize: '10px' } } }] } : {},
+        tooltip: { y: { formatter: (v) => fmt.pct(v) } },
+    }), [points, target]);
+    const table = useMemo(() => ({
+        columns: ['Date', 'Rate'],
+        rows: points.map((r) => [`${fmt.date(r.date)} (${r.weekday})`, fmt.pct(r.rate)]),
+    }), [points]);
+    const isEmpty = empty || points.length === 0;
     return (
-        <ChartCard
-            title="Attendance rate by day"
-            subtitle={low ? `Lowest: ${fmt.pct(low.rate)} on ${low.label} (${low.weekday})` : undefined}
-            empty={empty || points.length === 0}
-            table={{
-                columns: [
-                    { key: 'date', label: 'Date', format: (v, r) => `${fmt.date(v)} (${r.weekday})` },
-                    { key: 'rate', label: 'Rate', align: 'right', format: (v) => fmt.pct(v) },
-                ],
-                rows: points,
-            }}
-        >
-            <Box style={{ width: '100%', height: 240 }}>
-                <ResponsiveContainer>
-                    <LineChart data={points} margin={{ top: 12, right: 44, left: 0, bottom: 0 }}>
-                        <CartesianGrid {...gridProps} />
-                        <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={isMobile ? 18 : 10} />
-                        <YAxis {...axisProps} axisLine={false} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v) => `${v}%`} width={40} />
-                        {target != null && <ReferenceLine
-                            y={target}
-                            stroke="var(--viz-axis)"
-                            label={{ value: `month ${fmt.pct(target, 0)}`, position: 'right', fontSize: 10, fill: 'var(--viz-muted)' }}
-                        />}
-                        <Tooltip
-                            cursor={{ stroke: 'var(--viz-axis)', strokeWidth: 1 }}
-                            content={<VizTooltip valueFormatter={(v) => fmt.pct(v)} labelFormatter={(l, p) => `${l} (${p[0]?.payload?.weekday ?? ''})`} />}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="rate"
-                            name="Attendance rate"
-                            stroke="var(--viz-s1)"
-                            strokeWidth={2}
-                            dot={points.length <= 12 ? { r: 3, fill: 'var(--viz-s1)', stroke: 'var(--viz-surface)', strokeWidth: 2 } : false}
-                            activeDot={{ r: 5, stroke: 'var(--viz-surface)', strokeWidth: 2 }}
-                            isAnimationActive={false}
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
-            </Box>
-        </ChartCard>
+        <Card id="attendance-analytics-rate" title="Attendance rate by day" flush footer={low ? <span className="cy-fresh">{`Lowest: ${fmt.pct(low.rate)} on ${low.label} (${low.weekday})`}</span> : null}>
+            <div className="cy-chartgrid"><div className="cy-chartpanel">
+                <CyberChart options={options} table={table} label="Attendance rate for each working day of the month" empty={isEmpty ? 'No data for this period.' : undefined} />
+            </div></div>
+        </Card>
     );
 }
 
@@ -319,110 +289,85 @@ function DailyRate({ rows, target, empty, isMobile }) {
 
 function Punctuality({ punctuality, late }) {
     const rows = punctuality.buckets;
-
+    const options = useMemo(() => (t) => ({
+        chart: { type: 'bar', height: Math.max(180, rows.length * 38 + 50) },
+        series: [{ name: 'Arrivals', data: rows.map((r) => r.count) }],
+        xaxis: { categories: rows.map((r) => r.bucket) },
+        yaxis: { labels: { style: { colors: t.fg } } },
+        colors: [t.warning],
+        fill: { type: 'solid', opacity: 0.9 },
+        legend: { show: false },
+        plotOptions: { bar: { horizontal: true, barHeight: '55%' } },
+        dataLabels: { enabled: true, formatter: (v) => `${fmt.num(v)} · ${fmt.pct(late ? (v / late) * 100 : 0, 0)}`, style: { colors: ['#000'] } },
+        tooltip: { y: { formatter: (v) => fmt.num(v) } },
+    }), [rows, late]);
+    const table = useMemo(() => ({ columns: ['Minutes late', 'Arrivals'], rows: rows.map((r) => [r.bucket, r.count]) }), [rows]);
     return (
-        <ChartCard
-            title="How late"
-            subtitle={late ? `${fmt.num(late)} late arrivals · ${fmt.num(punctuality.total_late_minutes)} minutes past grace in total` : undefined}
-            empty={!late}
-            emptyText="No late arrivals this month."
-            table={{
-                columns: [
-                    { key: 'bucket', label: 'Minutes late' },
-                    { key: 'count', label: 'Arrivals', align: 'right' },
-                ],
-                rows,
-            }}
-        >
-            <HBarList
-                color="var(--viz-late)"
-                rows={rows.map((r) => ({
-                    key: r.bucket,
-                    label: r.bucket,
-                    value: r.count,
-                    display: `${fmt.num(r.count)} · ${fmt.pct(late ? (r.count / late) * 100 : 0, 0)}`,
-                }))}
-            />
-        </ChartCard>
+        <Card id="attendance-analytics-howlate" title="How late" flush
+            footer={late ? <span className="cy-fresh">{`${fmt.num(late)} late arrivals · ${fmt.num(punctuality.total_late_minutes)} minutes past grace in total`}</span> : null}>
+            <div className="cy-chartgrid"><div className="cy-chartpanel">
+                <CyberChart options={options} table={table} label="Late arrivals grouped by minutes late" empty={!late ? 'No late arrivals this month.' : undefined} />
+            </div></div>
+        </Card>
     );
 }
 
 /* ── weekday small multiples ────────────────────────────────────────────── */
 
-// Late and absent are shown as two single-series charts rather than one grouped
-// chart: in dark mode the late/absent pair fails the normal-vision separation
-// floor, so they must not share a plot.
-function WeekdayBars({ title, rows, dataKey, color, name, empty, emptyText }) {
-    const shown = rows.filter((r) => r.expected > 0);
-
+// Late and absent are shown as two single-series charts rather than one grouped chart.
+function WeekdayBars({ id, title, rows, dataKey, tone, name, empty, emptyText }) {
+    const shown = useMemo(() => rows.filter((r) => r.expected > 0), [rows]);
+    const options = useMemo(() => (t) => ({
+        chart: { type: 'bar', height: 220 },
+        series: [{ name, data: shown.map((r) => r[dataKey]) }],
+        xaxis: { categories: shown.map((r) => r.day) },
+        yaxis: { ...intTicks },
+        colors: [t[tone]],
+        fill: { type: 'solid', opacity: 0.9 },
+        legend: { show: false },
+        dataLabels: { enabled: false },
+        plotOptions: { bar: { columnWidth: '45%' } },
+        tooltip: { y: { formatter: dayCount } },
+    }), [shown, dataKey, tone, name]);
+    const table = useMemo(() => ({
+        columns: ['Day', name, 'Attendance rate'],
+        rows: shown.map((r) => [r.day, dayCount(r[dataKey]), fmt.pct(r.rate)]),
+    }), [shown, dataKey, name]);
+    const isEmpty = empty || shown.length === 0;
     return (
-        <ChartCard
-            title={title}
-            empty={empty || shown.length === 0}
-            emptyText={emptyText}
-            table={{
-                columns: [
-                    { key: 'day', label: 'Day' },
-                    { key: dataKey, label: name, align: 'right', format: dayCount },
-                    { key: 'rate', label: 'Attendance rate', align: 'right', format: (v) => fmt.pct(v) },
-                ],
-                rows: shown,
-            }}
-        >
-            <Box style={{ width: '100%', height: 200 }}>
-                <ResponsiveContainer>
-                    <BarChart data={shown} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
-                        <CartesianGrid {...gridProps} />
-                        <XAxis dataKey="day" {...axisProps} />
-                        <YAxis {...axisProps} axisLine={false} allowDecimals={false} width={32} />
-                        <Tooltip
-                            cursor={{ fill: 'var(--gray-a3)' }}
-                            content={
-                                <VizTooltip
-                                    valueFormatter={dayCount}
-                                    footer={(p) => <Text size="1" color="gray">Attendance {fmt.pct(p[0]?.payload?.rate)}</Text>}
-                                />
-                            }
-                        />
-                        <Bar dataKey={dataKey} name={name} fill={color} radius={[4, 4, 0, 0]} maxBarSize={32} isAnimationActive={false} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Box>
-        </ChartCard>
+        <Card id={id} title={title} flush>
+            <div className="cy-chartgrid"><div className="cy-chartpanel">
+                <CyberChart options={options} table={table} label={`${title}, by weekday`} empty={isEmpty ? emptyText ?? 'No data for this period.' : undefined} />
+            </div></div>
+        </Card>
     );
 }
 
 /* ── departments ────────────────────────────────────────────────────────── */
 
 function Departments({ rows }) {
+    const options = useMemo(() => (t) => ({
+        chart: { type: 'bar', height: Math.max(180, rows.length * 38 + 50) },
+        series: [{ name: 'Attendance rate', data: rows.map((d) => Number(d.rate ?? 0)) }],
+        xaxis: { categories: rows.map((d) => d.department), max: 100, labels: { formatter: (v) => `${Math.round(v)}%` } },
+        yaxis: { labels: { style: { colors: t.fg } } },
+        colors: [t.theme],
+        fill: { type: 'solid', opacity: 0.9 },
+        legend: { show: false },
+        plotOptions: { bar: { horizontal: true, barHeight: '55%' } },
+        dataLabels: { enabled: true, formatter: (v) => fmt.pct(v), style: { colors: ['#000'] } },
+        tooltip: { y: { formatter: (v) => fmt.pct(v) } },
+    }), [rows]);
+    const table = useMemo(() => ({
+        columns: ['Department', 'Staff', 'Rate', 'Absent days', 'Late', 'Late share', 'Leave days'],
+        rows: rows.map((d) => [d.department, d.employees, fmt.pct(d.rate), dayCount(d.absent), d.late, fmt.pct(d.late_rate), dayCount(d.leave)]),
+    }), [rows]);
     return (
-        <ChartCard
-            title="Attendance by department"
-            subtitle="Lowest rate first"
-            table={{
-                columns: [
-                    { key: 'department', label: 'Department' },
-                    { key: 'employees', label: 'Staff', align: 'right' },
-                    { key: 'rate', label: 'Rate', align: 'right', format: (v) => fmt.pct(v) },
-                    { key: 'absent', label: 'Absent days', align: 'right', format: dayCount },
-                    { key: 'late', label: 'Late', align: 'right' },
-                    { key: 'late_rate', label: 'Late share', align: 'right', format: (v) => fmt.pct(v) },
-                    { key: 'leave', label: 'Leave days', align: 'right', format: dayCount },
-                ],
-                rows,
-            }}
-        >
-            <HBarList
-                max={100}
-                rows={rows.map((d) => ({
-                    key: d.department,
-                    label: d.department,
-                    value: d.rate ?? 0,
-                    display: fmt.pct(d.rate),
-                    sub: `${d.employees} staff · ${dayCount(d.absent)} absent days · ${fmt.num(d.late)} late`,
-                }))}
-            />
-        </ChartCard>
+        <Card id="attendance-analytics-departments" title="Attendance by department" flush footer={<span className="cy-fresh">Lowest rate first</span>}>
+            <div className="cy-chartgrid"><div className="cy-chartpanel">
+                <CyberChart options={options} table={table} label="Attendance rate by department, lowest first" />
+            </div></div>
+        </Card>
     );
 }
 
@@ -430,25 +375,39 @@ function Departments({ rows }) {
 
 function Watchlist({ watchlist }) {
     const lists = [
-        { key: 'most_late', title: 'Most late arrivals', value: (p) => `${fmt.num(p.late)} · ${fmt.num(p.late_minutes)} min` },
-        { key: 'most_absent', title: 'Most absent days', value: (p) => dayCount(p.absent) },
-        { key: 'lowest_rate', title: 'Lowest attendance rate', value: (p) => fmt.pct(p.rate) },
+        { key: 'most_late', title: 'Most late arrivals', head: 'Late · minutes', value: (p) => `${fmt.num(p.late)} · ${fmt.num(p.late_minutes)} min` },
+        { key: 'most_absent', title: 'Most absent days', head: 'Absent days', value: (p) => dayCount(p.absent) },
+        { key: 'lowest_rate', title: 'Lowest attendance rate', head: 'Rate', value: (p) => fmt.pct(p.rate) },
     ];
 
     return (
-        <Grid columns={{ initial: '1', lg: '3' }} gap="4">
-            {lists.map((l) => (
-                <ChartCard key={l.key} title={l.title} empty={!watchlist[l.key]?.length} emptyText="Nobody to flag this month.">
-                    <DataTable
-                        caption={l.title}
-                        rows={watchlist[l.key] ?? []}
-                        columns={[
-                            { key: 'name', label: 'Employee', format: (v, r) => <Box><Text size="2">{v}</Text><Text as="div" size="1" color="gray">{r.department}</Text></Box> },
-                            { key: 'value', label: '', align: 'right', format: (_, r) => l.value(r) },
-                        ]}
-                    />
-                </ChartCard>
-            ))}
-        </Grid>
+        <div className="dl-row">
+            {lists.map((l) => {
+                const rows = watchlist[l.key] ?? [];
+                return (
+                    <div className="dl-col dl-col--4" key={l.key}>
+                        <Card id={`attendance-analytics-${l.key}`} title={l.title} flush>
+                            {rows.length === 0 ? (
+                                <div className="cy-empty cy-empty--flat"><p className="cy-empty__text">Nobody to flag this month.</p></div>
+                            ) : (
+                                <div className="cy-dt" tabIndex={0} role="region" aria-label={`${l.title}, scrollable`}>
+                                    <table className="cy-table">
+                                        <thead><tr><th scope="col">Employee</th><th scope="col" className="cy-num">{l.head}</th></tr></thead>
+                                        <tbody>
+                                            {rows.map((r, i) => (
+                                                <tr key={`${r.name}-${i}`}>
+                                                    <td><b>{r.name}</b><span className="cy-sub">{r.department}</span></td>
+                                                    <td className="cy-num">{l.value(r)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
+                );
+            })}
+        </div>
     );
 }

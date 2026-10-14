@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import { Box, Flex, Table, Button, IconButton, Text, Badge } from '@radix-ui/themes';
-import { PlusIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons';
+import { Badge, Button, Card, Icon, Pagination } from '@/Components/Cyber';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import ShiftAssignmentForm from '@/Forms/ShiftAssignmentForm';
-import TablePagination from '@/Components/TablePagination.jsx';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function AssignmentManager({ employees = [], departments = [], designations = [] }) {
     const { auth } = usePage().props;
@@ -45,8 +44,9 @@ export default function AssignmentManager({ employees = [], departments = [], de
         return `${label}: ${name}`;
     };
 
+    const [deleting, setDeleting] = useState(null);
     const remove = async (id) => {
-        if (!confirm('Delete this assignment?')) return;
+        setDeleting(null);
         try {
             await requestJson('delete', `/attendance/shift-assignments/${id}`);
             showToast.success('Assignment deleted.');
@@ -56,90 +56,70 @@ export default function AssignmentManager({ employees = [], departments = [], de
         }
     };
 
+    const pageRows = assignments.slice((page - 1) * perPage, page * perPage);
+    const footer = assignments.length > perPage || page > 1 ? (
+        <Pagination
+            pagination={{ currentPage: page, perPage, total: assignments.length }}
+            onPageChange={setPage}
+            onRowsPerPageChange={setPerPage}
+        />
+    ) : null;
+
     return (
-        <Box mt="5">
-            <Flex justify="between" align="center" mb="3">
-                <Text size="3" weight="bold">Shift Assignments</Text>
-                <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
-                    <PlusIcon /> Assign shift
-                </Button>
-            </Flex>
+        <div className="dl-row">
+            <div className="dl-col dl-col--12">
+                <Card
+                    id="attendance-assignments"
+                    title="Shift assignments"
+                    flush
+                    footer={footer}
+                    actions={<Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}><Icon name="plus-lg" /> Assign shift</Button>}
+                >
+                    <div className="cy-dt" tabIndex={0} role="region" aria-label="Shift assignments, scrollable">
+                        <table className="cy-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Scope</th>
+                                    <th scope="col">Shift</th>
+                                    <th scope="col">Effective</th>
+                                    <th scope="col">Priority</th>
+                                    {isGlobalUser && <th scope="col">Assigned by</th>}
+                                    <th scope="col"><span className="visually-hidden">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {isLoading ? (
+                                    <tr><td colSpan={isGlobalUser ? 6 : 5} className="cy-cell--empty"><div className="cy-empty cy-empty--flat" role="status"><p className="cy-empty__text">Loading assignments…</p></div></td></tr>
+                                ) : assignments.length === 0 ? (
+                                    <tr><td colSpan={isGlobalUser ? 6 : 5} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><Icon name="calendar2-week" className="cy-empty__icon" /><p className="cy-empty__text">No assignments yet.</p></div></td></tr>
+                                ) : pageRows.map(a => (
+                                    <tr key={a.id}>
+                                        <td>{scopeLabel(a)}</td>
+                                        <td>
+                                            {a.shift
+                                                ? <Badge soft>{a.shift.code}</Badge>
+                                                : a.rotation_pattern
+                                                    ? <span className="cy-muted">Pattern: {a.rotation_pattern.name}</span>
+                                                    : <span className="cy-muted">-</span>}
+                                        </td>
+                                        <td className="cy-muted cy-nowrap">{a.effective_from} → {a.effective_to || '∞'}</td>
+                                        <td>{a.priority ?? 0}</td>
+                                        {isGlobalUser && <td className="cy-muted">{a.assigner?.name || 'System'}</td>}
+                                        <td>
+                                            <span className="cy-actions">
+                                                <button type="button" className="cy-iconbtn" onClick={() => { setEditing(a); setOpen(true); }} title="Edit / end-date" aria-label={`Edit assignment: ${scopeLabel(a)}`}><Icon name="pencil" /></button>
+                                                <button type="button" className="cy-iconbtn cy-iconbtn--danger" onClick={() => setDeleting(a)} title="Delete" aria-label={`Delete assignment: ${scopeLabel(a)}`}><Icon name="trash" /></button>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </div>
 
-            {isLoading ? (
-                <Text size="2" color="gray">Loading assignments…</Text>
-            ) : (
-                <Box>
-                    <Table.Root size="2" variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell>Scope</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Shift</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Effective</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Priority</Table.ColumnHeaderCell>
-                                {isGlobalUser && <Table.ColumnHeaderCell>Assigned By</Table.ColumnHeaderCell>}
-                                <Table.ColumnHeaderCell style={{ textAlign: 'right' }}></Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {assignments.length === 0 ? (
-                                <Table.Row>
-                                    <Table.Cell colSpan={isGlobalUser ? 6 : 5}>
-                                        <Text color="gray" size="2">No assignments yet.</Text>
-                                    </Table.Cell>
-                                </Table.Row>
-                            ) : assignments.slice((page - 1) * perPage, page * perPage).map(a => (
-                                <Table.Row key={a.id}>
-                                    <Table.Cell>
-                                        <Text size="2">{scopeLabel(a)}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        {a.shift
-                                            ? <Badge>{a.shift.code}</Badge>
-                                            : a.rotation_pattern
-                                                ? <Text size="2" color="gray">Pattern: {a.rotation_pattern.name}</Text>
-                                                : <Text size="2" color="gray">—</Text>
-                                        }
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="2" color="gray">
-                                            {a.effective_from} → {a.effective_to || '∞'}
-                                        </Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="2">{a.priority ?? 0}</Text>
-                                    </Table.Cell>
-                                    {isGlobalUser && (
-                                        <Table.Cell>
-                                            <Text size="2" color="gray">{a.assigner?.name || 'System'}</Text>
-                                        </Table.Cell>
-                                    )}
-                                    <Table.Cell>
-                                        <Flex justify="end" gap="1">
-                                            <IconButton size="1" variant="ghost" color="gray" onClick={() => { setEditing(a); setOpen(true); }} title="Edit / end-date">
-                                                <Pencil1Icon />
-                                            </IconButton>
-                                            <IconButton size="1" variant="ghost" color="red" onClick={() => remove(a.id)} title="Delete">
-                                                <TrashIcon />
-                                            </IconButton>
-                                        </Flex>
-                                    </Table.Cell>
-                                </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
-
-                    {assignments.length > 0 && (
-                        <Box mt="4">
-                            <TablePagination
-                                pagination={{ currentPage: page, perPage, total: assignments.length }}
-                                onPageChange={setPage}
-                                onRowsPerPageChange={setPerPage}
-                            />
-                        </Box>
-                    )}
-                </Box>
-            )}
-
+            {deleting && <ConfirmDialog title="Delete assignment" message={`Delete this assignment (${scopeLabel(deleting)})?`} onClose={() => setDeleting(null)} onConfirm={() => remove(deleting.id)} />}
             <ShiftAssignmentForm
                 open={open}
                 onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}
@@ -149,6 +129,6 @@ export default function AssignmentManager({ employees = [], departments = [], de
                 departments={departments}
                 designations={designations}
             />
-        </Box>
+        </div>
     );
 }

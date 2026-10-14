@@ -1,8 +1,6 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import { Box, Flex, Button, Text, TextField, Select, SegmentedControl, Callout, IconButton } from '@radix-ui/themes';
-import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon, ExclamationTriangleIcon, Cross2Icon } from '@radix-ui/react-icons';
+import { Alert, Button, Card, Field, Icon, IconButton, Pagination, Segmented, Toolbar, ToolbarGroup } from '@/Components/Cyber';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
@@ -19,10 +17,7 @@ import { handleCellConflict } from './rosterCellConflict';
 import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } from './complianceViolations';
 import { buildOptimisticCell, deriveSelectedShiftIds } from './rosterShiftSelection';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
-import TablePagination from '@/Components/TablePagination.jsx';
-import PageToolbar from '@/Components/PageToolbar';
-import SearchFilterBar from '@/Components/SearchFilterBar';
-import DepartmentFilter from '@/Components/Access/DepartmentFilter';
+import DepartmentSelect from './Components/DepartmentSelect';
 
 export default function RosterTab({ month, onMonthChange, departments = [], isActive = true }) {
     const { employees = [], auth } = usePage().props;
@@ -311,174 +306,112 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         onMonthChange?.(newMonth);
     };
 
+    const footer = viewMode === 'grid' && rows.length > perPage ? (
+        <Pagination
+            pagination={{ currentPage, perPage, total: rows.length }}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={setPerPage}
+            loading={isLoading}
+        />
+    ) : null;
+
     return (
-        <Box>
-            {/* Toolbar */}
-            <PageToolbar
-                onRefresh={() => refetch()}
-                refreshLoading={isFetching}
-                mb="4"
-                leftSlot={
-                    <Flex gap="2" align="center" wrap="wrap">
-                        <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(-1)}>
-                            <ChevronLeftIcon />
-                        </Button>
-
-                        <TextField.Root
-                            type="month"
-                            size="2"
-                            value={month}
-                            onChange={e => onMonthChange?.(e.target.value)}
-                            style={{ width: 160 }}
-                        >
-                            <TextField.Slot>
-                                <CalendarIcon />
-                            </TextField.Slot>
-                        </TextField.Root>
-
-                        <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(1)}>
-                            <ChevronRightIcon />
-                        </Button>
-
-                        <TextField.Root
-                            size="2"
-                            placeholder="Search employee…"
-                            value={f.draft.r_q}
-                            onChange={e => f.setDraft('r_q', e.target.value)}
-                            style={{ width: 200 }}
-                        >
-                            <TextField.Slot>
-                                <PersonIcon />
-                            </TextField.Slot>
-                        </TextField.Root>
-
-                        <DepartmentFilter
-                            attendance
-                            value={selectedDepartmentId}
-                            onChange={setSelectedDepartmentId}
-                            departments={departments}
-                            width="auto"
-                            minWidth="150px"
-                        />
-                    </Flex>
-                }
-                extraActions={
-                    <Flex gap="2" align="center" wrap="wrap">
-                        <SegmentedControl.Root size="2" value={viewMode} onValueChange={setViewMode}>
-                            <SegmentedControl.Item value="grid">
-                                <Flex align="center" gap="1"><GridIcon /> Grid</Flex>
-                            </SegmentedControl.Item>
-                            <SegmentedControl.Item value="employee">
-                                <Flex align="center" gap="1"><PersonIcon /> Per employee</Flex>
-                            </SegmentedControl.Item>
-                        </SegmentedControl.Root>
-                        <Button variant="soft" color="gray" size="2" onClick={() => setCoverageDialogOpen(true)}>
-                            Coverage rules
-                        </Button>
-                        <Button
-                            size="2"
-                            color="blue"
-                            onClick={() => generate.mutate()}
-                            disabled={generate.isPending || filteredEmployees.length === 0}
-                        >
-                            {generate.isPending ? 'Generating…' : 'Generate roster'}
-                        </Button>
-                    </Flex>
-                }
-            />
-
-            {generateViolations.length > 0 && (
-                <Callout.Root color="amber" size="1" mb="3">
-                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                    <Flex justify="between" align="start" gap="3" width="100%">
-                        <Box>
-                            <Text size="2" weight="medium" as="div" mb="1">
-                                Working-time compliance warnings ({generateViolations.reduce((n, g) => n + g.violations.length, 0)})
-                            </Text>
-                            <Flex direction="column" gap="1">
-                                {generateViolations.map((group) => (
-                                    <Box key={group.userId ?? group.name}>
-                                        {group.violations.map((v, i) => (
-                                            <Text key={i} as="div" size="1" color="gray">
-                                                <Text weight="medium">{group.name}</Text>: {v.date} — {v.message}
-                                            </Text>
-                                        ))}
-                                    </Box>
-                                ))}
-                            </Flex>
-                        </Box>
-                        <IconButton size="1" variant="ghost" color="gray" onClick={() => setGenerateViolations([])} aria-label="Dismiss">
-                            <Cross2Icon />
-                        </IconButton>
-                    </Flex>
-                </Callout.Root>
-            )}
-
-            {isLoading
-                ? <Text size="2" color="gray">Loading roster…</Text>
-                : (
-                    <>
-                        <RosterLegend shifts={legendShifts} showHoliday={hasHoliday} />
-                        {viewMode === 'grid' && <CoveragePanel from={from} to={to} isActive={isActive} />}
-                        <CoverageRequirementsDialog open={coverageDialogOpen} onOpenChange={setCoverageDialogOpen} />
-                        {viewMode === 'employee' ? (
-                            <RosterEmployeeView
-                                employees={employeeOptions}
-                                roster={Object.fromEntries(rows)}
-                                days={days}
-                                holidays={holidays}
-                                shifts={shifts}
-                                selectedUserId={effectiveEmployeeId}
-                                onSelectUser={setSelectedEmployeeId}
-                                onCellClick={handleCellClick}
-                            />
-                        ) : (
-                            <>
-                                <RosterCalendar
-                                    roster={Object.fromEntries(paginatedRows)}
-                                    days={days}
-                                    holidays={holidays}
-                                    shifts={shifts}
-                                    onCellClick={handleCellClick}
+        <div className="dl-page">
+            {viewMode === 'grid' && !isLoading && <CoveragePanel from={from} to={to} isActive={isActive} />}
+            <div className="dl-row">
+                <div className="dl-col dl-col--12">
+                    <Card id="attendance-roster" title="Roster" flush footer={footer}>
+                        <Toolbar label="Roster filters">
+                            <ToolbarGroup>
+                                <IconButton icon="chevron-left" label="Previous month" onClick={() => goMonth(-1)} />
+                                <Field icon="calendar3" type="month" label="Month" value={month} onChange={e => onMonthChange?.(e.target.value)} />
+                                <IconButton icon="chevron-right" label="Next month" onClick={() => goMonth(1)} />
+                                <Field icon="search" type="search" label="Search employee…" value={f.draft.r_q} onChange={e => f.setDraft('r_q', e.target.value)} />
+                                <DepartmentSelect value={selectedDepartmentId} onChange={setSelectedDepartmentId} departments={departments} />
+                            </ToolbarGroup>
+                            <ToolbarGroup end>
+                                <Segmented
+                                    label="Roster view"
+                                    value={viewMode}
+                                    onChange={setViewMode}
+                                    options={[{ value: 'grid', label: 'Grid', icon: 'table' }, { value: 'employee', label: 'Per employee', icon: 'person-badge' }]}
                                 />
-                                {rows.length > perPage && (
-                                    <Box mt="3">
-                                        <TablePagination
-                                            pagination={{ currentPage, perPage, total: rows.length }}
-                                            onPageChange={setCurrentPage}
-                                            onRowsPerPageChange={setPerPage}
-                                            loading={isLoading}
-                                        />
-                                    </Box>
-                                )}
-                            </>
+                                <Button color="default" variant="outline" onClick={() => setCoverageDialogOpen(true)}>Coverage rules</Button>
+                                <Button onClick={() => generate.mutate()} disabled={generate.isPending || filteredEmployees.length === 0}>
+                                    {generate.isPending ? 'Generating…' : 'Generate roster'}
+                                </Button>
+                                <IconButton icon="arrow-clockwise" label="Refresh" onClick={() => refetch()} disabled={isFetching} spin={isFetching} />
+                            </ToolbarGroup>
+                        </Toolbar>
+
+                        {generateViolations.length > 0 && (
+                            <div className="cy-card-alert">
+                                <Alert tone="warning" title={`Working-time compliance warnings (${generateViolations.reduce((n, g) => n + g.violations.length, 0)})`} onDismiss={() => setGenerateViolations([])}>
+                                    {generateViolations.map((group) => (
+                                        <div key={group.userId ?? group.name}>
+                                            {group.violations.map((v, i) => (
+                                                <div key={i}><b>{group.name}</b>: {v.date} - {v.message}</div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </Alert>
+                            </div>
                         )}
-                        <RosterCellPopover
-                            open={popoverOpen}
-                            onOpenChange={(o) => { if (!o) { setPopoverOpen(false); setCellViolations(null); } }}
-                            anchor={<span />}
-                            shifts={shifts}
-                            selectedShiftIds={selectedCell ? deriveSelectedShiftIds(roster?.[selectedCell.userId]?.days?.[selectedCell.date], shifts) : []}
-                            notice={selectedNotice}
-                            violations={
-                                selectedCell && cellViolations
-                                    && String(cellViolations.userId) === String(selectedCell.userId)
-                                    && cellViolations.date === selectedCell.date
-                                    ? cellViolations.violations
-                                    : null
-                            }
-                            violationsBlocked={cellViolations?.blocked}
-                            workLocations={workLocations}
-                            selectedLocationId={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.work_location_id ?? null) : null}
-                            leave={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.leave ?? null) : null}
-                            cellDate={selectedCell?.date ?? null}
-                            onPick={handlePick}
-                            onReset={handleReset}
-                            finalized={Boolean(selectedCell && roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.locked)}
-                            canReset={Boolean(selectedCell && roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.source === 'manual')}
-                        />
-                    </>
-                )}
-        </Box>
+
+                        {isLoading
+                            ? <div className="cy-empty cy-empty--flat" role="status"><p className="cy-empty__text">Loading roster…</p></div>
+                            : (
+                                <>
+                                    <RosterLegend shifts={legendShifts} showHoliday={hasHoliday} />
+                                    {viewMode === 'employee' ? (
+                                        <RosterEmployeeView
+                                            employees={employeeOptions}
+                                            roster={Object.fromEntries(rows)}
+                                            days={days}
+                                            holidays={holidays}
+                                            shifts={shifts}
+                                            selectedUserId={effectiveEmployeeId}
+                                            onSelectUser={setSelectedEmployeeId}
+                                            onCellClick={handleCellClick}
+                                        />
+                                    ) : (
+                                        <RosterCalendar
+                                            roster={Object.fromEntries(paginatedRows)}
+                                            days={days}
+                                            holidays={holidays}
+                                            shifts={shifts}
+                                            onCellClick={handleCellClick}
+                                        />
+                                    )}
+                                </>
+                            )}
+                    </Card>
+                </div>
+            </div>
+            <CoverageRequirementsDialog open={coverageDialogOpen} onOpenChange={setCoverageDialogOpen} />
+            <RosterCellPopover
+                open={popoverOpen}
+                onOpenChange={(o) => { if (!o) { setPopoverOpen(false); setCellViolations(null); } }}
+                shifts={shifts}
+                selectedShiftIds={selectedCell ? deriveSelectedShiftIds(roster?.[selectedCell.userId]?.days?.[selectedCell.date], shifts) : []}
+                notice={selectedNotice}
+                violations={
+                    selectedCell && cellViolations
+                        && String(cellViolations.userId) === String(selectedCell.userId)
+                        && cellViolations.date === selectedCell.date
+                        ? cellViolations.violations
+                        : null
+                }
+                violationsBlocked={cellViolations?.blocked}
+                workLocations={workLocations}
+                selectedLocationId={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.work_location_id ?? null) : null}
+                leave={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.leave ?? null) : null}
+                cellDate={selectedCell?.date ?? null}
+                onPick={handlePick}
+                onReset={handleReset}
+                finalized={Boolean(selectedCell && roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.locked)}
+                canReset={Boolean(selectedCell && roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.source === 'manual')}
+            />
+        </div>
     );
 }

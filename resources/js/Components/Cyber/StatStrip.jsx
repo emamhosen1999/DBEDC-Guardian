@@ -32,7 +32,7 @@ function useViewportWidth() {
 
 /**
  * Cyber stat row (index.html / widgets.html): equal tiles edge to edge, caption above, figure below. One section of a
- * flush Card body. items = [{ key, label, value, tone, hint }]; a value of undefined shows a dash (still loading).
+ * flush Card body. items = [{ key, label, value, tone, hint, delta }]; a value of undefined shows a dash (still loading).
  */
 export default function StatStrip({ items, label = 'Key figures', busy = false }) {
     const width = useViewportWidth();
@@ -42,7 +42,7 @@ export default function StatStrip({ items, label = 'Key figures', busy = false }
         <div className="cy-kpi-strip cy-kpi-strip--compact" role="list" aria-label={label} aria-busy={busy || undefined}>
             {items.map((item, i) => (
                 <div key={item.key} role="listitem" className="cy-kpi-strip__cell" style={{ gridColumn: `span ${spans[i]}` }}>
-                    <KpiTile label={item.label} value={item.value} tone={item.tone} hint={item.hint} />
+                    <KpiTile label={item.label} value={item.value} tone={item.tone} hint={item.hint} delta={item.delta} />
                 </div>
             ))}
         </div>

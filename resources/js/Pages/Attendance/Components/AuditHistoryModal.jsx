@@ -15,11 +15,11 @@ export default function AuditHistoryModal({ open, onOpenChange, attendanceId }) 
     if (!open) return null;
 
     return (
-        <Dialog title="Audit history" onClose={() => onOpenChange(false)}>
+        <Dialog title="Audit history" onClose={() => onOpenChange(false)} className="cy-modal cy-modal--wide">
             {isLoading ? (
                 <div className="cy-empty" role="status"><p className="cy-empty__text">Loading…</p></div>
             ) : (
-                <div className="cy-dt">
+                <div className="cy-dt cy-dt--modal" tabIndex={0} role="region" aria-label="Audit history, scrollable">
                     <table className="cy-table">
                         <thead>
                             <tr><th scope="col">When</th><th scope="col">Action</th><th scope="col">By</th><th scope="col">Reason</th><th scope="col">Change</th></tr>
@@ -28,14 +28,14 @@ export default function AuditHistoryModal({ open, onOpenChange, attendanceId }) 
                             {logs.map((l) => (
                                 <tr key={l.id}>
                                     <td className="cy-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString() : ''}</td>
-                                    <td><Badge color="secondary">{l.action}</Badge></td>
+                                    <td><Badge soft color="secondary">{l.action}</Badge></td>
                                     <td>{l.actor?.name || '—'}</td>
                                     <td>{l.reason || '—'}</td>
                                     <td><code>{JSON.stringify(l.before)} → {JSON.stringify(l.after)}</code></td>
                                 </tr>
                             ))}
                             {logs.length === 0 && (
-                                <tr><td colSpan={5} className="cy-muted">No history.</td></tr>
+                                <tr><td colSpan={5} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><p className="cy-empty__text">No history.</p></div></td></tr>
                             )}
                         </tbody>
                     </table>

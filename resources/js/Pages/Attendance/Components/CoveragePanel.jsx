@@ -1,6 +1,5 @@
-import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo } from 'react';
-import { Box, Flex, Text, Tooltip, Badge } from '@radix-ui/themes';
+import { Badge, Card } from '@/Components/Cyber';
 import { useQuery } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
@@ -81,54 +80,46 @@ export default function CoveragePanel({ from, to, isActive = true }) {
     }
 
     return (
-        <Panel tinted mb="4">
-            <Flex justify="between" align="center" mb="3">
-                <Text size="2" weight="bold">Coverage — {from} → {to}</Text>
-                {gaps.length > 0 && <Badge color="red">{gaps.length} understaffed</Badge>}
-            </Flex>
-
-            <Box style={{ overflowX: 'auto' }}>
-                <Flex>
-                    <Box style={{ minWidth: 160, width: 160 }} />
-                    {shifts.map(s => (
-                        <Box key={s.id} style={{ width: 72, textAlign: 'center' }}>
-                            <Text size="1" weight="medium">{s.code}</Text>
-                        </Box>
-                    ))}
-                </Flex>
-                {locations.map(loc => (
-                    <Flex key={loc.id} align="center" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                        <Box style={{ minWidth: 160, width: 160, padding: '6px 4px' }}>
-                            <Text size="1">{loc.name}</Text>
-                        </Box>
-                        {shifts.map(s => {
-                            const cell = matrix[`${loc.id}:${s.id}`];
-                            if (!cell) {
-                                return <Box key={s.id} style={{ width: 72, textAlign: 'center', color: 'var(--gray-6)' }}><Text size="1">–</Text></Box>;
-                            }
-                            const disp = resolveCoverageCellDisplay(cell);
-                            return (
-                                <Box key={s.id} style={{ width: 72, padding: 4 }}>
-                                    <Tooltip content={`${loc.name} · ${s.code}: ${disp.status}`}>
-                                        <Box style={{
-                                            borderRadius: 4, textAlign: 'center', padding: '2px 0',
-                                            background: disp.color, color: '#fff', fontSize: 11, fontWeight: 700,
-                                        }}>
-                                            {disp.label}
-                                        </Box>
-                                    </Tooltip>
-                                </Box>
-                            );
-                        })}
-                    </Flex>
-                ))}
-            </Box>
-
-            {gaps.length > 0 && (
-                <Box mt="3">
-                    <Text size="1" color="gray">Understaffed: {gaps.slice(0, 12).map(g => `${g.date} ${locName(g.locId)}/${shiftCode(g.shiftId)}${g.role ? ` [${roleName(g.role)}]` : ''} (${g.assigned}/${g.required})`).join(' · ')}{gaps.length > 12 ? ' …' : ''}</Text>
-                </Box>
-            )}
-        </Panel>
+        <div className="dl-row">
+            <div className="dl-col dl-col--12">
+                <Card
+                    id="attendance-coverage"
+                    title={`Coverage: ${from} to ${to}`}
+                    flush
+                    actions={gaps.length > 0 ? <Badge soft color="danger">{gaps.length} understaffed</Badge> : null}
+                    footer={gaps.length > 0 ? (
+                        <span className="cy-fresh">Understaffed: {gaps.slice(0, 12).map(g => `${g.date} ${locName(g.locId)}/${shiftCode(g.shiftId)}${g.role ? ` [${roleName(g.role)}]` : ''} (${g.assigned}/${g.required})`).join(' · ')}{gaps.length > 12 ? ' …' : ''}</span>
+                    ) : null}
+                >
+                    <div className="cy-dt cy-coverage" tabIndex={0} role="region" aria-label="Coverage by post and shift, scrollable">
+                        <table className="cy-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Post</th>
+                                    {shifts.map(s => <th key={s.id} scope="col" className="cy-num">{s.code}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {locations.map(loc => (
+                                    <tr key={loc.id}>
+                                        <th scope="row" className="cy-coverage__post">{loc.name}</th>
+                                        {shifts.map(s => {
+                                            const cell = matrix[`${loc.id}:${s.id}`];
+                                            if (!cell) return <td key={s.id} className="cy-num cy-muted" aria-label={`${loc.name}, ${s.code}: no requirement`}>-</td>;
+                                            const disp = resolveCoverageCellDisplay(cell);
+                                            return (
+                                                <td key={s.id} className="cy-num">
+                                                    <span className="cy-coverage__cell" style={{ background: disp.color }} title={`${loc.name} · ${s.code}: ${disp.status}`} aria-label={`${loc.name}, ${s.code}: ${disp.status}, ${disp.label}`}>{disp.label}</span>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </div>
+        </div>
     );
 }

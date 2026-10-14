@@ -19,7 +19,7 @@ export default function Dialog({ title, onClose, children, className = 'cy-modal
         const onKey = (e) => {
             if (e.key === 'Escape') { e.stopPropagation(); close.current(); }
             if (e.key === 'Tab' && panel.current) {
-                const items = panel.current.querySelectorAll('a[href], button:not(:disabled), input, [tabindex]:not([tabindex="-1"])');
+                const items = panel.current.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])');
                 if (!items.length) return;
                 const first = items[0]; const last = items[items.length - 1];
                 if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }

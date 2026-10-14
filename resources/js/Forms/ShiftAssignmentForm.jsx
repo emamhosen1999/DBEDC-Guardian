@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Dialog, Flex, Box, Select, TextField, Button, Text, Callout, SegmentedControl } from '@radix-ui/themes';
-import { InfoCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
+import { Alert, Button, DateInput, FormField, Input, Segmented, SelectInput } from '@/Components/Cyber';
 import { usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
-import DateTimePicker from '@/Components/DateTimePicker';
 import SearchableMultiSelect from '@/Components/SearchableMultiSelect';
 import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } from '@/Pages/Attendance/complianceViolations';
 
@@ -172,37 +171,35 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
         && form.effective_from
         && (form.scope_type === 'org' || form.scope_ids.length > 0);
 
+    if (!open) return null;
+
+    const close = () => { setError(''); setForm(empty); onOpenChange(false); };
+
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v) { setError(''); setForm(empty); } onOpenChange(v); }}>
-            <Dialog.Content maxWidth="540px">
-                <Dialog.Title>{isEdit ? 'Edit Assignment' : 'Assign Shift'}</Dialog.Title>
-                <Dialog.Description size="2" color="gray" mb="3">
+        <Dialog title={isEdit ? 'Edit Assignment' : 'Assign Shift'} onClose={close} className="cy-modal cy-modal--wide">
+            <div className="cy-modal__section cy-stack">
+                <p className="cy-formtext">
                     {isEdit
                         ? 'Update this assignment — e.g. set an end date to supersede it from a future date.'
                         : 'Assign a shift to one or more employees, departments, or designations.'}
-                </Dialog.Description>
+                </p>
 
-                <Flex direction="column" gap="3">
-                    {isEdit && (
-                        <Callout.Root color="blue" size="1">
-                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                            <Callout.Text>Editing assignment — {scopeText}</Callout.Text>
-                        </Callout.Root>
-                    )}
-                    {!isEdit && (<>
+                {isEdit && <Alert tone="info">Editing assignment — {scopeText}</Alert>}
+                {!isEdit && (<>
                     {/* Scope type selector */}
-                    <Box>
-                        <Text size="1" color="gray" as="div" mb="1" weight="medium">Assign To</Text>
-                        <Select.Root value={form.scope_type} onValueChange={v => { set('scope_type', v); set('scope_ids', []); }}>
-                            <Select.Trigger style={{ width: '100%' }} />
-                            <Select.Content>
-                                <Select.Item value="user">Employee(s)</Select.Item>
-                                <Select.Item value="department">Department(s)</Select.Item>
-                                <Select.Item value="designation">Designation(s)</Select.Item>
-                                {canAssignOrg && <Select.Item value="org">Whole Organization</Select.Item>}
-                            </Select.Content>
-                        </Select.Root>
-                    </Box>
+                    <FormField label="Assign to" htmlFor="assign-scope">
+                        <SelectInput
+                            id="assign-scope"
+                            value={form.scope_type}
+                            onChange={v => { set('scope_type', v); set('scope_ids', []); }}
+                            options={[
+                                { value: 'user', label: 'Employee(s)' },
+                                { value: 'department', label: 'Department(s)' },
+                                { value: 'designation', label: 'Designation(s)' },
+                                ...(canAssignOrg ? [{ value: 'org', label: 'Whole Organization' }] : []),
+                            ]}
+                        />
+                    </FormField>
 
                     {/* Multi-select for scope items */}
                     {form.scope_type !== 'org' && (
@@ -216,145 +213,90 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
                         />
                     )}
 
-                    {form.scope_type === 'org' && (
-                        <Callout.Root color="blue" size="1">
-                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                            <Callout.Text>This assignment will apply to all employees.</Callout.Text>
-                        </Callout.Root>
-                    )}
+                    {form.scope_type === 'org' && <Alert tone="info">This assignment will apply to all employees.</Alert>}
 
                     {/* Selection summary */}
                     {form.scope_type !== 'org' && form.scope_ids.length > 0 && (
-                        <Callout.Root color="green" size="1">
-                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                            <Callout.Text>
-                                {form.scope_ids.length} {scopeLabel.toLowerCase()} selected — {form.scope_ids.length} assignment{form.scope_ids.length !== 1 ? 's' : ''} will be created.
-                            </Callout.Text>
-                        </Callout.Root>
+                        <Alert tone="success">
+                            {form.scope_ids.length} {scopeLabel.toLowerCase()} selected — {form.scope_ids.length} assignment{form.scope_ids.length !== 1 ? 's' : ''} will be created.
+                        </Alert>
                     )}
-                    </>)}
+                </>)}
 
-                    {/* Assignment Type Selector */}
-                    <Box>
-                        <Text size="1" color="gray" as="div" mb="1" weight="medium">Assignment Type *</Text>
-                        <SegmentedControl.Root value={assignmentType} onValueChange={setAssignmentType} style={{ width: '100%' }}>
-                            <SegmentedControl.Item value="shift">Single Shift</SegmentedControl.Item>
-                            <SegmentedControl.Item value="pattern">Rotation Pattern</SegmentedControl.Item>
-                        </SegmentedControl.Root>
-                    </Box>
+                {/* Assignment Type Selector */}
+                <FormField label="Assignment type" required>
+                    <Segmented
+                        label="Assignment type"
+                        value={assignmentType}
+                        onChange={setAssignmentType}
+                        options={[{ value: 'shift', label: 'Single Shift' }, { value: 'pattern', label: 'Rotation Pattern' }]}
+                    />
+                </FormField>
 
-                    {/* Shift / Pattern selector */}
-                    {assignmentType === 'shift' ? (
-                        <Box>
-                            <Text size="1" color="gray" as="div" mb="1" weight="medium">Shift *</Text>
-                            <Select.Root value={String(form.shift_id)} onValueChange={v => set('shift_id', v)}>
-                                <Select.Trigger placeholder="Select shift" style={{ width: '100%' }} />
-                                <Select.Content>
-                                    {shifts.map(s => (
-                                        <Select.Item key={s.id} value={String(s.id)}>
-                                            {s.name} ({s.code})
-                                        </Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                    ) : (
-                        <Box>
-                            <Text size="1" color="gray" as="div" mb="1" weight="medium">Rotation Pattern *</Text>
-                            <Select.Root value={String(form.rotation_pattern_id)} onValueChange={v => set('rotation_pattern_id', v)}>
-                                <Select.Trigger placeholder="Select rotation pattern" style={{ width: '100%' }} />
-                                <Select.Content>
-                                    {patterns.map(p => (
-                                        <Select.Item key={p.id} value={String(p.id)}>
-                                            {p.name} ({p.code})
-                                        </Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                    )}
-
-                    {/* Date pickers */}
-                    <Flex gap="3" wrap="wrap">
-                        <Box style={{ flex: '1 1 130px' }}>
-                            <DateTimePicker
-                                mode="date"
-                                label="Anchor date"
-                                value={form.anchor_date}
-                                onChange={v => set('anchor_date', v)}
-                            />
-                        </Box>
-                        <Box style={{ flex: '1 1 130px' }}>
-                            <DateTimePicker
-                                mode="date"
-                                label="Effective from *"
-                                value={form.effective_from}
-                                onChange={v => set('effective_from', v)}
-                            />
-                        </Box>
-                        <Box style={{ flex: '1 1 130px' }}>
-                            <DateTimePicker
-                                mode="date"
-                                label="Effective to"
-                                value={form.effective_to}
-                                onChange={v => set('effective_to', v)}
-                            />
-                        </Box>
-                    </Flex>
-
-                    {/* Priority */}
-                    <Box>
-                        <Text size="1" color="gray" as="div" mb="1">Priority</Text>
-                        <TextField.Root
-                            type="number"
-                            placeholder="Priority (0 = default)"
-                            value={form.priority}
-                            onChange={e => set('priority', e.target.value)}
-                            style={{ width: 160 }}
+                {/* Shift / Pattern selector */}
+                {assignmentType === 'shift' ? (
+                    <FormField label="Shift" htmlFor="assign-shift" required>
+                        <SelectInput
+                            id="assign-shift"
+                            value={String(form.shift_id)}
+                            onChange={v => set('shift_id', v)}
+                            options={[{ value: '', label: 'Select shift', disabled: true }, ...shifts.map(s => ({ value: String(s.id), label: `${s.name} (${s.code})` }))]}
                         />
-                    </Box>
+                    </FormField>
+                ) : (
+                    <FormField label="Rotation pattern" htmlFor="assign-pattern" required>
+                        <SelectInput
+                            id="assign-pattern"
+                            value={String(form.rotation_pattern_id)}
+                            onChange={v => set('rotation_pattern_id', v)}
+                            options={[{ value: '', label: 'Select rotation pattern', disabled: true }, ...patterns.map(p => ({ value: String(p.id), label: `${p.name} (${p.code})` }))]}
+                        />
+                    </FormField>
+                )}
 
-                    {error && <Text color="red" size="2">{error}</Text>}
+                {/* Dates */}
+                <div className="cy-formgrid">
+                    <FormField label="Anchor date" htmlFor="assign-anchor">
+                        <DateInput id="assign-anchor" mode="date" label="Anchor date" value={form.anchor_date} onChange={v => set('anchor_date', v)} />
+                    </FormField>
+                    <FormField label="Effective from" htmlFor="assign-from" required>
+                        <DateInput id="assign-from" mode="date" label="Effective from" value={form.effective_from} onChange={v => set('effective_from', v)} />
+                    </FormField>
+                    <FormField label="Effective to" htmlFor="assign-to">
+                        <DateInput id="assign-to" mode="date" label="Effective to" value={form.effective_to} onChange={v => set('effective_to', v)} />
+                    </FormField>
+                </div>
 
-                    {savedViolations.length > 0 && (
-                        <Callout.Root color="amber" size="1">
-                            <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                            <Callout.Text>
-                                <Text weight="medium" as="div" mb="1">
-                                    Assignment saved — working-time compliance warnings for review:
-                                </Text>
-                                <Flex direction="column" gap="1">
-                                    {savedViolations.flatMap((g) => g.violations.map((v, i) => (
-                                        <Text key={`${g.userId}-${i}`} as="div" size="1">
-                                            <Text weight="medium">{g.name}</Text>: {v.date} — {v.message}
-                                        </Text>
-                                    )))}
-                                </Flex>
-                            </Callout.Text>
-                        </Callout.Root>
-                    )}
+                {/* Priority */}
+                <FormField label="Priority" htmlFor="assign-priority">
+                    <Input id="assign-priority" type="number" placeholder="Priority (0 = default)" value={form.priority} onChange={e => set('priority', e.target.value)} className="cy-input--short" />
+                </FormField>
 
-                    <Flex justify="end" gap="2" mt="2">
-                        {savedViolations.length > 0 ? (
-                            <Button onClick={() => { setSavedViolations([]); onOpenChange(false); }}>
-                                Done
-                            </Button>
-                        ) : (
-                            <>
-                                <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={save} disabled={saving || !canSave}>
-                                    {saving ? 'Saving…' : isEdit ? 'Save changes'
-                                        : form.scope_type !== 'org' && form.scope_ids.length > 1
-                                            ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
-                                            : 'Save'}
-                                </Button>
-                            </>
-                        )}
-                    </Flex>
-                </Flex>
-            </Dialog.Content>
-        </Dialog.Root>
+                {error && <Alert tone="danger">{error}</Alert>}
+
+                {savedViolations.length > 0 && (
+                    <Alert tone="warning" title="Assignment saved — working-time compliance warnings for review">
+                        {savedViolations.flatMap((g) => g.violations.map((v, i) => (
+                            <div key={`${g.userId}-${i}`}><b>{g.name}</b>: {v.date} — {v.message}</div>
+                        )))}
+                    </Alert>
+                )}
+            </div>
+            <div className="cy-modal__foot">
+                {savedViolations.length > 0 ? (
+                    <Button size="sm" onClick={() => { setSavedViolations([]); onOpenChange(false); }}>Done</Button>
+                ) : (
+                    <>
+                        <Button color="default" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+                        <Button size="sm" onClick={save} disabled={saving || !canSave}>
+                            {saving ? 'Saving…' : isEdit ? 'Save changes'
+                                : form.scope_type !== 'org' && form.scope_ids.length > 1
+                                    ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
+                                    : 'Save'}
+                        </Button>
+                    </>
+                )}
+            </div>
+        </Dialog>
     );
 }
