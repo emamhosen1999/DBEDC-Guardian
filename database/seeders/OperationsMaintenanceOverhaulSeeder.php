@@ -26,6 +26,14 @@ class OperationsMaintenanceOverhaulSeeder extends Seeder
 {
     public function run(): void
     {
+        // Every record below is fictional demo data. It reached production once (2026-09-02) and showed up in the
+        // O&M registers and dashboards as real; it must only ever seed a local or test database.
+        if (app()->isProduction()) {
+            $this->command?->warn('OperationsMaintenanceOverhaulSeeder holds demo data and never runs in production.');
+
+            return;
+        }
+
         $admin = User::first();
         $adminId = $admin ? $admin->id : 1;
         $now = Carbon::now();

@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class DeviceBindingHmacTest extends TestCase
@@ -196,6 +197,21 @@ class DeviceBindingHmacTest extends TestCase
         $this->withToken($auth['token'])->getJson('/api/v1/auth/me', $headers)
             ->assertOk()
             ->assertJsonPath('success', true);
+    }
+
+    public function test_observe_mode_logs_an_unsigned_enrolled_device_once_a_day(): void
+    {
+        // An old app build sends every request unsigned; production logged each one (137 lines in 3 days for 2 people).
+        config(['security.device_binding.strict' => false]);
+        $this->makeUser('observe.once@example.com');
+        $auth = $this->login('observe.once@example.com', 'secret-1234');
+        Log::spy();
+
+        foreach (range(1, 3) as $i) {
+            $this->withToken($auth['token'])->getJson('/api/v1/auth/me', ['X-Device-ID' => $auth['device_id']])->assertOk();
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(fn ($message) => str_contains($message, 'WOULD be rejected'))->once();
     }
 
     public function test_pre_secret_legacy_session_is_tolerated_even_in_strict(): void

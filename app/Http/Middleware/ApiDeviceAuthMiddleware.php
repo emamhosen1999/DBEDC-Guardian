@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\DeviceAuthService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
@@ -35,18 +36,26 @@ class ApiDeviceAuthMiddleware
                 return $next($request);
             }
 
-            Log::warning(
-                $strict
-                    ? 'Device binding strict: rejected request with invalid HMAC signature'
-                    : 'Device binding observe: request with invalid HMAC signature WOULD be rejected (allowed)',
-                [
-                    'user_id' => $user->id,
-                    'reason' => $binding['reason'],
-                    'strict' => $strict,
-                    'path' => $request->path(),
-                    'ip' => $request->ip(),
-                ]
+            // Strict rejections are always logged. In observe mode an old app build sends every request
+            // unsigned, so one line per employee, reason and day carries the same signal without flooding the log.
+            $firstToday = $strict || Cache::add(
+                "device-binding-observe:{$user->id}:{$binding['reason']}:".now()->toDateString(), true, now()->endOfDay()
             );
+
+            if ($firstToday) {
+                Log::warning(
+                    $strict
+                        ? 'Device binding strict: rejected request with invalid HMAC signature'
+                        : 'Device binding observe: request with invalid HMAC signature WOULD be rejected (allowed)',
+                    [
+                        'user_id' => $user->id,
+                        'reason' => $binding['reason'],
+                        'strict' => $strict,
+                        'path' => $request->path(),
+                        'ip' => $request->ip(),
+                    ]
+                );
+            }
 
             if ($strict) {
                 $currentToken = $user->currentAccessToken();
