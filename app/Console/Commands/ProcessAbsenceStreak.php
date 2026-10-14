@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\ProcessOffboardingLwd;
 use App\Models\HRM\AbsenceCase;
 use App\Models\HRM\Attendance;
+use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\Offboarding;
 use App\Models\HRM\RosterDay;
 use App\Models\User;
@@ -14,6 +15,7 @@ use App\Services\HR\OffboardingInitiationNotifier;
 use App\Services\Notification\NotificationRecipients;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -23,7 +25,10 @@ use Illuminate\Support\Facades\Schema;
  * streak. Weekly offs, holidays, and approved leave are NEVER counted.
  *
  * Uses roster_days (materialized roster) + attendance records to detect working
- * days with no punch. Escalation thresholds from config('attendance.absence_escalation').
+ * days with no punch. A biometric terminal punch of ANY status is presence evidence: a punch the
+ * device pipeline rejected (e.g. the employee's attendance type is not biometric) is a capture
+ * exception for HR to resolve, never an unauthorized absence. Without this an employee scanning in
+ * daily was escalated to show-cause and absconding. Escalation thresholds from config('attendance.absence_escalation').
  */
 class ProcessAbsenceStreak extends Command
 {
@@ -90,6 +95,14 @@ class ProcessAbsenceStreak extends Command
             ->whereNotNull('punchin')
             ->pluck('user_id')
             ->unique();
+
+        // Scanned at a terminal but produced no attendance: present, with a capture problem to fix.
+        $atTerminal = $this->scannedAtTerminal($candidates->all(), $today->toDateString());
+        $captureExceptions = $atTerminal->diff($punched)->values();
+        if ($captureExceptions->isNotEmpty()) {
+            $this->warn('Present at a terminal without attendance (capture exception, not counted as absent): '.$captureExceptions->implode(', '));
+        }
+        $punched = $punched->map(fn ($id) => (string) $id)->merge($atTerminal)->unique()->values();
 
         // Absent today = rostered + not on leave + not punched
         $absentToday = $candidates->diff($punched)->values();
@@ -204,7 +217,7 @@ class ProcessAbsenceStreak extends Command
                 ->whereNotNull('punchin')
                 ->exists();
 
-            if ($punched) {
+            if ($punched || $this->scannedAtTerminal([$userId], $dateStr)->isNotEmpty()) {
                 break; // Streak ends — they showed up
             }
 
@@ -383,6 +396,27 @@ class ProcessAbsenceStreak extends Command
         $id = User::role('Super Administrator')->whereNull('users.deleted_at')->orderBy('users.employee_id')->value('users.employee_id');
 
         return $id === null ? null : (string) $id;
+    }
+
+    /**
+     * Employees with a biometric terminal punch (any status) on the date, by device or corrected time.
+     *
+     * @param  array<int, string>  $userIds
+     * @return Collection<int, string>
+     */
+    private function scannedAtTerminal(array $userIds, string $date): Collection
+    {
+        if ($userIds === []) {
+            return collect();
+        }
+        $day = [$date.' 00:00:00', $date.' 23:59:59'];
+
+        return BiometricAttLog::whereIn('user_id', $userIds)
+            ->where(fn ($q) => $q->whereBetween('punch_time', $day)->orWhereBetween('corrected_punch_time', $day))
+            ->distinct()
+            ->pluck('user_id')
+            ->map(fn ($id) => (string) $id)
+            ->values();
     }
 
     private function closeReturnedCases($returnedUserIds): int
