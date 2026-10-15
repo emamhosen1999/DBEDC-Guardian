@@ -3,16 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\StaleModelVersionException;
+use App\Http\Requests\DailyWork\StoreDailyWorkRequest;
+use App\Http\Requests\DailyWork\UpdateDailyWorkRequest;
 use App\Http\Requests\DailyWork\UpdateDailyWorkStatusRequest;
 use App\Http\Requests\DailyWork\UpdateInspectionDetailsRequest;
 use App\Models\DailyWork;
 use App\Models\Jurisdiction;
 use App\Models\Report;
 use App\Models\User;
+use App\Rules\EmployeeInViewerScope;
+use App\Services\Access\DepartmentScope;
 use App\Services\DailyWork\DailyWorkCrudService;
 use App\Services\DailyWork\DailyWorkFileService;
 use App\Services\DailyWork\DailyWorkImportService;
 use App\Services\DailyWork\DailyWorkPaginationService;
+use App\Services\DailyWork\DailyWorkWorkflow;
 use App\Services\Project\DailyWorkExportService;
 use App\Services\Project\DailyWorkService;
 use App\Services\Realtime\RealtimeSignal;
@@ -108,96 +113,29 @@ class DailyWorkController extends Controller
         ]);
     }
 
-    public function unified()
+    /**
+     * The Daily Works shell: only what the tabs need to draw themselves. The records, summaries and people load through
+     * their own scoped endpoints, so this renders without reading the works table or the whole workforce.
+     */
+    public function unified(Request $request)
     {
-        $user = User::with(['designation', 'roles'])->find(Auth::id());
-        $userDesignationTitle = $user->designation?->title;
+        $user = $request->user();
+        $scope = app(DepartmentScope::class);
 
-        // Data for Works tab (from DailyWorkController::index)
-        $allData = $userDesignationTitle === 'Supervision Engineer'
-            ? [
-                'allInCharges' => [],
-                'juniors' => User::where('report_to', $user->id)->get(),
-            ]
-            : (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])
-                ? []
-                : ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')
-                    ? [
-                        'allInCharges' => User::whereHas('designation', function ($q) {
-                            $q->where('title', 'Supervision Engineer');
-                        })->get(),
-                        'juniors' => [],
-                    ]
-                    : []
-                )
-            );
-
-        $reports = Report::all();
-        $reports_with_daily_works = Report::with('daily_works')->has('daily_works')->get();
-        $users = User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with(['roles', 'designation', 'media'])->get();
-
-        // Loop through each user and add role and designation_title fields
-        $users->transform(function ($user) {
-            $user->role = $user->roles->first()?->name;
-            $user->designation_title = $user->designation?->title;
-
-            return $user;
-        });
-
-        $overallStartDate = DailyWork::min('date') ?? date('Y-m-d', strtotime('-30 days'));
-        $overallEndDate = DailyWork::max('date') ?? date('Y-m-d');
-
-        // Data for Summary tab (from DailyWorkSummaryController)
-        $isAdmin = $user->hasRole('Super Administrator') || $user->hasRole('Administrator');
-        $inCharges = $isAdmin
-            ? User::whereHas('designation', function ($q) {
-                $q->where('title', 'Supervision Engineer');
-            })->get()
-            : collect([]);
-
-        // Get summary data for initial load
-        $summaryQuery = DailyWork::with(['inchargeUser', 'assignedUser']);
-
-        if (! $isAdmin && in_array('Employee', $user->roles->pluck('name')->toArray())) {
-            $hasJurisdiction = Jurisdiction::sections()->where('incharge', $user->id)->exists();
-
-            if ($hasJurisdiction) {
-                $summaryQuery->where('incharge', $user->id);
-            } elseif ($user->report_to) {
-                $summaryQuery->where('incharge', $user->report_to);
-            }
-        }
-
-        // Group by date and calculate summary stats
-        $summary = $summaryQuery
-            ->selectRaw('date, 
-                COUNT(*) as totalDailyWorks,
-                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status IN ("new", "in-progress", "pending", "resubmission") THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN inspection_result = "pass" THEN 1 ELSE 0 END) as passedInspections,
-                SUM(CASE WHEN inspection_result = "fail" THEN 1 ELSE 0 END) as failedInspections')
-            ->groupBy('date')
-            ->orderByDesc('date')
-            ->get();
-
-        \Log::debug('DailyWorkController::unified data payload', [
-            'user_id' => \Auth::id(),
-            'roles' => $user->roles->pluck('name')->toArray(),
-            'designation' => $userDesignationTitle,
-            'allData' => $allData,
-        ]);
+        // The jurisdictions tab edits teams, so it is the only tab that needs the employee list up front.
+        $employees = $request->query('tab') === 'jurisdictions' && $user->can('jurisdiction.view')
+            ? $scope->applyToUsers(User::query(), $user)->where('is_active', true)->with('designation:id,title')->orderBy('name')->get(['employee_id', 'name', 'designation_id', 'department_id'])
+                ->map(fn (User $u): array => ['id' => $u->employee_id, 'employee_id' => $u->employee_id, 'name' => $u->name, 'department_id' => $u->department_id, 'designation_title' => $u->designation?->title])->all()
+            : [];
 
         return Inertia::render('Project/DailyWorksUnified', [
-            'allData' => $allData,
-            'jurisdictions' => Jurisdiction::sections()->with('inchargeUser:employee_id,name')->get(),
-            'users' => $users,
-            'title' => 'Daily Works Unified',
-            'reports' => $reports,
-            'reports_with_daily_works' => $reports_with_daily_works,
-            'overallStartDate' => $overallStartDate,
-            'overallEndDate' => $overallEndDate,
-            'summary' => $summary,
-            'inCharges' => $inCharges,
+            'title' => 'Daily Works',
+            'users' => $employees,
+            'jurisdictions' => Jurisdiction::sections()->orderBy('start_m')->get(['id', 'code', 'location'])->map(fn ($j): array => ['id' => $j->id, 'code' => $j->code, 'name' => $j->location])->all(),
+            'can' => [
+                'create' => $user->can('daily-works.create'), 'import' => $user->can('daily-works.import'), 'export' => $user->can('daily-works.export'),
+                'jurisdictions' => $user->can('jurisdiction.view'), 'objections' => $user->can('daily-works.view'),
+            ],
         ]);
     }
 
@@ -242,11 +180,13 @@ class DailyWorkController extends Controller
     public function import(Request $request)
     {
         try {
-            $results = $this->importService->processImport($request);
+            $done = $this->importService->commit($request);
 
             return response()->json([
                 'message' => 'Import completed successfully',
-                'results' => $results,
+                'results' => $done['results'],
+                'batch' => ['id' => $done['batch']->id, 'rows_created' => $done['batch']->rows_created, 'rows_resubmitted' => $done['batch']->rows_resubmitted, 'rows_skipped' => $done['batch']->rows_skipped, 'rows_rejected' => $done['batch']->rows_error],
+                'rejected' => $done['rejected'],
             ]);
         } catch (ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
@@ -255,13 +195,20 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function update(Request $request): JsonResponse
+    public function update(UpdateDailyWorkRequest $request): JsonResponse
     {
         try {
             $dailyWork = DailyWork::findOrFail($request->input('id'));
             $this->authorize('update', $dailyWork);
+            // The edit form may change more than one thing; each change needs its own permission.
+            if ((string) $request->input('status') !== DailyWorkWorkflow::normalise((string) $dailyWork->status)) {
+                $this->authorize('updateStatus', $dailyWork);
+            }
+            if ($request->filled('assigned') && (string) $request->input('assigned') !== (string) $dailyWork->assigned) {
+                $this->authorize('updateAssigned', $dailyWork);
+            }
 
-            $result = $this->crudService->update($request);
+            $result = $this->crudService->update($request, $request->validated());
 
             return response()->json($result);
         } catch (AuthorizationException $e) {
@@ -895,7 +842,7 @@ class DailyWorkController extends Controller
         try {
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
-                'incharge' => 'nullable|exists:users,employee_id',
+                'incharge' => ['nullable', 'exists:users,employee_id', new EmployeeInViewerScope($request->user(), null, 'in-charge')],
                 'lock_version' => 'required|integer|min:0',
             ]);
 
@@ -909,6 +856,8 @@ class DailyWorkController extends Controller
                 'message' => 'Incharge updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (StaleModelVersionException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -921,7 +870,7 @@ class DailyWorkController extends Controller
         try {
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
-                'assigned' => 'nullable|exists:users,employee_id',
+                'assigned' => ['nullable', 'exists:users,employee_id', new EmployeeInViewerScope($request->user(), null, 'assignee')],
                 'lock_version' => 'required|integer|min:0',
             ]);
 
@@ -935,6 +884,8 @@ class DailyWorkController extends Controller
                 'message' => 'Assigned user updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (StaleModelVersionException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -947,7 +898,7 @@ class DailyWorkController extends Controller
         try {
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
-                'assigned' => 'required|exists:users,employee_id',
+                'assigned' => ['required', 'exists:users,employee_id', new EmployeeInViewerScope($request->user(), null, 'assignee')],
                 'lock_version' => 'required|integer|min:0',
             ]);
 
@@ -961,6 +912,8 @@ class DailyWorkController extends Controller
                 'message' => 'Work assigned successfully',
                 'dailyWork' => $dailyWork->load(['inchargeUser', 'assignedUser']),
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (StaleModelVersionException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -968,12 +921,14 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function add(Request $request)
+    public function add(StoreDailyWorkRequest $request)
     {
         try {
-            $this->authorize('create', DailyWork::class);
+            if ($request->filled('assigned') && ! $request->user()->can('daily-works.assign')) {
+                throw new AuthorizationException('Assigning a work needs the "Assign works" permission.');
+            }
 
-            $result = $this->crudService->create($request);
+            $result = $this->crudService->create($request, $request->validated());
 
             return response()->json($result);
         } catch (AuthorizationException $e) {
@@ -1003,6 +958,7 @@ class DailyWorkController extends Controller
      */
     public function uploadRfiFiles(Request $request, DailyWork $dailyWork)
     {
+        $this->authorize('manageFiles', $dailyWork); // the file routes used to trust any holder of view
         try {
             // Debug logging - check what's coming in
             \Log::info('RFI Upload Request', [
@@ -1056,6 +1012,7 @@ class DailyWorkController extends Controller
      */
     public function getRfiFiles(DailyWork $dailyWork)
     {
+        $this->authorize('view', $dailyWork); // the file routes used to trust any holder of view
         try {
             $files = $this->fileService->getRfiFiles($dailyWork);
 
@@ -1073,6 +1030,7 @@ class DailyWorkController extends Controller
      */
     public function deleteRfiFile(DailyWork $dailyWork, int $mediaId)
     {
+        $this->authorize('manageFiles', $dailyWork); // the file routes used to trust any holder of view
         try {
             $deleted = $this->fileService->deleteRfiFile($dailyWork, $mediaId);
 
@@ -1094,6 +1052,7 @@ class DailyWorkController extends Controller
      */
     public function downloadRfiFile(DailyWork $dailyWork, int $mediaId)
     {
+        $this->authorize('view', $dailyWork); // the file routes used to trust any holder of view
         try {
             $media = $this->fileService->getRfiFile($dailyWork, $mediaId);
 
@@ -1213,7 +1172,7 @@ class DailyWorkController extends Controller
             'work_ids.*' => 'required|integer|exists:daily_works,id',
             'versions' => 'required|array',
             'versions.*' => 'required|integer|min:0',
-            'incharge_id' => 'nullable|string|exists:users,employee_id',
+            'incharge_id' => ['nullable', 'string', 'exists:users,employee_id', new EmployeeInViewerScope($request->user(), null, 'in-charge')],
         ]);
 
         $updated = $this->dailyWorkService->bulkUpdateIncharge(

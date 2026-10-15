@@ -100,6 +100,13 @@ class MobileDailyWorkAuthzTest extends TestCase
 
         Sanctum::actingAs($incharge);
 
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/assigned', [
+            'assigned' => $nextAssignee->id,
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.assigned_user.id', $nextAssignee->id);
+
+        // a completed RFI keeps its in-charge and assignee, so the work is handed over first and completed last
         $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/status', [
             'status' => DailyWork::STATUS_COMPLETED,
             'inspection_result' => DailyWork::INSPECTION_PASS,
@@ -107,12 +114,6 @@ class MobileDailyWorkAuthzTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.status', DailyWork::STATUS_COMPLETED)
             ->assertJsonPath('data.inspection_result', DailyWork::INSPECTION_PASS);
-
-        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/assigned', [
-            'assigned' => $nextAssignee->id,
-        ])->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.assigned_user.id', $nextAssignee->id);
 
         $this->assertDatabaseHas('daily_works', [
             'id' => $dailyWork->id,
@@ -166,13 +167,6 @@ class MobileDailyWorkAuthzTest extends TestCase
 
         Sanctum::actingAs($manager);
 
-        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/status', [
-            'status' => DailyWork::STATUS_COMPLETED,
-            'inspection_result' => DailyWork::INSPECTION_PASS,
-        ])->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.status', DailyWork::STATUS_COMPLETED);
-
         $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/incharge', [
             'incharge' => $nextIncharge->id,
         ])->assertOk()
@@ -184,6 +178,14 @@ class MobileDailyWorkAuthzTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.assigned_user.id', $nextAssignee->id);
+
+        // a completed RFI keeps its in-charge and assignee, so the work is handed over first and completed last
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/status', [
+            'status' => DailyWork::STATUS_COMPLETED,
+            'inspection_result' => DailyWork::INSPECTION_PASS,
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', DailyWork::STATUS_COMPLETED);
 
         $this->assertDatabaseHas('daily_works', [
             'id' => $dailyWork->id,

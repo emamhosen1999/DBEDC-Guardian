@@ -35,17 +35,18 @@ class DailyWorkInspectionDetailsTest extends TestCase
         Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'daily-works.view']);
         Permission::firstOrCreate(['name' => 'daily-works.update']);
+        Permission::firstOrCreate(['name' => 'daily-works.inspection.update']);
 
         // Create users
         $this->adminUser = User::factory()->create();
         $this->adminUser->assignRole('Administrator');
-        $this->adminUser->givePermissionTo(['daily-works.view', 'daily-works.update']);
+        $this->adminUser->givePermissionTo(['daily-works.view', 'daily-works.update', 'daily-works.inspection.update']);
 
         $this->inchargeUser = User::factory()->create();
-        $this->inchargeUser->givePermissionTo(['daily-works.view', 'daily-works.update']);
+        $this->inchargeUser->givePermissionTo(['daily-works.view', 'daily-works.update', 'daily-works.inspection.update']);
 
         $this->assignedUser = User::factory()->create();
-        $this->assignedUser->givePermissionTo(['daily-works.view', 'daily-works.update']);
+        $this->assignedUser->givePermissionTo(['daily-works.view', 'daily-works.update', 'daily-works.inspection.update']);
 
         $this->unauthorizedUser = User::factory()->create();
 

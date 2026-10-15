@@ -148,8 +148,10 @@ class DailyWorkOptimisticConcurrencyTest extends TestCase
     private function dailyWorkUser(): User
     {
         $user = User::factory()->create();
-        $permission = Permission::findOrCreate('daily-works.view', 'web');
-        $user->givePermissionTo($permission);
+        // The old coarse view permission carried status changes; they are their own permissions now (split migration).
+        foreach (['view', 'status.update', 'bulk'] as $name) {
+            $user->givePermissionTo(Permission::findOrCreate('daily-works.'.$name, 'web'));
+        }
 
         return $user;
     }

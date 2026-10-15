@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasChainageMetres;
+use App\Observers\DailyWorkHistoryObserver;
 use App\Observers\DailyWorkRealtimeObserver;
 use App\Observers\DailyWorkSyncVisibilityObserver;
+use App\Services\DailyWork\DailyWorkWorkflow;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +16,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-#[ObservedBy([DailyWorkSyncVisibilityObserver::class, DailyWorkRealtimeObserver::class])]
+#[ObservedBy([DailyWorkSyncVisibilityObserver::class, DailyWorkRealtimeObserver::class, DailyWorkHistoryObserver::class])]
 class DailyWork extends Model implements HasMedia
 {
     use HasChainageMetres, HasFactory, InteractsWithMedia, SoftDeletes;
@@ -431,6 +433,29 @@ class DailyWork extends Model implements HasMedia
         parent::boot();
 
         static::saving(function ($dailyWork) {
+            // The register carries two spellings of one state; "complete" is read as "completed" (the change is a recorded revision).
+            if ($dailyWork->status === 'complete') {
+                $dailyWork->status = self::STATUS_COMPLETED;
+            }
+
+            // The lifecycle is an explicit map (DailyWorkWorkflow): a change it does not allow is refused on every write path.
+            if ($dailyWork->exists && $dailyWork->isDirty('status')) {
+                DailyWorkWorkflow::assertAllowed(
+                    DailyWorkWorkflow::normalise($dailyWork->getOriginal('status')),
+                    $dailyWork->status,
+                    $dailyWork->getOriginal('inspection_result'),
+                    auth()->user(),
+                    auth()->check(),
+                );
+            }
+
+            // A completed work never changes hands: the recorded in-charge and assignee are historical facts. (An open work is
+            // reassigned as an event; the history keeps who it was.)
+            if ($dailyWork->exists && ($dailyWork->isDirty('incharge') || $dailyWork->isDirty('assigned'))
+                && DailyWorkWorkflow::normalise($dailyWork->getOriginal('status')) === self::STATUS_COMPLETED) {
+                DailyWorkWorkflow::assertMayChangeHands();
+            }
+
             // Validate status
             if ($dailyWork->status && ! self::isValidStatus($dailyWork->status)) {
                 throw new \InvalidArgumentException(
@@ -450,10 +475,8 @@ class DailyWork extends Model implements HasMedia
             Cache::forever('daily_works_cache_version', time());
         });
 
-        // Detach all objections when soft-deleting to prevent orphan pivot entries
-        static::deleting(function ($dailyWork) {
-            $dailyWork->objections()->detach();
-        });
+        // Soft delete keeps the objection links: a restored work must come back with them (the history is whole).
+        // Objection queries read through the work, so a trashed work simply drops out of them.
 
         static::deleted(function ($dailyWork) {
             Cache::forever('daily_works_cache_version', time());

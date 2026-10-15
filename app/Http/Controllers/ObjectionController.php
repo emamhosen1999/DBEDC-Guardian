@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\StaleModelVersionException;
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
 use App\Notifications\RfiObjectionNotification;
-use App\Exceptions\StaleModelVersionException;
 use App\Services\Concurrency\VersionGuard;
 use App\Services\DailyWork\ObjectionService;
 use App\Services\Realtime\RealtimeSignal;
@@ -706,42 +706,6 @@ class ObjectionController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
-    }
-
-    /**
-     * @deprecated Use ChainageMatcher trait instead
-     * Kept for backward compatibility
-     */
-    protected function parseChainageToMetersLegacy(?string $chainage): ?float
-    {
-        if (empty($chainage)) {
-            return null;
-        }
-
-        // Remove common prefixes and spaces
-        $cleaned = preg_replace('/^(KM|K|km|k)\s*/i', '', trim($chainage));
-
-        // Try to parse format like "23+500" or "23.500" or "23500"
-        if (preg_match('/^(\d+)[\+\.\s]?(\d*)$/', $cleaned, $matches)) {
-            $km = (int) $matches[1];
-            $meters = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : 0;
-
-            // Handle case where meters might be 3 digits (like 500) or more
-            // Normalize to proper meters (0-999 per km)
-            while ($meters >= 1000) {
-                $km++;
-                $meters -= 1000;
-            }
-
-            return ($km * 1000) + $meters;
-        }
-
-        // If just a number, assume it's KM
-        if (is_numeric($cleaned)) {
-            return (float) $cleaned * 1000;
-        }
-
-        return null;
     }
 
     /**

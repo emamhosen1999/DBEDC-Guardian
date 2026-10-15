@@ -41,8 +41,8 @@ class RoleCatalogSpecTest extends TestCase
             'training-assignment-submissions.create', 'hr.safety.incidents.create',
         ]],
         // tasks.view stays (Q3: the legacy task endpoints had 12 hits in 90 days)
-        'Daily Works Contributor' => [60, ['daily-works.view', 'daily-works.create', 'daily-works.export', 'tasks.view']],
-        'Daily Works Manager' => [45, ['daily-works.view', 'daily-works.create', 'daily-works.update', 'daily-works.delete', 'daily-works.import', 'daily-works.export']],
+        'Daily Works Contributor' => [60, ['daily-works.view', 'daily-works.create', 'daily-works.export', 'tasks.view', 'daily-works.status.update', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.files.manage', 'daily-works.history.view']],
+        'Daily Works Manager' => [45, ['daily-works.view', 'daily-works.create', 'daily-works.update', 'daily-works.delete', 'daily-works.import', 'daily-works.export', 'daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view']],
         'Quality Contributor' => [55, ['quality.view', 'quality.ncr.view', 'quality.ncr.create', 'quality.ncr.update', 'quality.inspections.view', 'quality.calibrations.view']],
         'Quality Manager' => [45, [
             'quality.view', 'quality.dashboard.view', 'quality.settings',
@@ -123,7 +123,7 @@ class RoleCatalogSpecTest extends TestCase
 
     public function test_the_set_sizes_are_the_approved_ones(): void
     {
-        $sizes = ['Employee' => 28, 'Daily Works Contributor' => 4, 'Daily Works Manager' => 6, 'Quality Contributor' => 6, 'Quality Manager' => 15,
+        $sizes = ['Employee' => 28, 'Daily Works Contributor' => 9, 'Daily Works Manager' => 16, 'Quality Contributor' => 6, 'Quality Manager' => 15,
             'O&M Director' => 26, 'Maintenance Inspector' => 13, 'TMC Operator' => 11, 'Highway Patrol Officer' => 12, 'Line Manager' => 5,
             'Department Manager' => 31, 'Department Admin' => 52, 'HR Manager' => 245];
         foreach ($sizes as $role => $size) {

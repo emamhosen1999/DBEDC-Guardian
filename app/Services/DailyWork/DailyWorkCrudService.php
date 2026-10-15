@@ -25,10 +25,10 @@ class DailyWorkCrudService
     /**
      * Create a new daily work entry
      */
-    public function create(Request $request): array
+    public function create(Request $request, ?array $validated = null): array
     {
-        return DB::transaction(function () use ($request) {
-            $validatedData = $this->validationService->validateAddRequest($request);
+        return DB::transaction(function () use ($request, $validated) {
+            $validatedData = $validated ?? $this->validationService->validateAddRequest($request);
 
             // Check if daily work with same number already exists
             $existingDailyWork = DailyWork::where('number', $validatedData['number'])->first();
@@ -66,10 +66,10 @@ class DailyWorkCrudService
     /**
      * Update an existing daily work entry
      */
-    public function update(Request $request): array
+    public function update(Request $request, ?array $validated = null): array
     {
-        return DB::transaction(function () use ($request) {
-            $validatedData = $this->validationService->validateUpdateRequest($request);
+        return DB::transaction(function () use ($request, $validated) {
+            $validatedData = $validated ?? $this->validationService->validateUpdateRequest($request);
             $expectedVersion = (int) $validatedData['lock_version'];
             unset($validatedData['lock_version']);
 

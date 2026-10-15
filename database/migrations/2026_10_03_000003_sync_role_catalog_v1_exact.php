@@ -78,6 +78,7 @@ return new class extends Migration
         ],
         'Daily Works Contributor' => [
             'daily-works.view', 'daily-works.create', 'daily-works.export', 'tasks.view',
+            'daily-works.status.update', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.files.manage', 'daily-works.history.view',
         ],
         'HR Manager' => [
             'attendance.correct', 'attendance.create', 'attendance.delete', 'attendance.export', 'attendance.import',

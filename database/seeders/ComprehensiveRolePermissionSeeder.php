@@ -251,6 +251,16 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'daily-works.delete' => 'Delete work logs',
                 'daily-works.import' => 'Import work log data',
                 'daily-works.export' => 'Export work log data',
+                'daily-works.status.update' => 'Change the status, inspection result and RFI dates of a work',
+                'daily-works.status.reopen' => 'Re-open a closed RFI (rejected or completed back to an open state)',
+                'daily-works.inspection.update' => 'Edit the inspection details of a work',
+                'daily-works.assign' => 'Assign a work to an assignee',
+                'daily-works.incharge.update' => 'Change the in-charge of a work (a recorded reassignment)',
+                'daily-works.files.manage' => 'Upload and delete RFI documents',
+                'daily-works.bulk' => 'Use the bulk actions of the register (each also needs its own permission)',
+                'daily-works.restore' => 'Restore a deleted work',
+                'daily-works.import.reverse' => 'Reverse an Excel import batch (audited, soft)',
+                'daily-works.history.view' => 'See the revision history and status timeline of a work',
                 'projects.analytics' => 'View project analytics',
                 'tasks.view' => 'View tasks',
                 'tasks.create' => 'Create tasks',
@@ -662,7 +672,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
      */
     public static function dailyWorksContributorPermissionNames(): array
     {
-        return ['daily-works.view', 'daily-works.create', 'daily-works.export', 'tasks.view'];
+        return ['daily-works.view', 'daily-works.create', 'daily-works.export', 'tasks.view', 'daily-works.status.update', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.files.manage', 'daily-works.history.view'];
     }
 
     /**

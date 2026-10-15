@@ -239,6 +239,17 @@ Route::middleware($middlewareStack)->group(function () {
         // Route::get('/daily-works', [DailyWorkController::class, 'index'])->name('daily-works');
         // Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
 
+        // Works register API (server-side pages, one work's detail with its history, the helpers the form needs)
+        Route::get('/daily-works/summary-data', \App\Http\Controllers\DailyWorkSummaryDataController::class)->name('dailyWorks.summaryData');
+        Route::get('/daily-works/report/inspection', [\App\Http\Controllers\DailyWorkReportController::class, 'inspection'])->name('dailyWorks.report.inspection');
+        Route::get('/daily-works/objections-register', \App\Http\Controllers\DailyWorkObjectionRegisterController::class)->name('dailyWorks.objectionsRegister');
+        Route::get('/daily-works/register', [\App\Http\Controllers\DailyWorkRegisterController::class, 'index'])->name('dailyWorks.register');
+        Route::get('/daily-works/people', [\App\Http\Controllers\DailyWorkRegisterController::class, 'people'])->name('dailyWorks.people');
+        Route::post('/daily-works/chainage-check', [\App\Http\Controllers\DailyWorkRegisterController::class, 'chainageCheck'])->name('dailyWorks.chainageCheck');
+        Route::get('/daily-works/{dailyWork}/detail', [\App\Http\Controllers\DailyWorkRegisterController::class, 'show'])->whereNumber('dailyWork')->withTrashed()->name('dailyWorks.detail');
+        Route::middleware(['permission:daily-works.status.update'])->post('/daily-works/{dailyWork}/transition', [\App\Http\Controllers\DailyWorkRegisterController::class, 'transition'])->whereNumber('dailyWork')->name('dailyWorks.transition');
+        Route::middleware(['permission:daily-works.restore'])->post('/daily-works/{dailyWork}/restore', [\App\Http\Controllers\DailyWorkRegisterController::class, 'restore'])->whereNumber('dailyWork')->withTrashed()->name('dailyWorks.restore');
+
         Route::get('/daily-works-paginate', [DailyWorkController::class, 'paginate'])->name('dailyWorks.paginate');
         Route::get('/daily-works-all', [DailyWorkController::class, 'all'])->name('dailyWorks.all');
         // Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
@@ -246,28 +257,30 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/daily-works/statistics', [DailyWorkSummaryController::class, 'getStatistics'])->name('dailyWorks.statistics');
 
         // Routes that incharge/assigned users can access (authorization checked in controller)
-        Route::post('/daily-works/status', [DailyWorkController::class, 'updateStatus'])->name('dailyWorks.updateStatus');
-        Route::post('/daily-works/completion-time', [DailyWorkController::class, 'updateCompletionTime'])->name('dailyWorks.updateCompletionTime');
-        Route::post('/daily-works/submission-time', [DailyWorkController::class, 'updateSubmissionTime'])->name('dailyWorks.updateSubmissionTime');
-        Route::post('/daily-works/bulk-submit', [DailyWorkController::class, 'bulkSubmit'])->name('dailyWorks.bulkSubmit');
-        Route::post('/daily-works/bulk-import-submit', [DailyWorkController::class, 'bulkImportSubmit'])->name('dailyWorks.bulkImportSubmit');
+        Route::middleware(['permission:daily-works.status.update'])->post('/daily-works/status', [DailyWorkController::class, 'updateStatus'])->name('dailyWorks.updateStatus');
+        Route::middleware(['permission:daily-works.status.update'])->post('/daily-works/completion-time', [DailyWorkController::class, 'updateCompletionTime'])->name('dailyWorks.updateCompletionTime');
+        Route::middleware(['permission:daily-works.status.update'])->post('/daily-works/submission-time', [DailyWorkController::class, 'updateSubmissionTime'])->name('dailyWorks.updateSubmissionTime');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-submit', [DailyWorkController::class, 'bulkSubmit'])->name('dailyWorks.bulkSubmit');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-import-submit', [DailyWorkController::class, 'bulkImportSubmit'])->name('dailyWorks.bulkImportSubmit');
         Route::get('/daily-works/bulk-import-template', [DailyWorkController::class, 'downloadBulkImportTemplate'])->name('dailyWorks.bulkImportTemplate');
-        Route::post('/daily-works/bulk-response-status', [DailyWorkController::class, 'bulkResponseStatusUpdate'])->name('dailyWorks.bulkResponseStatusUpdate');
-        Route::post('/daily-works/bulk-import-response-status', [DailyWorkController::class, 'bulkImportResponseStatus'])->name('dailyWorks.bulkImportResponseStatus');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-response-status', [DailyWorkController::class, 'bulkResponseStatusUpdate'])->name('dailyWorks.bulkResponseStatusUpdate');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-import-response-status', [DailyWorkController::class, 'bulkImportResponseStatus'])->name('dailyWorks.bulkImportResponseStatus');
         Route::get('/daily-works/response-status-template', [DailyWorkController::class, 'downloadResponseStatusTemplate'])->name('dailyWorks.downloadResponseStatusTemplate');
-        Route::post('/daily-works/bulk-update-incharge', [DailyWorkController::class, 'bulkUpdateIncharge'])->name('dailyWorks.bulkUpdateIncharge');
-        Route::post('/daily-works/bulk-update-status', [DailyWorkController::class, 'bulkUpdateStatus'])->name('dailyWorks.bulkUpdateStatus');
-        Route::post('/daily-works/bulk-update-completion-date', [DailyWorkController::class, 'bulkUpdateCompletionDate'])->name('dailyWorks.bulkUpdateCompletionDate');
-        Route::post('/daily-works/bulk-delete', [DailyWorkController::class, 'bulkDelete'])->name('dailyWorks.bulkDelete');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-update-incharge', [DailyWorkController::class, 'bulkUpdateIncharge'])->name('dailyWorks.bulkUpdateIncharge');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-update-status', [DailyWorkController::class, 'bulkUpdateStatus'])->name('dailyWorks.bulkUpdateStatus');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-update-completion-date', [DailyWorkController::class, 'bulkUpdateCompletionDate'])->name('dailyWorks.bulkUpdateCompletionDate');
+        Route::middleware(['permission:daily-works.bulk'])->post('/daily-works/bulk-delete', [DailyWorkController::class, 'bulkDelete'])->name('dailyWorks.bulkDelete');
         Route::get('/daily-works/export-objected-rfis', [DailyWorkController::class, 'exportObjectedRfis'])->name('dailyWorks.exportObjectedRfis');
-        Route::post('/daily-works/assigned', [DailyWorkController::class, 'updateAssigned'])->name('dailyWorks.updateAssigned');
-        Route::post('/update-rfi-file', [DailyWorkController::class, 'uploadRFIFile'])->name('dailyWorks.uploadRFI');
-        Route::post('/daily-works/inspection-details', [DailyWorkController::class, 'updateInspectionDetails'])->name('dailyWorks.updateInspectionDetails');
+        Route::middleware(['permission:daily-works.incharge.update'])->post('/daily-works/incharge', [DailyWorkController::class, 'updateIncharge'])->name('dailyWorks.updateIncharge');
+        Route::middleware(['permission:daily-works.assign'])->post('/daily-works/assign', [DailyWorkController::class, 'assignWork'])->name('dailyWorks.assign');
+        Route::middleware(['permission:daily-works.assign'])->post('/daily-works/assigned', [DailyWorkController::class, 'updateAssigned'])->name('dailyWorks.updateAssigned');
+        Route::middleware(['permission:daily-works.files.manage'])->post('/update-rfi-file', [DailyWorkController::class, 'uploadRFIFile'])->name('dailyWorks.uploadRFI');
+        Route::middleware(['permission:daily-works.inspection.update'])->post('/daily-works/inspection-details', [DailyWorkController::class, 'updateInspectionDetails'])->name('dailyWorks.updateInspectionDetails');
 
         // RFI File Management routes
-        Route::post('/daily-works/{dailyWork}/rfi-files', [DailyWorkController::class, 'uploadRfiFiles'])->name('dailyWorks.rfiFiles.upload');
+        Route::middleware(['permission:daily-works.files.manage'])->post('/daily-works/{dailyWork}/rfi-files', [DailyWorkController::class, 'uploadRfiFiles'])->name('dailyWorks.rfiFiles.upload');
         Route::get('/daily-works/{dailyWork}/rfi-files', [DailyWorkController::class, 'getRfiFiles'])->name('dailyWorks.rfiFiles.index');
-        Route::delete('/daily-works/{dailyWork}/rfi-files/{mediaId}', [DailyWorkController::class, 'deleteRfiFile'])->name('dailyWorks.rfiFiles.delete');
+        Route::middleware(['permission:daily-works.files.manage'])->delete('/daily-works/{dailyWork}/rfi-files/{mediaId}', [DailyWorkController::class, 'deleteRfiFile'])->name('dailyWorks.rfiFiles.delete');
         Route::get('/daily-works/{dailyWork}/rfi-files/{mediaId}/download', [DailyWorkController::class, 'downloadRfiFile'])->name('dailyWorks.rfiFiles.download');
 
         // RFI Objection Routes - View and metadata
@@ -320,8 +333,6 @@ Route::middleware($middlewareStack)->group(function () {
     Route::middleware(['permission:daily-works.update'])->group(function () {
         Route::post('/update-daily-work', [DailyWorkController::class, 'update'])->name('dailyWorks.update');
         Route::post('/daily-works-summary/refresh', [DailyWorkSummaryController::class, 'refresh'])->name('daily-works-summary.refresh');
-        Route::post('/daily-works/incharge', [DailyWorkController::class, 'updateIncharge'])->name('dailyWorks.updateIncharge');
-        Route::post('/daily-works/assign', [DailyWorkController::class, 'assignWork'])->name('dailyWorks.assign');
     });
 
     Route::middleware(['permission:daily-works.delete'])->group(function () {
@@ -329,6 +340,8 @@ Route::middleware($middlewareStack)->group(function () {
     });
 
     Route::middleware(['permission:daily-works.export'])->group(function () {
+        Route::get('/daily-works/export-file/count', [\App\Http\Controllers\DailyWorkExportController::class, 'count'])->name('dailyWorks.exportCount');
+        Route::get('/daily-works/export-file', [\App\Http\Controllers\DailyWorkExportController::class, 'download'])->name('dailyWorks.exportFile');
         Route::post('/daily-works/export', [DailyWorkController::class, 'export'])->name('dailyWorks.export');
         Route::post('/daily-works-summary/export', [DailyWorkSummaryController::class, 'exportDailySummary'])->name('daily-works-summary.export');
         Route::post('/daily-works-summary/export-excel', [DailyWorkSummaryController::class, 'exportExcel'])->name('daily-works-summary.export-excel');
@@ -513,6 +526,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Daily works management routes
     Route::middleware(['permission:daily-works.import'])->post('/preview-import-daily-works/', [DailyWorkController::class, 'previewImport'])->name('dailyWorks.previewImport');
     Route::middleware(['permission:daily-works.import', 'throttle:10,1'])->post('/import-daily-works/', [DailyWorkController::class, 'import'])->name('dailyWorks.import');
+    Route::middleware(['permission:daily-works.import'])->group(function () {
+        Route::get('/daily-works/imports', [\App\Http\Controllers\DailyWorkImportController::class, 'index'])->name('dailyWorks.imports.index');
+        Route::get('/daily-works/imports/{batch}', [\App\Http\Controllers\DailyWorkImportController::class, 'show'])->whereNumber('batch')->name('dailyWorks.imports.show');
+        Route::get('/daily-works/imports/{batch}/errors', [\App\Http\Controllers\DailyWorkImportController::class, 'errors'])->whereNumber('batch')->name('dailyWorks.imports.errors');
+    });
+    Route::middleware(['permission:daily-works.import.reverse'])->post('/daily-works/imports/{batch}/reverse', [\App\Http\Controllers\DailyWorkImportController::class, 'reverse'])->whereNumber('batch')->name('dailyWorks.imports.reverse');
     Route::middleware(['permission:daily-works.import'])->get('/download-daily-works-template', [DailyWorkController::class, 'downloadTemplate'])->name('dailyWorks.downloadTemplate');
     Route::middleware(['permission:daily-works.delete'])->delete('/delete-daily-work', [DailyWorkController::class, 'delete'])->name('dailyWorks.delete');
 

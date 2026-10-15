@@ -258,7 +258,7 @@ class ModulePermissionSeeder extends Seeder
                     'description' => 'Daily work logging and tracking',
                     'icon' => 'DocumentTextIcon',
                     'route_prefix' => '/projects/daily-works',
-                    'permissions' => ['daily-works.view', 'daily-works.create', 'daily-works.update', 'daily-works.delete', 'daily-works.import', 'daily-works.export'],
+                    'permissions' => ['daily-works.view', 'daily-works.create', 'daily-works.update', 'daily-works.delete', 'daily-works.import', 'daily-works.export', 'daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view'],
                     'components' => [
                         ['code' => 'DAILY_WORKS_LIST', 'name' => 'Daily Works List Page', 'type' => 'page', 'route_name' => 'daily-works.index', 'permissions' => ['daily-works.view']],
                         ['code' => 'CREATE_DAILY_WORK_BTN', 'name' => 'Create Daily Work', 'type' => 'action', 'permissions' => ['daily-works.create']],

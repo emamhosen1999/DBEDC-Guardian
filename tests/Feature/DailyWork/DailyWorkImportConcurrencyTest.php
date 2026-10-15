@@ -18,7 +18,7 @@ class DailyWorkImportConcurrencyTest extends TestCase
     public function test_response_import_denies_mutation_of_an_unrelated_record(): void
     {
         $actor = User::factory()->create();
-        $actor->givePermissionTo(Permission::findOrCreate('daily-works.view', 'web'));
+        $actor->givePermissionTo(Permission::findOrCreate('daily-works.view', 'web'), Permission::findOrCreate('daily-works.status.update', 'web'), Permission::findOrCreate('daily-works.bulk', 'web'));
         $work = DailyWork::factory()->create(['number' => 'RFI-PRIVATE-11', 'rfi_response_status' => null]);
         $file = UploadedFile::fake()->createWithContent('responses.csv', "RFI Number,Status,Date\nRFI-PRIVATE-11,approved,2026-09-01\n");
 
@@ -33,7 +33,7 @@ class DailyWorkImportConcurrencyTest extends TestCase
     public function test_response_import_increments_the_record_version(): void
     {
         $actor = User::factory()->create();
-        $actor->givePermissionTo(Permission::findOrCreate('daily-works.view', 'web'));
+        $actor->givePermissionTo(Permission::findOrCreate('daily-works.view', 'web'), Permission::findOrCreate('daily-works.status.update', 'web'), Permission::findOrCreate('daily-works.bulk', 'web'));
         $work = DailyWork::factory()->forUsers($actor, $actor)->create(['number' => 'RFI-OWN-11']);
         $file = UploadedFile::fake()->createWithContent('responses.csv', "RFI Number,Status,Date\nRFI-OWN-11,approved,2026-09-01\n");
 

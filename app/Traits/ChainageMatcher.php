@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Support\Corridor\Chainage;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -78,6 +79,13 @@ trait ChainageMatcher
         // Try to parse just kilometers "35"
         if (preg_match('/^(\d+)$/', $cleaned, $matches)) {
             return (int) $matches[1] * 1000;
+        }
+
+        // The shared corridor service reads the spaced and prefixed spellings this parser does not (e.g. "K 36 + 580"); it is only
+        // consulted when this parser found nothing, so no result this parser already gives can change.
+        $shared = Chainage::token($chainage);
+        if ($shared !== null && $shared <= Chainage::MAX_M) {
+            return $shared;
         }
 
         Log::debug('ChainageMatcher: Failed to parse chainage', ['input' => $chainage, 'cleaned' => $cleaned]);

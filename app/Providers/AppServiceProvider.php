@@ -45,6 +45,7 @@ use App\Services\Aeon\Tools\NavigateTool;
 use App\Services\Aeon\Tools\PrepareOperationTool;
 use App\Services\Aeon\Tools\ToolRegistry;
 use App\Services\Corridor\ChainageResolver;
+use App\Services\DailyWork\DailyWorkVisibility;
 use App\Services\FeatureFlagService;
 use App\Services\Notification\NotificationChannelResolver;
 use Illuminate\Database\Eloquent\Model;
@@ -71,6 +72,9 @@ class AppServiceProvider extends ServiceProvider
         // singleton, so a long-lived worker never serves a stale scope; it is also
         // dropped after every handled HTTP request (see boot()).
         $this->app->scoped(DepartmentScope::class);
+
+        // The one daily-works visibility rule, with a per-request memo of who is a section in-charge / which department a person is in.
+        $this->app->scoped(DailyWorkVisibility::class);
 
         // Per-request memo of notification registry rows (scoped for the same reason as DepartmentScope).
         $this->app->scoped(NotificationChannelResolver::class);
