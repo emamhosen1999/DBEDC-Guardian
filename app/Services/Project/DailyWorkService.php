@@ -798,7 +798,7 @@ class DailyWorkService
         return $user->hasRole([
             'Super Admin',
             'Admin',
-            'Daily Work Manager',
+            'Daily Works Manager', // the catalog role (was misspelt 'Daily Work Manager', so its holders were never privileged)
             'HR Manager',
             'Project Manager',
             'Consultant',
