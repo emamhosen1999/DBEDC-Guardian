@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Quality;
 use App\Http\Controllers\Controller;
 use App\Models\QualityNCR;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,8 +43,10 @@ class NcrController extends Controller
                 'severities' => self::SEVERITIES,
                 'statuses' => self::STATUSES,
                 'departments' => DB::table('departments')->orderBy('name')->get(['id', 'name']),
-                // users are keyed by employee_id (there is no users.id column); the page reads {id, name}
-                'users' => User::orderBy('name')->limit(200)->get(['employee_id', 'name'])
+                // Assignee picker: only the active employees the viewer may see (DepartmentScope), never the whole company.
+                // Users are keyed by employee_id (there is no users.id column); the page reads {id, name}.
+                'users' => app(DepartmentScope::class)->applyToUsers(User::query(), $request->user())
+                    ->where('is_active', true)->orderBy('name')->get(['employee_id', 'name'])
                     ->map(fn (User $u) => ['id' => $u->employee_id, 'name' => $u->name])->values(),
             ],
             'can' => [
@@ -60,7 +63,7 @@ class NcrController extends Controller
         $data = $this->validated($request);
 
         $data['reported_by'] = Auth::id();
-        $data['ncr_number'] = $data['ncr_number'] ?: $this->nextNumber();
+        $data['ncr_number'] = ($data['ncr_number'] ?? null) ?: $this->nextNumber(); // omitted or blank: next number
 
         $ncr = DB::transaction(fn () => QualityNCR::create($data));
 
@@ -128,7 +131,13 @@ class NcrController extends Controller
             'severity' => ['required', Rule::in(self::SEVERITIES)],
             'status' => ['required', Rule::in(self::STATUSES)],
             'department_id' => ['nullable', 'exists:departments,id'],
-            'assigned_to' => ['nullable', 'exists:users,employee_id'],
+            'assigned_to' => ['nullable', 'exists:users,employee_id', function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                // The picker is scoped; the server enforces the same scope so a crafted request cannot reach past it.
+                $visible = app(DepartmentScope::class)->visibleEmployeeIds($request->user());
+                if ($visible !== null && ! in_array((string) $value, $visible, true)) {
+                    $fail('An NCR can only be assigned to an employee within your scope.');
+                }
+            }],
             'detected_date' => ['required', 'date'],
             'root_cause_analysis' => ['nullable', 'string'],
             'immediate_action' => ['nullable', 'string'],

@@ -76,7 +76,6 @@ class CatalogRouteMatrixTest extends TestCase
         'POST daily-works-summary/export-excel' => 'sqlite sandbox (MySQL-only SQL)',
         'POST daily-works-summary/export-pdf' => 'sqlite sandbox (MySQL-only SQL)',
         'GET dashboard/command' => 'sqlite sandbox (MySQL-only SQL)',
-        'GET quality/ncr' => 'sqlite sandbox',
         'GET om/analytics' => 'sqlite sandbox (MySQL-only SQL)',
         'GET api/v1/om/analytics' => 'sqlite sandbox (MySQL-only SQL)',
         'POST om/inspections' => 'validation failure surfaces as 500',
@@ -104,6 +103,7 @@ class CatalogRouteMatrixTest extends TestCase
         'GET departments' => 'a department is a company directory entry (its name), readable by whoever holds departments.view; its people and records are what is protected',
         'GET api/departments' => 'same: the department directory',
         'GET departments/{id}' => 'same: the department directory',
+        'GET quality/ncr' => 'the responsible-department picker lists department names (the company directory, as for GET departments); the assignee picker is scoped by DepartmentScope',
         'GET daily-works-unified' => 'FINDING (not in the catalog document): the Daily Works page props carry EVERY employee (name, department, designation) for the incharge / assigned pickers, to any daily-works.view holder; Phase B scopes it with DepartmentScope',
     ];
 
