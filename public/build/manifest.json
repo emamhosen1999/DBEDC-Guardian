@@ -1182,7 +1182,7 @@
     "src": "public/assets/images/logo.png"
   },
   "resources/css/app.css": {
-    "file": "assets/css/app-P1PuDFSf.css",
+    "file": "assets/css/app-4WAuLXzn.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -1495,7 +1495,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-D4-zCMgv.js",
+    "file": "assets/js/AttendancePage-kDd8DED_.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isEntry": true,
@@ -2056,7 +2056,7 @@
     ]
   },
   "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx": {
-    "file": "assets/js/MonthlyCalendarTab-yj6e73uZ.js",
+    "file": "assets/js/MonthlyCalendarTab-D3KUyuZ5.js",
     "name": "MonthlyCalendarTab",
     "src": "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
     "isEntry": true,
@@ -5619,7 +5619,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-zxvVXsK8.js",
+    "file": "assets/js/app-ByPwwtKq.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -5782,7 +5782,7 @@
       "resources/js/Pages/UserDevices.jsx"
     ],
     "css": [
-      "assets/css/app-P1PuDFSf.css"
+      "assets/css/app-4WAuLXzn.css"
     ],
     "assets": [
       "assets/woff2/roboto-cyrillic-ext-300-normal-DIxttMbC.woff2",
