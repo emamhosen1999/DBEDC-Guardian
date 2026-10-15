@@ -193,7 +193,10 @@ final class ReportStyle
         $safe = fn (string $s) => preg_replace('/[^A-Za-z0-9_-]/', '-', $s);
         $period = $to && ! $to->isSameDay($from) ? $from->toDateString().'_'.$to->toDateString() : $from->toDateString();
 
-        return $safe($code).'_'.$safe($report).'_'.$period.'_'.time().'_'.Str::random(24).'.'.$ext;
+        // A wide-scope requester has no department code: the name starts with the report, never with a stray '_'.
+        $prefix = trim($code) === '' ? '' : $safe($code).'_';
+
+        return $prefix.$safe($report).'_'.$period.'_'.time().'_'.Str::random(24).'.'.$ext;
     }
 
     /** Shared PDF wrapper: embeds the fonts, draws page numbers and returns the bytes. */

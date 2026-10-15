@@ -78,6 +78,7 @@ class AttendanceRegisterScopeTest extends TestCase
             $this->assertStringNotContainsStringIgnoringCase(self::CANARY, $body, "$route: JSON response");
             $this->assertStringNotContainsString('ALP_', $body, 'a department filter that is not the whole scope still names no code');
             $this->assertMatchesRegularExpression('/Attendance_Register_2026-09-01_2026-09-30_/', $body, 'a neutral filename');
+            $this->assertStringNotContainsString('"filename":"_', $body, 'a neutral filename never starts with an underscore');
         }
 
         // The generated file: run the job for the same hostile request.
