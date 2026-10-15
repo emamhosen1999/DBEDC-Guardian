@@ -104,6 +104,8 @@ class AttendanceRegisterExport
         $ws->getDefaultRowDimension()->setRowHeight(F::DEFAULT_ROW_HEIGHT);
         $ps = $ws->getPageSetup();
         $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+        // Square day columns make the grid wider than the reference: print fits the width on one page, any height.
+        $ps->setFitToPage(true)->setFitToWidth(1)->setFitToHeight(0);
         $m = $ws->getPageMargins();
         [$m1, $m2, $m3, $m4, $m5, $m6] = F::MARGINS;
         $m->setLeft($m1)->setRight($m2)->setTop($m3)->setBottom($m4)->setHeader($m5)->setFooter($m6);

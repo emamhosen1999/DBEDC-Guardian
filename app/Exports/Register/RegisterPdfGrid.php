@@ -17,10 +17,13 @@ final class RegisterPdfGrid
 {
     private const BORDER_ALLOWANCE_PT = 0.9;
 
-    /** Excel width unit -> points at 100% (7 px per unit + 5 px padding, 0.75 pt per px). */
+    /** Excel width unit -> points at 100%, by the OOXML column-width rule for a 7 px max digit width (Calibri 11, the
+     *  workbook default), so the PDF matches what Excel draws: 3.0 -> 21 px -> 15.75 pt, a square at the body row height. */
     private static function widthPt(float $w): float
     {
-        return ($w * 7 + 5) * 0.75;
+        $px = floor(((256 * $w + floor(128 / 7)) / 256) * 7);
+
+        return $px * 0.75;
     }
 
     /**

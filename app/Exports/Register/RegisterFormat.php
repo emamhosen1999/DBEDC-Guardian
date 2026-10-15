@@ -61,7 +61,11 @@ final class RegisterFormat
 
     public const WIDTH_NAME = 26.0;
 
-    public const WIDTH_DAY = 2.42578125;
+    /** Day columns are SQUARE (owner, 2026-10-15): 3.0 = 21 px (Calibri 11 default font), equal to the 15.75 pt (21 px) body row.
+     *  The owner's reference used 2.42578125 (17 px); the conformance check reports this as an approved deviation. */
+    public const WIDTH_DAY = 3.0;
+
+    public const WIDTH_DAY_REFERENCE = 2.42578125;
 
     public const WIDTH_TOTAL = 4.42578125;
 

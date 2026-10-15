@@ -108,6 +108,11 @@ $bodyRef = fn (int $r) => $r >= 7 && $r < 7 + $nRef;
 $norm = fn (array $s, int $n) => str_replace((string) (7 + $n + 1), 'SIG', str_replace((string) (7 + $n), 'KEY', (string) json_encode($s)));
 foreach (['orientation', 'paper_size', 'fit_to_page', 'fit_w', 'fit_h', 'scale', 'margins', 'h_centered', 'v_centered', 'header_odd', 'footer_odd', 'freeze', 'gridlines', 'print_titles', 'default_row_height', 'default_col_width'] as $k) {
     if ($R[$k] !== $O[$k]) {
+        // Approved (owner, 2026-10-15): square day columns are wider, so print fits one page wide (any height).
+        if (in_array($k, ['fit_to_page', 'fit_w', 'fit_h'], true) && ['fit_to_page' => true, 'fit_w' => 1, 'fit_h' => 0][$k] === $O[$k]) {
+            $approved['print fits one page wide (square columns)'][$k] = $O[$k];
+            continue;
+        }
         $diff('sheet', $k, $R[$k], $O[$k]);
     }
 }
@@ -137,6 +142,11 @@ foreach (array_diff($mo, $mr) as $m) {
 }
 foreach ($R['cols'] as $c => $w) {
     if (($O['cols'][$c] ?? null) !== $w) {
+        // Approved (owner, 2026-10-15): day columns are square, 3.0 (21 px) instead of the reference's 2.42578125 (17 px).
+        if (abs((float) $w - 2.42578125) < 0.01 && abs((float) ($O['cols'][$c] ?? 0) - 3.0) < 0.01) { // widths are read rounded to 2 decimals
+            $approved['square day columns (3.0 = 21 px)'][] = $c;
+            continue;
+        }
         $diff("column $c", 'width', $w, $O['cols'][$c] ?? null);
     }
 }

@@ -142,7 +142,11 @@ class AttendanceRegisterExportTest extends TestCase
 
         $this->assertEqualsWithDelta(3.855, $ws->getColumnDimension('A')->getWidth(), 0.01);
         $this->assertSame(26.0, (float) $ws->getColumnDimension('B')->getWidth());
-        $this->assertEqualsWithDelta(2.426, $ws->getColumnDimension('C')->getWidth(), 0.01);
+        // Square day columns (owner, 2026-10-15): 3.0 = 21 px, the body row height; print fits one page wide.
+        $this->assertEqualsWithDelta(3.0, $ws->getColumnDimension('C')->getWidth(), 0.001);
+        $this->assertTrue($ws->getPageSetup()->getFitToPage());
+        $this->assertSame(1, $ws->getPageSetup()->getFitToWidth());
+        $this->assertSame(0, $ws->getPageSetup()->getFitToHeight());
         $this->assertEqualsWithDelta(4.426, $ws->getColumnDimension('AH')->getWidth(), 0.01);
         $this->assertSame(11.0, (float) $ws->getColumnDimension('AP')->getWidth());
         $this->assertSame(27.75, (float) $ws->getRowDimension(1)->getRowHeight());
