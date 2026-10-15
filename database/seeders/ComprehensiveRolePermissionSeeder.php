@@ -261,6 +261,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'daily-works.restore' => 'Restore a deleted work',
                 'daily-works.import.reverse' => 'Reverse an Excel import batch (audited, soft)',
                 'daily-works.history.view' => 'See the revision history and status timeline of a work',
+                'daily-works.objections.review' => 'Review, resolve and reject RFI objections raised by others',
                 'projects.analytics' => 'View project analytics',
                 'tasks.view' => 'View tasks',
                 'tasks.create' => 'Create tasks',

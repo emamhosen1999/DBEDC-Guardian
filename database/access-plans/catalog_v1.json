@@ -1260,6 +1260,7 @@
             "daily-works.bulk",
             "daily-works.files.manage",
             "daily-works.history.view",
+            "daily-works.objections.review",
             "daily-works.import.reverse",
             "daily-works.incharge.update",
             "daily-works.inspection.update",

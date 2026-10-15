@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\StaleModelVersionException;
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
+use App\Services\Access\DepartmentScope;
 use App\Services\DailyWork\ObjectionService;
 use App\Services\Concurrency\VersionGuard;
 use App\Services\Realtime\RealtimeSignal;
@@ -536,9 +537,10 @@ class RfiObjectionController extends Controller
 
         // Verify user can manage this specific RFI (incharge, assigned, or admin)
         $user = auth()->user();
-        $canManageRfi = $user->hasRole(['Super Admin', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
-            || $dailyWork->incharge === $user->id
-            || $dailyWork->assigned === $user->id;
+        $canManageRfi = app(DepartmentScope::class)->isGlobal($user)
+            || $user->can('daily-works.objections.review')
+            || (string) $dailyWork->incharge === (string) $user->employee_id
+            || (string) $dailyWork->assigned === (string) $user->employee_id;
 
         if (! $canManageRfi) {
             return response()->json([
@@ -616,9 +618,10 @@ class RfiObjectionController extends Controller
 
         // Verify user can manage this specific RFI (incharge, assigned, or admin)
         $user = auth()->user();
-        $canManageRfi = $user->hasRole(['Super Admin', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
-            || $dailyWork->incharge === $user->id
-            || $dailyWork->assigned === $user->id;
+        $canManageRfi = app(DepartmentScope::class)->isGlobal($user)
+            || $user->can('daily-works.objections.review')
+            || (string) $dailyWork->incharge === (string) $user->employee_id
+            || (string) $dailyWork->assigned === (string) $user->employee_id;
 
         if (! $canManageRfi) {
             return response()->json([

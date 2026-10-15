@@ -56,7 +56,7 @@ return new class extends Migration
         'Daily Works Manager' => [
             'daily-works.view', 'daily-works.create', 'daily-works.update', 'daily-works.delete', 'daily-works.import',
             'daily-works.export',
-            'daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view',
+            'daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view', 'daily-works.objections.review',
         ],
         'Quality Contributor' => [
             'quality.view', 'quality.ncr.view', 'quality.ncr.create', 'quality.ncr.update', 'quality.inspections.view',

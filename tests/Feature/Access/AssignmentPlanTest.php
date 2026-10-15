@@ -24,8 +24,8 @@ class AssignmentPlanTest extends TestCase
 
     private const LINE_MANAGER_PERMISSIONS = ['attendance.view', 'employees.view', 'holidays.view', 'leaves.approve', 'leaves.view'];
 
-    /** The ten granular Daily Works permissions the Manager catalog set gained when the old three were split. */
-    private const DAILY_WORKS_SPLIT = ['daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view'];
+    /** The granular Daily Works permissions the Manager catalog set gained: the ten split from the old three, plus objections.review. */
+    private const DAILY_WORKS_SPLIT = ['daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view', 'daily-works.objections.review'];
 
     private CatalogPlan $loaded;
 
@@ -179,10 +179,10 @@ class AssignmentPlanTest extends TestCase
         $this->assertEqualsCanonicalizing(array_merge(self::LINE_MANAGER_PERMISSIONS, self::DAILY_WORKS_SPLIT), $delta['127']['gained']);
         // 130: a Line Manager gains exactly those five
         $this->assertEqualsCanonicalizing(self::LINE_MANAGER_PERMISSIONS, $delta['130']['gained']);
-        // the gains the matrix counts: 123 +25 (+10 Daily Works split, Manager) (QM 11 beyond his DM, Employee 14), 169 +11 and 896 +14 (+10 Daily Works split each)
-        $this->assertCount(35, $delta['123']['gained']);
-        $this->assertCount(21, $delta['169']['gained']);
-        $this->assertCount(24, $delta['896']['gained']);
+        // the gains the matrix counts: 123 +25 (+10 Daily Works split +1 objections.review, Manager) (QM 11 beyond his DM, Employee 14), 169 +11 and 896 +14 (+11 Daily Works each)
+        $this->assertCount(36, $delta['123']['gained']);
+        $this->assertCount(22, $delta['169']['gained']);
+        $this->assertCount(25, $delta['896']['gained']);
         foreach (['123', '169'] as $id) {
             $this->assertContains('quality.ncr.delete', $delta[$id]['gained']);
         }

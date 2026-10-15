@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
+use App\Services\Access\DepartmentScope;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class RfiObjectionPolicy
@@ -185,7 +186,8 @@ class RfiObjectionPolicy
      */
     protected function isAdmin(User $user): bool
     {
-        return $user->hasRole(['Super Admin', 'Admin', 'HR Manager']);
+        // The global roles (DepartmentScope::GLOBAL_ROLES). The old list named roles that do not exist ('Super Admin', 'Admin').
+        return app(DepartmentScope::class)->isGlobal($user);
     }
 
     /**
@@ -193,7 +195,8 @@ class RfiObjectionPolicy
      */
     protected function isManager(User $user): bool
     {
-        return $user->hasRole(['Super Admin', 'Admin', 'Project Manager', 'Consultant', 'HR Manager']);
+        // By permission, never by role name (the old list named 'Project Manager' and 'Consultant', which do not exist).
+        return $this->isAdmin($user) || $user->can('daily-works.objections.review');
     }
 
     /**
