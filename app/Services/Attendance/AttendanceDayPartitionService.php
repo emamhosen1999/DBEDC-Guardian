@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\ShiftSchedule;
 use App\Services\Realtime\RealtimeSignal;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
@@ -166,7 +167,7 @@ class AttendanceDayPartitionService
 
             $attendance = Attendance::updateOrCreate(
                 ['user_id' => $userId, 'date' => $dateStr],
-                ['symbol' => '√', 'punchin' => $schedule->start, 'punchout' => $schedule->end],
+                ['symbol' => AttendanceSymbol::PRESENT, 'punchin' => $schedule->start, 'punchout' => $schedule->end],
             );
 
             $audit->record(
@@ -234,7 +235,7 @@ class AttendanceDayPartitionService
         return Attendance::query()
             ->whereIn('user_id', $userIds)
             ->whereDate('date', $dateStr)
-            ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+            ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
             ->where(fn ($q) => $q->whereNull('policy_status')->orWhere('policy_status', '!=', 'rejected'))
             ->orderBy('punchin')
             ->get(['id', 'user_id', 'punchin', 'punchout', 'symbol'])

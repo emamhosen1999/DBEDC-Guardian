@@ -97,3 +97,7 @@ tests/playwright/.auth-state.json
 
 # Mobile APKs are release artifacts, hosted on the server (too large for git/GitHub)
 /public/apk/*.apk
+
+# Attendance register caches (generated at runtime): avatar thumbnails and the dompdf font cache
+/storage/app/register-avatars/
+/storage/fonts/

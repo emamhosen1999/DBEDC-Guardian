@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import dayjs from 'dayjs';
 import { CyberChart } from '@/Components/Cyber';
+import { SYMBOL, SYMBOL_TOTALS, symbolLabel } from '@/utils/attendanceSymbols';
 
 /* The month's figures for the employees on the table's current page, in Cyber's side-panel composition:
    sections divided by one solid line (Attendance rate, daily presents, leaves taken). */
@@ -21,15 +22,19 @@ export default function MonthlySidebar({
             let dayPresent = 0;
             rows.forEach((row) => {
                 const cell = row[dateKey];
-                const status = typeof cell === 'object' ? cell?.status : cell;
-                if (status === '√') { present += 1; dayPresent += 1; } else if (status === '▼') absent += 1;
+                const status = typeof cell === 'object' ? (cell?.symbol ?? cell?.status) : cell;
+                if (status === SYMBOL.PRESENT) { present += 1; dayPresent += 1; } else if (status === SYMBOL.ABSENT) absent += 1;
             });
             return dayPresent;
         });
-        const leaves = (leaveTypes || []).map((t) => {
+        // Leave by register symbol: the same eight columns the register and the calendar totals use.
+        const leaves = SYMBOL_TOTALS.filter(([, symbol]) => symbol !== SYMBOL.ABSENT && symbol !== SYMBOL.FESTIVAL).map(([, symbol]) => {
             let count = 0;
-            Object.keys(leaveCounts || {}).forEach((userId) => { count += leaveCounts[userId]?.[t.type] || 0; });
-            return { name: t.type, count };
+            rows.forEach((row) => days.forEach((d) => {
+                const cell = row[dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-${String(d).padStart(2, '0')}`).format('YYYY-MM-DD')];
+                if ((typeof cell === 'object' ? (cell?.symbol ?? cell?.status) : cell) === symbol) count += 1;
+            }));
+            return { name: symbolLabel(symbol), count };
         }).filter((item) => item.count > 0);
         const total = present + absent;
         return { present, absent, rate: total > 0 ? Math.round((present / total) * 100) : 0, trend, leaves };

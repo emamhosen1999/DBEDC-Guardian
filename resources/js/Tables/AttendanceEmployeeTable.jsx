@@ -1,3 +1,4 @@
+import { SYMBOL, symbolLabel } from '@/utils/attendanceSymbols';
 import { Panel } from '@/Components/ui/Panel';
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
@@ -121,6 +122,7 @@ const AttendanceEmployeeTable = ({
 
   const columns = [
     { name: 'Date', uid: 'date', icon: CalendarIcon },
+    { name: 'Day', uid: 'day_symbol', icon: CalendarIcon },
     { name: 'Clock In', uid: 'clockin_time', icon: ClockIcon },
     { name: 'Clock Out', uid: 'clockout_time', icon: ClockIcon },
     { name: 'Work Hours', uid: 'production_time', icon: ClockIcon },
@@ -237,6 +239,16 @@ const AttendanceEmployeeTable = ({
                 <Text size="2" color="amber">No work time</Text>
                 <Text size="1" color="gray" as="div">No attendance</Text>
               </Box>
+            </Flex>
+          );
+        }
+        case 'day_symbol': {
+          // The register symbol and its wording, from the one shared key (never a hard-coded glyph).
+          const symbol = attendance.symbol || SYMBOL.PRESENT;
+          return (
+            <Flex align="center" gap="2" title={symbolLabel(symbol)}>
+              <Text size="2" weight="bold" aria-hidden="true">{symbol}</Text>
+              <Text size="1" color="gray">{attendance.status_label || symbolLabel(symbol)}</Text>
             </Flex>
           );
         }

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Access\DepartmentScope;
 use App\Services\Dashboard\DashboardWidget;
 use App\Services\Dashboard\TodaySummary;
+use App\Support\Attendance\AttendanceSymbol;
 
 /**
  * Department head view: headcount, and who is present / absent / on leave today.
@@ -88,9 +89,9 @@ final class DepartmentOverview extends DashboardWidget
             'total' => $t['total'],
             'stats' => [
                 $this->stat('headcount', 'Headcount', $t['total'], 'neutral', 'employees'),
-                $this->stat('present', 'Present', $t['present'], 'good', 'attendance.unified'),
-                $this->stat('absent', 'Absent', $t['absent'], $this->toneFor($t['absent'], 'crit'), 'attendance.unified'),
-                $this->stat('on_leave', 'On leave', $t['on_leave'], $t['on_leave'] > 0 ? 'info' : 'neutral', 'leaves.index'),
+                $this->stat('present', AttendanceSymbol::TERM_PRESENT, $t['present'], 'good', 'attendance.unified'),
+                $this->stat('absent', AttendanceSymbol::TERM_ABSENT, $t['absent'], $this->toneFor($t['absent'], 'crit'), 'attendance.unified'),
+                $this->stat('on_leave', AttendanceSymbol::TERM_ON_LEAVE, $t['on_leave'], $t['on_leave'] > 0 ? 'info' : 'neutral', 'leaves.index'),
             ],
             'charts' => [$this->departmentComparison($viewer)],
         ];
@@ -104,7 +105,7 @@ final class DepartmentOverview extends DashboardWidget
 
         $punched = array_flip(array_map('strval', $this->onDay(Attendance::query()->whereIn('user_id', array_map('strval', array_keys($deptOf))), 'date', $today)
             ->where(fn ($q) => $q->whereNull('policy_status')->orWhere('policy_status', '!=', 'rejected'))
-            ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+            ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
             ->distinct()->pluck('user_id')->all()));
 
         $headcount = [];

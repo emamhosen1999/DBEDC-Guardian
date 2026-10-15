@@ -129,7 +129,7 @@ class WidgetAnalyticsTest extends TestCase
         $this->assertSame('bar', $chart['kind']);
         $this->assertTrue($chart['stacked']);
         $this->assertCount(30, $chart['categories']);
-        $this->assertSame(['On time', 'Late', 'Absent', 'On leave'], array_column($chart['series'], 'name'));
+        $this->assertSame(['On time', 'Late', 'Absent', 'On Leave'], array_column($chart['series'], 'name'));
         $this->assertSame(['from' => '2026-09-09', 'to' => '2026-10-08'], $chart['period']);
         $this->assertFalse($chart['empty']);
         $this->assertSame(1, $chart['series'][0]['data'][28], 'yesterday: only the colleague from my department, not the outsider');

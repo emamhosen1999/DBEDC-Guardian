@@ -2,16 +2,16 @@
 
 namespace App\Jobs;
 
-use App\Exports\AttendanceAdminExport;
 use App\Exports\AttendanceExport;
 use App\Exports\AttendanceRangeExport;
+use App\Exports\AttendanceRegisterExport;
+use App\Exports\AttendanceRegisterPdf;
 use App\Models\HRM\BiometricDownloadSession;
-use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Access\DepartmentScope;
+use App\Services\Attendance\AttendanceRegisterService;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Biometric\BiometricProcessingService;
-use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +20,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Maatwebsite\Excel\Facades\Excel;
 
 class ExportAttendanceReport implements ShouldQueue
 {
@@ -100,47 +99,26 @@ class ExportAttendanceReport implements ShouldQueue
                 unset($this->filters['team_member_ids']);
             }
 
+            // A department filter naming a department outside the requester's scope is dropped, never echoed.
+            if (isset($this->filters['department_id'])) {
+                $visibleDept = AttendanceRegisterService::visibleDepartment((int) $this->filters['department_id'], $employeeIds);
+                $visibleDept === null ? $this->filters = array_diff_key($this->filters, ['department_id' => 1]) : $this->filters['department_id'] = $visibleDept;
+            }
+
             if ($this->type === 'daily_excel') {
-                Excel::store(new AttendanceExport($this->date, $departmentId, $employeeIds), $filePath, 'public');
+                (new AttendanceExport($this->date, $departmentId, $employeeIds))->saveToDisk($filePath, 'public');
             } elseif ($this->type === 'daily_pdf') {
-                $rows = (new AttendanceExport($this->date, $departmentId, $employeeIds))->collection();
-                $pdf = PDF::loadView('attendance_pdf', [
-                    'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($this->date)),
-                    'generatedOn' => now()->format('F d, Y h:i A'),
-                    'rows' => $rows,
-                ])->setPaper('a4', 'landscape');
-
-                Storage::disk('public')->put($filePath, $pdf->output());
-            } elseif ($this->type === 'monthly_excel') {
-                (new AttendanceAdminExport($departmentId, $employeeIds))->saveToDisk($this->month, $filePath, 'public');
-            } elseif ($this->type === 'monthly_pdf') {
-                $from = Carbon::parse($this->month.'-01');
-                $to = $from->copy()->endOfMonth();
-                $monthName = $from->format('F Y');
-
-                // Shared loader applies the same approved-leave / non-rejected-punch filters as the grid.
-                $users = $attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $departmentId, null, null, null, $employeeIds);
-                $leaveTypes = LeaveSetting::all();
-                $holidays = $attendanceReportService->getHolidaysForMonth($from->year, $from->month);
-
-                $attendanceData = [];
-                foreach ($users as $user) {
-                    $attendanceData[] = $attendanceReportService->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
+                Storage::disk('public')->put($filePath, (new AttendanceExport($this->date, $departmentId, $employeeIds))->pdf());
+            } elseif (in_array($this->type, ['register_excel', 'register_pdf', 'monthly_excel', 'monthly_pdf'], true)) {
+                // One register export for any date range. The old monthly_* types stay as aliases:
+                // a month key becomes that calendar month.
+                [$from, $to] = $this->registerPeriod();
+                $deptId = AttendanceRegisterService::visibleDepartment(isset($this->filters['department_id']) ? (int) $this->filters['department_id'] : null, $employeeIds);
+                if (str_ends_with($this->type, '_pdf')) {
+                    Storage::disk('public')->put($filePath, (new AttendanceRegisterPdf($employeeIds, $deptId))->output($from, $to));
+                } else {
+                    (new AttendanceRegisterExport($employeeIds, $deptId))->saveToDisk($from, $to, $filePath, 'public');
                 }
-
-                $summary = $attendanceReportService->getPerEmployeeMonthlySummary($from->year, $from->month, $departmentId, $employeeIds);
-
-                $pdf = PDF::loadView('attendance_admin_pdf', [
-                    'monthName' => $monthName,
-                    'from' => $from,
-                    'to' => $to,
-                    'users' => $users,
-                    'attendanceData' => $attendanceData,
-                    'leaveTypes' => $leaveTypes,
-                    'summary' => $summary,
-                ])->setPaper('a4', 'landscape');
-
-                Storage::disk('public')->put($filePath, $pdf->output());
             } elseif ($this->type === 'range_excel') {
                 if (! isset($this->filters['from'], $this->filters['to'])) {
                     throw new \InvalidArgumentException('Range export requires filters.from and filters.to.');
@@ -152,18 +130,7 @@ class ExportAttendanceReport implements ShouldQueue
                 if (! isset($this->filters['from'], $this->filters['to'])) {
                     throw new \InvalidArgumentException('Range export requires filters.from and filters.to.');
                 }
-                $rows = app(AttendanceReportService::class)->getRangedAttendanceLog(
-                    Carbon::parse($this->filters['from']),
-                    Carbon::parse($this->filters['to']),
-                    $this->filters
-                );
-                $pdf = PDF::loadView('attendance_range_pdf', [
-                    'from' => Carbon::parse($this->filters['from']),
-                    'to' => Carbon::parse($this->filters['to']),
-                    'rows' => $rows,
-                    'generatedOn' => now()->format('F d, Y h:i A'),
-                ])->setPaper('a4', 'landscape');
-                Storage::disk('public')->put($filePath, $pdf->output());
+                Storage::disk('public')->put($filePath, (new AttendanceRangeExport)->pdf($this->filters['from'], $this->filters['to'], $this->filters));
             }
 
             Log::info("ExportAttendanceReport completed: File={$this->filename}");
@@ -177,6 +144,25 @@ class ExportAttendanceReport implements ShouldQueue
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * The register period: explicit from/to, else the month key, else the payroll cycle.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    protected function registerPeriod(): array
+    {
+        if (! empty($this->filters['from']) && ! empty($this->filters['to'])) {
+            return [Carbon::parse($this->filters['from'])->startOfDay(), Carbon::parse($this->filters['to'])->startOfDay()];
+        }
+        if ($this->month) {
+            $from = Carbon::parse($this->month.'-01')->startOfDay();
+
+            return [$from, $from->copy()->endOfMonth()->startOfDay()];
+        }
+
+        return AttendanceRegisterService::payrollCycle();
     }
 
     /**

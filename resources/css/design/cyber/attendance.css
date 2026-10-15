@@ -125,12 +125,29 @@
 .cy-cal .cy-table th.cy-cal__leave, .cy-cal .cy-table td.cy-cal__leave { min-width: 2.5rem; padding-inline: 0.4375rem; }
 
 .cy-mark { display: inline-grid; place-items: center; width: 1.125rem; height: 1.125rem; border: 1px solid var(--cy-border-translucent); font-size: 0.5625rem; font-weight: 800; line-height: 1; cursor: default; }
-.cy-mark[data-status='√'] { color: var(--green-11); background: color-mix(in srgb, var(--green-9) 14%, transparent); }
-.cy-mark[data-status='▼'] { color: var(--red-11); background: color-mix(in srgb, var(--red-9) 14%, transparent); }
-.cy-mark[data-status='#'] { color: var(--amber-11); background: color-mix(in srgb, var(--amber-9) 14%, transparent); }
-.cy-mark[data-status='/'] { color: var(--accent-11); background: color-mix(in srgb, var(--accent-9) 14%, transparent); }
-.cy-mark[data-status='·'] { color: var(--cy-text-faint); }
-.cy-mark[data-status='?'] { color: var(--cy-text-faint); background: var(--gray-a3); }
+/* The symbol is primary; the tone is a secondary cue only (WCAG 1.4.1). Tones by meaning, as the register reads. */
+.cy-mark[data-tone='success'] { color: var(--green-11); background: color-mix(in srgb, var(--green-9) 14%, transparent); }
+.cy-mark[data-tone='danger'] { color: var(--red-11); background: color-mix(in srgb, var(--red-9) 14%, transparent); }
+.cy-mark[data-tone='festival'] { color: var(--amber-11); background: color-mix(in srgb, var(--amber-9) 14%, transparent); }
+.cy-mark[data-tone='leave'] { color: var(--accent-11); background: color-mix(in srgb, var(--accent-9) 14%, transparent); }
+.cy-mark[data-tone='muted'] { color: var(--cy-text-faint); }
+.cy-mark[data-tone='none'] { color: var(--cy-text-faint); background: var(--gray-a3); }
+/* The register's festival colouring: the holiday taken is pink, the holiday worked is green. */
+.cy-mark[data-festival='taken'] { color: #5c0010; background: #ff7c80; }
+.cy-mark[data-festival='worked'] { color: #0b3d00; background: #92d050; }
+/* Overtime, leave and rest-day marks (the server decides; one rule set for Excel, PDF and this calendar). */
+.cy-mark[data-mark-fill='ot_unapplied'] { color: #000; background: #ffff00; }
+.cy-mark[data-mark-fill='ot_declined'] { color: #5c0010; background: #ff7c80; }
+.cy-mark[data-mark-font='ot_green'] { color: #00b050; }
+.cy-mark[data-mark-fill='ot_unapplied'][data-mark-font='ot_green'], .cy-mark[data-mark-fill='ot_declined'][data-mark-font='ot_green'] { color: #007a38; }
+.cy-mark[data-mark-bold] { font-weight: 900; font-size: 0.6875rem; }
+.cy-mark[data-mark-border] { box-shadow: inset 0 0 0 2px var(--cy-fg); }
+.cy-mark[data-glyph]::before { content: attr(data-glyph); }
+.cy-mark[data-festival-head] { background: #ff0000; }
+.cy-cal .cy-table thead th.is-festival { background: #ff0000; color: #fff; }
+.cy-cal .cy-table thead th.is-festival .cy-cal__dow { color: #fff; }
+.cy-legendrow__lead { font-weight: 700; color: var(--cy-fg); }
+.cy-legendrow--note { padding-top: 0; }
 .cy-mark:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 1px; }
 .cy-leavecount { font-variant-numeric: tabular-nums; }
 .cy-leavecount[data-zero='true'] { color: var(--cy-text-faint); }

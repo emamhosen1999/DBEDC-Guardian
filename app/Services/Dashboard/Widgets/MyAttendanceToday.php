@@ -6,6 +6,7 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\Leave;
 use App\Models\User;
 use App\Services\Dashboard\DashboardWidget;
+use App\Support\Attendance\AttendanceSymbol;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -76,7 +77,7 @@ final class MyAttendanceToday extends DashboardWidget
 
         $punches = $this->onDay(Attendance::query()->where('user_id', $me), 'date', $day)
             ->where(fn (Builder $q) => $q->whereNull('policy_status')->orWhere('policy_status', '!=', 'rejected'))
-            ->where(fn (Builder $q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+            ->where(fn (Builder $q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
             ->orderBy('punchin')
             ->get(['id', 'user_id', 'date', 'punchin', 'punchout']);
 

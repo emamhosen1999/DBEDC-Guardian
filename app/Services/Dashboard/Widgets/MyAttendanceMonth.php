@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Access\DepartmentScope;
 use App\Services\Dashboard\AttendanceTrend;
 use App\Services\Dashboard\DashboardWidget;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -94,7 +95,7 @@ final class MyAttendanceMonth extends DashboardWidget
 
         $attendance = $this->between(Attendance::query()->where('user_id', $me), 'date', $monthStart, $today)
             ->where(fn (Builder $q) => $q->whereNull('policy_status')->orWhere('policy_status', '!=', 'rejected'))
-            ->where(fn (Builder $q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+            ->where(fn (Builder $q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
             ->toBase()
             ->selectRaw(
                 'COUNT(DISTINCT DATE(date)) as present_days, '

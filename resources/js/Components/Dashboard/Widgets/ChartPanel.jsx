@@ -1,3 +1,4 @@
+import { TERM } from '@/utils/attendanceSymbols';
 import React, { useMemo } from 'react';
 import { CyberChart, toneColor } from '@/Components/Cyber';
 
@@ -89,7 +90,7 @@ function optionsFor(spec, t) {
     }
 }
 
-const STATE_LABEL = { present: 'Present', late: 'Late', leave: 'On leave', absent: 'Absent', pending: 'Not yet punched', off: 'Day off', future: 'Upcoming' };
+const STATE_LABEL = { present: TERM.PRESENT, late: 'Late', leave: TERM.ON_LEAVE, absent: TERM.ABSENT, pending: TERM.NOT_YET, off: TERM.DAY_OFF, future: TERM.NOT_YET };
 
 /** Calendar heat strip: one cell per day of the month, coloured by state, each cell labelled for assistive tech. */
 function HeatStrip({ spec }) {

@@ -22,6 +22,7 @@ use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\HolidayService;
 use App\Services\Attendance\UpcomingShiftService;
 use App\Services\Realtime\RealtimeSignal;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -139,7 +140,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
-                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                         ->whereDate('date', $selectedDate);
                 });
 
@@ -156,7 +157,7 @@ class AttendanceController extends Controller
 
             $attendanceRecords = Attendance::query()
                 ->with(['user.designation'])
-                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
                 ->orderBy('user_id')
@@ -245,7 +246,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
-                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                         ->whereDate('date', $selectedDate);
                 })
                 ->pluck('employee_id');
@@ -363,7 +364,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
-                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                         ->whereDate('date', $selectedDate);
                 });
 
@@ -380,7 +381,7 @@ class AttendanceController extends Controller
 
             $attendanceRecords = Attendance::query()
                 ->with('user')
-                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
                 ->orderBy('user_id')
@@ -522,7 +523,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
-                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                         ->whereDate('date', $selectedDate);
                 })
                 ->pluck('employee_id');
@@ -812,7 +813,7 @@ class AttendanceController extends Controller
             $attendances = Attendance::query()
                 ->whereIn('user_id', $teamMemberIds)
                 ->with(['user.designation', 'user.attendanceType', 'user.workLocation.attendanceType', 'media'])
-                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                 ->whereDate('date', $selectedDate)
                 ->orderBy('user_id')
                 ->orderBy('punchin')
@@ -941,7 +942,7 @@ class AttendanceController extends Controller
 
             $attendanceRecords = Attendance::query()
                 ->where('user_id', $currentUser->id)
-                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                 ->whereDate('date', '>=', $rangeStart->toDateString())
                 ->whereDate('date', '<=', $analysisEnd->toDateString())
                 ->orderBy('date')

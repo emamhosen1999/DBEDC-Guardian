@@ -91,7 +91,7 @@ class MonthlyGridEngineCollapseTest extends TestCase
 
         // No punch on a day that is both holiday and approved-leave -> Holiday wins.
         $this->assertSame('#', $data['2026-06-15']['status']);
-        $this->assertSame('Holiday', $data['2026-06-15']['remarks']);
+        $this->assertSame('Festival Holiday', $data['2026-06-15']['remarks']);
     }
 
     public function test_grid_leave_day_with_real_punch_stays_on_leave(): void
@@ -118,9 +118,10 @@ class MonthlyGridEngineCollapseTest extends TestCase
             $this->loadUser($user->id), 2026, 6, $svc->getHolidaysForMonth(2026, 6), LeaveSetting::all()
         );
 
-        // The loader aliases leaves.leave_type to the leave-type NAME, so firstWhere('id', ...)
-        // misses and the symbol falls back to '/'. Remarks must be "On Leave"; hours hidden.
-        $this->assertSame('/', $data['2026-06-16']['status']);
+        // The loader aliases leaves.leave_type to the leave-type NAME; the symbol is resolved from the
+        // type's configured symbol (never the day-off '/'). Remarks must be "On Leave"; hours hidden.
+        $this->assertSame('C', $data['2026-06-16']['status']);
+        $this->assertSame('C', $data['2026-06-16']['symbol']);
         $this->assertSame('On Leave', $data['2026-06-16']['remarks']);
         $this->assertSame('00:00', $data['2026-06-16']['total_work_hours']);
     }

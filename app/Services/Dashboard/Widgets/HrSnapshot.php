@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Access\DepartmentScope;
 use App\Services\Dashboard\DashboardWidget;
 use App\Services\Dashboard\TodaySummary;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -110,7 +111,7 @@ final class HrSnapshot extends DashboardWidget
 
         $stats = [
             $this->stat('present', 'Present today', $t['present'], 'good', 'attendance.unified'),
-            $this->stat('on_leave', 'On leave today', $t['on_leave'], $t['on_leave'] > 0 ? 'info' : 'neutral', 'leaves.index'),
+            $this->stat('on_leave', AttendanceSymbol::TERM_ON_LEAVE.' today', $t['on_leave'], $t['on_leave'] > 0 ? 'info' : 'neutral', 'leaves.index'),
         ];
         $charts = [];
 

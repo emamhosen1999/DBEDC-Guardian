@@ -6,6 +6,7 @@ use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\User;
 use App\Services\Attendance\HolidayService;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -56,7 +57,7 @@ class AttendanceTrend
         foreach (DB::table('attendances')->whereIn('user_id', $ids)
             ->where('date', '>=', $start->toDateString())->where('date', '<', $nextDay)
             ->where(fn ($q) => $q->whereNull('policy_status')->orWhere('policy_status', '!=', 'rejected'))
-            ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+            ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
             ->groupBy('user_id', 'date')
             ->selectRaw('user_id, date, MIN(punchin) as first_in')
             ->get() as $row) {

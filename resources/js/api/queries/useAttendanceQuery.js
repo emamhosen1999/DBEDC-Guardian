@@ -1,3 +1,4 @@
+import { SYMBOL } from '@/utils/attendanceSymbols';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { requestJson } from '../client';
 import { useOptimisticMutation } from '../useOptimisticMutation';
@@ -10,7 +11,7 @@ const patchMonthlySummaryPunch = (oldData, userId, dateKey, punchin, punchout) =
   const data = oldData.data.map((row) => {
     if (String(row.user_id) !== String(userId)) return row;
     changed = true;
-    const cell = row[dateKey] || { status: '√' };
+    const cell = row[dateKey] || { status: SYMBOL.PRESENT, symbol: SYMBOL.PRESENT };
     const nextIn = punchin !== undefined ? punchin : cell.punch_in;
     const nextOut = punchout !== undefined ? punchout : cell.punch_out;
     
@@ -30,7 +31,8 @@ const patchMonthlySummaryPunch = (oldData, userId, dateKey, punchin, punchout) =
       ...row,
       [dateKey]: {
         ...cell,
-        status: '√',
+        status: SYMBOL.PRESENT,
+        symbol: SYMBOL.PRESENT,
         punch_in: nextIn ? nextIn.substring(nextIn.length - 8) : null,
         punch_out: nextOut ? nextOut.substring(nextOut.length - 8) : null,
         total_work_hours: hours,
@@ -413,7 +415,8 @@ export const useMarkAsPresent = () => {
             return {
               ...row,
               [dateKey]: {
-                status: '√',
+                status: SYMBOL.PRESENT,
+                symbol: SYMBOL.PRESENT,
                 punch_in: defaultTime,
                 punch_out: null,
                 total_work_hours: null,
@@ -582,7 +585,7 @@ export const useDeleteAttendanceCorrection = () => {
 
         // 4. Patch Monthly Summary cache
         queryClient.setQueriesData({ queryKey: ['attendance', 'monthly-summary'] }, (old) => {
-          return patchMonthlySummaryPunch(old, userId, dateKey, null, null, '▼');
+          return patchMonthlySummaryPunch(old, userId, dateKey, null, null, SYMBOL.ABSENT);
         });
       }
 
@@ -638,8 +641,9 @@ export const useExportAttendanceLog = () => {
  */
 export const useExportMonthlyCalendar = () => {
   return useMutation({
-    mutationFn: ({ month, type }) => requestJson('get', '/attendance/monthly-calendar/export', {
-      params: { month, type },
+    // The register: any from/to period (the server defaults to the payroll cycle), one sheet per department.
+    mutationFn: ({ from, to, month, type, departmentId }) => requestJson('get', '/attendance/monthly-calendar/export', {
+      params: { from, to, month, type, department_id: departmentId },
       responseType: 'blob'
     }),
   });

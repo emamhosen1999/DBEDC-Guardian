@@ -6,11 +6,13 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Department;
 use App\Models\HRM\LeaveSetting;
+use App\Models\HRM\OvertimeRequest;
 use App\Models\User;
 use App\Services\Attendance\Contracts\PolicyResolver;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\DayAttendance;
 use App\Services\Attendance\DTO\ShiftSchedule;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -147,7 +149,7 @@ class AttendanceReportService
     /**
      * Compile per-user attendance data for a given month (day-by-day status).
      */
-    public function getUserAttendanceData($user, int $year, int $month, $holidays, $leaveTypes): array
+    public function getUserAttendanceData($user, int $year, int $month, $holidays, $leaveTypes, ?Collection $overtime = null): array
     {
         $attendanceData = [
             'user_id' => $user->id,
@@ -163,6 +165,12 @@ class AttendanceReportService
         $dayResults = $this->buildMonthlyDayResults(
             $user, $year, $month, $holidays, null, $resolver, $policyResolver, $statusEngine
         );
+
+        // Overtime applications of the month, by date (preloaded in bulk by the register; otherwise read here).
+        $overtime ??= OvertimeRequest::query()->where('user_id', $user->id)
+            ->whereBetween('date', [Carbon::create($year, $month, 1)->toDateString(), Carbon::create($year, $month, 1)->endOfMonth()->toDateString()])
+            ->get();
+        $otByDate = $overtime->groupBy(fn ($r) => Carbon::parse($r->date)->toDateString());
 
         foreach ($dayResults as $dateString => $ctx) {
             /** @var DayAttendance $result */
@@ -199,9 +207,17 @@ class AttendanceReportService
             // missing punch-out or any classification edge. A person who stood at
             // the machine is never displayed as Absent.
             $hasPunchIn = $attendancesForDate->contains(fn ($a) => $a->punchin !== null);
-            if ($hasPunchIn && $symbol === '▼') {
-                [$symbol, $remarks] = ['√', $result->is_complete ? 'Present' : 'Present (no punch-out)'];
+            if ($hasPunchIn && $symbol === AttendanceSymbol::ABSENT) {
+                [$symbol, $remarks] = [AttendanceSymbol::PRESENT, $result->is_complete ? 'Present' : 'Present (no punch-out)'];
                 $effective = DayAttendance::PRESENT;
+            }
+
+            // Days before the person joined or after their last working day are not attendance at all.
+            if ($ctx['before_join'] || $ctx['after_termination']) {
+                if (! $hasPunchIn) {
+                    [$symbol, $remarks] = [AttendanceSymbol::NOT_YET, $ctx['before_join'] ? 'Before joining' : 'After last working day'];
+                    $effective = 'not_employed';
+                }
             }
 
             // A rostered day is only ABSENT once it can no longer be worked. Future
@@ -213,13 +229,29 @@ class AttendanceReportService
                     && $ctx['schedule']->isWorkingDay
                     && $ctx['schedule']->end->isFuture();
                 if ($isFuture || $stillOpen) {
-                    [$symbol, $remarks] = ['·', $isFuture ? 'Scheduled' : 'Shift not started'];
+                    [$symbol, $remarks] = [AttendanceSymbol::NOT_YET, $isFuture ? 'Scheduled' : 'Shift not started'];
                     $effective = 'scheduled';
                 }
             }
 
+            // Overtime / rest-day / festival marks, from the rostered schedule (never the weekday).
+            $worked_day = $symbol === AttendanceSymbol::PRESENT;
+            $restDay = ! $ctx['schedule']->isWorkingDay && ! $ctx['holiday'];
+            $restDayWork = $worked_day && $restDay;
+            $otApps = $otByDate->get($dateString, collect())->map(fn ($r) => AttendanceSymbol::otState($r->status))->filter()->unique();
+            $otState = $otApps->contains(AttendanceSymbol::OT_APPROVED) ? AttendanceSymbol::OT_APPROVED
+                : ($otApps->contains(AttendanceSymbol::OT_PENDING) ? AttendanceSymbol::OT_PENDING
+                : ($otApps->contains(AttendanceSymbol::OT_DECLINED) ? AttendanceSymbol::OT_DECLINED : null));
+            // Overtime is not hourly: only rest-day and holiday work can carry an overtime mark (never extra hours on a working day).
+            $marks = AttendanceSymbol::marks($symbol, (bool) $ctx['holiday'], $restDayWork, $otState, $result->worked_minutes >= AttendanceSymbol::MIN_CLAIM_MINUTES);
+
             $attendanceData[$dateString] = [
                 'status' => $symbol,
+                'symbol' => $symbol,
+                'is_festival' => (bool) $ctx['holiday'],
+                'is_rest_day' => $restDay,
+                'overtime' => $otState,
+                'marks' => $marks,
                 'status_code' => $effective,
                 'is_complete' => $result->is_complete,
                 'punch_in' => $punchIn,
@@ -296,6 +328,8 @@ class AttendanceReportService
                         'work_hours' => $day['total_work_hours'],
                         'worked_minutes' => $day['worked_minutes'] ?? 0,
                         'status' => $day['status'],
+                        'symbol' => $day['symbol'],
+                        'status_label' => AttendanceSymbol::label($day['symbol']),
                         'status_code' => $day['status_code'],
                         'is_complete' => $day['is_complete'],
                         'remarks' => $day['remarks'],
@@ -657,7 +691,7 @@ class AttendanceReportService
      *
      * @return array{meta: array, rows: array<int, array>}
      */
-    public function getPerEmployeeMonthlySummary(int $year, int $month, ?int $departmentId = null, ?array $employeeIds = null): array
+    public function getPerEmployeeMonthlySummary(int $year, int $month, ?int $departmentId = null, ?array $employeeIds = null, ?CarbonInterface $rangeFrom = null, ?CarbonInterface $rangeTo = null): array
     {
         $resolver = app(ScheduleResolver::class);
         $policyResolver = app(PolicyResolver::class);
@@ -692,8 +726,12 @@ class AttendanceReportService
             $lwp = 0.0;
             $otMinutes = 0;
 
-            foreach ($dayResults as $ctx) {
+            foreach ($dayResults as $dateString => $ctx) {
                 if ($ctx['before_join'] || $ctx['after_termination']) {
+                    continue;
+                }
+                // A register/summary for a period counts only the days inside it.
+                if (($rangeFrom && $dateString < $rangeFrom->toDateString()) || ($rangeTo && $dateString > $rangeTo->toDateString())) {
                     continue;
                 }
 
@@ -773,6 +811,8 @@ class AttendanceReportService
         return [
             'meta' => [
                 'month' => $startOfMonth->format('F Y'),
+                'from' => $startOfMonth->toDateString(),
+                'to' => $endOfMonth->toDateString(),
                 'generatedAt' => Carbon::now()->toIso8601String(),
                 'departmentId' => $departmentId,
                 'departmentName' => $departmentName,
@@ -996,21 +1036,23 @@ class AttendanceReportService
 
         switch ($effective) {
             case DayAttendance::HOLIDAY:
-                return ['#', 'Holiday'];
+                return [AttendanceSymbol::FESTIVAL, AttendanceSymbol::TERM_FESTIVAL];
 
             case DayAttendance::ON_LEAVE:
-                $symbol = $leave
-                    ? ($leaveTypes->firstWhere('id', $leave->leave_type)->symbol ?? '/')
-                    : '/';
+                // The leave type's configured symbol (§ × □ ■ ◎ △). A type with none gets its
+                // own fallback, never '/', which is the weekly off / rest day.
+                $configured = $leave
+                    ? $leaveTypes->first(fn ($t) => (string) $t->id === (string) $leave->leave_type || $t->type === $leave->leave_type)?->symbol
+                    : null;
 
-                return [$symbol, 'On Leave'];
+                return [AttendanceSymbol::forLeaveSymbol($configured), AttendanceSymbol::TERM_ON_LEAVE];
 
             case DayAttendance::WEEKEND:
             case DayAttendance::DAY_OFF:
-                return ['▽', 'Day Off'];
+                return [AttendanceSymbol::DAY_OFF, AttendanceSymbol::TERM_DAY_OFF];
 
             case DayAttendance::ABSENT:
-                return ['▼', 'Absent'];
+                return [AttendanceSymbol::ABSENT, AttendanceSymbol::TERM_ABSENT];
 
             default: // worked-day statuses: present / late / half_day / short
                 if ($worked > 0) {
@@ -1019,7 +1061,7 @@ class AttendanceReportService
                     $remarks = $isToday ? 'Currently Working' : 'Not Punched Out';
                 }
 
-                return ['√', $remarks];
+                return [AttendanceSymbol::PRESENT, $remarks];
         }
     }
 }

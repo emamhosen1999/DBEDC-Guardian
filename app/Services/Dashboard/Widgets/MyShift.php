@@ -5,6 +5,7 @@ namespace App\Services\Dashboard\Widgets;
 use App\Models\HRM\RosterDay;
 use App\Models\User;
 use App\Services\Dashboard\DashboardWidget;
+use App\Support\Attendance\AttendanceSymbol;
 
 /**
  * The viewer's own rostered shift today and for the next seven days (roster_days:
@@ -90,7 +91,7 @@ final class MyShift extends DashboardWidget
 
         $items = $rows->map(function (RosterDay $row) use ($today): array {
             $isToday = $row->date->isSameDay($today);
-            $label = $row->shift_id === null ? 'Day off' : ($row->shift?->name ?? $row->shift?->code ?? 'Shift');
+            $label = $row->shift_id === null ? AttendanceSymbol::TERM_DAY_OFF : ($row->shift?->name ?? $row->shift?->code ?? 'Shift');
 
             return $this->item(
                 $row->date->toDateString(),
@@ -105,7 +106,7 @@ final class MyShift extends DashboardWidget
 
         return [
             'scope' => ['kind' => 'self', 'label' => 'Only you'],
-            'today' => $todayRow === null ? null : ($todayRow->shift_id === null ? 'Day off' : ($todayRow->shift?->name ?? 'Shift')),
+            'today' => $todayRow === null ? null : ($todayRow->shift_id === null ? AttendanceSymbol::TERM_DAY_OFF : ($todayRow->shift?->name ?? 'Shift')),
             'items' => $items,
         ];
     }

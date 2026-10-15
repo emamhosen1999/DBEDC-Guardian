@@ -2,99 +2,86 @@
 
 namespace App\Exports;
 
+use App\Exports\Register\ReportStyle;
 use App\Services\Attendance\AttendanceReportService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
+/**
+ * The Attendance Log (one row per employee per day, with punch times) in the house report format.
+ * The register is the department grid; this is the punch-level log behind it.
+ */
 class AttendanceRangeExport
 {
-    private array $headings = [
-        'Date', 'Employee', 'Employee ID', 'Department', 'Designation',
-        'Clock In', 'Clock Out', 'Work Hours', 'Status',
-    ];
+    public const HEADINGS = ['Date', 'Employee', 'Employee ID', 'Department', 'Designation', 'Day', 'Status', 'Clock In', 'Clock Out', 'Work Hours', 'Remarks'];
+
+    public const WIDTHS = [11, 24, 12, 16, 18, 5, 17, 10, 10, 10, 24];
+
+    public const LEFT = [2, 4, 5, 11];
+
+    /** @return list<list<scalar|null>> */
+    public function rows(string $from, string $to, array $filters): array
+    {
+        $log = app(AttendanceReportService::class)->getRangedAttendanceLog(Carbon::parse($from), Carbon::parse($to), $filters);
+
+        return array_map(fn ($r) => [
+            Carbon::parse($r['date'])->format('M d, Y'),
+            $r['employee_name'],
+            $r['employee_id'] ?? '',
+            $r['department'] ?? '',
+            $r['designation'] ?? '',
+            $r['symbol'],
+            $r['status_label'],
+            $r['clock_in'] ? Carbon::parse($r['clock_in'])->format('h:i A') : '—',
+            $r['clock_out'] ? Carbon::parse($r['clock_out'])->format('h:i A') : '—',
+            $r['work_hours'],
+            $r['remarks'],
+        ], $log);
+    }
+
+    private function note(array $filters): string
+    {
+        $parts = [];
+        foreach (['status' => 'Status', 'department_id' => 'Dept', 'designation_id' => 'Designation', 'employee' => 'Search'] as $key => $label) {
+            if (! empty($filters[$key])) {
+                $parts[] = $label.': '.$filters[$key];
+            }
+        }
+
+        return 'Filters: '.($parts ? implode(', ', $parts) : 'None');
+    }
+
+    public function build(string $from, string $to, array $filters): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet;
+        $ws = $spreadsheet->getActiveSheet();
+        $ws->setTitle('Attendance Log');
+        ReportStyle::tableReport($ws, 'Attendance Log', Carbon::parse($from), Carbon::parse($to), self::HEADINGS, self::WIDTHS, $this->rows($from, $to, $filters), [
+            'note' => $this->note($filters), 'withKey' => true, 'leftAligned' => self::LEFT,
+            'empty' => 'No records for the selected range and filters.',
+        ]);
+
+        return $spreadsheet;
+    }
 
     public function saveToDisk(string $from, string $to, array $filters, string $filePath, string $disk = 'public'): void
     {
-        $spreadsheet = $this->build($from, $to, $filters);
-        $writer = new Xlsx($spreadsheet);
-        $tempFile = tempnam(sys_get_temp_dir(), 'attlog');
-        $writer->save($tempFile);
-
+        $tmp = tempnam(sys_get_temp_dir(), 'attlog');
+        (new Xlsx($this->build($from, $to, $filters)))->save($tmp);
         if (! Storage::disk($disk)->exists('exports')) {
             Storage::disk($disk)->makeDirectory('exports');
         }
-        Storage::disk($disk)->put($filePath, file_get_contents($tempFile));
-        @unlink($tempFile);
+        Storage::disk($disk)->put($filePath, file_get_contents($tmp));
+        @unlink($tmp);
     }
 
-    private function build(string $from, string $to, array $filters): Spreadsheet
+    public function pdf(string $from, string $to, array $filters): string
     {
-        $fromC = Carbon::parse($from);
-        $toC = Carbon::parse($to);
-
-        $rows = app(AttendanceReportService::class)->getRangedAttendanceLog($fromC, $toC, $filters);
-
-        $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Attendance Log');
-
-        // Metadata header
-        $sheet->setCellValue('A1', 'Attendance Log');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $sheet->mergeCells('A1:I1');
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        $sheet->setCellValue('A2', 'Range: '.$fromC->format('M d, Y').' to '.$toC->format('M d, Y'));
-        $sheet->mergeCells('A2:I2');
-        $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        $filterParts = [];
-        foreach (['status' => 'Status', 'department_id' => 'Dept', 'designation_id' => 'Designation', 'employee' => 'Search'] as $key => $label) {
-            if (! empty($filters[$key])) {
-                $filterParts[] = $label.': '.$filters[$key];
-            }
-        }
-        $sheet->setCellValue('A3', 'Filters: '.($filterParts ? implode(', ', $filterParts) : 'None').'  |  Generated: '.now()->format('M d, Y h:i A'));
-        $sheet->mergeCells('A3:I3');
-        $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        // Column headings on row 5
-        $headerRow = 5;
-        $col = 'A';
-        foreach ($this->headings as $heading) {
-            $sheet->setCellValue($col.$headerRow, $heading);
-            $col++;
-        }
-        $sheet->getStyle("A{$headerRow}:I{$headerRow}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$headerRow}:I{$headerRow}")->getFill()
-            ->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE3F2FD');
-
-        // Data rows
-        $r = $headerRow + 1;
-        foreach ($rows as $row) {
-            $sheet->setCellValue('A'.$r, Carbon::parse($row['date'])->format('M d, Y'));
-            $sheet->setCellValue('B'.$r, $row['employee_name']);
-            $sheet->setCellValue('C'.$r, $row['employee_id'] ?? '');
-            $sheet->setCellValue('D'.$r, $row['department'] ?? '');
-            $sheet->setCellValue('E'.$r, $row['designation'] ?? '');
-            $sheet->setCellValue('F'.$r, $row['clock_in'] ? Carbon::parse($row['clock_in'])->format('h:i A') : '—');
-            $sheet->setCellValue('G'.$r, $row['clock_out'] ? Carbon::parse($row['clock_out'])->format('h:i A') : '—');
-            $sheet->setCellValue('H'.$r, $row['work_hours']);
-            $sheet->setCellValue('I'.$r, $row['remarks']);
-            $r++;
-        }
-
-        $lastRow = max($headerRow, $r - 1);
-        $sheet->getStyle("A{$headerRow}:I{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        foreach (range('A', 'I') as $c) {
-            $sheet->getColumnDimension($c)->setAutoSize(true);
-        }
-
-        return $spreadsheet;
+        return ReportStyle::tablePdf('Attendance Log', Carbon::parse($from), Carbon::parse($to), self::HEADINGS, self::WIDTHS, $this->rows($from, $to, $filters), [
+            'note' => $this->note($filters), 'withKey' => true, 'leftAligned' => self::LEFT,
+            'empty' => 'No records for the selected range and filters.',
+        ]);
     }
 }

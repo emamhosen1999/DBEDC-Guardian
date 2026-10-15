@@ -7,6 +7,7 @@ use App\Services\Access\DepartmentScope;
 use App\Services\Dashboard\AttendanceTrend;
 use App\Services\Dashboard\DashboardWidget;
 use App\Services\Dashboard\TodaySummary;
+use App\Support\Attendance\AttendanceSymbol;
 
 /**
  * Who is in today: present / late / absent / on leave for the viewer's team.
@@ -112,7 +113,7 @@ final class TeamToday extends DashboardWidget
                 $this->kpi('late', 'Late arrivals', $t['late'], $this->toneFor($t['late']), 'attendance.unified',
                     $hasHistory ? $this->delta($t['late'], $yesterday('late'), 'vs yesterday', 'down') : null,
                     $hasHistory ? $tail('late') : null, 'Late arrivals, last 14 days'),
-                $this->kpi('on_leave', 'On leave', $t['on_leave'], $t['on_leave'] > 0 ? 'info' : 'neutral', 'leaves.index',
+                $this->kpi('on_leave', AttendanceSymbol::TERM_ON_LEAVE, $t['on_leave'], $t['on_leave'] > 0 ? 'info' : 'neutral', 'leaves.index',
                     $hasHistory ? $this->delta($t['on_leave'], $yesterday('on_leave'), 'vs yesterday', 'up') : null,
                     $hasHistory ? $tail('on_leave') : null, 'People on leave, last 14 days'),
             ],
@@ -129,8 +130,8 @@ final class TeamToday extends DashboardWidget
     private function distribution(array $t): array
     {
         $parts = [
-            'On time' => max(0, $t['present'] - $t['late']), 'Late' => $t['late'], 'Absent' => $t['absent'], 'On leave' => $t['on_leave'],
-            'Shift not started' => $t['upcoming'], 'Day off' => $t['off'], 'Not rostered' => $t['unrostered'],
+            'On time' => max(0, $t['present'] - $t['late']), 'Late' => $t['late'], AttendanceSymbol::TERM_ABSENT => $t['absent'], AttendanceSymbol::TERM_ON_LEAVE => $t['on_leave'],
+            'Shift not started' => $t['upcoming'], AttendanceSymbol::TERM_DAY_OFF => $t['off'], 'Not rostered' => $t['unrostered'],
         ];
         $parts = array_filter($parts, fn (int $n) => $n > 0);
         $today = now()->toDateString();
@@ -146,10 +147,10 @@ final class TeamToday extends DashboardWidget
     private function stats(int $present, int $late, int $absent, int $onLeave): array
     {
         return [
-            $this->stat('present', 'Present', $present, 'good', 'attendance.unified', '/team-attendance'),
+            $this->stat('present', AttendanceSymbol::TERM_PRESENT, $present, 'good', 'attendance.unified', '/team-attendance'),
             $this->stat('late', 'Late', $late, $this->toneFor($late), 'attendance.unified', '/team-attendance'),
-            $this->stat('absent', 'Absent', $absent, $this->toneFor($absent, 'crit'), 'attendance.unified', '/team-attendance'),
-            $this->stat('on_leave', 'On leave', $onLeave, $onLeave > 0 ? 'info' : 'neutral', 'leaves.index', '/leave-approvals'),
+            $this->stat('absent', AttendanceSymbol::TERM_ABSENT, $absent, $this->toneFor($absent, 'crit'), 'attendance.unified', '/team-attendance'),
+            $this->stat('on_leave', AttendanceSymbol::TERM_ON_LEAVE, $onLeave, $onLeave > 0 ? 'info' : 'neutral', 'leaves.index', '/leave-approvals'),
         ];
     }
 

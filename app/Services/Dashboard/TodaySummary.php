@@ -8,6 +8,7 @@ use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\User;
 use App\Services\Attendance\HolidayService;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,7 +53,7 @@ class TodaySummary
         $punches = Attendance::query()->whereIn('user_id', $ids)
             ->where('date', '>=', $day->toDateString())->where('date', '<', $nextDay)
             ->where(fn (Builder $q) => $q->whereNull('policy_status')->orWhere('policy_status', '!=', 'rejected'))
-            ->where(fn (Builder $q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+            ->where(fn (Builder $q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
             ->groupBy('user_id')
             ->selectRaw('user_id, MIN(punchin) as first_in')
             ->pluck('first_in', 'user_id')

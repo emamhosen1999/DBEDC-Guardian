@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Access\DepartmentScope;
 use App\Services\Dashboard\AttendanceTrend;
 use App\Services\Dashboard\DashboardWidget;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 
 /**
@@ -98,8 +99,8 @@ final class TeamTrend extends DashboardWidget
                         'series' => [
                             ['name' => 'On time', 'tone' => 'good', 'data' => array_map(fn ($p, $l) => max(0, $p - $l), $series['present'], $series['late'])],
                             ['name' => 'Late', 'tone' => 'warn', 'data' => $series['late']],
-                            ['name' => 'Absent', 'tone' => 'crit', 'data' => $series['absent']],
-                            ['name' => 'On leave', 'tone' => 'info', 'data' => $series['on_leave']],
+                            ['name' => AttendanceSymbol::TERM_ABSENT, 'tone' => 'crit', 'data' => $series['absent']],
+                            ['name' => AttendanceSymbol::TERM_ON_LEAVE, 'tone' => 'info', 'data' => $series['on_leave']],
                         ],
                     ], ['from' => $series['from'], 'to' => $series['to']], 'No attendance recorded in this period.'),
             ],

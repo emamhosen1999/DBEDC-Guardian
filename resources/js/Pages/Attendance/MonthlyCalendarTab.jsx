@@ -8,23 +8,14 @@ import { handleExportResponse } from '@/utils/exportUtils';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import MonthlySidebar from './Components/MonthlySidebar';
+import AttendanceExportDialog from './Components/AttendanceExportDialog';
+import { MARK_LEGEND, SYMBOL_KEY, SYMBOL_TOTALS, markAttrs, symbolLabel, symbolTone, symbolTotals } from '@/utils/attendanceSymbols';
 import DepartmentSelect from './Components/DepartmentSelect';
 import { Avatar } from '@/Components/Cyber/Map/Avatar';
 import { Card, Field, Icon, IconButton, Pagination, Toolbar, ToolbarGroup } from '@/Components/Cyber';
 
 const EMPTY_LIST = [];
 const EMPTY_MAP = {};
-
-/* ── status map ───────────────────────────────────────────── */
-/* glyph is what the cell shows; the colour comes from the mark's data-status (attendance.css) */
-const STATUS_MAP = {
-    '√': { label: 'Present',   glyph: '✓' },
-    '▼': { label: 'Absent',    glyph: '✗' },
-    '#': { label: 'Holiday',   glyph: 'H' },
-    '/': { label: 'Leave',     glyph: 'L' },
-    '·': { label: 'Scheduled', glyph: '–' },
-};
-const getStatus = (s) => STATUS_MAP[s] || { label: 'No data', glyph: 'L' };
 
 /* ── helpers ──────────────────────────────────────────────── */
 const isWeekendDay = (date, weekendDays) => {
@@ -37,22 +28,35 @@ const isWeekendDay = (date, weekendDays) => {
 
 const dateKeyOf = (year, month, day) => dayjs(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`).format('YYYY-MM-DD');
 
-/* One day of one employee: a square mark. The text alternative carries the date, status and punches, as the earlier
-   tooltip did. */
+/* One day of one employee: the register symbol itself (never a stand-in glyph). Colour is a secondary cue only:
+   tone by symbol, and the register's festival colouring (pink # for the person who took the holiday, green √ for
+   the person who worked it). The text alternative carries the date, the symbol's meaning and the punches. */
 const DayMark = ({ cell, dateKey }) => {
-    const raw = typeof cell === 'object' ? cell?.status || '▼' : '▼';
-    const st = getStatus(raw);
+    const symbol = (typeof cell === 'object' ? (cell?.symbol ?? cell?.status) : cell) || SYMBOL_NOT_YET;
     const detail = [
-        `${dateKey}: ${st.label}`,
+        `${dateKey}: ${symbolLabel(symbol)}`,
         cell?.punch_in ? `in ${cell.punch_in}` : null,
         cell?.punch_out ? `out ${cell.punch_out}` : null,
         cell?.total_work_hours ? `${cell.total_work_hours} hours` : null,
         cell?.remarks ? cell.remarks : null,
+        cell?.marks?.border ? 'worked on a rest day' : null,
+        cell?.marks?.fill === 'ot_unapplied' ? 'worked on a rest day or holiday, not claimed' : null,
+        cell?.marks?.fill === 'ot_declined' ? 'overtime declined' : null,
+        cell?.marks?.ot === 'approved' ? 'overtime approved' : null,
     ].filter(Boolean).join(', ');
-    return <span className="cy-mark" data-status={STATUS_MAP[raw] ? raw : '?'} role="img" aria-label={detail} title={detail}>{st.glyph}</span>;
+    return (
+        <span className="cy-mark" data-status={symbol} data-tone={symbolTone(symbol)} {...markAttrs(cell, symbol)} role="img" aria-label={detail} title={detail}>
+            {symbol}
+        </span>
+    );
 };
 
 const LeaveCount = ({ count }) => <span className="cy-leavecount" data-zero={count === 0}>{count}</span>;
+
+const SYMBOL_NOT_YET = SYMBOL_KEY[3][0];
+
+/* True when any listed employee has a festival holiday on this date: the date header turns red, as in the register. */
+const isFestivalDate = (rows, dateKey) => rows.some((r) => r?.[dateKey]?.is_festival);
 
 const MonthEmpty = ({ text }) => (
     <div className="cy-empty cy-empty--flat">
@@ -66,8 +70,8 @@ const MonthLoading = () => <div className="cy-empty cy-empty--flat" role="status
 /* ════════════════════════════════════════════════════════════
    DESKTOP VIEW — sticky-header, sticky-first-column matrix
    ═══════════════════════════════════════════════════════════ */
-const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, weekendDays, loading }) => {
-    const colSpan = days.length + 1 + (leaveTypes?.length || 0);
+const DesktopMonthTable = ({ rows, days, month, year, weekendDays, loading }) => {
+    const colSpan = days.length + 1 + SYMBOL_TOTALS.length;
     return (
         <div className="cy-cal" tabIndex={0} role="region" aria-label="Monthly attendance, scrollable">
             <table className="cy-table">
@@ -77,13 +81,18 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                         {days.map((d) => {
                             const date = dayjs(dateKeyOf(year, month, d));
                             const wknd = isWeekendDay(date, weekendDays);
+                            const festival = isFestivalDate(rows, dateKeyOf(year, month, d));
                             return (
-                                <th key={d} scope="col" className={wknd ? 'is-weekend' : undefined}>
+                                <th key={d} scope="col" className={[wknd ? 'is-weekend' : '', festival ? 'is-festival' : ''].filter(Boolean).join(' ') || undefined} title={festival ? 'Festival holiday' : undefined}>
                                     <span className="cy-cal__day"><span>{d}</span><span className="cy-cal__dow">{date.format('dd')}</span></span>
                                 </th>
                             );
                         })}
-                        {(leaveTypes || []).map((t) => <th key={t.type} scope="col" className="cy-cal__leave">{t.type}</th>)}
+                        {SYMBOL_TOTALS.map(([heading, symbol]) => (
+                            <th key={symbol} scope="col" className="cy-cal__leave" title={`${heading}: ${symbolLabel(symbol)}`}>
+                                <span className="cy-cal__day"><span>{heading}</span><span className="cy-cal__dow">({symbol})</span></span>
+                            </th>
+                        ))}
                     </tr>
                 </thead>
                 <tbody>
@@ -107,8 +116,8 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                             </td>
                                         );
                                     })}
-                                    {(leaveTypes || []).map((t) => (
-                                        <td key={t.type} className="cy-cal__leave"><LeaveCount count={leaveCounts?.[row.user_id]?.[t.type] || 0} /></td>
+                                    {symbolTotals(days.map((d) => row[dateKeyOf(year, month, d)])).map((t) => (
+                                        <td key={t.symbol} className="cy-cal__leave"><LeaveCount count={t.count} /></td>
                                     ))}
                                 </tr>
                             ))}
@@ -121,7 +130,7 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
 /* ════════════════════════════════════════════════════════════
    MOBILE VIEW — one row per employee, the month grid opens under it
    ═══════════════════════════════════════════════════════════ */
-const MobileEmployeeCard = ({ row, days, month, year, leaveTypes, leaveCounts, weekendDays }) => {
+const MobileEmployeeCard = ({ row, days, month, year, weekendDays }) => {
     const [expanded, setExpanded] = useState(false);
     const gridId = useRef(`mcard-${row.user_id ?? Math.random().toString(36).slice(2)}`).current;
     const firstDay = dayjs(`${year}-${String(month).padStart(2, '0')}-01`).day();
@@ -134,10 +143,9 @@ const MobileEmployeeCard = ({ row, days, month, year, leaveTypes, leaveCounts, w
                     <span className="cy-who__text"><span className="cy-who__name">{row.name || 'Unknown'}</span></span>
                 </div>
                 <span className="cy-mcard__tags">
-                    {(leaveTypes || []).map((t) => {
-                        const count = leaveCounts?.[row.user_id]?.[t.type] || 0;
-                        return count === 0 ? null : <span key={t.type} className="cy-text-warn">{t.type}: {count}</span>;
-                    })}
+                    {symbolTotals(days.map((d) => row[dateKeyOf(year, month, d)])).map((t) => (
+                        t.count === 0 ? null : <span key={t.symbol} className="cy-text-warn" title={t.label}>{t.heading} ({t.symbol}): {t.count}</span>
+                    ))}
                     <Icon name="chevron-down" className="cy-mcard__chev" />
                 </span>
             </button>
@@ -160,13 +168,13 @@ const MobileEmployeeCard = ({ row, days, month, year, leaveTypes, leaveCounts, w
     );
 };
 
-const MobileMonthCalendar = ({ rows, days, month, year, leaveTypes, leaveCounts, weekendDays, loading }) => {
+const MobileMonthCalendar = ({ rows, days, month, year, weekendDays, loading }) => {
     if (loading) return <MonthLoading />;
     if (rows.length === 0) return <MonthEmpty text="No attendance data for this month" />;
     return (
         <ul className="cy-mcard">
             {rows.map((row, i) => (
-                <MobileEmployeeCard key={row.user_id || i} row={row} days={days} month={month} year={year} leaveTypes={leaveTypes} leaveCounts={leaveCounts} weekendDays={weekendDays} />
+                <MobileEmployeeCard key={row.user_id || i} row={row} days={days} month={month} year={year} weekendDays={weekendDays} />
             ))}
         </ul>
     );
@@ -251,20 +259,22 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [], on
     const settings = monthlySummaryData?.settings || null;
     const weekendDays = settings?.weekend_days || EMPTY_LIST;
 
-    /* export */
-    const exportFile = useCallback(async (type) => {
+    /* export: the register for any from/to period, one sheet per department (the server defaults to the payroll cycle) */
+    const [exportOpen, setExportOpen] = useState(false);
+    const exportRegister = useCallback(async ({ type, from, to }) => {
         setDownloading(type);
         try {
-            const mime = type === 'pdf'   ? 'application/pdf'                    : undefined;
-            const ext  = type === 'excel' ? 'xlsx'                               : 'pdf';
-            const data = await exportMonthlyCalendar.mutateAsync({ month: selectedMonth, type });
-            const defaultFilename = `Admin_Attendance_${selectedMonth}.${ext}`;
-            await handleExportResponse(data, defaultFilename, mime, ext);
+            const mime = type === 'pdf' ? 'application/pdf' : undefined;
+            const ext = type === 'excel' ? 'xlsx' : 'pdf';
+            const dept = selectedDepartmentId !== 'all' ? parseInt(selectedDepartmentId) : undefined;
+            const data = await exportMonthlyCalendar.mutateAsync({ from, to, type, departmentId: dept });
+            await handleExportResponse(data, `DBEDC_Attendance_Register_${from}_${to}.${ext}`, mime, ext);
         } catch (err) {
             console.error('Export failed:', err);
             showToast.error(`Failed to export ${type}.`);
+            throw err;
         } finally { setDownloading(''); }
-    }, [selectedMonth, exportMonthlyCalendar]);
+    }, [selectedDepartmentId, exportMonthlyCalendar]);
 
     /* month nav */
     const goMonth = (delta) => {
@@ -324,24 +334,35 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [], on
 
                                 <IconButton icon="arrow-clockwise" label="Refresh" onClick={() => refetch()} />
                                 {isAdminView && (
-                                    <>
-                                        <button type="button" className="cy-btn cy-btn--outline-default" disabled={isLoading || downloading !== ''} onClick={() => exportFile('excel')}>
-                                            <Icon name="file-earmark-excel" /> {downloading === 'excel' ? 'Exporting…' : 'Excel'}
-                                        </button>
-                                        <button type="button" className="cy-btn cy-btn--outline-default" disabled={isLoading || downloading !== ''} onClick={() => exportFile('pdf')}>
-                                            <Icon name="file-earmark-pdf" /> {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
-                                        </button>
-                                    </>
+                                    <button type="button" className="cy-btn cy-btn--outline-default" disabled={isLoading || downloading !== ''} onClick={() => setExportOpen(true)}>
+                                        <Icon name="download" /> {downloading ? 'Exporting…' : 'Export'}
+                                    </button>
                                 )}
                             </ToolbarGroup>
                         </Toolbar>
 
-                        {/* Legend */}
-                        <ul className="cy-legendrow" aria-label="Legend" style={{ margin: 0, listStyle: 'none' }}>
-                            {Object.entries(STATUS_MAP).map(([k, v]) => (
-                                <li key={k} className="cy-legendrow__item"><span className="cy-mark" data-status={k} aria-hidden="true">{v.glyph}</span>{v.label}</li>
+                        {/* Symbol key: the register's, word for word */}
+                        <ul className="cy-legendrow" aria-label="Symbol Key" style={{ margin: 0, listStyle: 'none' }}>
+                            <li className="cy-legendrow__item cy-legendrow__lead">Symbol Key :{' '}</li>
+                            {SYMBOL_KEY.map(([symbol, label]) => (
+                                <li key={symbol} className="cy-legendrow__item"><span className="cy-mark" data-status={symbol} data-tone={symbolTone(symbol)} aria-hidden="true">{symbol}</span>{' '}<span>= {label}</span>{' '}</li>
                             ))}
-                            <li className="cy-legendrow__item"><span className="cy-mark is-weekend" data-status="?" aria-hidden="true" style={{ background: 'color-mix(in srgb, var(--amber-9) 18%, transparent)' }} />Weekend</li>
+                        </ul>
+                        <ul className="cy-legendrow cy-legendrow--note" aria-label="Colour cues" style={{ margin: 0, listStyle: 'none' }}>
+                            <li className="cy-legendrow__item"><span className="cy-mark" data-festival-head="true" aria-hidden="true" />Red date = festival holiday</li>
+                            <li className="cy-legendrow__item"><span className="cy-mark" data-status="#" data-festival="taken" aria-hidden="true">#</span>took the holiday</li>
+                            <li className="cy-legendrow__item"><span className="cy-mark" data-status="√" data-festival="worked" aria-hidden="true">√</span>worked it</li>
+                            <li className="cy-legendrow__item"><span className="cy-mark is-weekend" aria-hidden="true" style={{ background: 'color-mix(in srgb, var(--amber-9) 18%, transparent)' }} />Weekend shading</li>
+                        </ul>
+                        <ul className="cy-legendrow cy-legendrow--note" aria-label="Marks" style={{ margin: 0, listStyle: 'none' }}>
+                            <li className="cy-legendrow__item cy-legendrow__lead">Marks :{' '}</li>
+                            {MARK_LEGEND.map(([key, text]) => (
+                                <li key={key} className="cy-legendrow__item">
+                                    <span className="cy-mark" aria-hidden="true"
+                                        data-status={key === 'leave_bold' ? '§' : '√'} data-glyph={key === 'leave_bold' ? '§' : '√'}
+                                        {...({ ot_approved: { 'data-mark-font': 'ot_green' }, ot_unapplied: { 'data-mark-fill': 'ot_unapplied' }, ot_declined: { 'data-mark-fill': 'ot_declined' }, rest_day_work: { 'data-mark-border': 'true', 'data-mark-font': 'ot_green' }, leave_bold: { 'data-mark-bold': 'true' } }[key])} />{' '}<span>{text}</span>{' '}
+                                </li>
+                            ))}
                         </ul>
 
                         {/* Table / cards, with the stats sidebar */}
@@ -350,12 +371,10 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [], on
                                 {isMobile
                                     ? <MobileMonthCalendar
                                         rows={rows} days={days} month={monthNum} year={yearNum}
-                                        leaveTypes={leaveTypes} leaveCounts={leaveCounts}
                                         weekendDays={weekendDays} loading={isLoading}
                                       />
                                     : <DesktopMonthTable
                                         rows={rows} days={days} month={monthNum} year={yearNum}
-                                        leaveTypes={leaveTypes} leaveCounts={leaveCounts}
                                         weekendDays={weekendDays} loading={isLoading}
                                       />}
                             </div>
@@ -376,6 +395,14 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [], on
                     </Card>
                 </div>
             </div>
+            {exportOpen && (
+                <AttendanceExportDialog
+                    title="Export attendance register"
+                    reports={[{ value: 'register', label: 'Attendance register', help: 'One sheet per department in the company register format (PDF: one page per department). Employees come from your department scope.' }]}
+                    onClose={() => setExportOpen(false)}
+                    onExport={exportRegister}
+                />
+            )}
         </div>
     );
 };

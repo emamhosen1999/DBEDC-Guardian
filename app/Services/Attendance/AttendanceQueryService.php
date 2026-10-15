@@ -6,6 +6,7 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\Leave;
 use App\Repositories\AttendanceRepository;
 use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 
@@ -264,6 +265,9 @@ class AttendanceQueryService
                 'designation' => $user?->designation?->title,
             ],
             'date' => $dateStr,
+            // A day with punches is a worked day: the register's √, with the shared wording.
+            'symbol' => AttendanceSymbol::PRESENT,
+            'status_label' => AttendanceSymbol::TERM_PRESENT,
             'punchin_time' => $firstPunch?->punchin ? Carbon::parse($firstPunch->punchin)->format('H:i:s') : null,
             'punchin_id' => $firstPunch?->id,
             'punchout_time' => $lastCompletePunch?->punchout ? Carbon::parse($lastCompletePunch->punchout)->format('H:i:s') : null,

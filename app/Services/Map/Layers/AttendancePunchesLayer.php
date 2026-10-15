@@ -9,6 +9,7 @@ use App\Services\Corridor\CorridorGeometry;
 use App\Services\Map\LayerResult;
 use App\Services\Map\MapFilter;
 use App\Services\Map\MapLayer;
+use App\Support\Attendance\AttendanceSymbol;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -54,7 +55,7 @@ final class AttendancePunchesLayer extends MapLayer
 
     public function fields(): array
     {
-        return ['status' => 'Status', 'designation' => 'Designation', 'punch_in' => 'Punch in', 'punch_out' => 'Punch out'];
+        return ['day' => 'Day', 'status' => 'Status', 'designation' => 'Designation', 'punch_in' => 'Punch in', 'punch_out' => 'Punch out'];
     }
 
     public function scope(): string
@@ -114,6 +115,8 @@ final class AttendancePunchesLayer extends MapLayer
             }
             $done = ($row['status'] ?? 'active') === 'completed';
             $out->add($this->feature('point', (string) $row['employee_id'], (string) $row['name'], [
+                // A person on this map has punched: the register's √ with the shared wording.
+                'day' => AttendanceSymbol::PRESENT.' '.AttendanceSymbol::TERM_PRESENT,
                 'status' => $done ? 'Done' : 'Active',
                 'designation' => $row['designation'] ?? null,
                 'punch_in' => $this->stamp($row['punchin_time'] ?? null, $in),

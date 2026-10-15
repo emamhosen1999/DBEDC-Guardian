@@ -11,6 +11,7 @@ use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
 use App\Notifications\Attendance\TimeCorrectionRequestedNotification;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Realtime\RealtimeSignal;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -200,7 +201,7 @@ class RegularizationService
             if ($r->type === 'missed_day') {
                 $payload['punchin'] = $shift->start;
                 $payload['punchout'] = $shift->end;
-                $payload['symbol'] = '√';
+                $payload['symbol'] = AttendanceSymbol::PRESENT;
             } else {
                 if ($r->requested_punchin) {
                     $payload['punchin'] = $r->requested_punchin;
@@ -213,7 +214,7 @@ class RegularizationService
             if ($att) {
                 $att->update($payload);
             } else {
-                $att = Attendance::create($payload + ['symbol' => '√']);
+                $att = Attendance::create($payload + ['symbol' => AttendanceSymbol::PRESENT]);
             }
 
             $this->audit->record('regularize', $att->id, $before, $att->only(['punchin', 'punchout', 'date']), 'Regularization #'.$r->id, null);

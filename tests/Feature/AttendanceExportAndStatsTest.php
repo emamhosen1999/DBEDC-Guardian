@@ -63,6 +63,26 @@ class AttendanceExportAndStatsTest extends TestCase
         });
     }
 
+    public function test_export_register_takes_any_period_and_defaults_to_the_payroll_cycle(): void
+    {
+        Queue::fake();
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+
+        $this->actingAs($admin)->getJson(route('attendance.monthlyCalendar.export', ['from' => '2026-08-26', 'to' => '2026-09-25', 'type' => 'pdf']))
+            ->assertOk()->assertJsonPath('success', true);
+        Queue::assertPushed(ExportAttendanceReport::class, fn ($job) => $job->getType() === 'register_pdf');
+
+        // No period at all: the payroll cycle (26th to 25th) containing today.
+        $this->actingAs($admin)->getJson(route('attendance.monthlyCalendar.export', ['type' => 'excel']))->assertOk();
+        Queue::assertPushed(ExportAttendanceReport::class, fn ($job) => $job->getType() === 'register_excel');
+
+        // Longer than a spreadsheet / PDF accepts.
+        $this->actingAs($admin)->getJson(route('attendance.monthlyCalendar.export', ['from' => '2025-01-01', 'to' => '2026-12-31', 'type' => 'excel']))->assertStatus(422);
+        $this->actingAs($admin)->getJson(route('attendance.monthlyCalendar.export', ['from' => '2026-01-01', 'to' => '2026-12-31', 'type' => 'pdf']))->assertStatus(422);
+    }
+
     public function test_attendance_admin_export_save_to_disk(): void
     {
         Storage::fake('public');
@@ -75,12 +95,12 @@ class AttendanceExportAndStatsTest extends TestCase
 
         Storage::disk('public')->assertExists($filePath);
 
-        // Load the saved workbook and assert it has both Calendar and Summary sheets.
+        // The monthly export is now the register: one sheet per department, then the Summary sheet.
         $savedPath = Storage::disk('public')->path($filePath);
         $loaded = \PhpOffice\PhpSpreadsheet\IOFactory::load($savedPath);
         $sheetNames = $loaded->getSheetNames();
 
-        $this->assertContains('Calendar', $sheetNames);
+        $this->assertSame('Summary', end($sheetNames));
         $this->assertContains('Summary', $sheetNames);
     }
 

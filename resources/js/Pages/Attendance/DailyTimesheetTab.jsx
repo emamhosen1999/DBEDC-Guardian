@@ -8,13 +8,15 @@ import AuditHistoryModal from './Components/AuditHistoryModal';
 import TimesheetMap from './Components/TimesheetMap';
 import TimeEdit from './Components/TimeEdit';
 import DepartmentSelect from './Components/DepartmentSelect';
+import AttendanceExportDialog from './Components/AttendanceExportDialog';
+import { TERM } from '@/utils/attendanceSymbols';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { Avatar } from '@/Components/Cyber/Map/Avatar';
 import { Card, Field, Icon, IconButton, Pagination, Select, StatStrip, Tabs, Toolbar, ToolbarGroup } from '@/Components/Cyber';
 import { panelId, tabId } from '@/Components/Cyber/Tabs';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import { RANGE_PRESETS, resolvePreset, isRangeMode } from './logRange';
-import { useDailyTimesheet, usePresentUsers, useAttendanceDayPartition, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet, useAttendanceLog, useExportAttendanceLog } from '@/api/queries/useAttendanceQuery';
+import { useDailyTimesheet, usePresentUsers, useAttendanceDayPartition, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet, useAttendanceLog, useExportAttendanceLog, useExportMonthlyCalendar } from '@/api/queries/useAttendanceQuery';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 /* ── helpers ──────────────────────────────────────────────── */
@@ -383,6 +385,7 @@ const DailyTimesheetTab = ({
     const markAsPresent = useMarkAsPresent();
     const deleteAttendanceCorrection = useDeleteAttendanceCorrection();
     const exportDailyTimesheet = useExportDailyTimesheet();
+    const exportRegister = useExportMonthlyCalendar();
 
     // Derived state from React Query data
     const attendances = dailyTimesheetData?.attendances || [];
@@ -457,31 +460,34 @@ const DailyTimesheetTab = ({
         return () => clearInterval(id);
     }, [checkUpdates]);
 
-    /* export */
-    const exportFile = useCallback(async (type) => {
+    /* export: one control for every attendance report (day, log or register), period + Excel/PDF */
+    const [exportOpen, setExportOpen] = useState(false);
+    const exportDeptId = deptFilter && deptFilter !== 'all' ? parseInt(deptFilter) : undefined;
+    const exportFile = useCallback(async ({ report, type, from, to }) => {
         setDownloading(type);
         try {
             const mime = type === 'pdf' ? 'application/pdf' : undefined;
             const ext  = type === 'excel' ? 'xlsx' : 'pdf';
 
             let data;
-            if (rangeMode) {
-                data = await exportLog.mutateAsync({
-                    from: selectedDate, to: toDate, type, ...logFilters,
-                });
+            let label;
+            if (report === 'register') {
+                data = await exportRegister.mutateAsync({ from, to, type, departmentId: exportDeptId });
+                label = `DBEDC_Attendance_Register_${from}_${to}.${ext}`;
+            } else if (report === 'log') {
+                data = await exportLog.mutateAsync({ from, to, type, ...logFilters });
+                label = `DBEDC_Attendance_Log_${from}_${to}.${ext}`;
             } else {
-                data = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
+                data = await exportDailyTimesheet.mutateAsync({ date: from, type });
+                label = `DBEDC_Daily_Timesheet_${from}.${ext}`;
             }
-
-            const label = rangeMode
-                ? `Attendance_Log_${dayjs(selectedDate).format('YYYY_MM_DD')}_${dayjs(toDate).format('YYYY_MM_DD')}.${ext}`
-                : `Daily_Timesheet_${dayjs(selectedDate).format('YYYY_MM_DD')}.${ext}`;
             await handleExportResponse(data, label, mime, ext);
         } catch (err) {
             console.error('Export failed:', err);
             showToast.error(`Failed to download ${type}.`);
+            throw err;
         } finally { setDownloading(''); }
-    }, [selectedDate, toDate, rangeMode, exportDailyTimesheet, exportLog, employeeQuery, deptFilter, desigFilter, statusFilter]);
+    }, [exportDailyTimesheet, exportLog, exportRegister, exportDeptId, logFilters]);
 
     const applyPreset = useCallback((value) => {
         setPreset(value);
@@ -567,15 +573,15 @@ const DailyTimesheetTab = ({
 
     /* Partition tab definitions: counts drive the stat strip and the tab counters. */
     const partitionTabs = [
-        { key: 'present',  label: 'Present',     count: counts.present ?? 0,   tone: 'success' },
-        { key: 'absent',   label: 'Absent',      count: counts.absent ?? 0,    tone: 'danger' },
+        { key: 'present',  label: TERM.PRESENT, count: counts.present ?? 0,   tone: 'success' },
+        { key: 'absent',   label: TERM.ABSENT,  count: counts.absent ?? 0,    tone: 'danger' },
         { key: 'upcoming', label: 'Upcoming',    count: counts.upcoming ?? 0,  tone: 'theme' },
         { key: 'offleave', label: 'Off / Leave', count: counts.off_leave ?? 0 },
     ];
 
     const stats = [
-        { key: 'present',  label: 'Present',      value: isLoadingPartition ? undefined : counts.present ?? 0,   tone: 'good' },
-        { key: 'absent',   label: 'Absent',       value: isLoadingPartition ? undefined : counts.absent ?? 0,    tone: (counts.absent ?? 0) > 0 ? 'crit' : 'neutral' },
+        { key: 'present',  label: TERM.PRESENT,  value: isLoadingPartition ? undefined : counts.present ?? 0,   tone: 'good' },
+        { key: 'absent',   label: TERM.ABSENT,   value: isLoadingPartition ? undefined : counts.absent ?? 0,    tone: (counts.absent ?? 0) > 0 ? 'crit' : 'neutral' },
         { key: 'upcoming', label: 'Upcoming',     value: isLoadingPartition ? undefined : counts.upcoming ?? 0,  tone: 'theme' },
         { key: 'off',      label: 'Off / Leave',  value: isLoadingPartition ? undefined : counts.off_leave ?? 0, tone: 'neutral' },
         { key: 'total',    label: 'Total roster', value: isLoadingPartition ? undefined : counts.total ?? 0,     tone: 'info' },
@@ -731,8 +737,8 @@ const DailyTimesheetTab = ({
                                             value={statusFilter || 'all'}
                                             onChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
                                             options={[
-                                                { value: 'all', label: 'All statuses' }, { value: 'present', label: 'Present' }, { value: 'absent', label: 'Absent' },
-                                                { value: 'on_leave', label: 'On leave' }, { value: 'incomplete', label: 'Incomplete' }, { value: 'holiday', label: 'Holiday' }, { value: 'day_off', label: 'Day off' },
+                                                { value: 'all', label: 'All statuses' }, { value: 'present', label: TERM.PRESENT }, { value: 'absent', label: TERM.ABSENT },
+                                                { value: 'on_leave', label: TERM.ON_LEAVE }, { value: 'incomplete', label: 'Incomplete' }, { value: 'holiday', label: TERM.FESTIVAL }, { value: 'day_off', label: TERM.DAY_OFF },
                                             ]}
                                         />
                                     )}
@@ -749,14 +755,9 @@ const DailyTimesheetTab = ({
                                     <IconButton icon="arrow-clockwise" label="Refresh" onClick={() => Promise.all([refetchTimesheet(), refetchPartition()])} />
 
                                     {canExport && (
-                                        <>
-                                            <button type="button" className="cy-btn cy-btn--outline-default" disabled={!isLoaded || downloading !== ''} onClick={() => exportFile('excel')}>
-                                                <Icon name="file-earmark-excel" /> {downloading === 'excel' ? 'Exporting…' : 'Excel'}
-                                            </button>
-                                            <button type="button" className="cy-btn cy-btn--outline-default" disabled={!isLoaded || downloading !== ''} onClick={() => exportFile('pdf')}>
-                                                <Icon name="file-earmark-pdf" /> {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
-                                            </button>
-                                        </>
+                                        <button type="button" className="cy-btn cy-btn--outline-default" disabled={!isLoaded || downloading !== ''} onClick={() => setExportOpen(true)}>
+                                            <Icon name="download" /> {downloading ? 'Exporting…' : 'Export'}
+                                        </button>
                                     )}
                                 </ToolbarGroup>
                             </Toolbar>
@@ -805,6 +806,20 @@ const DailyTimesheetTab = ({
                     </div>
                 )}
             </div>
+
+            {exportOpen && (
+                <AttendanceExportDialog
+                    title="Export attendance"
+                    singleDate={selectedDate}
+                    reports={[
+                        { value: 'register', label: 'Attendance register (one sheet per department)', help: 'The company register format: month sections, the symbol key, totals and signatures. Your department scope applies.' },
+                        { value: 'log', label: 'Attendance log (punch times, one row per day)', help: 'Every employee and day in the period, with clock in/out and work hours.' },
+                        { value: 'daily', label: 'Daily timesheet (one day)', single: true, help: 'One day, one row per employee, with punches and the day symbol.' },
+                    ]}
+                    onClose={() => setExportOpen(false)}
+                    onExport={exportFile}
+                />
+            )}
 
             <AuditHistoryModal
                 open={!!historyId}

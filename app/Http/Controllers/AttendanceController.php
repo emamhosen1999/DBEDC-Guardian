@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Register\ReportStyle;
 use App\Jobs\ExportAttendanceReport;
 use App\Models\HRM\AbsenceCase;
 use App\Models\HRM\Attendance;
@@ -19,6 +20,7 @@ use App\Services\Attendance\AttendanceAuditService;
 use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
+use App\Services\Attendance\AttendanceRegisterService;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\AttendanceValidatorFactory;
@@ -27,6 +29,7 @@ use App\Services\Attendance\HolidayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Attendance\UpcomingShiftService;
 use App\Services\Map\MapLayerRegistry;
+use App\Support\Attendance\AttendanceSymbol;
 use App\Traits\HandlesApiExceptions;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -38,7 +41,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -338,7 +340,7 @@ class AttendanceController extends Controller
         if (! $schedule->isWorkingDay) {
             return response()->json([
                 'is_working' => false,
-                'label' => 'Day off',
+                'label' => AttendanceSymbol::TERM_DAY_OFF,
                 'source' => 'roster',
             ]);
         }
@@ -546,7 +548,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
-                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                         ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $selectedDate);
                 });
@@ -578,7 +580,7 @@ class AttendanceController extends Controller
 
             $attendanceRecords = Attendance::query()
                 ->with(['user.designation'])
-                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                 ->where('policy_status', '!=', 'rejected')
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
@@ -768,7 +770,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($date) {
-                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                         ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $date);
                 });
@@ -1045,7 +1047,7 @@ class AttendanceController extends Controller
             $totalEmployees = $employees->count();
 
             $attendanceQuery = Attendance::whereDate('date', $date)
-                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', AttendanceSymbol::PRESENT))
                 ->where('policy_status', '!=', 'rejected');
             if ($employeeIds !== null) {
                 $attendanceQuery->whereIn('user_id', $this->idFilter($employeeIds));
@@ -1324,13 +1326,7 @@ class AttendanceController extends Controller
 
     public function exportMonthlyCalendar(Request $request)
     {
-        $type = $request->query('type', 'excel');
-
-        if ($type === 'pdf') {
-            return $this->exportAdminPdf($request);
-        }
-
-        return $this->exportAdminExcel($request);
+        return $this->dispatchRegisterExport($request, $request->query('type', 'excel') === 'pdf' ? 'pdf' : 'excel');
     }
 
     public function checkExportStatus($filename)
@@ -1347,7 +1343,7 @@ class AttendanceController extends Controller
     {
         try {
             $date = (string) $request->input('date', now()->toDateString());
-            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'_'.Str::random(24).'.xlsx';
+            $filename = ReportStyle::filename('', 'Daily_Timesheet', Carbon::parse($date), null, 'xlsx');
 
             ExportAttendanceReport::dispatch('daily_excel', $date, null, Auth::id(), $filename);
 
@@ -1370,7 +1366,7 @@ class AttendanceController extends Controller
     {
         try {
             $date = (string) $request->input('date', now()->toDateString());
-            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'_'.Str::random(24).'.pdf';
+            $filename = ReportStyle::filename('', 'Daily_Timesheet', Carbon::parse($date), null, 'pdf');
 
             ExportAttendanceReport::dispatch('daily_pdf', $date, null, Auth::id(), $filename);
 
@@ -1391,36 +1387,58 @@ class AttendanceController extends Controller
 
     public function exportAdminExcel(Request $request)
     {
-        try {
-            $month = $request->get('month');
-            $filename = 'DBEDC_Attendance_'.$month.'_'.time().'_'.Str::random(24).'.xlsx';
-
-            ExportAttendanceReport::dispatch('monthly_excel', null, $month, Auth::id(), $filename);
-
-            return response()->json([
-                'success' => true,
-                'queued' => true,
-                'filename' => $filename,
-                'download_url' => asset('storage/exports/'.$filename),
-                'message' => 'Export job has been dispatched.',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Excel export failed.',
-                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
-            ], 500);
-        }
+        return $this->dispatchRegisterExport($request, 'excel');
     }
 
     public function exportAdminPdf(Request $request)
     {
-        try {
-            $month = $request->get('month');
-            $from = Carbon::parse($month.'-01');
-            $monthName = $from->format('F Y');
-            $filename = 'DBEDC_Attendance_'.$monthName.'_'.time().'_'.Str::random(24).'.pdf';
+        return $this->dispatchRegisterExport($request, 'pdf');
+    }
 
-            ExportAttendanceReport::dispatch('monthly_pdf', null, $month, Auth::id(), $filename);
+    /**
+     * The attendance register export (Excel or PDF) for ANY date range: one register per department,
+     * month sections inside the range. from/to default to the payroll cycle (26th to 25th); the old
+     * `month=YYYY-MM` parameter still works and means that calendar month.
+     */
+    protected function dispatchRegisterExport(Request $request, string $format)
+    {
+        try {
+            $legacyMonth = null;
+            if ($request->filled('from') || $request->filled('to')) {
+                $request->validate(['from' => 'required|date', 'to' => 'required|date']);
+                $from = Carbon::parse($request->input('from'))->startOfDay();
+                $to = Carbon::parse($request->input('to'))->startOfDay();
+            } elseif ($request->filled('month')) {
+                $request->validate(['month' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/']]);
+                $legacyMonth = $request->input('month'); // the old monthly route: the job keeps its monthly_* type
+                $from = Carbon::parse($legacyMonth.'-01')->startOfDay();
+                $to = $from->copy()->endOfMonth()->startOfDay();
+            } else {
+                [$from, $to] = AttendanceRegisterService::payrollCycle();
+            }
+            if ($to->lt($from)) {
+                [$from, $to] = [$to, $from];
+            }
+            $days = $from->diffInDays($to) + 1;
+            $max = $format === 'pdf' ? AttendanceRegisterService::MAX_DAYS_PDF : AttendanceRegisterService::MAX_DAYS_EXCEL;
+            if ($days > $max) {
+                return response()->json(['error' => "A {$format} register covers at most {$max} days. Narrow the range.", 'details' => "Requested {$days} days."], 422);
+            }
+
+            // Only a department the requester can see may name the file; a wider scope gets a neutral name.
+            $deptId = AttendanceRegisterService::visibleDepartment(
+                $request->filled('department_id') ? (int) $request->input('department_id') : null,
+                $this->visibleEmployeeIds(Auth::user())
+            );
+            $code = $deptId ? (Department::whereKey($deptId)->value('code') ?: '') : '';
+            $ext = $format === 'pdf' ? 'pdf' : 'xlsx';
+            $filename = ReportStyle::filename($code, 'Attendance_Register', $from, $to, $ext);
+
+            // The queued job re-derives (and enforces) the actor's DepartmentScope from the requester id.
+            ExportAttendanceReport::dispatch(
+                ($legacyMonth ? 'monthly_' : 'register_').($format === 'pdf' ? 'pdf' : 'excel'), null, $legacyMonth, Auth::id(), $filename,
+                array_filter(['from' => $from->toDateString(), 'to' => $to->toDateString(), 'department_id' => $deptId])
+            );
 
             return response()->json([
                 'success' => true,
@@ -1429,9 +1447,11 @@ class AttendanceController extends Controller
                 'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'PDF export failed.',
+                'error' => ($format === 'pdf' ? 'PDF' : 'Excel').' export failed.',
                 'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
@@ -1455,7 +1475,10 @@ class AttendanceController extends Controller
             }
 
             // The queued job re-derives (and enforces) the actor's scope from the requester id.
-            $reqDeptId = $request->query('department_id') ? (int) $request->query('department_id') : null;
+            $reqDeptId = AttendanceRegisterService::visibleDepartment(
+                $request->query('department_id') ? (int) $request->query('department_id') : null,
+                $this->visibleEmployeeIds(Auth::user())
+            );
 
             $filters = array_filter([
                 'from' => $from->toDateString(),
@@ -1468,7 +1491,8 @@ class AttendanceController extends Controller
 
             $ext = $type === 'pdf' ? 'pdf' : 'xlsx';
             $jobType = $type === 'pdf' ? 'range_pdf' : 'range_excel';
-            $filename = 'Attendance_Log_'.$from->format('Ymd').'_'.$to->format('Ymd').'_'.time().'_'.Str::random(24).'.'.$ext;
+            $logCode = $reqDeptId ? (Department::whereKey($reqDeptId)->value('code') ?: '') : '';
+            $filename = ReportStyle::filename($logCode, 'Attendance_Log', $from, $to, $ext);
 
             ExportAttendanceReport::dispatch($jobType, null, null, Auth::id(), $filename, $filters);
 

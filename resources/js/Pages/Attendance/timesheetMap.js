@@ -6,6 +6,8 @@
  * attendance types the same response carries (what the earlier Leaflet card drew), with no third-party routing call.
  */
 
+import { SYMBOL, TERM } from '@/utils/attendanceSymbols';
+
 export const PEOPLE_LAYER = 'workforce.punches';
 export const GEOFENCE_LAYER = 'workforce.geofences';
 export const WAYPOINT_LAYER = 'workforce.waypoints';
@@ -56,6 +58,7 @@ export function buildPeople(rows, date, timesheetHref) {
         const done = (row.status ?? 'active') === 'completed';
         const id = String(row.employee_id ?? row.user_id);
         const fields = [
+            ['Day', `${SYMBOL.PRESENT} ${TERM.PRESENT}`],
             ['Status', done ? 'Done' : 'Active'],
             ['Designation', row.designation],
             ['Punch in', stamp(row.punchin_time, inn)],

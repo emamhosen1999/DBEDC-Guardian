@@ -38,7 +38,7 @@ class AttendanceStatusService
         $onLeave = $fraction > 0;
 
         $sorted = $punches
-            ->filter(fn ($p) => $p->punchin !== null || (isset($p->symbol) && $p->symbol === '√'))
+            ->filter(fn ($p) => $p->punchin !== null || (isset($p->symbol) && $p->symbol === \App\Support\Attendance\AttendanceSymbol::PRESENT))
             ->sortBy(fn ($p) => $p->punchin ? Carbon::parse($p->punchin)->getTimestamp() : Carbon::parse($shift->start)->getTimestamp())
             ->values();
 
@@ -49,7 +49,7 @@ class AttendanceStatusService
         $lastOut = null;
 
         foreach ($sorted as $p) {
-            if ($p->punchin === null && isset($p->symbol) && $p->symbol === '√') {
+            if ($p->punchin === null && isset($p->symbol) && $p->symbol === \App\Support\Attendance\AttendanceSymbol::PRESENT) {
                 $in = $shift->start;
                 $out = $shift->end;
                 $firstIn ??= $in;
@@ -62,7 +62,7 @@ class AttendanceStatusService
             $firstIn ??= $in;
 
             if ($p->punchout === null) {
-                if (isset($p->symbol) && $p->symbol === '√') {
+                if (isset($p->symbol) && $p->symbol === \App\Support\Attendance\AttendanceSymbol::PRESENT) {
                     $out = $shift->end;
                     $workedMinutes += (int) round($in->diffInMinutes($out));
                     $lastOut = $out;

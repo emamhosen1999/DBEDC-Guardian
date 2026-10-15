@@ -2,194 +2,21 @@
 
 namespace App\Exports;
 
-use App\Models\HRM\Holiday;
-use App\Models\HRM\LeaveSetting;
-use App\Models\User;
-use App\Services\Attendance\AttendanceReportService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
+/**
+ * Kept for callers of the old monthly export: a calendar month is now just a period of the
+ * attendance register (see AttendanceRegisterExport), so this delegates to it.
+ */
 class AttendanceAdminExport
 {
-    protected ?int $departmentId;
+    /** @param array<int, string>|null $employeeIds actor scope (DepartmentScope::visibleEmployeeIds); null = unrestricted */
+    public function __construct(protected ?int $departmentId = null, protected ?array $employeeIds = null) {}
 
-    /** @var array<int, string>|null actor scope (DepartmentScope::visibleEmployeeIds); null = unrestricted */
-    protected ?array $employeeIds;
-
-    public function __construct(?int $departmentId = null, ?array $employeeIds = null)
+    public function saveToDisk($month, $filePath, $disk = 'public'): void
     {
-        $this->departmentId = $departmentId;
-        $this->employeeIds = $employeeIds;
-    }
-
-    public function export($month)
-    {
-        try {
-            $from = Carbon::parse($month.'-01');
-            $monthName = $from->format('F Y');
-            $fileName = "DBEDC_Attendance_{$monthName}.xlsx";
-
-            $spreadsheet = $this->buildSpreadsheet($month);
-            $writer = new Xlsx($spreadsheet);
-            $tempFile = tempnam(sys_get_temp_dir(), 'attendance');
-            $writer->save($tempFile);
-
-            return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
-        } catch (\Exception $e) {
-            throw new \Exception('Export failed: '.$e->getMessage());
-        }
-    }
-
-    public function saveToDisk($month, $filePath, $disk = 'public')
-    {
-        try {
-            $spreadsheet = $this->buildSpreadsheet($month);
-            $writer = new Xlsx($spreadsheet);
-            $tempFile = tempnam(sys_get_temp_dir(), 'attendance');
-            $writer->save($tempFile);
-
-            // Ensure exports directory exists
-            if (! Storage::disk($disk)->exists('exports')) {
-                Storage::disk($disk)->makeDirectory('exports');
-            }
-
-            Storage::disk($disk)->put($filePath, file_get_contents($tempFile));
-            @unlink($tempFile);
-        } catch (\Exception $e) {
-            throw new \Exception('Export failed: '.$e->getMessage());
-        }
-    }
-
-    private function buildSpreadsheet($month)
-    {
-        $from = Carbon::parse($month.'-01');
-        $to = $from->copy()->endOfMonth();
-        $monthName = $from->format('F Y');
-
-        // Use the shared loader so the export applies the same filters as the grid/dashboard
-        // (attendances policy_status != rejected, leaves status = approved); loading the
-        // relations directly would leak pending/rejected leaves + rejected punches into the sheet.
-        $users = app(AttendanceReportService::class)
-            ->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $this->departmentId, null, null, null, $this->employeeIds);
-
-        $leaveTypes = LeaveSetting::all();
-        $holidays = Holiday::all();
-
-        $symbolToTypeMap = $leaveTypes->pluck('type', 'symbol')->toArray();
-
-        $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->getDefaultRowDimension()->setRowHeight(25);
-
-        $headerTitle = 'Dhaka Bypass Expressway Development Company Ltd. Attendance Record-DBEDC Site Office Employee';
-        $sheet->setCellValue('A1', $headerTitle);
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->mergeCells('A1:Z1');
-
-        $sheet->setCellValue('A2', $monthName);
-        $sheet->getStyle('A2')->getFont()->setBold(true);
-        $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->mergeCells('A2:Z2');
-
-        // Header
-        $sheet->setCellValue('A4', 'SL');
-        $sheet->setCellValue('B4', 'Name');
-
-        $col = 'C';
-        $dateMap = [];
-        for ($date = $from->copy(); $date->lte($to); $date->addDay()) {
-            $label = $date->format('d').' - '.$date->format('D');
-            $sheet->setCellValue("{$col}4", $label);
-            $sheet->getStyle("{$col}4")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-            $dateMap[$col] = $date->toDateString();
-            $col++;
-        }
-
-        foreach ($leaveTypes as $leaveType) {
-            $sheet->setCellValue("{$col}4", $leaveType->type);
-            $col++;
-        }
-
-        $sheet->setCellValue("{$col}4", 'Remark');
-
-        $row = 5;
-        foreach ($users as $index => $user) {
-            $attendanceRecord = app(AttendanceReportService::class)->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
-
-            $sheet->setCellValue("A{$row}", $index + 1);
-            $sheet->setCellValue("B{$row}", $user->name);
-
-            $colCursor = 'C';
-            $leaveCounts = array_fill_keys($leaveTypes->pluck('type')->toArray(), 0);
-
-            foreach ($dateMap as $colKey => $dateString) {
-                $dayStatus = $attendanceRecord[$dateString]['status'] ?? '#';
-                $remarks = $attendanceRecord[$dateString]['remarks'] ?? '';
-                $sheet->setCellValue("{$colKey}{$row}", $dayStatus);
-
-                if ($remarks === 'On Leave' && isset($symbolToTypeMap[$dayStatus])) {
-                    $leaveType = $symbolToTypeMap[$dayStatus];
-                    $leaveCounts[$leaveType]++;
-                }
-                $colCursor++;
-            }
-
-            foreach ($leaveTypes as $leaveType) {
-                $count = $leaveCounts[$leaveType->type] ?? 0;
-                $sheet->setCellValue("{$colCursor}{$row}", $count > 0 ? $count : '-');
-                $colCursor++;
-            }
-
-            $sheet->setCellValue("{$colCursor}{$row}", '');
-            $row++;
-        }
-
-        $lastCol = $sheet->getHighestColumn();
-        $lastRow = $sheet->getHighestRow();
-        $sheet->getStyle("A4:{$lastCol}{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle("A4:{$lastCol}4")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE0E0E0');
-        $sheet->getStyle("A4:{$lastCol}4")->getFont()->setBold(true);
-
-        // Fix range for autosize
-        for ($col = 'A'; $col !== $this->nextExcelColumn($lastCol); $col = $this->nextExcelColumn($col)) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        // Name the grid sheet and append the per-employee Summary sheet.
-        $sheet->setTitle('Calendar');
-
-        $summary = app(AttendanceReportService::class)
-            ->getPerEmployeeMonthlySummary($from->year, $from->month, $this->departmentId, $this->employeeIds);
-        $summarySheet = $spreadsheet->createSheet();
-        (new \App\Exports\AttendancePerEmployeeSummaryExport)->writeSheet($summarySheet, $summary);
-
-        // Keep the Calendar grid as the first/active sheet.
-        $spreadsheet->setActiveSheetIndex(0);
-
-        return $spreadsheet;
-    }
-
-    private function nextExcelColumn($col)
-    {
-        $letters = str_split($col);
-        $len = count($letters);
-        for ($i = $len - 1; $i >= 0; $i--) {
-            if ($letters[$i] !== 'Z') {
-                $letters[$i] = chr(ord($letters[$i]) + 1);
-                for ($j = $i + 1; $j < $len; $j++) {
-                    $letters[$j] = 'A';
-                }
-
-                return implode('', $letters);
-            }
-        }
-
-        return 'A'.str_repeat('A', $len);
+        $from = Carbon::parse($month.'-01')->startOfDay();
+        (new AttendanceRegisterExport($this->employeeIds, $this->departmentId))
+            ->saveToDisk($from, $from->copy()->endOfMonth()->startOfDay(), $filePath, $disk);
     }
 }

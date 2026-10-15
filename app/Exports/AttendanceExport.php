@@ -2,24 +2,37 @@
 
 namespace App\Exports;
 
-use App\Models\HRM\Attendance;
-use App\Models\HRM\Leave;
+use App\Exports\Register\ReportStyle;
 use App\Models\HRM\LeaveSetting;
-use App\Models\User;
+use App\Services\Attendance\AttendanceReportService;
+use App\Support\Attendance\AttendanceSymbol;
 use Carbon\Carbon;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings
+/**
+ * The Daily Timesheet (one day, one row per employee) in the house report format.
+ *
+ * Day status comes from the same engine as the register and the calendar, so a person is
+ * Present / Absent / Weekly Off / on a named leave / on a Festival Holiday here exactly as there,
+ * and the Day column carries the register symbol.
+ */
+class AttendanceExport
 {
-    protected $date;
+    public const HEADINGS = [
+        'No.', 'Date', 'Employee Name', 'Employee ID', 'Designation', 'Department', 'Phone',
+        'Day', 'Status', 'Clock In', 'Clock Out', 'Work Hours', 'Total Punches', 'Complete Punches', 'Remarks',
+    ];
 
-    protected $departmentId;
+    public const WIDTHS = [4.5, 11, 24, 12, 18, 16, 12, 5, 17, 13, 13, 10, 8, 9, 24];
+
+    /** 1-based columns whose text reads left aligned. */
+    public const LEFT = [3, 5, 6, 15];
+
+    protected string $date;
+
+    protected ?int $departmentId;
 
     /** @var array<int, string>|null actor scope (DepartmentScope::visibleEmployeeIds); null = unrestricted */
     protected ?array $employeeIds;
@@ -31,263 +44,132 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
         $this->employeeIds = $employeeIds;
     }
 
-    public function collection()
+    public function day(): Carbon
     {
-        $query = User::join('designations', 'users.designation_id', '=', 'designations.id')
-            ->select('users.*', 'designations.title as designation_title');
+        return Carbon::parse($this->date)->startOfDay();
+    }
 
-        if ($this->departmentId) {
-            $query->where('users.department_id', $this->departmentId);
-        }
+    public function title(): string
+    {
+        return 'Daily Timesheet';
+    }
 
-        if ($this->employeeIds !== null) {
-            $query->whereIn('users.employee_id', $this->employeeIds === [] ? ['__NONE__'] : $this->employeeIds);
-        }
+    /** @return list<array<string, scalar|null>> keyed by the headings */
+    public function collection(): array
+    {
+        $day = $this->day();
+        $reports = app(AttendanceReportService::class);
+        $leaveTypes = LeaveSetting::all();
+        $users = $reports->getEmployeeUsersWithAttendanceAndLeaves($day->year, $day->month, $this->departmentId, null, null, null, $this->employeeIds);
+        $holidays = $reports->getHolidaysForMonth($day->year, $day->month);
+        $isToday = now()->toDateString() === $day->toDateString();
 
-        $users = $query->get();
-
-        $rows = collect();
-        $counter = 1;
-        $dateIsToday = now()->toDateString() === $this->date;
-
+        $rows = [];
         foreach ($users as $user) {
-            $attendances = Attendance::where('user_id', $user->id)
-                ->whereDate('date', $this->date)
-                ->orderBy('punchin')
-                ->get();
+            $data = $reports->getUserAttendanceData($user, $day->year, $day->month, $holidays, $leaveTypes)[$day->toDateString()] ?? null;
+            $symbol = $data['symbol'] ?? AttendanceSymbol::NOT_YET;
+            $attendances = $user->attendances
+                ->filter(fn ($a) => Carbon::parse($a->date)->isSameDay($day))
+                ->sortBy('punchin')
+                ->values();
 
-            $leave = Leave::where('user_id', $user->id)
-                ->whereDate('from_date', '<=', $this->date)
-                ->whereDate('to_date', '>=', $this->date)
-                ->first();
-
-            if ($attendances->count()) {
-                $allClockIns = [];
-                $allClockOuts = [];
-                $totalMinutes = 0;
-                $completePunches = 0;
-                $incomplete = false;
-
-                foreach ($attendances as $attendance) {
-                    // Collect all clock in times with numbers
-                    if ($attendance->punchin) {
-                        $allClockIns[] = Carbon::parse($attendance->punchin)->format('h:i A');
-
-                        // For each punch in, add corresponding punch out or "No punch out"
-                        if ($attendance->punchout) {
-                            $allClockOuts[] = Carbon::parse($attendance->punchout)->format('h:i A');
-                        } else {
-                            $allClockOuts[] = 'No punch out';
-                        }
-                    }
-
-                    if ($attendance->punchin && $attendance->punchout) {
-                        $inTime = Carbon::parse($attendance->punchin);
-                        $outTime = Carbon::parse($attendance->punchout);
-                        if ($outTime->lt($inTime)) {
-                            $outTime->addDay();
-                        }
-                        $totalMinutes += $inTime->diffInMinutes($outTime);
-                        $completePunches++;
-                    }
-
-                    if ($attendance->punchin && ! $attendance->punchout) {
-                        $incomplete = true;
-                    }
+            $ins = [];
+            $outs = [];
+            $minutes = 0;
+            $complete = 0;
+            $open = false;
+            foreach ($attendances as $a) {
+                if (! $a->punchin) {
+                    continue;
                 }
-
-                // Format work hours
-                $workTime = $totalMinutes > 0
-                    ? intval($totalMinutes / 60).'h '.($totalMinutes % 60).'m'
-                    : '';
-
-                // Format all clock in times (each on new line with numbers)
-                $in = count($allClockIns) > 0
-                    ? implode("\r\n", array_map(function ($time, $index) {
-                        return ($index + 1).'. '.$time;
-                    }, $allClockIns, array_keys($allClockIns)))
-                    : 'Not clocked in';
-
-                // Format all clock out times (each on new line with numbers)
-                $out = count($allClockOuts) > 0
-                    ? implode("\r\n", array_map(function ($time, $index) {
-                        return ($index + 1).'. '.$time;
-                    }, $allClockOuts, array_keys($allClockOuts)))
-                    : ($incomplete
-                        ? ($dateIsToday ? 'Still working' : 'No punchout')
-                        : 'Not punched out');
-
-                // Define status and remarks
-                if ($attendances->count() === 1) {
-                    if ($incomplete) {
-                        $workTime = $dateIsToday ? 'Still Working' : 'Not Punched Out';
-                        $status = 'Present';
-                        $remarks = $dateIsToday ? 'Currently Working' : 'Not Punched Out';
-                    } else {
-                        $status = 'Present';
-                        $remarks = 'All punches complete';
+                $ins[] = Carbon::parse($a->punchin)->format('h:i A');
+                $outs[] = $a->punchout ? Carbon::parse($a->punchout)->format('h:i A') : 'No punch out';
+                if ($a->punchout) {
+                    $in = Carbon::parse($a->punchin);
+                    $out = Carbon::parse($a->punchout);
+                    if ($out->lt($in)) {
+                        $out->addDay();
                     }
-                } elseif ($completePunches === $attendances->count()) {
-                    $status = 'Present';
-                    $remarks = 'All punches complete';
+                    $minutes += (int) $in->diffInMinutes($out);
+                    $complete++;
                 } else {
-                    $status = 'Present';
-                    $remarks = 'Incomplete punches';
-                    if ($incomplete && $dateIsToday) {
-                        $workTime .= ' + Currently Working';
-                    }
+                    $open = true;
                 }
-
-                $rows->push([
-                    'No.' => $counter++,
-                    'Date' => date('M d, Y', strtotime($this->date)),
-                    'Employee Name' => $user->name,
-                    'Employee ID' => $user->employee_id,
-                    'Designation' => $user->designation_title ?? 'N/A',
-                    'Phone' => $user->phone,
-                    'Clock In' => $in,
-                    'Clock Out' => $out,
-                    'Work Hours' => $workTime ?: '0h 0m',
-                    'Total Punches' => $attendances->count(),
-                    'Complete Punches' => $completePunches,
-                    'Status' => $status,
-                    'Remarks' => $remarks,
-                ]);
-            } elseif ($leave) {
-                $duration = $leave->from_date === $leave->to_date
-                    ? $this->date
-                    : $leave->from_date.' to '.$leave->to_date;
-                $leave_type = LeaveSetting::find($leave->leave_type)->type ?? 'Unknown';
-
-                $remarks = "On {$leave_type} Leave ({$duration}) - Status: {$leave->status}";
-
-                $rows->push([
-                    'No.' => $counter++,
-                    'Date' => date('M d, Y', strtotime($this->date)),
-                    'Employee Name' => $user->name,
-                    'Employee ID' => $user->employee_id,
-                    'Designation' => $user->designation_title ?? 'N/A',
-                    'Phone' => $user->phone,
-                    'Clock In' => 'On Leave',
-                    'Clock Out' => 'On Leave',
-                    'Work Hours' => '0h 0m',
-                    'Total Punches' => 0,
-                    'Complete Punches' => 0,
-                    'Status' => 'On Leave',
-                    'Remarks' => $remarks,
-                ]);
-            } else {
-                $rows->push([
-                    'No.' => $counter++,
-                    'Date' => date('M d, Y', strtotime($this->date)),
-                    'Employee Name' => $user->name,
-                    'Employee ID' => $user->employee_id,
-                    'Designation' => $user->designation_title ?? 'N/A',
-                    'Phone' => $user->phone,
-                    'Clock In' => 'Absent',
-                    'Clock Out' => 'Absent',
-                    'Work Hours' => '0h 0m',
-                    'Total Punches' => 0,
-                    'Complete Punches' => 0,
-                    'Status' => 'Absent',
-                    'Remarks' => 'Absent without leave',
-                ]);
             }
+            $numbered = fn (array $times) => implode("\n", array_map(fn ($t, $i) => ($i + 1).'. '.$t, $times, array_keys($times)));
+            $remarks = $data['remarks'] ?? '';
+            if ($ins !== []) {
+                $remarks = $open ? ($isToday ? 'Currently Working' : 'Incomplete punches') : 'All punches complete';
+            }
+            $worked = $minutes > 0 ? intdiv($minutes, 60).'h '.($minutes % 60).'m' : '0h 0m';
+
+            $rows[] = [
+                'No.' => count($rows) + 1,
+                'Date' => $day->format('M d, Y'),
+                'Employee Name' => $user->name,
+                'Employee ID' => $user->employee_id,
+                'Designation' => $user->designation->title ?? 'N/A',
+                'Department' => $user->department->name ?? '',
+                'Phone' => $user->phone,
+                'Day' => $symbol,
+                'Status' => AttendanceSymbol::label($symbol),
+                'Clock In' => $ins !== [] ? $numbered($ins) : '',
+                'Clock Out' => $outs !== [] ? $numbered($outs) : '',
+                'Work Hours' => $worked,
+                'Total Punches' => $attendances->count(),
+                'Complete Punches' => $complete,
+                'Remarks' => $remarks,
+            ];
         }
 
         return $rows;
     }
 
-    public function headings(): array
+    /** "Total employees: 27 · Present 20 · On leave 2 · Absent 3 · Weekly off 1 · Festival 1 · Not yet recorded 0". */
+    public function note(array $rows): string
     {
-        return [
-            'No.',
-            'Date',
-            'Employee Name',
-            'Employee ID',
-            'Designation',
-            'Phone',
-            'Clock In',
-            'Clock Out',
-            'Work Hours',
-            'Total Punches',
-            'Complete Punches',
-            'Status',
-            'Remarks',
-        ];
+        $count = fn (array $symbols) => count(array_filter($rows, fn ($r) => in_array($r['Day'], $symbols, true)));
+        $leave = [AttendanceSymbol::PERSONAL, AttendanceSymbol::SICK, AttendanceSymbol::MARITAL, AttendanceSymbol::FUNERAL, AttendanceSymbol::MATERNITY, AttendanceSymbol::ANNUAL, AttendanceSymbol::UNKNOWN_LEAVE];
+
+        return 'Total employees: '.count($rows)
+            .'  ·  Present: '.$count([AttendanceSymbol::PRESENT])
+            .'  ·  Absent: '.$count([AttendanceSymbol::ABSENT])
+            .'  ·  On leave: '.$count($leave)
+            .'  ·  Weekly off: '.$count([AttendanceSymbol::DAY_OFF])
+            .'  ·  Festival holiday: '.$count([AttendanceSymbol::FESTIVAL])
+            .'  ·  Not yet recorded: '.$count([AttendanceSymbol::NOT_YET]);
     }
 
-    public function registerEvents(): array
+    public function build(): Spreadsheet
     {
-        return [
-            AfterSheet::class => function (AfterSheet $event) {
-                $sheet = $event->sheet->getDelegate();
-                $firstDataRow = 2;
-                $lastDataRow = $sheet->getHighestDataRow();
+        $rows = $this->collection();
+        $spreadsheet = new Spreadsheet;
+        $ws = $spreadsheet->getActiveSheet();
+        $ws->setTitle($this->title());
+        ReportStyle::tableReport($ws, $this->title(), $this->day(), $this->day(), self::HEADINGS, self::WIDTHS, array_map('array_values', $rows), [
+            'note' => $this->note($rows), 'withKey' => true, 'leftAligned' => self::LEFT,
+            'empty' => 'No employees in scope for this day.',
+        ]);
 
-                /* 3. Pull only the data block (columns A-L, rows 2-N)      *
-                 *    ─ $returnCellRef = true → every row is keyed by       *
-                 *      column letters (‘A’, ‘B’, … ‘L’)                    */
-                $rows = collect(
-                    $sheet->rangeToArray(
-                        "A{$firstDataRow}:L{$lastDataRow}",
-                        null,        // $nullValue
-                        true,        // $calculateFormulas
-                        false,       // $formatData
-                        true         // $returnCellRef
-                    )
-                );
+        return $spreadsheet;
+    }
 
-                /* 4. Quick counts based on the “Status” column (L) */
-                $present = $rows->where('L', 'Present')->count();
-                $absent = $rows->where('L', 'Absent')->count();
-                $onLeave = $rows->where('L', 'On Leave')->count();
-                $total = $rows->count();
-                $sheet->insertNewRowBefore(1, 3); // Shift everything down by 4 rows
+    public function saveToDisk(string $filePath, string $disk = 'public'): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'daily');
+        (new Xlsx($this->build()))->save($tmp);
+        Storage::disk($disk)->makeDirectory('exports');
+        Storage::disk($disk)->put($filePath, file_get_contents($tmp));
+        @unlink($tmp);
+    }
 
-                // ====== Title ======
-                $sheet->mergeCells('A1:M1');
-                $sheet->setCellValue('A1', 'Daily Timesheet - '.date('F d, Y', strtotime($this->date)));
-                $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-                $sheet->getStyle('A1')->getAlignment()->setHorizontal('center');
+    public function pdf(): string
+    {
+        $rows = $this->collection();
 
-                // ====== Generated on ======
-                $sheet->mergeCells('A2:M2');
-                $sheet->setCellValue('A2', 'Generated on: '.now()->format('F d, Y h:i A'));
-                $sheet->getStyle('A2')->getAlignment()->setHorizontal('center');
-
-                // ====== Summary row ======
-
-                $sheet->mergeCells('A3:M3');
-                $sheet->setCellValue('A3', "Total Employees: {$total} (Present: {$present}, On Leave: {$onLeave}), Absent: {$absent})");
-                $sheet->getStyle('A3')->getAlignment()->setHorizontal('center');
-
-                // ====== Style the headers ======
-                $sheet->getStyle('A4:M4')->getFont()->setBold(true);
-                $sheet->getStyle('A4:M4')->getFill()
-                    ->setFillType(Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB('E3F2FD');
-                $sheet->getStyle('A4:M4')->getAlignment()->setHorizontal('center');
-
-                // ====== Borders for the full range ======
-                $highestRow = $sheet->getHighestRow();
-                $highestCol = $sheet->getHighestColumn();
-                $sheet->getStyle("A1:{$highestCol}{$highestRow}")
-                    ->getBorders()->getAllBorders()
-                    ->setBorderStyle(Border::BORDER_THIN);
-                $sheet->getStyle("A1:{$highestCol}{$highestRow}")
-                    ->getAlignment()->setHorizontal('center');
-
-                // ====== Enable text wrapping for Clock In and Clock Out columns ======
-                $dataStartRow = 5; // After headers and summary rows
-                $sheet->getStyle("G{$dataStartRow}:H{$highestRow}")
-                    ->getAlignment()->setWrapText(true);
-                $sheet->getStyle("G{$dataStartRow}:H{$highestRow}")
-                    ->getAlignment()->setVertical('top');
-
-                // ====== Freeze pane after headers ======
-                $sheet->freezePane('A5');
-            },
-        ];
+        return ReportStyle::tablePdf($this->title(), $this->day(), $this->day(), self::HEADINGS, self::WIDTHS, array_map('array_values', $rows), [
+            'note' => $this->note($rows), 'withKey' => true, 'leftAligned' => self::LEFT,
+            'empty' => 'No employees in scope for this day.',
+        ]);
     }
 }

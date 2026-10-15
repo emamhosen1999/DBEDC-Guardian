@@ -36,7 +36,7 @@ class MonthlyGridOffDayTest extends TestCase
             ->getUserAttendanceData($user, 2026, 6, collect(), collect());
 
         // 06-02 is an OFF day in the rotation, no punches -> Day Off, not Absent.
-        $this->assertSame('Day Off', $data['2026-06-02']['remarks']);
+        $this->assertSame('Weekly Off / Rest Day', $data['2026-06-02']['remarks']);
         $this->assertSame('Absent', $data['2026-06-01']['remarks']);
     }
 }
