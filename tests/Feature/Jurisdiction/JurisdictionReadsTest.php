@@ -99,6 +99,19 @@ class JurisdictionReadsTest extends JurisdictionTestCase
         $this->actingAs($this->admin())->getJson('/jurisdictions/overview?as_of=garbage')->assertStatus(422);
     }
 
+    public function test_the_default_period_is_twelve_months_and_an_empty_period_says_when_the_latest_work_was(): void
+    {
+        // Production: nothing dated after 2026-06-05, so a 30-day default showed every jurisdiction at 0 works.
+        $p = $this->phases();
+        $this->work('Q1', 'K01+000', $this->day(-130), 'completed', $p['people'][0]->employee_id);
+
+        $default = $this->actingAs($this->admin())->getJson('/jurisdictions/overview?as_of='.$this->day(0))->assertOk();
+        $default->assertJsonPath('period.key', '365d')->assertJsonPath('summary.works', 1);
+
+        $this->actingAs($this->admin())->getJson('/jurisdictions/overview?as_of='.$this->day(0).'&period=30d')->assertOk()
+            ->assertJsonPath('summary.works', 0)->assertJsonPath('summary.latest_work_date', $this->day(-130));
+    }
+
     public function test_the_print_route_needs_view_and_takes_a_paper_size(): void
     {
         $this->phases();

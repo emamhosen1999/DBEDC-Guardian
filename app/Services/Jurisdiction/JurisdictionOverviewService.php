@@ -15,6 +15,7 @@ use App\Services\Map\MapFilter;
 use App\Services\Org\ReportingLineService;
 use App\Support\Corridor\Chainage;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Everything the Jurisdictions tab, its map and the print view show, AS OF a date: the boundaries and names valid that
@@ -96,6 +97,8 @@ class JurisdictionOverviewService
                 'count' => count($rows), 'sections' => collect($rows)->where('kind', 'section')->count(), 'coverage_pct' => $coverage['coverage_pct'], 'gaps' => count($coverage['gaps']), 'overlaps' => count($coverage['overlaps']),
                 'unassigned_incharge' => collect($rows)->whereNull('in_charge')->count(),
                 'works' => collect($rows)->where('kind', 'section')->sum(fn (array $r): int => $r['stats']['works']), 'unplaced' => $stats['unplaced'],
+                // The newest work dated on or before the as-of date, so an empty period can say why it is empty.
+                'latest_work_date' => ($latest = DB::table('daily_works')->whereNull('deleted_at')->where('date', '<=', $asOf)->max('date')) !== null ? substr((string) $latest, 0, 10) : null,
             ],
             'map' => $withMap ? $this->map($viewer, $rows) : null,
         ];

@@ -13,7 +13,7 @@ import { DeleteJurisdictionDialog, JurisdictionFormDialog, KINDS, MergeDialog, R
 import JurisdictionMapCard from './JurisdictionMapCard.jsx';
 import { PERIODS, bandColour, chainageRange, formatDay, getJson, lengthKm, overviewParams, todayDhaka } from './jurisdictionUtils.js';
 
-const DEFAULTS = { ju_q: '', ju_kind: 'all', ju_sel: '', ju_dtab: 'team', ju_period: '30d', ju_asof: '', ju_from: '', ju_to: '' };
+const DEFAULTS = { ju_q: '', ju_kind: 'all', ju_sel: '', ju_dtab: 'team', ju_period: '365d', ju_asof: '', ju_from: '', ju_to: '' };
 
 /**
  * Jurisdictions (project phases) of the expressway, historical: every view takes an as-of date and shows the boundaries and
@@ -90,6 +90,14 @@ export default function JurisdictionsManager({ employees = [] }) {
                         <Badge soft color="warning"><Icon name="clock-history" /> {formatDay(data.as_of)}</Badge>
                         <span>Boundaries, in-charges and teams as they were on this date. Figures are for {data.period.label.toLowerCase()}.</span>
                     </div>
+                )}
+
+                {data && data.summary.works === 0 && data.summary.latest_work_date && v.ju_period !== 'all' && (
+                    <Alert tone="info" title={`No daily works are dated in the ${data.period.label.toLowerCase()}.`}>
+                        <span>The latest work is dated {formatDay(data.summary.latest_work_date)}. </span>
+                        {v.ju_period !== '365d' && <Button size="sm" variant="outline" color="secondary" onClick={() => f.set('ju_period', '365d')}>Show last 12 months</Button>}{' '}
+                        <Button size="sm" variant="outline" color="secondary" onClick={() => f.set('ju_period', 'all')}>Show all time</Button>
+                    </Alert>
                 )}
 
                 {overview.isError && !data && (

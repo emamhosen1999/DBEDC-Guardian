@@ -10,7 +10,9 @@ final class JurisdictionPeriod
 {
     public const PRESETS = ['7d' => 7, '30d' => 30, '90d' => 90, '365d' => 365];
 
-    public const DEFAULT = '30d';
+    // Twelve months: a shorter default showed a row of zeros whenever the register had a quiet spell (production had no
+    // works dated after 2026-06-05), which read as broken stats rather than as no recent works.
+    public const DEFAULT = '365d';
 
     private function __construct(
         public readonly string $key,
