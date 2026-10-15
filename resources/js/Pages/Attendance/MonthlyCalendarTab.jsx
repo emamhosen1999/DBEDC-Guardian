@@ -18,14 +18,6 @@ const EMPTY_LIST = [];
 const EMPTY_MAP = {};
 
 /* ── helpers ──────────────────────────────────────────────── */
-const isWeekendDay = (date, weekendDays) => {
-    if (!weekendDays?.length) {
-        const d = dayjs(date).day();
-        return d === 0 || d === 6;
-    }
-    return weekendDays.includes(dayjs(date).format('dddd').toLowerCase());
-};
-
 const dateKeyOf = (year, month, day) => dayjs(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`).format('YYYY-MM-DD');
 
 /* One day of one employee: the register symbol itself (never a stand-in glyph). Colour is a secondary cue only:
@@ -80,10 +72,10 @@ const DesktopMonthTable = ({ rows, days, month, year, weekendDays, loading }) =>
                         <th scope="col">Employee</th>
                         {days.map((d) => {
                             const date = dayjs(dateKeyOf(year, month, d));
-                            const wknd = isWeekendDay(date, weekendDays);
                             const festival = isFestivalDate(rows, dateKeyOf(year, month, d));
+                            // No weekday "weekend" shading: rest days come from each person's roster (their own / cells).
                             return (
-                                <th key={d} scope="col" className={[wknd ? 'is-weekend' : '', festival ? 'is-festival' : ''].filter(Boolean).join(' ') || undefined} title={festival ? 'Festival holiday' : undefined}>
+                                <th key={d} scope="col" className={festival ? 'cy-cal__date is-festival' : 'cy-cal__date'} title={festival ? 'Festival holiday' : undefined}>
                                     <span className="cy-cal__day"><span>{d}</span><span className="cy-cal__dow">{date.format('dd')}</span></span>
                                 </th>
                             );
@@ -111,7 +103,7 @@ const DesktopMonthTable = ({ rows, days, month, year, weekendDays, loading }) =>
                                     {days.map((d) => {
                                         const dateKey = dateKeyOf(year, month, d);
                                         return (
-                                            <td key={d} className={isWeekendDay(dateKey, weekendDays) ? 'is-weekend' : undefined}>
+                                            <td key={d} className="cy-cal__cell">
                                                 <DayMark cell={row[dateKey]} dateKey={dateKey} />
                                             </td>
                                         );
@@ -156,8 +148,8 @@ const MobileEmployeeCard = ({ row, days, month, year, weekendDays }) => {
                     {days.map((dayNum) => {
                         const dateKey = dateKeyOf(year, month, dayNum);
                         return (
-                            <span key={dayNum} className={`cy-mcard__cell${isWeekendDay(dateKey, weekendDays) ? ' is-weekend' : ''}`}>
-                                <span>{dayNum}</span>
+                            <span key={dayNum} className="cy-mcard__cell">
+                                <span className="cy-mcard__num">{dayNum}</span>
                                 <DayMark cell={row[dateKey]} dateKey={dateKey} />
                             </span>
                         );

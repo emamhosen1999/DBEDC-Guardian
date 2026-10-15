@@ -349,3 +349,15 @@
 .cy-coordrow .cy-iconbtn:disabled { opacity: 0.4; cursor: default; }
 .cy-fieldset--ruled { padding-top: 0.65625rem; border-top: 1px solid var(--cy-border-translucent); }
 @media (max-width: 575.98px) { .cy-coordrow { grid-template-columns: 1.75rem 1fr 1fr; } .cy-coordrow .cy-iconbtn { justify-self: start; } }
+
+/* Square day cells (owner, 2026-10-15): every day is a fixed square and its symbol tile fills it, so fills, festival colours
+   and the bold rest-day border read like the register's grid. Phone: square tiles, the date small in the corner. */
+.cy-cal .cy-table th.cy-cal__date { width: 2rem; min-width: 2rem; max-width: 2rem; padding-inline: 0; }
+.cy-cal .cy-table td.cy-cal__cell { width: 2rem; min-width: 2rem; max-width: 2rem; height: calc(2rem - 1px); padding: 1px; } /* + the 1px row line = 2rem */
+.cy-cal .cy-table td.cy-cal__cell > .cy-mark { box-sizing: border-box; width: 100%; height: calc(2rem - 3px); }
+/* Bold outer frame around the whole grid, as the register's medium outer border (owner, 2026-10-15). */
+.cy-cal { border: 2px solid var(--cy-fg); }
+.cy-mcard__grid { border: 2px solid var(--cy-fg); margin: 0.4375rem 0.875rem 0.875rem; padding: 2px; }
+.cy-mcard__cell { position: relative; display: block; aspect-ratio: 1 / 1; padding: 0; }
+.cy-mcard__cell > .cy-mark { box-sizing: border-box; width: 100%; height: 100%; }
+.cy-mcard__num { position: absolute; inset-block-start: 1px; inset-inline-start: 2px; z-index: 1; font-size: 0.4375rem; line-height: 1; color: var(--cy-text-faint); pointer-events: none; }
