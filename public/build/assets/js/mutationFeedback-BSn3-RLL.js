@@ -1,1 +1,0 @@
-import{s as a}from"./toastUtils-wI7QIthu.js";import"./vendor-inertia-ZGSz7jM2.js";import"./vendor-utils-BilTy969.js";function s(t){const o=(t==null?void 0:t.conflict)||Object.values(t||{}).flat().find(Boolean)||"The operation could not be completed. Refresh and try again.";a.error(String(o))}export{s};
