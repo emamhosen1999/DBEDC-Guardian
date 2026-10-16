@@ -1,3 +1,7 @@
+// ─── WDYR must load BEFORE React for monkey-patching (dev-only, tree-shaken in prod) ───
+import './wdyr';
+// ─── Sentry must initialize BEFORE the app renders to capture full lifecycle ───
+import './sentry';
 import './bootstrap';
 import '../css/app.css';
 import React from 'react';
@@ -100,6 +104,22 @@ axios.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// ─── React Scan: Visual re-render profiling (dev-only) ───
+// Highlights components that re-render unnecessarily with a colored overlay.
+// Completely tree-shaken from production builds via import.meta.env.DEV gate.
+if (import.meta.env.DEV) {
+    import('react-scan').then(({ scan }) => {
+        scan({
+            enabled: true,
+            log: true,        // Log render counts to console
+            showToolbar: true, // Floating toolbar for toggling
+        });
+        console.info('[React Scan] ✅ Overlay active — unnecessary re-renders will be highlighted');
+    }).catch(() => {
+        console.info('[React Scan] Not installed — run: npm install react-scan --save-dev');
+    });
+}
 
 createInertiaApp({
     // Disable default progress bar - using custom LoadingIndicator instead

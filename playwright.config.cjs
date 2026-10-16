@@ -30,6 +30,7 @@ module.exports = defineConfig({
       use: {
         browserName: 'chromium',
         launchOptions: {
+          executablePath: process.env.CHROME_BIN || (require('fs').existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined),
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -39,5 +40,31 @@ module.exports = defineConfig({
         },
       },
     },
+    // ─── Replay.io: Time-travel debugging for recorded test runs ───
+    // Run with:  npx playwright test --project=replay-chromium
+    // Upload:    npx @replayio/replay upload --all
+    // Degrades gracefully if @replayio/replay is not installed.
+    ...((() => {
+      try {
+        const { getExecutablePath } = require('@replayio/replay');
+        return [{
+          name: 'replay-chromium',
+          use: {
+            browserName: 'chromium',
+            launchOptions: {
+              executablePath: getExecutablePath('chromium'),
+              env: { ...process.env, RECORD_ALL_CONTENT: '1' },
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+              ],
+            },
+          },
+        }];
+      } catch {
+        return []; // @replayio/replay not installed — skip this project
+      }
+    })()),
   ],
 });

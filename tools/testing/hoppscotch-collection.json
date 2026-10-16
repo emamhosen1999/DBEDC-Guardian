@@ -1,0 +1,331 @@
+{
+  "v": 3,
+  "name": "DBEDC Guardian — Full API Collection",
+  "folders": [
+    {
+      "v": 3,
+      "name": "🔐 Authentication",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "Mobile Login (Sanctum Token)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/auth/login",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true },
+            { "key": "Accept", "value": "application/json", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"email\": \"<<test_email>>\",\n  \"password\": \"<<test_password>>\",\n  \"device_name\": \"hoppscotch-test\"\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Refresh Token",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/auth/refresh",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true },
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"refresh_token\": \"<<refresh_token>>\"\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Get Current User",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/auth/me",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true },
+            { "key": "Accept", "value": "application/json", "active": true }
+          ]
+        },
+        {
+          "v": "5",
+          "name": "Logout",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/auth/logout",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ]
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "📡 Biometric Webhooks",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "Attendance Webhook (ZKTeco Push)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/biometric/webhook",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"device_token\": \"<<device_token>>\",\n  \"event\": \"attendance\",\n  \"data\": {\n    \"user_id\": 1,\n    \"timestamp\": \"2026-10-04T13:00:00+06:00\",\n    \"verify_type\": 1,\n    \"in_out_status\": 0\n  }\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Device Heartbeat",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/biometric/heartbeat",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"device_token\": \"<<device_token>>\",\n  \"device_id\": \"MB460-01\",\n  \"firmware\": \"Ver 6.60\",\n  \"ip\": \"192.168.1.100\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "🕐 Attendance (Mobile)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "Today's Attendance",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/attendance/today",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ]
+        },
+        {
+          "v": "5",
+          "name": "GPS Punch (Clock In/Out)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/attendance/punch",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true },
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"latitude\": 23.8103,\n  \"longitude\": 90.4125,\n  \"accuracy\": 10.5,\n  \"type\": \"in\"\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Monthly Summary",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/attendance/monthly-summary?month=2026-10",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ]
+        },
+        {
+          "v": "5",
+          "name": "Team Day Partition",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/attendance/team-day?date=2026-10-04",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ]
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "🔔 Notifications",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "List Notifications",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/notifications",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ]
+        },
+        {
+          "v": "5",
+          "name": "Unread Count",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/notifications/unread-count",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ]
+        },
+        {
+          "v": "5",
+          "name": "Store FCM Token",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/notification-token",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true },
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"token\": \"<<fcm_token>>\",\n  \"device_type\": \"android\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "🛡️ RBAC (Roles & Permissions)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "List Roles",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/roles",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true },
+            { "key": "X-CSRF-TOKEN", "value": "<<csrf_token>>", "active": true }
+          ]
+        },
+        {
+          "v": "5",
+          "name": "List Permissions (Grouped by Module)",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/permissions/grouped/modules",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true },
+            { "key": "X-CSRF-TOKEN", "value": "<<csrf_token>>", "active": true }
+          ]
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "🔧 System & Diagnostics",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "App Version",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/version",
+          "headers": []
+        },
+        {
+          "v": "5",
+          "name": "Client Error Report",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/client-errors",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"events\": [{\n    \"source\": \"test\",\n    \"platform\": \"web\",\n    \"message\": \"Hoppscotch test error\",\n    \"error_type\": \"TestError\",\n    \"severity\": \"warning\",\n    \"screen\": \"/dashboard\",\n    \"occurred_at\": \"2026-10-04T13:00:00Z\"\n  }]\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Mobile Heartbeat",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/heartbeat",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true },
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"app_version\": \"3.0.0\",\n  \"os\": \"android\",\n  \"os_version\": \"14\"\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "System Monitoring Metrics",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/system-monitoring/metrics",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true },
+            { "key": "X-CSRF-TOKEN", "value": "<<csrf_token>>", "active": true }
+          ]
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "🔥 Firebase RTDB Signal Tests",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "Write Signal (Simulate Another User's Edit)",
+          "method": "PUT",
+          "endpoint": "https://<<firebase_project>>.firebaseio.com/signals/app/daily-works.json?auth=<<firebase_secret>>",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"actor_id\": 999,\n  \"ts\": 1727960400000,\n  \"action\": \"update\"\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Read Signal (Check Current State)",
+          "method": "GET",
+          "endpoint": "https://<<firebase_project>>.firebaseio.com/signals/app/daily-works.json?auth=<<firebase_secret>>",
+          "headers": []
+        },
+        {
+          "v": "5",
+          "name": "Write Notification Signal (Per-User)",
+          "method": "PUT",
+          "endpoint": "https://<<firebase_project>>.firebaseio.com/signals/notif/<<user_uid>>.json?auth=<<firebase_secret>>",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"type\": \"notification\",\n  \"ts\": 1727960400000,\n  \"title\": \"Test notification\"\n}"
+          }
+        },
+        {
+          "v": "5",
+          "name": "Get Firebase Custom Token (via Laravel)",
+          "method": "GET",
+          "endpoint": "<<base_url>>/firebase/token",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer <<token>>", "active": true },
+            { "key": "X-Requested-With", "value": "XMLHttpRequest", "active": true }
+          ]
+        }
+      ]
+    },
+    {
+      "v": 3,
+      "name": "🌐 WebSocket Inspection",
+      "folders": [],
+      "requests": [
+        {
+          "v": "5",
+          "name": "Firebase RTDB WebSocket",
+          "method": "GET",
+          "endpoint": "wss://<<firebase_project>>.firebaseio.com/.ws?v=5&ns=<<firebase_project>>",
+          "headers": []
+        }
+      ]
+    }
+  ],
+  "requests": [],
+  "auth": {
+    "authType": "none",
+    "authActive": false
+  },
+  "headers": [
+    { "key": "Accept", "value": "application/json", "active": true },
+    { "key": "X-Requested-With", "value": "XMLHttpRequest", "active": true }
+  ]
+}

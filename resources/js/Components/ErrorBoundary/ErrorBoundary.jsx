@@ -4,6 +4,7 @@ import { Button, Box, Flex, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, ReloadIcon, HomeIcon } from '@radix-ui/react-icons';
 import { router } from '@inertiajs/react';
 import { reportWebError } from '@/utils/diagnosticReporter';
+import { Sentry, SENTRY_DSN } from '@/sentry';
 
 /**
  * Enhanced Error Boundary Component
@@ -34,7 +35,20 @@ class ErrorBoundary extends React.Component {
             errorInfo,
         });
 
-        // Log error to monitoring service
+        // ─── Sentry: Capture with full component stack + session replay context ───
+        if (SENTRY_DSN) {
+            Sentry.captureException(error, {
+                contexts: {
+                    react: { componentStack: errorInfo?.componentStack },
+                },
+                tags: {
+                    error_boundary: 'true',
+                    error_id: this.state.errorId,
+                },
+            });
+        }
+
+        // Log error to monitoring service (parallel telemetry sink)
         this.logErrorToService(error, errorInfo);
     }
 

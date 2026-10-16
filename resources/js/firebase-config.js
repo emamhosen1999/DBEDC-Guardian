@@ -43,3 +43,31 @@ export const onMessageListener = () => new Promise((resolve) => {
 // Realtime Database + Auth (used by the realtime signal layer).
 export const realtimeDb = getDatabase(app);
 export const firebaseAuth = getAuth(app);
+
+// ─── Firebase Emulator: Connect to local emulators in development ───
+// Start emulators with: npx firebase emulators:start
+// Emulator UI: http://127.0.0.1:4000
+// Set VITE_FIREBASE_USE_EMULATOR=true in .env to enable, or auto-enables in dev mode.
+if (import.meta.env.VITE_FIREBASE_USE_EMULATOR === 'true' || (import.meta.env.DEV && import.meta.env.VITE_FIREBASE_USE_EMULATOR !== 'false')) {
+    import('firebase/database').then(({ connectDatabaseEmulator }) => {
+        try {
+            connectDatabaseEmulator(realtimeDb, '127.0.0.1', 9000);
+            console.info('[Firebase] 🔧 Connected to RTDB Emulator at 127.0.0.1:9000');
+        } catch (e) {
+            // Already connected or emulator not running — degrade silently
+            if (!String(e).includes('already')) {
+                console.info('[Firebase] Emulator not available — using production RTDB');
+            }
+        }
+    });
+    import('firebase/auth').then(({ connectAuthEmulator }) => {
+        try {
+            connectAuthEmulator(firebaseAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
+            console.info('[Firebase] 🔧 Connected to Auth Emulator at 127.0.0.1:9099');
+        } catch (e) {
+            if (!String(e).includes('already')) {
+                console.info('[Firebase] Auth Emulator not available — using production Auth');
+            }
+        }
+    });
+}
