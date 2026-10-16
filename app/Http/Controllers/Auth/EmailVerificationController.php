@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\ModernAuthenticationService;
+use App\Support\Navigation\LandingPage;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class EmailVerificationController extends Controller
     public function prompt(Request $request): Response
     {
         return $request->user()->hasVerifiedEmail()
-                    ? redirect()->intended(route('dashboard'))
+                    ? redirect()->intended(LandingPage::for($request->user()))
                     : Inertia::render('Auth/VerifyEmail', ['status' => session('status')]);
     }
 
@@ -35,7 +36,7 @@ class EmailVerificationController extends Controller
     public function verify(EmailVerificationRequest $request)
     {
         if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard').'?verified=1');
+            return redirect()->intended(LandingPage::for($request->user()).'?verified=1');
         }
 
         if ($request->user()->markEmailAsVerified()) {
@@ -49,7 +50,7 @@ class EmailVerificationController extends Controller
             );
         }
 
-        return redirect()->intended(route('dashboard').'?verified=1');
+        return redirect()->intended(LandingPage::for($request->user()).'?verified=1');
     }
 
     /**
@@ -58,7 +59,7 @@ class EmailVerificationController extends Controller
     public function send(Request $request)
     {
         if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard'));
+            return redirect()->intended(LandingPage::for($request->user()));
         }
 
         $request->user()->sendEmailVerificationNotification();

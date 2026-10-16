@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Auth\Concerns\SendsPasswordChangedMail;
 use App\Http\Controllers\Controller;
+use App\Support\Navigation\LandingPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -45,6 +46,6 @@ class AccountPasswordController extends Controller
 
         $this->sendPasswordChangedMail($user, $request);
 
-        return redirect()->intended(route('dashboard'))->with('status', 'Password changed.');
+        return redirect()->intended(LandingPage::for($user))->with('status', 'Password changed.');
     }
 }

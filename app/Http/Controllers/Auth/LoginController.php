@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserDevice;
 use App\Services\DeviceAuthService;
 use App\Services\ModernAuthenticationService;
+use App\Support\Navigation\LandingPage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -228,7 +229,7 @@ class LoginController extends Controller
             $request
         );
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended(LandingPage::for($user));
     }
 
     /**

@@ -93,7 +93,7 @@ Route::get('/', function (Request $request) {
     $userAgent = $request->header('User-Agent', '');
     $isAndroid = stripos($userAgent, 'android') !== false;
 
-    return redirect($isAndroid ? '/install-app' : '/dashboard');
+    return redirect($isAndroid ? '/install-app' : '/home');
 });
 
 Route::get('/session-check', function () {
@@ -144,6 +144,9 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/dashboard/map', \App\Http\Controllers\DashboardMapController::class)->name('dashboard.map');
         Route::get('/stats', [DashboardController::class, 'stats'])->name('stats');
     });
+
+    // Home: the first page this person may open (main dashboard, O&M dashboard or the employee dashboard), never a 403.
+    Route::get('/home', fn (Request $request) => redirect(\App\Support\Navigation\LandingPage::for($request->user())))->name('home');
 
     // Employee Dashboard route
     Route::get('/employee-dashboard', [DashboardController::class, 'employeeIndex'])->name('employee-dashboard');

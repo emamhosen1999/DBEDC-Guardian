@@ -17,6 +17,7 @@ use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\TrackSecurityActivity;
 use App\Services\Diagnostics\ServerErrorReporter;
+use App\Support\Navigation\LandingPage;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -24,6 +25,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -52,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // A signed-in person opening /login etc. goes to the first page they may open, never a 403.
+        $middleware->redirectUsersTo(fn (Request $request) => LandingPage::for($request->user()));
+
         $middleware->web(append: [
             SetLocale::class,
             EnforcePasswordChange::class,
