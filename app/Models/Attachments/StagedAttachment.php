@@ -35,6 +35,12 @@ class StagedAttachment extends Model
         return self::disk()->path($this->path);
     }
 
+    /** The owner may still LOOK at a staged file after it was combined into a PDF, until it expires. */
+    public function scopeViewableBy($query, string $userId)
+    {
+        return $query->where('user_id', $userId)->where('expires_at', '>', now());
+    }
+
     public function scopeUsableBy($query, string $userId)
     {
         return $query->where('user_id', $userId)->whereNull('attached_at')->where('expires_at', '>', now());

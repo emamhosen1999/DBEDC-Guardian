@@ -144,6 +144,30 @@ class ScannerTest extends TestCase
         $this->assertCount(1, $leave->fresh()->getMedia('attachments'), 'the previews are not documents');
     }
 
+    public function test_the_scanned_pdf_and_its_combined_pages_stay_previewable_by_their_owner_only(): void
+    {
+        $this->fakeAttachments();
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $svc = app(AttachmentService::class);
+        $uid = (string) $owner->employee_id;
+        $page = $svc->scanPage($this->upload(Docs::jpeg($this->photo(self::UPRIGHT)['image'], 85)), $uid);
+        $pdf = $svc->finalizeScan([$page->token], $uid);
+
+        // The page is consumed by the PDF, yet its owner's form still shows its thumbnail.
+        $this->actingAs($owner)->get(route('attachments.staged.image', ['token' => $page->token, 'which' => 'processed']))
+            ->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        // The PDF previews as its first page image.
+        $this->actingAs($owner)->get(route('attachments.staged.image', ['token' => $pdf->token, 'which' => 'processed']))
+            ->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        // Nobody else can look at either.
+        $this->actingAs($other)->get(route('attachments.staged.image', ['token' => $page->token, 'which' => 'processed']))->assertStatus(422);
+        $this->actingAs($other)->get(route('attachments.staged.image', ['token' => $pdf->token, 'which' => 'processed']))->assertStatus(422);
+        // A consumed page still cannot be used again.
+        $this->expectException(AttachmentRejected::class);
+        $svc->finalizeScan([$page->token], $uid);
+    }
+
     public function test_unattached_scans_expire_after_24_hours_and_their_files_are_removed(): void
     {
         $this->fakeAttachments();

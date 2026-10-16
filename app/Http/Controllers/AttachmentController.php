@@ -82,11 +82,19 @@ class AttachmentController extends Controller
     /** The staged preview (processed page) or the untouched original, for the owner only. */
     public function stagedImage(Request $request, string $token, string $which = 'processed'): StreamedResponse
     {
-        $row = $this->mine($request, $token);
-        $path = $which === 'original' ? $row->original_path : $row->path;
+        // Viewing only: a page already combined into the owner's scanned PDF stays visible until it expires.
+        $row = StagedAttachment::viewableBy((string) $request->user()->employee_id)->where('token', $token)
+            ->firstOr(fn () => throw new AttachmentRejected(__('attachments.errors.staged_missing'), 'staged_missing'));
+        // A scanned PDF previews as its first page image.
+        $pdfPreview = $row->mime === 'application/pdf' ? ((array) $row->preview_paths)[0] ?? null : null;
+        $path = match (true) {
+            $which === 'original' => $row->original_path,
+            $pdfPreview !== null => $pdfPreview,
+            default => $row->path,
+        };
         abort_unless($path && StagedAttachment::disk()->exists($path), 404);
 
-        return StagedAttachment::disk()->response($path, null, $this->safeHeaders($row->mime));
+        return StagedAttachment::disk()->response($path, null, $this->safeHeaders($pdfPreview !== null && $which !== 'original' ? 'image/jpeg' : $row->mime));
     }
 
     /** A stored document: signed link + login + access rule. */
@@ -157,7 +165,7 @@ class AttachmentController extends Controller
             'pages' => $row->page_count, 'mode' => $row->mode, 'corners' => $row->corners, 'confidence' => $row->confidence,
             'needs_adjust' => $isPage && ($row->confidence ?? 0) < (float) config('attachments.scanner.min_confidence'),
             'clarity' => $row->clarity, 'passed' => $row->clarity_passed, 'expires_at' => $row->expires_at?->toIso8601String(),
-            'preview_url' => $row->mime === 'application/pdf' ? null : route($api ? 'api.v1.attachments.staged.image' : 'attachments.staged.image', ['token' => $row->token, 'which' => 'processed'], $api),
+            'preview_url' => $row->mime === 'application/pdf' && empty($row->preview_paths) ? null : route($api ? 'api.v1.attachments.staged.image' : 'attachments.staged.image', ['token' => $row->token, 'which' => 'processed'], $api),
             'original_url' => $isPage ? route($api ? 'api.v1.attachments.staged.image' : 'attachments.staged.image', ['token' => $row->token, 'which' => 'original'], $api) : null,
         ];
     }
