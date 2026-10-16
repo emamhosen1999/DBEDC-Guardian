@@ -411,6 +411,16 @@ class MobileAttendanceApiTest extends TestCase
             ->assertJsonValidationErrors(['month']);
     }
 
+    public function test_monthly_attendance_summary_treats_a_blank_or_zero_month_and_year_as_current(): void
+    {
+        // Stale app state sent year=0 (15 production errors, 2026-10-12..14): blank or zero means "not given".
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/v1/attendance/monthly-summary?month=0&year=0')->assertOk();
+        $this->getJson('/api/v1/attendance/monthly-summary?month=&year=')->assertOk();
+        $this->getJson('/api/v1/attendance/monthly-summary?year=1999')->assertStatus(422)->assertJsonValidationErrors(['year']);
+    }
+
     public function test_manager_can_fetch_mobile_daily_timesheet_payload(): void
     {
         $manager = User::factory()->create([
