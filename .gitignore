@@ -101,3 +101,12 @@ tests/playwright/.auth-state.json
 # Attendance register caches (generated at runtime): avatar thumbnails and the dompdf font cache
 /storage/app/register-avatars/
 /storage/fonts/
+
+# Local data dumps and secret backups (never commit)
+*.crlf-backup
+/storage/dump.txt
+/QCD.xlsx
+/Loan-account*
+/loan_ledger*.json
+/unresolved_errors.json
+/seed_office_loan_v2.php
