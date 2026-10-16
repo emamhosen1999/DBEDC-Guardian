@@ -40,9 +40,7 @@ const email = raw.match(/email=(\S+)/)[1], pw = raw.match(/password=(\S+)/)[1];
           if (c['border' + s + 'Width'] !== '0px' && c['border' + s + 'Style'] !== 'none') {
             const col = c['border' + s + 'Color'];
             // Cyber components whose toned borders are part of their spec (outline badges and buttons, alerts, inputs) are not panel borders.
-            // The attendance register grid's bold outer frame (.cy-cal / .cy-mcard__grid) is an owner decision (2026-10-15): it mirrors the
-            // QCD register's medium outer border. Only the frame element itself is exempt; everything inside it is still checked.
-            if (!/rgb\(77, 77, 77\)|rgba\(255, 255, 255, 0\.15\)|rgba\(0, 0, 0, 0\)/.test(col) && !el.closest('.apexcharts-canvas, .cy-badge, .cy-alert, .cy-btn, .cy-input, .cy-tabs') && !el.matches('.cy-cal, .cy-mcard__grid')) issues.push(`${title}: ${el.className?.toString().slice(0, 40)} border-${s} ${col}`);
+            if (!/rgb\(77, 77, 77\)|rgba\(255, 255, 255, 0\.15\)|rgba\(0, 0, 0, 0\)/.test(col) && !el.closest('.apexcharts-canvas, .cy-badge, .cy-alert, .cy-btn, .cy-input, .cy-tabs')) issues.push(`${title}: ${el.className?.toString().slice(0, 40)} border-${s} ${col}`);
           }
         });
       });
