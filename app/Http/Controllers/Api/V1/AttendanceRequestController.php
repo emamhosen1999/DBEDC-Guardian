@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\HRM\AttendanceRegularization;
-use App\Models\HRM\CompOffLedger;
+use App\Http\Requests\Attendance\StoreOvertimeClaimRequest;
 use App\Models\HRM\Designation;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\HRM\RosterDay;
@@ -14,7 +14,9 @@ use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
 use App\Services\Attendance\AttendanceApprovalService;
+use App\Services\Attachments\AttachmentAccess;
 use App\Services\Attendance\CompOffService;
+use App\Services\Attendance\OvertimeEligibilityService;
 use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
 use App\Services\Attendance\RosterOverlayService;
@@ -148,26 +150,41 @@ class AttendanceRequestController extends Controller
     // Overtime
     // -------------------------------------------------------------------------
 
-    public function storeOvertime(Request $request): JsonResponse
+    public function storeOvertime(StoreOvertimeClaimRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'date' => 'required|date',
-            'requested_minutes' => 'required|integer|min:1|max:1440',
-            'reason' => 'required|string|max:500',
-        ]);
+        // OvertimeService owns the rules (rest day / holiday only, credit, document) and every side effect
+        // (approver notification + attendance/all realtime signal); the controller just delegates.
+        $ot = $this->overtime->request((string) $request->user()->id, $request->validated());
 
-        // OvertimeService owns every side effect (approver notification +
-        // attendance/all realtime signal); the controller just delegates.
-        $ot = $this->overtime->request($request->user()->id, $data);
+        return $this->successResponse($this->presentOvertime($ot, $request), 'Overtime claim submitted.', 201);
+    }
 
-        return $this->successResponse($ot, 'Overtime request submitted.', 201);
+    /** Can this day be claimed, and for how much? */
+    public function overtimeCheck(Request $request): JsonResponse
+    {
+        $data = $request->validate(['date' => 'required|date', 'declared_end_time' => 'nullable|date_format:H:i']);
+        $date = Carbon::parse($data['date']);
+        $end = ! empty($data['declared_end_time']) ? Carbon::parse($date->toDateString().' '.$data['declared_end_time']) : null;
+
+        return $this->successResponse(app(OvertimeEligibilityService::class)->evaluate((string) $request->user()->id, $date, $end));
+    }
+
+    /** "Overtime worked, not claimed": rest-day and holiday work with the credit worked out. */
+    public function unclaimedOvertime(Request $request): JsonResponse
+    {
+        return $this->successResponse(app(OvertimeEligibilityService::class)->unclaimed((string) $request->user()->id)->values());
+    }
+
+    private function presentOvertime(OvertimeRequest $ot, Request $request): array
+    {
+        return $ot->toArray() + ['legacy' => $ot->isLegacy(), 'attachments' => app(AttachmentAccess::class)->present($ot, $request->user(), true)];
     }
 
     public function myOvertime(Request $request): JsonResponse
     {
-        $items = OvertimeRequest::where('user_id', $request->user()->id)
+        $items = OvertimeRequest::with('media')->where('user_id', $request->user()->id)
             ->latest()
-            ->get();
+            ->get()->map(fn ($ot) => $this->presentOvertime($ot, $request))->values();
 
         return $this->successResponse($items);
     }
@@ -184,9 +201,9 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), OvertimeRequest::class, $status)
-            ->load(['user:employee_id,name', 'user.media']);
+            ->load(['user:employee_id,name', 'user.media', 'media']);
 
-        return $this->successResponse($requests->values());
+        return $this->successResponse($requests->map(fn ($ot) => $this->presentOvertime($ot, $request))->values());
     }
 
     /**
@@ -202,9 +219,9 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->decidedForApprover($request->user(), OvertimeRequest::class)
-            ->load(['user:employee_id,name', 'user.media']);
+            ->load(['user:employee_id,name', 'user.media', 'media']);
 
-        return $this->successResponse($requests->values());
+        return $this->successResponse($requests->map(fn ($ot) => $this->presentOvertime($ot, $request))->values());
     }
 
     /**
@@ -237,7 +254,10 @@ class AttendanceRequestController extends Controller
             $ot,
             $request->user(),
             $request->input('comments'),
-            $request->boolean('grant_comp_off')
+            $request->boolean('grant_comp_off'),
+            $request->input('compensation'),
+            $request->filled('adjusted_credit') ? (float) $request->input('adjusted_credit') : null,
+            $request->input('adjust_reason')
         );
 
         if ($res['success'] ?? false) {
@@ -273,19 +293,7 @@ class AttendanceRequestController extends Controller
 
     public function myCompOff(Request $request): JsonResponse
     {
-        $userId = $request->user()->id;
-
-        $balance = $this->compOff->balance($userId);
-
-        $entries = CompOffLedger::where('user_id', $userId)
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        return $this->successResponse([
-            'balance_minutes' => $balance,
-            'entries' => $entries,
-        ]);
+        return $this->successResponse($this->compOff->summary((string) $request->user()->id));
     }
 
     // -------------------------------------------------------------------------

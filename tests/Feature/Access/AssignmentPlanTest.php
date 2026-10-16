@@ -22,7 +22,8 @@ class AssignmentPlanTest extends TestCase
 
     private const QC_MEMBERS = ['7', '97', '120', '122', '123', '126', '127', '131', '142', '143', '145', '149', '152', '159', '169', '272', '304', '307', '356', '538', '896', '1536'];
 
-    private const LINE_MANAGER_PERMISSIONS = ['attendance.view', 'employees.view', 'holidays.view', 'leaves.approve', 'leaves.view'];
+    /** The five Line Manager permissions plus the four application-document permissions (view / request re-upload, leave and overtime) every leave approver holds. */
+    private const LINE_MANAGER_PERMISSIONS = ['attendance.view', 'employees.view', 'holidays.view', 'leaves.approve', 'leaves.view', 'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload'];
 
     /** The granular Daily Works permissions the Manager catalog set gained: the ten split from the old three, plus objections.review. */
     private const DAILY_WORKS_SPLIT = ['daily-works.status.update', 'daily-works.status.reopen', 'daily-works.inspection.update', 'daily-works.assign', 'daily-works.incharge.update', 'daily-works.files.manage', 'daily-works.bulk', 'daily-works.restore', 'daily-works.import.reverse', 'daily-works.history.view', 'daily-works.objections.review'];

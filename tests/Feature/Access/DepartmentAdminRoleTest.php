@@ -57,6 +57,8 @@ class DepartmentAdminRoleTest extends TestCase
         'database/migrations/2026_09_30_000005_seed_department_scope_permissions_and_role.php',
         'database/migrations/2026_10_01_000001_split_employee_permissions_and_extend_department_admin.php',
         'database/migrations/2026_10_02_000003_add_self_administration_permission_and_log.php',
+        // grants the four application-document permissions to every leave approver (the split migration above narrows the role to its own 52)
+        'database/migrations/2026_10_16_000005_add_attachment_view_and_reupload_permissions.php',
     ];
 
     /** The 40 permissions the role held before the delegated-administrator split. */
@@ -104,6 +106,9 @@ class DepartmentAdminRoleTest extends TestCase
         'om.dashboard.view', 'monitoring.camera.view', 'petty-cash.approve',
     ];
 
+    /** The four application-document permissions every leave approver holds (view documents, request a re-upload; leave and overtime). */
+    private const ATTACHMENT_PERMISSIONS = ['leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload'];
+
     private const DAY = '2026-06-03'; // a Wednesday, and "today" for the whole test
 
     private Department $d1;
@@ -136,7 +141,7 @@ class DepartmentAdminRoleTest extends TestCase
         foreach (['Super Administrator' => 1, 'Administrator' => 10, 'HR Manager' => 20, 'Department Admin' => 25, 'Department Manager' => 30, 'Employee' => 60] as $name => $level) {
             Role::updateOrCreate(['name' => $name, 'guard_name' => 'web'], ['hierarchy_level' => $level]);
         }
-        foreach (array_merge(self::PREVIOUS_SPEC, self::ADDITIONS, self::EXCLUDED) as $permission) {
+        foreach (array_merge(self::PREVIOUS_SPEC, self::ADDITIONS, self::ATTACHMENT_PERMISSIONS, self::EXCLUDED) as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
         // Global roles hold everything, so any denial below is about SCOPE or a missing permission.
@@ -193,7 +198,7 @@ class DepartmentAdminRoleTest extends TestCase
     /** The exact permission set of the role today. */
     private function spec(): array
     {
-        return array_merge(self::PREVIOUS_SPEC, self::ADDITIONS);
+        return array_merge(self::PREVIOUS_SPEC, self::ADDITIONS, self::ATTACHMENT_PERMISSIONS);
     }
 
     private function makeUser(string $role, ?Department $department, string $name): User
@@ -265,7 +270,8 @@ class DepartmentAdminRoleTest extends TestCase
     {
         $this->assertCount(40, self::PREVIOUS_SPEC);
         $this->assertCount(12, self::ADDITIONS);
-        $this->assertCount(52, $this->spec());
+        $this->assertCount(4, self::ATTACHMENT_PERMISSIONS);
+        $this->assertCount(56, $this->spec()); // 52 + the four application-document permissions (granted by 2026_10_16_000005 to every leave approver)
         $this->assertPermissionSet($this->spec(), Role::findByName('Department Admin'));
         $this->assertNotContains(SelfAdministration::PERMISSION, Role::findByName('Department Admin')->permissions->pluck('name')->all(),
             'self-administration is a per-person exception, never part of the role');
@@ -800,19 +806,29 @@ class DepartmentAdminRoleTest extends TestCase
     public function test_the_export_job_confines_a_department_admin_and_never_trusts_a_stored_filter(): void
     {
         Storage::fake('public');
-        Excel::fake();
 
         $run = function (string $type, string $filename, User $requester, array $filters = []) {
             (new ExportAttendanceReport($type, self::DAY, '2026-06', (string) $requester->employee_id, $filename, $filters))
                 ->handle(app(AttendanceReportService::class));
         };
+        // The timesheet is written with PhpSpreadsheet (ReportStyle): read the stored workbook and take the employee-ID column.
         $employeeIds = function (string $filename): array {
+            Storage::disk('public')->assertExists("exports/{$filename}");
+            $rows = IOFactory::load(Storage::disk('public')->path("exports/{$filename}"))->getActiveSheet()->toArray(null, true, true, false);
             $ids = [];
-            Excel::assertStored("exports/{$filename}", 'public', function ($export) use (&$ids) {
-                $ids = $export->collection()->pluck('Employee ID')->map(fn ($id) => (string) $id)->all();
-
-                return true;
-            });
+            foreach ($rows as $i => $row) {
+                $col = array_search(true, array_map(fn ($c) => in_array(strtolower(trim((string) $c)), ['employee id', 'emp id'], true), $row), true);
+                if ($col === false) {
+                    continue;
+                }
+                foreach (array_slice($rows, $i + 1) as $below) {
+                    if (trim((string) ($below[$col] ?? '')) !== '') {
+                        $ids[] = (string) $below[$col];
+                    }
+                }
+                break;
+            }
+            $this->assertNotEmpty($ids, 'the workbook has an employee-ID column with rows');
 
             return $ids;
         };

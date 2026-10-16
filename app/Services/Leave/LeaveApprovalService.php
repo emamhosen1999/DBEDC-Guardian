@@ -174,6 +174,10 @@ class LeaveApprovalService
      */
     public function approve(Leave $leave, User $approver, ?string $comments = null, array $opts = []): array
     {
+        if ($leave->reupload_requested_at !== null) {
+            return ['success' => false, 'message' => __('attachments.reupload.waiting')];
+        }
+
         return $this->guardSelf($leave, $approver, 'approved', fn () => $this->performApprove($leave, $approver, $comments, $opts));
     }
 
@@ -326,6 +330,10 @@ class LeaveApprovalService
      */
     public function reject(Leave $leave, User $approver, string $reason, array $opts = []): array
     {
+        if ($leave->reupload_requested_at !== null) {
+            return ['success' => false, 'message' => __('attachments.reupload.waiting')];
+        }
+
         return $this->guardSelf($leave, $approver, 'rejected', fn () => $this->performReject($leave, $approver, $reason, $opts));
     }
 

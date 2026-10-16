@@ -1,17 +1,19 @@
-import { Panel } from '@/Components/ui/Panel';
-/**
- * LeaveForm.jsx
- * Full Radix UI refactor.
- */
-import React, { useState, useEffect } from 'react';
-import { Box, Button, Dialog, Flex, Grid, Select, Spinner, Text, TextArea, TextField } from '@radix-ui/themes';
-import DateTimePicker from '@/Components/DateTimePicker';
-import { useForm } from '@inertiajs/react';
-import { showToast } from "@/utils/toastUtils";
-import DepartmentEmployeeSelector from "@/Components/DepartmentEmployeeSelector.jsx";
-import { usePage } from "@inertiajs/react";
+import React, { useEffect, useMemo, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
+import { Alert, Badge, Button, DateRange, FormField, Input, SelectInput, Textarea } from '@/Components/Cyber';
+import DepartmentFieldCyber from '@/Components/Access/DepartmentFieldCyber.jsx';
+import AttachmentField from '@/Components/Attachments/AttachmentField';
+import { showToast } from '@/utils/toastUtils';
 
+const flatten = (errs) => Object.fromEntries(Object.entries(errs || {}).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
+
+/**
+ * Add / edit a leave application, built only from the Cyber library. The leave type decides whether a supporting document is
+ * needed (always / beyond N days / optional); the document goes through the shared attachment pipeline (clarity check, private
+ * storage) and the application carries its token. The server enforces every rule again.
+ */
 const LeaveForm = ({
     open,
     closeModal,
@@ -30,286 +32,145 @@ const LeaveForm = ({
     const isSuperAdmin = auth.isSuperAdmin || false;
     const canManageLeaves = isSuperAdmin || auth.permissions?.includes('leaves.approve') || auth.permissions?.includes('leaves.manage') || false;
 
-    const [user_id, setUserId] = useState(currentLeave?.user_id || auth.user.id);
-    const [selectedDepartmentId, setSelectedDepartmentId] = useState(() => {
-        if (currentLeave?.user_id) {
-            const leaveUser = allUsers?.find(user => user.id === currentLeave.user_id);
-            return leaveUser?.department_id || null;
-        }
-        return auth?.user?.department_id || null;
+    const [userId, setUserId] = useState(currentLeave?.user_id || auth.user.id);
+    const [departmentId, setDepartmentId] = useState(() => {
+        if (currentLeave?.user_id) return allUsers?.find((u) => u.id === currentLeave.user_id)?.department_id ?? '';
+        return auth?.user?.department_id ?? '';
     });
-
-    const [leaveTypes, setLeaveTypes] = useState(leavesData?.leaveTypes || []);
-    const [leaveCounts, setLeaveCounts] = useState([]);
-    const [daysCount, setDaysCount] = useState(currentLeave?.no_of_days || '');
-    const [remainingLeaves, setRemainingLeaves] = useState('');
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const processing = isSubmitting;
-
-    // Supporting documents (e.g. medical certificate)
+    const [leaveType, setLeaveType] = useState(currentLeave?.leave_type || '');
+    const [fromDate, setFromDate] = useState(currentLeave?.from_date ? currentLeave.from_date.split('T')[0] : '');
+    const [toDate, setToDate] = useState(currentLeave?.to_date ? currentLeave.to_date.split('T')[0] : '');
+    const [reason, setReason] = useState(currentLeave?.reason || '');
     const [files, setFiles] = useState([]);
-    const [existingAttachments, setExistingAttachments] = useState(currentLeave?.attachments || []);
+    const [existing, setExisting] = useState(currentLeave?.attachments || []);
+    const [errors, setErrors] = useState({});
+    const [submitting, setSubmitting] = useState(false);
 
-    const { data, setData, errors, setError, clearErrors, reset } = useForm({
-        leaveType: currentLeave?.leave_type || "",
-        fromDate: currentLeave?.from_date ? currentLeave.from_date.split('T')[0] : '',
-        toDate: currentLeave?.to_date ? currentLeave.to_date.split('T')[0] : '',
-        leaveReason: currentLeave?.reason || '',
-    });
+    const leaveTypes = leavesData?.leaveTypes || [];
+    const leaveCounts = leavesData?.leaveCountsByUser?.[userId] || [];
 
-    // Sync calculations
+    const daysCount = useMemo(() => {
+        const start = new Date(fromDate); const end = new Date(toDate);
+        return fromDate && toDate && end >= start ? Math.ceil((end - start) / 86400000) + 1 : '';
+    }, [fromDate, toDate]);
+
+    const remainingOf = (type) => {
+        const lc = leaveCounts.find((l) => l.leave_type === type.type);
+        return lc ? type.days - lc.days_used : type.days;
+    };
+    const chosenType = leaveTypes.find((t) => t.type === leaveType);
+    const remaining = chosenType ? remainingOf(chosenType) : '';
+
+    // Employees of the chosen department (a manager can apply on someone's behalf).
+    const employees = useMemo(() => (allUsers || []).filter((u) => !u.deleted_at && (!departmentId || String(u.department_id ?? u.department?.id) === String(departmentId))), [allUsers, departmentId]);
     useEffect(() => {
-        const start = new Date(data.fromDate);
-        const end = new Date(data.toDate);
-        if (start && end && end >= start) {
-            const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-            setDaysCount(diff);
-        } else {
-            setDaysCount('');
-        }
-    }, [data.fromDate, data.toDate]);
+        if (canManageLeaves && departmentId && userId && !employees.some((e) => String(e.id) === String(userId))) setUserId('');
+    }, [departmentId, employees]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Populate data
-    useEffect(() => {
-        if (leavesData) {
-            setLeaveTypes(leavesData.leaveTypes || []);
-            setLeaveCounts(leavesData.leaveCountsByUser?.[user_id] || []);
-        }
-    }, [leavesData, user_id]);
+    const rule = chosenType?.attachment_rule || (chosenType?.requires_attachment_days != null ? 'beyond_days' : 'optional');
+    const required = rule === 'always' || (rule === 'beyond_days' && chosenType?.requires_attachment_days != null && Number(daysCount) > Number(chosenType.requires_attachment_days));
+    const hint = rule === 'always' ? 'This leave type always needs a clear supporting document.'
+        : rule === 'beyond_days' ? `Required when the leave is longer than ${chosenType.requires_attachment_days} day${chosenType.requires_attachment_days == 1 ? '' : 's'}.`
+            : 'Optional.';
 
-    // Compute remaining days whenever leaveType or leaveCounts change
-    useEffect(() => {
-        if (!data.leaveType) { setRemainingLeaves(''); return; }
-        const type = leaveTypes.find(t => t.type === data.leaveType);
-        if (!type) { setRemainingLeaves(''); return; }
-        const lc = leaveCounts.find(l => l.leave_type === data.leaveType);
-        const remaining = lc ? (type.days - lc.days_used) : type.days;
-        setRemainingLeaves(remaining);
-    }, [data.leaveType, leaveTypes, leaveCounts]);
+    if (!open) return null;
+    const close = () => { if (!submitting) closeModal(); };
 
-    const handleSubmit = async (e) => {
+    const submit = async (e) => {
         e.preventDefault();
-        if (isSubmitting) return;
-        setIsSubmitting(true);
-        clearErrors();
-
+        if (submitting) return;
+        setSubmitting(true); setErrors({});
         const payload = {
-            user_id,
-            leaveType: data.leaveType,
-            fromDate: data.fromDate,
-            toDate: data.toDate,
-            daysCount,
-            leaveReason: data.leaveReason,
-            month: selectedMonth
+            user_id: userId, leaveType, fromDate, toDate, daysCount, leaveReason: reason, month: selectedMonth,
+            attachment_tokens: files.map((f) => f.token),
         };
         if (currentLeave) payload.id = currentLeave.id;
 
-        // Use multipart only when documents are attached.
-        let body = payload;
-        let config = {};
-        if (files.length > 0) {
-            body = new FormData();
-            Object.entries(payload).forEach(([k, v]) => {
-                if (v !== undefined && v !== null) body.append(k, v);
-            });
-            files.forEach(f => body.append('attachments[]', f));
-            config = { headers: { 'Content-Type': 'multipart/form-data' } };
-        }
-
         let response;
         try {
-            response = await axios.post(
-                route(currentLeave ? 'leave-update' : 'leave-add'),
-                body,
-                config
-            );
+            response = await axios.post(route(currentLeave ? 'leave-update' : 'leave-add'), payload);
         } catch (error) {
-            if (error.response?.status === 422) {
-                const validationErrors = error.response.data.errors || {};
-                const flatErrors = {};
-                Object.keys(validationErrors).forEach(key => {
-                    flatErrors[key] = Array.isArray(validationErrors[key]) ? validationErrors[key][0] : validationErrors[key];
-                });
-                setError(flatErrors);
-                showToast.error(error.response.data.message || error.response.data.error || 'Please check the form for errors');
-            } else {
-                showToast.error(error.response?.data?.message || error.response?.data?.error || 'Failed to submit application');
-            }
-            setIsSubmitting(false);
+            const data = error.response?.data;
+            if (error.response?.status === 422) setErrors(flatten(data?.errors));
+            showToast.error(data?.message || data?.error || 'Failed to submit application');
+            setSubmitting(false);
             return;
         }
 
         if (response?.status === 200 || response?.status === 201) {
             showToast.success(response.data?.message || 'Leave submitted successfully');
-            (response.data?.warnings || []).forEach(w => showToast.info(w));
+            (response.data?.warnings || []).forEach((w) => showToast.info(w));
             closeModal();
-            reset();
-            setFiles([]);
-
             try {
-                if (typeof setLeavesData === 'function' && response.data?.leavesData) {
-                    setLeavesData(response.data.leavesData);
-                }
-
-                if (currentLeave && typeof updateLeaveOptimized === 'function') {
-                    updateLeaveOptimized(response.data.leave);
-                } else if (typeof addLeaveOptimized === 'function' && response.data?.leave) {
-                    addLeaveOptimized(response.data.leave);
-                }
-
-                const refetch = refetchStats || fetchLeavesStats;
-                if (typeof refetch === 'function') {
-                    refetch();
-                }
+                if (typeof setLeavesData === 'function' && response.data?.leavesData) setLeavesData(response.data.leavesData);
+                if (currentLeave && typeof updateLeaveOptimized === 'function') updateLeaveOptimized(response.data.leave);
+                else if (typeof addLeaveOptimized === 'function' && response.data?.leave) addLeaveOptimized(response.data.leave);
+                (refetchStats || fetchLeavesStats)?.();
             } catch (uiErr) {
                 console.warn('Post-leave submission UI sync warning:', uiErr);
             }
         }
-        setIsSubmitting(false);
+        setSubmitting(false);
+    };
+
+    const retire = async (att) => {
+        try {
+            await axios.delete(route('leaves.attachments.delete', { id: currentLeave.id, mediaId: att.id }));
+            setExisting((p) => p.filter((a) => a.id !== att.id));
+            showToast.success('Attachment removed');
+        } catch (err) {
+            showToast.error(err.response?.data?.message || 'Failed to remove attachment');
+        }
     };
 
     return (
-        <Dialog.Root open={open} onOpenChange={v => !v && !processing && closeModal()}>
-            <Dialog.Content style={{ maxWidth: 640, padding: 0 }}>
-                <Box px="5" py="4" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
-                    <Dialog.Title size="4">{currentLeave ? 'Edit Leave' : 'Add Leave'}</Dialog.Title>
-                </Box>
+        <Dialog title={currentLeave ? 'Edit leave' : 'Add leave'} onClose={close} className="cy-modal cy-modal--wide">
+            <form onSubmit={submit}>
+                <div className="cy-modal__section">
+                    {canManageLeaves && (
+                        <>
+                            <DepartmentFieldCyber value={departmentId} onChange={setDepartmentId} departments={departments} label="Department" />
+                            <FormField label="Employee" htmlFor="lv-employee" required error={errors.user_id}>
+                                <SelectInput id="lv-employee" value={String(userId ?? '')} onChange={setUserId}
+                                    options={[{ value: '', label: 'Select employee', disabled: true }, ...employees.map((u) => ({ value: String(u.id), label: u.name }))]} />
+                            </FormField>
+                        </>
+                    )}
+                    <FormField label="Leave type" htmlFor="lv-type" required error={errors.leaveType}>
+                        <SelectInput id="lv-type" value={leaveType} onChange={setLeaveType}
+                            options={[{ value: '', label: 'Select leave type', disabled: true }, ...leaveTypes.map((t) => ({ value: t.type, label: `${t.type} (${remainingOf(t)} remaining)`, disabled: remainingOf(t) <= 0 }))]} />
+                    </FormField>
+                    <FormField label="Remaining days" htmlFor="lv-remaining">
+                        <Input id="lv-remaining" readOnly value={remaining} />
+                    </FormField>
+                    <FormField label="Leave period" error={errors.fromDate || errors.toDate} hint={daysCount ? `${daysCount} day${daysCount === 1 ? '' : 's'}` : undefined}>
+                        <DateRange value={{ start: fromDate, end: toDate }} onChange={({ start, end }) => { setFromDate(start); setToDate(end); }} />
+                    </FormField>
+                    <FormField label="Reason (optional)" htmlFor="lv-reason" error={errors.leaveReason}>
+                        <Textarea id="lv-reason" rows={3} value={reason} onChange={(e) => { setReason(e.target.value); if (errors.leaveReason) setErrors({ ...errors, leaveReason: undefined }); }} placeholder="Reason for leave" />
+                    </FormField>
 
-                <Box px="5" py="4">
-                    <form onSubmit={handleSubmit}>
-                        <Panel mb="4">
-                            <Grid columns={{ initial: '1', sm: '2' }} gap="4">
-                                <Box>
-                                    <Text size="2" weight="medium" mb="1" display="block">Leave Type</Text>
-                                    <Select.Root value={data.leaveType} onValueChange={v => setData('leaveType', v)}>
-                                        <Select.Trigger style={{ width: '100%' }} />
-                                        <Select.Content>
-                                            {leaveTypes.map((type) => {
-                                                const lc = leaveCounts.find(l => l.leave_type === type.type);
-                                                const remaining = lc ? (type.days - lc.days_used) : type.days;
-                                                return (
-                                                    <Select.Item key={type.type} value={type.type} disabled={remaining <= 0}>
-                                                        {type.type} ({remaining} remaining)
-                                                    </Select.Item>
-                                                );
-                                            })}
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-
-                                <Box>
-                                    <Text size="2" weight="medium" mb="1" display="block">Remaining Days</Text>
-                                    <TextField.Root value={remainingLeaves} readOnly />
-                                </Box>
-
-                                <Box style={{ gridColumn: '1 / -1' }}>
-                                    <DateTimePicker
-                                        mode="dateRange"
-                                        label="Leave Period"
-                                        value={{ start: data.fromDate, end: data.toDate }}
-                                        onChange={({ start, end }) => { setData('fromDate', start); setData('toDate', end); }}
-                                    />
-                                </Box>
-
-                                {canManageLeaves && (
-                                    <Box style={{ gridColumn: '1 / -1' }}>
-                                        <DepartmentEmployeeSelector
-                                            selectedDepartmentId={selectedDepartmentId}
-                                            selectedEmployeeId={user_id}
-                                            onDepartmentChange={setSelectedDepartmentId}
-                                            onEmployeeChange={setUserId}
-                                            allUsers={allUsers}
-                                            departments={departments}
-                                            error={errors}
-                                        />
-                                    </Box>
-                                )}
-
-                                <Box style={{ gridColumn: '1 / -1' }}>
-                                    <Text size="2" weight="medium" mb="1" display="block">
-                                        Reason <Text as="span" color="gray" size="1">(Optional)</Text>
-                                    </Text>
-                                    <TextArea
-                                        value={data.leaveReason}
-                                        onChange={e => {
-                                            setData('leaveReason', e.target.value);
-                                            if (errors.leaveReason) clearErrors('leaveReason');
-                                        }}
-                                        rows={3}
-                                        placeholder="Reason for leave (optional)..."
-                                    />
-                                    {errors.leaveReason && <Text size="1" color="red" mt="1" display="block">{errors.leaveReason}</Text>}
-                                </Box>
-
-                                <Box style={{ gridColumn: '1 / -1' }}>
-                                    <Text size="2" weight="medium" mb="1" display="block">
-                                        Supporting Documents
-                                        {(() => {
-                                            const type = leaveTypes.find(t => t.type === data.leaveType);
-                                            return type?.requires_attachment_days != null
-                                                ? ` (required over ${type.requires_attachment_days} day${type.requires_attachment_days == 1 ? '' : 's'})`
-                                                : ' (optional)';
-                                        })()}
-                                    </Text>
-                                    <input
-                                        type="file"
-                                        multiple
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        onChange={e => setFiles(Array.from(e.target.files || []).slice(0, 3))}
-                                        style={{ display: 'block', width: '100%', fontSize: 13 }}
-                                    />
-                                    {files.length > 0 && (
-                                        <Flex direction="column" gap="1" mt="2">
-                                            {files.map((f, i) => (
-                                                <Flex key={i} align="center" justify="between" gap="2">
-                                                    <Text size="1" color="gray" truncate>{f.name} ({Math.round(f.size / 1024)} KB)</Text>
-                                                    <Button type="button" size="1" variant="ghost" color="red"
-                                                        onClick={() => setFiles(p => p.filter((_, j) => j !== i))}>
-                                                        Remove
-                                                    </Button>
-                                                </Flex>
-                                            ))}
-                                        </Flex>
-                                    )}
-                                    {existingAttachments.length > 0 && (
-                                        <Flex direction="column" gap="1" mt="2">
-                                            <Text size="1" weight="medium" color="gray">Uploaded:</Text>
-                                            {existingAttachments.map(att => (
-                                                <Flex key={att.id} align="center" justify="between" gap="2">
-                                                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
-                                                        {att.name} ({Math.round((att.size || 0) / 1024)} KB)
-                                                    </a>
-                                                    <Button type="button" size="1" variant="ghost" color="red"
-                                                        onClick={async () => {
-                                                            try {
-                                                                await axios.delete(route('leaves.attachments.delete', { id: currentLeave.id, mediaId: att.id }));
-                                                                setExistingAttachments(p => p.filter(a => a.id !== att.id));
-                                                                showToast.success('Attachment removed');
-                                                            } catch (err) {
-                                                                showToast.error(err.response?.data?.message || 'Failed to remove attachment');
-                                                            }
-                                                        }}>
-                                                        Remove
-                                                    </Button>
-                                                </Flex>
-                                            ))}
-                                        </Flex>
-                                    )}
-                                </Box>
-                            </Grid>
-                        </Panel>
-
-                        <Flex justify="end" gap="3">
-                            <Button variant="soft" color="gray" onClick={closeModal} disabled={processing}>Cancel</Button>
-                            <Button type="submit" disabled={processing}>
-                                {processing ? <Spinner size="1" /> : 'Submit'}
-                            </Button>
-                        </Flex>
-                    </form>
-                </Box>
-            </Dialog.Content>
-        </Dialog.Root>
+                    {existing.length > 0 && (
+                        <ul className="cy-docs" aria-label="Documents already attached">
+                            {existing.map((att) => (
+                                <li key={att.id} className="cy-docs__row">
+                                    <span className="cy-docs__main"><a className="cy-docs__name" href={att.url} target="_blank" rel="noopener noreferrer">{att.name}</a></span>
+                                    <Badge soft color="success">Attached</Badge>
+                                    <Button size="sm" color="default" variant="outline" onClick={() => retire(att)} aria-label={`Remove ${att.name}`}>Remove</Button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <AttachmentField value={files} onChange={setFiles} required={required && existing.length === 0} max={3 - existing.length}
+                        label="Supporting documents" hint={hint} error={errors.attachments} disabled={submitting} />
+                    {errors.attachments && <Alert tone="danger">{errors.attachments}</Alert>}
+                </div>
+                <div className="cy-modal__foot">
+                    <Button color="default" variant="outline" size="sm" onClick={close} disabled={submitting}>Cancel</Button>
+                    <Button type="submit" size="sm" loading={submitting}>Submit</Button>
+                </div>
+            </form>
+        </Dialog>
     );
 };
 

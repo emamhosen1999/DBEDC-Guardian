@@ -16,6 +16,8 @@ import SwapResponses from './Attendance/Components/SwapResponses';
 import SwapRequestForm from '@/Forms/SwapRequestForm';
 import RegularizationForm from '@/Forms/RegularizationForm';
 import OvertimeRequestForm from '@/Forms/OvertimeRequestForm';
+import ReplacementLeaveForm from '@/Forms/ReplacementLeaveForm';
+import UnclaimedOvertime from '@/Components/Attachments/UnclaimedOvertime';
 
 /* Widgets rendered by their own components below (punch card = today, MyRequests = the request list) or placed
    explicitly in the first rows (my shift). The registry still feeds them to the header chips and the mobile app. */
@@ -57,9 +59,11 @@ export default function EmployeeDashboard() {
     const [swapOpen, setSwapOpen] = useState(false);
     const [regOpen, setRegOpen] = useState(false);
     const [otOpen, setOtOpen] = useState(false);
+    const [otInitial, setOtInitial] = useState(null);
+    const [repOpen, setRepOpen] = useState(false);
 
     const handleSaved = () => {
-        ['my-regularizations', 'my-overtime', 'my-comp-off', 'my-swaps', 'swaps', 'awaiting-me']
+        ['my-regularizations', 'my-overtime', 'my-comp-off', 'my-replacement', 'overtime-unclaimed', 'my-swaps', 'swaps', 'awaiting-me']
             .forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
         reload();
     };
@@ -79,7 +83,8 @@ export default function EmployeeDashboard() {
                     <>
                         <Button variant="outline" size="sm" onClick={() => setSwapOpen(true)}><Icon name="arrow-left-right" /> Shift swap</Button>
                         <Button variant="outline" size="sm" onClick={() => setRegOpen(true)}><Icon name="clipboard-check" /> Regularize</Button>
-                        <Button variant="outline" size="sm" onClick={() => setOtOpen(true)}><Icon name="hourglass-split" /> Overtime</Button>
+                        <Button variant="outline" size="sm" onClick={() => { setOtInitial(null); setOtOpen(true); }}><Icon name="hourglass-split" /> Claim overtime</Button>
+                        <Button variant="outline" size="sm" onClick={() => setRepOpen(true)}><Icon name="calendar-plus" /> Replacement leave</Button>
                         <Button as={Link} href={route('leaves-employee')} variant="outline" size="sm"><Icon name="calendar-plus" /> Apply for leave</Button>
                     </>
                 )}
@@ -107,6 +112,16 @@ export default function EmployeeDashboard() {
                     <SwapResponsesRow />
                 </ErrorBoundary>
 
+                <ErrorBoundary>
+                    <div className="dl-row">
+                        <div className="dl-col dl-col--12">
+                            <Card id="employee:overtime-unclaimed" title="Overtime worked, not claimed" flush>
+                                <UnclaimedOvertime onApply={(d) => { setOtInitial(d); setOtOpen(true); }} />
+                            </Card>
+                        </div>
+                    </div>
+                </ErrorBoundary>
+
                 <div className="dl-row">
                     <div className="dl-col dl-col--8">
                         <ErrorBoundary>
@@ -128,7 +143,8 @@ export default function EmployeeDashboard() {
             {/* Modals & Forms */}
             <SwapRequestForm open={swapOpen} onOpenChange={setSwapOpen} onSaved={handleSaved} />
             <RegularizationForm open={regOpen} onOpenChange={setRegOpen} onSaved={handleSaved} />
-            <OvertimeRequestForm open={otOpen} onOpenChange={setOtOpen} onSaved={handleSaved} />
+            <OvertimeRequestForm open={otOpen} onOpenChange={setOtOpen} onSaved={handleSaved} initial={otInitial} />
+            <ReplacementLeaveForm open={repOpen} onOpenChange={setRepOpen} onSaved={handleSaved} />
         </>
     );
 }

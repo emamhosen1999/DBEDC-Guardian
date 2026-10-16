@@ -4,6 +4,10 @@ import { Head } from '@inertiajs/react';
 import App from '@/Layouts/App.jsx';
 import { Accordion, Alert, Badge, Button, Card, Checkbox, FormField, Icon, Input, Pagination, Progress, StatTile, Switch, Tabs, Textarea } from '@/Components/Cyber';
 import { Timeline, Tree } from '@/Components/Cyber';
+import { CornerEditor, FileInput, Thumbnail } from '@/Components/Cyber';
+
+// A 4 x 4 grey square: gives the gallery's thumbnail and corner editor a real picture without a network request.
+const PIXEL = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160"><rect width="120" height="160" fill="#999"/></svg>');
 
 /**
  * Local-only component gallery for the Cyber conformance check (scripts/design/review/component-conformance.cjs):
@@ -39,6 +43,9 @@ export default function CyberComponents() {
                                 <select className="cy-select" data-conf="select" defaultValue="1"><option value="1">Option one</option><option value="2">Option two</option></select>
                                 <FormField label="Form label" htmlFor="dev-label-input"><Input id="dev-label-input" placeholder="Input with label" data-conf="form-input" /></FormField>
                                 <Textarea data-conf="textarea" placeholder="Textarea" rows={2} />
+                                <FileInput data-conf="file-input" onFiles={() => {}} aria-label="Gallery file input" />
+                                <Thumbnail data-conf="thumb" src={PIXEL} alt="Gallery thumbnail" size="md" />
+                                <CornerEditor src={PIXEL} corners={[[10, 10], [110, 10], [110, 150], [10, 150]]} onChange={() => {}} alt="Gallery corner editor" />
                                 <div data-conf="checkbox"><Checkbox label="Checkbox" checked onCheckedChange={() => {}} /></div>
                                 <div data-conf="switch"><Switch label="Switch" checked={false} onCheckedChange={() => {}} /></div>
                                 <div className="cy-actions"><Button color="success" size="sm" data-conf="btn-success">Success</Button><Button color="danger" variant="outline" size="sm" data-conf="btn-outline-danger">Outline danger</Button></div>

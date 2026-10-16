@@ -58,10 +58,10 @@ Schedule::command('leave:expire-carried')
     ->daily()->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-expire-carried.log'));
 
-// Daily: bank comp-off for yesterday's work on off-days/holidays/leave days.
-Schedule::command('leave:grant-comp-off')
-    ->dailyAt('01:00')->timezone(config('app.timezone', 'UTC'))
-    ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-comp-off.log'));
+// NOT scheduled any more (owner policy 2026-10-15): replacement leave is no longer banked automatically from attendance. It is earned
+// by an APPROVED rest-day claim with a clear document (OvertimeService) and expires after 60 days (replacement:maintain).
+// The command remains for manual use only.
+// Schedule::command('leave:grant-comp-off')->dailyAt('01:00')...
 
 Schedule::command('leave:reconcile-ledger')
     ->daily()->timezone(config('app.timezone', 'UTC'))
@@ -170,3 +170,12 @@ Schedule::command('request-logs:prune --archive')->dailyAt('03:30')->withoutOver
 // is refreshed daily, and reporting-line changes that bypassed model events are recorded (employee_reporting_lines).
 Schedule::command('jurisdictions:sync-current')->dailyAt('00:10');
 Schedule::command('org:sync-reporting-lines')->dailyAt('00:15');
+
+// Replacement leave: expire credit past its 60 days (ledger rows, never silent) and send the 14 / 3 day reminders.
+Schedule::command('replacement:maintain')->dailyAt('06:30')->withoutOverlapping();
+
+// Next morning: nudge employees about rest-day / holiday work they have not claimed (time and switch in config/overtime_claims.php).
+Schedule::command('overtime:remind-unclaimed')->dailyAt(config('overtime_claims.unclaimed_reminder_time', '09:00'))->withoutOverlapping();
+
+// Scans and uploads never attached to an application expire after 24 h.
+Schedule::command('attachments:prune')->hourly();

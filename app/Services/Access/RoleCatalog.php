@@ -29,6 +29,10 @@ final class RoleCatalog
     public const NEW_PERMISSIONS = [
         'monitoring.camera.view' => ['module' => 'om', 'description' => 'View the CCTV / camera monitoring console'],
         'leaves.manage' => ['module' => 'hrm', 'description' => 'Administer leave: override, adjust balances and records of any employee'],
+        'leaves.attachments.view' => ['module' => 'hrm', 'description' => 'Open the supporting documents of leave applications inside the own scope'],
+        'leaves.request_reupload' => ['module' => 'hrm', 'description' => 'Return a leave application to the employee for a clearer document'],
+        'overtime.attachments.view' => ['module' => 'hrm', 'description' => 'Open the supporting documents of overtime and replacement-leave claims inside the own scope'],
+        'overtime.request_reupload' => ['module' => 'hrm', 'description' => 'Return an overtime or replacement-leave claim to the employee for a clearer document'],
     ];
 
     /** Old role name => new role name (renamed by id, so holders and grants follow). */
@@ -254,6 +258,7 @@ final class RoleCatalog
     /** Line Manager: 5 permissions. */
     public const LINE_MANAGER = [
         'employees.view', 'attendance.view', 'leaves.view', 'leaves.approve', 'holidays.view',
+        'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload',
     ];
 
     /** Department Manager: 31 permissions. */
@@ -261,7 +266,7 @@ final class RoleCatalog
         'employees.view', 'employees.create', 'employees.update', 'employees.delete', 'employees.restore',
         'employees.placement.update', 'departments.view', 'designations.view', 'attendance.view', 'attendance.create',
         'attendance.update', 'attendance.correct', 'attendance.delete', 'attendance.export', 'attendance.manage',
-        'holidays.view', 'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'hr.onboarding.view',
+        'holidays.view', 'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload', 'hr.onboarding.view',
         'hr.onboarding.create', 'hr.onboarding.update', 'hr.offboarding.view', 'hr.offboarding.create',
         'hr.offboarding.update', 'tasks.view', 'tasks.create', 'tasks.update', 'tasks.delete', 'tasks.assign',
     ];
@@ -311,7 +316,7 @@ final class RoleCatalog
         'job-offers.create', 'job-offers.delete', 'job-offers.update', 'job-offers.view', 'jobs.create', 'jobs.delete',
         'jobs.update', 'jobs.view', 'jurisdiction.create', 'jurisdiction.delete', 'jurisdiction.update',
         'jurisdiction.view', 'jurisdiction.team.manage', 'jurisdiction.restructure', 'jurisdiction.retire', 'jurisdiction.restore', 'jurisdiction.history.correct', 'leave-settings.update', 'leave-settings.view', 'leave.own.create', 'leave.own.delete',
-        'leave.own.update', 'leave.own.view', 'leaves.analytics', 'leaves.approve', 'leaves.create', 'leaves.delete',
+        'leave.own.update', 'leave.own.view', 'leaves.analytics', 'leaves.approve', 'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload', 'leaves.create', 'leaves.delete',
         'leaves.manage', 'leaves.update', 'leaves.view', 'letters.create', 'letters.delete', 'letters.update',
         'letters.view', 'performance-analytics.view', 'performance-reviews.approve', 'performance-reviews.create',
         'performance-reviews.delete', 'performance-reviews.own.create', 'performance-reviews.own.update',

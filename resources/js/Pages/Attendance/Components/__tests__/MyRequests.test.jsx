@@ -24,14 +24,15 @@ async function mount(ui) {
 }
 
 describe('MyRequests (Cyber)', () => {
-    it('shows the comp-off balance, counts per tab and the rows of the selected tab', async () => {
+    it('shows the replacement-leave balance in days, counts per tab and the rows of the selected tab', async () => {
         responses['/attendance/regularizations/mine'] = { requests: [{ id: 1, date: '2026-10-01', type: 'missing_punch', status: 'pending' }] };
         responses['/attendance/overtime/mine'] = { requests: [] };
-        responses['/attendance/comp-off/mine'] = { balance_minutes: 135 };
+        responses['/attendance/comp-off/mine'] = { balance_days: 1.5, expiring_days: 0.5 };
         responses['/attendance/swaps/mine'] = { swaps: [] };
         await mount(<MyRequests />);
 
-        expect(host.textContent).toContain('2h 15m');
+        expect(host.textContent).toContain('1.5 days');
+        expect(host.textContent).toContain('0.5 days');
         const tabs = [...host.querySelectorAll('[role=tab]')].map((t) => t.textContent);
         expect(tabs[0]).toContain('Regularizations');
         expect(host.textContent).toContain('01 Oct 2026');
@@ -40,6 +41,35 @@ describe('MyRequests (Cyber)', () => {
 
         await act(async () => { host.querySelectorAll('[role=tab]')[1].click(); });
         expect(host.textContent).toContain('No overtime requests yet.');
+    });
+});
+
+describe('MyRequests: overtime claims and re-upload', () => {
+    const base = () => {
+        responses['/attendance/regularizations/mine'] = { requests: [] };
+        responses['/attendance/comp-off/mine'] = { balance_days: 0, expiring_days: 0 };
+        responses['/attendance/swaps/mine'] = { swaps: [] };
+        responses['/attendance/replacement/mine'] = [];
+    };
+
+    it('shows a returned claim with the approver reason and a Re-upload button, and flags minute-based history as legacy', async () => {
+        base();
+        responses['/attendance/overtime/mine'] = {
+            requests: [
+                { id: 5, date: '2026-10-07', status: 'pending', claim_type: 'rest_day', compensation: 'replacement', day_credit: 1, legacy: false,
+                  attachments: { files: [{ id: 1, name: 'a.jpg' }], returned_for_reupload: true, reupload: { reason: 'The photo is cut off at the bottom.' } } },
+                { id: 6, date: '2026-06-18', status: 'approved', requested_minutes: 120, legacy: true, attachments: { files: [], returned_for_reupload: false } },
+            ],
+        };
+        await mount(<MyRequests />);
+        await act(async () => { host.querySelectorAll('[role=tab]')[1].click(); });
+
+        expect(host.textContent).toContain('Rest day · 1 day as replacement leave');
+        expect(host.textContent).toContain('Returned for a clearer document');
+        expect(host.textContent).toContain('The photo is cut off at the bottom.');
+        expect([...host.querySelectorAll('button')].map((b) => b.textContent.trim())).toContain('Re-upload');
+        expect(host.textContent).toContain('legacy (hours)');
+        expect(host.textContent).toContain('120 min requested');
     });
 });
 

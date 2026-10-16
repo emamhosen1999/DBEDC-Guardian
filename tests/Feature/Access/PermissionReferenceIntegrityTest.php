@@ -31,8 +31,8 @@ class PermissionReferenceIntegrityTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** Dotted, lowercase: the shape of a permission name (a policy ability such as `update` has no dot). */
-    private const PERMISSION_SHAPE = '/^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+$/';
+    /** Dotted, lowercase: the shape of a permission name (a policy ability such as `update` has no dot). Underscores are allowed: `leaves.request_reupload` is the named action permission. */
+    private const PERMISSION_SHAPE = '/^[a-z][a-z0-9-]*(\.[a-z0-9_-]+)+$/';
 
     /**
      * Known phantoms: permission => Phase B fix (docs/audit/ROLE_CATALOG_2026-10-03.md, section 2.2). Review by 2026-12-31.

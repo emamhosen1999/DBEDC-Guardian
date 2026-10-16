@@ -64,13 +64,13 @@ class RoleCatalogSpecTest extends TestCase
             'om.safety.view', 'om.safety.manage', 'om.tppd.view', 'om.tppd.manage', 'om.shift.manage', 'om.research.view',
         ]],
         // approved 5; its tasks.* are not carried over: the role has no holder, so nobody loses a thing (Q3 keeps tasks.* where it is held)
-        'Line Manager' => [40, ['employees.view', 'attendance.view', 'leaves.view', 'leaves.approve', 'holidays.view']],
+        'Line Manager' => [40, ['employees.view', 'attendance.view', 'leaves.view', 'leaves.approve', 'holidays.view', 'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload']],
         // tasks.* kept (Q3), so 26 + 5
         'Department Manager' => [30, [
             'employees.view', 'employees.create', 'employees.update', 'employees.delete', 'employees.restore', 'employees.placement.update',
             'departments.view', 'designations.view',
             'attendance.view', 'attendance.create', 'attendance.update', 'attendance.correct', 'attendance.delete', 'attendance.export', 'attendance.manage',
-            'holidays.view', 'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve',
+            'holidays.view', 'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload',
             'hr.onboarding.view', 'hr.onboarding.create', 'hr.onboarding.update', 'hr.offboarding.view', 'hr.offboarding.create', 'hr.offboarding.update',
             'tasks.view', 'tasks.create', 'tasks.update', 'tasks.delete', 'tasks.assign',
         ]],
@@ -124,8 +124,8 @@ class RoleCatalogSpecTest extends TestCase
     public function test_the_set_sizes_are_the_approved_ones(): void
     {
         $sizes = ['Employee' => 28, 'Daily Works Contributor' => 9, 'Daily Works Manager' => 17, 'Quality Contributor' => 6, 'Quality Manager' => 15,
-            'O&M Director' => 26, 'Maintenance Inspector' => 13, 'TMC Operator' => 11, 'Highway Patrol Officer' => 12, 'Line Manager' => 5,
-            'Department Manager' => 31, 'Department Admin' => 52, 'HR Manager' => 245];
+            'O&M Director' => 26, 'Maintenance Inspector' => 13, 'TMC Operator' => 11, 'Highway Patrol Officer' => 12, 'Line Manager' => 9,
+            'Department Manager' => 35, 'Department Admin' => 56, 'HR Manager' => 249];
         foreach ($sizes as $role => $size) {
             $this->assertCount($size, $this->held($role), "{$role} holds {$size} permissions");
         }
@@ -255,10 +255,10 @@ class RoleCatalogSpecTest extends TestCase
         );
     }
 
-    public function test_department_admin_is_still_exactly_its_52_permissions(): void
+    public function test_department_admin_is_still_exactly_its_56_permissions(): void
     {
         $this->assertSame($this->sorted(ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames()), $this->held('Department Admin'));
-        $this->assertCount(52, $this->held('Department Admin'));
+        $this->assertCount(56, $this->held('Department Admin'));
     }
 
     public function test_a_catalog_user_resolves_to_the_catalog_through_the_role_model(): void

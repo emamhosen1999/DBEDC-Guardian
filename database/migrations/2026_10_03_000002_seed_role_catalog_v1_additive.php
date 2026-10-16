@@ -29,6 +29,10 @@ return new class extends Migration
     private const NEW_PERMISSIONS = [
         'monitoring.camera.view' => ['module' => 'om', 'description' => 'View the CCTV / camera monitoring console'],
         'leaves.manage' => ['module' => 'hrm', 'description' => 'Administer leave: override, adjust balances and records of any employee'],
+        'leaves.attachments.view' => ['module' => 'hrm', 'description' => 'Open the supporting documents of leave applications inside the own scope'],
+        'leaves.request_reupload' => ['module' => 'hrm', 'description' => 'Return a leave application to the employee for a clearer document'],
+        'overtime.attachments.view' => ['module' => 'hrm', 'description' => 'Open the supporting documents of overtime and replacement-leave claims inside the own scope'],
+        'overtime.request_reupload' => ['module' => 'hrm', 'description' => 'Return an overtime or replacement-leave claim to the employee for a clearer document'],
     ];
 
     /** old name => [new name, new level (null = unchanged)] */
@@ -63,7 +67,7 @@ return new class extends Migration
             'quality.calibrations.view',
         ],
         'Line Manager' => [
-            'employees.view', 'attendance.view', 'leaves.view', 'leaves.approve', 'holidays.view',
+            'employees.view', 'attendance.view', 'leaves.view', 'leaves.approve', 'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload', 'holidays.view',
         ],
     ];
 

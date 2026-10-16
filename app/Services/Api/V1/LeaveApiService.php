@@ -45,6 +45,13 @@ class LeaveApiService
             $columns[] = 'is_earned';
         }
 
+        // The document rule of each type (always / beyond N days / optional), so the app asks for the attachment up front.
+        foreach (['attachment_rule', 'requires_attachment_days'] as $column) {
+            if (Schema::hasColumn('leave_settings', $column)) {
+                $columns[] = $column;
+            }
+        }
+
         return LeaveSetting::query()
             ->select($columns)
             ->orderBy('type')
@@ -691,7 +698,8 @@ class LeaveApiService
         int $leaveTypeId,
         string $fromDate,
         string $toDate,
-        string $reason
+        string $reason,
+        array $attachmentTokens = []
     ): array {
         $this->assertLeaveConfigurationAvailable();
 
@@ -720,6 +728,14 @@ class LeaveApiService
 
         if ($this->hasOverlappingHoliday($from, $to)) {
             throw new RuntimeException('Selected dates overlap with a holiday.', 422);
+        }
+
+        // Supporting document: the type's rule (always / beyond N days / optional), and every file must be clear.
+        $attachments = app(\App\Services\Attachments\AttachmentService::class);
+        $staged = $attachments->resolve($attachmentTokens, (string) $user->id);
+        $needed = app(\App\Services\Attachments\AttachmentRequirement::class)->leaveMessage($leaveType, (float) ($from->diffInDays($to) + 1));
+        if ($needed !== null && $staged->isEmpty()) {
+            throw new \App\Services\Attachments\AttachmentRejected($needed, 'required');
         }
 
         $status = (! $leaveType->requires_approval || $leaveType->auto_approve) ? 'approved' : 'new';
@@ -754,6 +770,9 @@ class LeaveApiService
         }
 
         $leaveId = DB::table('leaves')->insertGetId($payload);
+        if ($staged->isNotEmpty() && ($created = Leave::find($leaveId))) {
+            $attachments->attach($created, $staged, (string) $user->id);
+        }
 
         // A leave that requires approval is inserted as 'new' with no approval
         // chain — which the approver queue (whereNotNull('approval_chain') AND
@@ -781,7 +800,8 @@ class LeaveApiService
         int $leaveTypeId,
         string $fromDate,
         string $toDate,
-        string $reason
+        string $reason,
+        array $attachmentTokens = []
     ): array {
         $this->assertLeaveConfigurationAvailable();
 
@@ -829,6 +849,18 @@ class LeaveApiService
 
         $status = (! $leaveType->requires_approval || $leaveType->auto_approve) ? 'approved' : 'new';
 
+        $attachments = app(\App\Services\Attachments\AttachmentService::class);
+        $staged = $attachments->resolve($attachmentTokens, (string) $user->id);
+        $model = Leave::find($leaveId);
+        $have = $model ? $model->currentAttachments()->count() : 0;
+        $needed = app(\App\Services\Attachments\AttachmentRequirement::class)->leaveMessage($leaveType, (float) ($from->diffInDays($to) + 1));
+        if ($needed !== null && $staged->isEmpty() && $have === 0) {
+            throw new \App\Services\Attachments\AttachmentRejected($needed, 'required');
+        }
+        if ($have + $staged->count() > (int) config('attachments.limits.max_files')) {
+            throw new \App\Services\Attachments\AttachmentRejected(__('attachments.errors.too_many_files', ['max' => config('attachments.limits.max_files')]), 'too_many_files');
+        }
+
         $updatePayload = [
             'leave_type' => $leaveType->id,
             'from_date' => $from->toDateString(),
@@ -848,6 +880,9 @@ class LeaveApiService
         }
 
         DB::table('leaves')->where('id', $leaveId)->update($updatePayload);
+        if ($model && $staged->isNotEmpty()) {
+            $attachments->attach($model, $staged, (string) $user->id);
+        }
 
         return $this->fetchLeaveRowById($leaveId, $userColumn);
     }
@@ -975,7 +1010,13 @@ class LeaveApiService
      */
     private function transformLeaveRow(object $leave): array
     {
+        // Documents and the "returned for re-upload" state, as the applicant (or an approver) sees them.
+        $model = Leave::with('media')->find($leave->id);
+        $attachments = $model ? app(\App\Services\Attachments\AttachmentAccess::class)->present($model, auth()->user(), true) : null;
+
         return [
+            'attachments' => $attachments,
+            'returned_for_reupload' => (bool) ($attachments['returned_for_reupload'] ?? false),
             'id' => $leave->id,
             'user_id' => (string) $leave->user_id,
             'leave_type' => (int) $leave->leave_type,

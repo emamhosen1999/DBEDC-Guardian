@@ -76,8 +76,21 @@ class AttendanceApprovalService
         return ! $scope->isGlobal($u) && $scope->canManage($u, (string) $m->user_id);
     }
 
+    /** An application returned for re-upload waits for the employee's new document before it can be decided. */
+    private function waitingForReupload(Model $m): ?array
+    {
+        if ($m->getAttribute('reupload_requested_at') === null) {
+            return null;
+        }
+
+        return ['success' => false, 'message' => __('attachments.reupload.waiting'), 'status' => $m->status];
+    }
+
     public function approve(Model $m, User $approver, ?string $comments = null): array
     {
+        if ($wait = $this->waitingForReupload($m)) {
+            return $wait;
+        }
         $result = $this->performApprove($m, $approver, $comments);
         $this->auditSelf($m, $approver, 'approved', $result);
 
@@ -128,6 +141,9 @@ class AttendanceApprovalService
 
     public function reject(Model $m, User $approver, string $reason): array
     {
+        if ($wait = $this->waitingForReupload($m)) {
+            return $wait;
+        }
         $result = $this->performReject($m, $approver, $reason);
         $this->auditSelf($m, $approver, 'rejected', $result);
 

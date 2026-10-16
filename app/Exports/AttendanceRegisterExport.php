@@ -280,7 +280,7 @@ class AttendanceRegisterExport
     public function summaryData(CarbonInterface $from, CarbonInterface $to): array
     {
         $summary = null;
-        $sums = ['present', 'absent', 'leave', 'paid_leave', 'lwp', 'ot_hours', 'late', 'holidays_worked', 'weekly_off_worked', 'working_days'];
+        $sums = ['present', 'absent', 'leave', 'paid_leave', 'lwp', 'ot_hours', 'late', 'holidays_worked', 'weekly_off_worked', 'working_days', 'ot_days_holiday', 'ot_days_rest', 'repl_earned', 'repl_used'];
         for ($c = $from->copy()->startOfMonth(); $c->lte($to); $c->addMonthNoOverflow()->startOfMonth()) {
             $month = app(AttendanceReportService::class)->getPerEmployeeMonthlySummary($c->year, $c->month, $this->departmentId, $this->employeeIds, $from, $to);
             if ($summary === null) {
@@ -295,8 +295,10 @@ class AttendanceRegisterExport
                     continue;
                 }
                 foreach ($sums as $k) {
-                    $summary['rows'][$key][$k] += $row[$k];
+                    $summary['rows'][$key][$k] += $row[$k] ?? 0;
                 }
+                // Open replacement expiring is a point in time (the period end): the latest month wins.
+                $summary['rows'][$key]['repl_expiring'] = $row['repl_expiring'] ?? 0;
             }
         }
         $summary['rows'] = array_values($summary['rows'] ?? []);

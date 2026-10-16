@@ -1,121 +1,32 @@
-import { Panel } from '@/Components/ui/Panel';
 /**
  * LeaveSettingsPanel.jsx
- * Leave types CRUD — pure Radix UI.
- * * UX Improvements added:
- * - Optimistic Updates: Deletions and edits update the table instantly. If the API fails, it rolls back.
- * - Sticky Table Headers & ScrollAreas: Prevents the page from breaking on mobile.
- * - Responsive Grid Layouts: Forms and switches elegantly stack into single columns on small screens.
+ * Leave types CRUD, built only from the Cyber library (cards, form controls, table, dialog).
+ * - Optimistic updates: deletions and edits update the table at once; if the API fails the change is rolled back.
+ * - Each type has an explicit document rule: optional / required beyond N days / always required.
  */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQueryFilters } from '@/Hooks/useQueryFilters';
-import { Box, Flex, Text, Button, TextField, Switch, Select, Table, Badge, Tooltip, IconButton, Separator, ScrollArea, Spinner, Grid } from '@radix-ui/themes';
-import {
-    PlusIcon, Pencil1Icon, TrashIcon, Cross2Icon,
-    ReloadIcon, MagnifyingGlassIcon, CheckCircledIcon,
-    CrossCircledIcon, InfoCircledIcon, ClockIcon,
-    CalendarIcon, PersonIcon, GearIcon,
-} from '@radix-ui/react-icons';
+import { Badge, Button, Card, FormField, Icon, Input, SelectInput, Switch } from '@/Components/Cyber';
+import Dialog from '@/Components/Cyber/Map/Dialog.jsx';
 import { showToast } from '@/utils/toastUtils';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
 
-const getLeaveTypeConfig = (type) => {
-    const t = type?.toLowerCase() || '';
-    if (t.includes('sick') || t.includes('medical')) {
-        return { color: 'red', icon: '🩺', bg: 'var(--red-a3)', accent: 'var(--red-9)' };
-    }
-    if (t.includes('casual') || t.includes('personal')) {
-        return { color: 'blue', icon: '🏖️', bg: 'var(--blue-a3)', accent: 'var(--blue-9)' };
-    }
-    if (t.includes('earned') || t.includes('annual') || t.includes('vacation')) {
-        return { color: 'green', icon: '🌴', bg: 'var(--green-a3)', accent: 'var(--green-9)' };
-    }
-    return { color: 'amber', icon: '📝', bg: 'var(--amber-a3)', accent: 'var(--amber-9)' };
-};
-
-/* ── Confirm Modal ───────────────────────── */
+/* ── Confirm dialog ───────────────────────── */
 const ConfirmModal = ({ open, onClose, onConfirm, loading, candidate }) => {
     if (!open) return null;
     return (
-        <Box
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16,
-            }}
-            onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}
-        >
-            <Box
-                style={{
-                    background: 'var(--color-panel-solid)',
-                    border: '1px solid var(--gray-a5)',
-                    borderRadius: 'var(--radius-4)',
-                    boxShadow: 'var(--shadow-5)',
-                    width: '100%', maxWidth: 420,
-                    overflow: 'hidden',
-                }}
-            >
-                <Flex align="center" gap="3" px="4" py="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
-                    <Box style={{ width: 36, height: 36, borderRadius: 'var(--radius-2)', background: 'var(--red-a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <TrashIcon style={{ color: 'var(--red-9)', width: 18, height: 18 }} />
-                    </Box>
-                    <Box>
-                        <Text size="3" weight="bold">Delete Leave Type</Text>
-                        <Text size="1" color="gray" as="div">This action cannot be undone</Text>
-                    </Box>
-                </Flex>
-
-                <Box px="4" py="4">
-                    <Text size="2">
-                        Are you sure you want to delete{' '}
-                        <Text size="2" weight="bold" color="red">"{candidate?.type}"</Text>?
-                        This will permanently remove this leave type and its associated policies.
-                    </Text>
-                </Box>
-
-                <Flex gap="3" justify="end" px="4" py="3" style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-a2)' }}>
-                    <Button variant="soft" color="gray" onClick={onClose} disabled={loading} style={{ cursor: 'pointer' }}>
-                        Cancel
-                    </Button>
-                    <Button color="red" onClick={onConfirm} disabled={loading} style={{ cursor: 'pointer' }}>
-                        {loading ? <Spinner size="1" /> : <TrashIcon />}
-                        Delete Leave Type
-                    </Button>
-                </Flex>
-            </Box>
-        </Box>
+        <Dialog title="Delete leave type" onClose={() => { if (!loading) onClose(); }} className="cy-modal cy-modal--narrow">
+            <div className="cy-modal__section">
+                <p>Are you sure you want to delete <b>"{candidate?.type}"</b>? This permanently removes the leave type and its policies. This action cannot be undone.</p>
+            </div>
+            <div className="cy-modal__foot">
+                <Button color="default" variant="outline" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
+                <Button color="danger" size="sm" onClick={onConfirm} loading={loading}>Delete leave type</Button>
+            </div>
+        </Dialog>
     );
 };
-
-/* ── Switch Row Helper ───────────────────────────────────── */
-const SwitchRow = ({ icon: Icon, label, description, checked, onCheckedChange, color, disabled }) => (
-    <Box p="3" style={{ borderRadius: 'var(--radius-3)', border: '1px solid var(--gray-a4)', background: disabled ? 'var(--gray-a2)' : 'var(--gray-a1)', opacity: disabled ? 0.7 : 1 }}>
-        <Flex align="center" justify="between" gap="3">
-            <Flex align="center" gap="3" style={{ minWidth: 0 }}>
-                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)' }}>
-                    <Icon style={{ color: `var(--${color}-9)`, width: 16, height: 16, flexShrink: 0 }} />
-                </Box>
-                <Box style={{ minWidth: 0 }}>
-                    <Text size="2" weight="bold" as="div">{label}</Text>
-                    <Text size="1" color="gray" as="div">{description}</Text>
-                </Box>
-            </Flex>
-            <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} size="2" color={color} style={{ flexShrink: 0 }} />
-        </Flex>
-    </Box>
-);
-
-/* ── Policy Badge ────────────────────────────────────────── */
-const PolicyBadge = ({ active, label, tooltip }) => (
-    <Tooltip content={tooltip}>
-        <Badge color={active ? 'green' : 'gray'} variant="soft" size="1" style={{ cursor: 'default', userSelect: 'none' }}>
-            {active ? <CheckCircledIcon style={{ width: 12, height: 12 }} /> : <CrossCircledIcon style={{ width: 12, height: 12 }} />}
-            {label}
-        </Badge>
-    </Tooltip>
-);
 
 /* ════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -143,6 +54,7 @@ const EMPTY_FORM = {
     min_service_months: '',
     max_encash_days:    '',
     requires_attachment_days: '',
+    attachment_rule:    'optional',
     is_comp_off:        false,
 };
 
@@ -177,8 +89,8 @@ export default function LeaveSettingsPanel({
     useEffect(() => {
         if (!isActive) return;
         onSetHeaderActions?.(
-            <Button size="2" variant="soft" color="gray" onClick={() => refetch()} disabled={isLoading}>
-                <ReloadIcon /> {!isMobile && (isLoading ? 'Loading...' : 'Refresh')}
+            <Button size="sm" color="default" variant="outline" onClick={() => refetch()} disabled={isLoading}>
+                <Icon name="arrow-clockwise" /> {!isMobile && (isLoading ? 'Loading…' : 'Refresh')}
             </Button>
         );
         return () => onSetHeaderActions?.(null);
@@ -226,6 +138,7 @@ export default function LeaveSettingsPanel({
             min_service_months: lt.min_service_months ?? '',
             max_encash_days:   lt.max_encash_days ?? '',
             requires_attachment_days: lt.requires_attachment_days ?? '',
+            attachment_rule:   lt.attachment_rule || (lt.requires_attachment_days != null ? 'beyond_days' : 'optional'),
             is_comp_off:       Boolean(lt.is_comp_off),
         });
         setIsEditing(true);
@@ -293,263 +206,124 @@ export default function LeaveSettingsPanel({
         }
     };
 
+    const num = (key, props = {}) => ({ type: 'number', value: form[key], onChange: (e) => setField(key, e.target.value), ...props });
+    const ACCRUAL = [{ value: 'annual_upfront', label: 'Annual (upfront)' }, { value: 'monthly', label: 'Monthly accrual' }, { value: 'none', label: 'None' }];
+    const GENDER = [{ value: 'all', label: 'All employees' }, { value: 'male', label: 'Male only' }, { value: 'female', label: 'Female only' }];
+    const DOC_RULE = [{ value: 'optional', label: 'Optional' }, { value: 'beyond_days', label: 'Required beyond N days' }, { value: 'always', label: 'Always required' }];
+    const docRuleLabel = (lt) => {
+        const rule = lt.attachment_rule || (lt.requires_attachment_days != null ? 'beyond_days' : 'optional');
+        return rule === 'always' ? 'Always required' : rule === 'beyond_days' ? `Required over ${lt.requires_attachment_days} day(s)` : 'Optional';
+    };
+
     /* ── Render ─────────────────────────────────────────────── */
     return (
-        <Box>
-            {/* ── Add / Edit Form ── */}
-            <Box mb="5">
-                <Flex align="center" gap="3" mb="4">
-                    <Box style={{ width: 40, height: 40, borderRadius: 'var(--radius-3)', background: 'var(--accent-a3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {isEditing ? <Pencil1Icon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} /> : <PlusIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />}
-                    </Box>
-                    <Box>
-                        <Text size="4" weight="bold">{isEditing ? 'Edit Leave Type' : 'Add New Leave Type'}</Text>
-                        <Text size="2" color="gray" as="div">{isEditing ? 'Update the leave type details below' : 'Configure a new leave type with policies and rules'}</Text>
-                    </Box>
-                </Flex>
+        <div className="dl-page">
+            <div className="dl-row">
+                <div className="dl-col dl-col--12">
+                    <Card id="leave-settings:form" title={isEditing ? 'Edit leave type' : 'Add new leave type'} flush>
+                        <div className="cy-formsection"><div className="cy-formgrid">
+                            <FormField label="Leave type" htmlFor="lt-type" required><Input id="lt-type" placeholder="e.g. Annual Leave, Sick Leave" value={form.type} onChange={(e) => setField('type', e.target.value)} /></FormField>
+                            <FormField label="Number of days" htmlFor="lt-days" required><Input id="lt-days" {...num('days', { min: 0, placeholder: 'e.g. 21' })} /></FormField>
+                            <FormField label="Eligibility criteria" htmlFor="lt-elig"><Input id="lt-elig" placeholder="e.g. After 1 year of service" value={form.eligibility} onChange={(e) => setField('eligibility', e.target.value)} /></FormField>
+                            <FormField label="Special conditions" htmlFor="lt-special"><Input id="lt-special" placeholder="e.g. Medical certificate required" value={form.special_conditions} onChange={(e) => setField('special_conditions', e.target.value)} /></FormField>
+                        </div></div>
 
-                <Panel>
-                    <Flex direction="column" gap="5">
-                        {/* Text Fields Grid */}
-                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4">
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Leave Type <Text color="red">*</Text></Text>
-                                <TextField.Root size="2" placeholder="e.g. Annual Leave, Sick Leave" value={form.type} onChange={e => setField('type', e.target.value)}>
-                                    <TextField.Slot><ClockIcon /></TextField.Slot>
-                                </TextField.Root>
-                            </Box>
+                        <div className="cy-formsection"><h4 className="cy-formhead">Policy rules</h4>
+                        <div className="cy-formgrid">
+                            <Switch label="Carry forward (unused days to next year)" checked={form.carry_forward} onCheckedChange={(v) => setField('carry_forward', v)} />
+                            <Switch label="Earned leave (accumulated over time)" checked={form.earned_leave} onCheckedChange={(v) => setField('earned_leave', v)} />
+                            <Switch label="Approval required" checked={form.requires_approval} onCheckedChange={(v) => { setField('requires_approval', v); if (!v) setField('auto_approve', false); }} />
+                            <Switch label="Auto approve (skip the approval workflow)" checked={form.auto_approve} disabled={!form.requires_approval} onCheckedChange={(v) => setField('auto_approve', v)} />
+                        </div></div>
 
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Number of Days <Text color="red">*</Text></Text>
-                                <TextField.Root size="2" type="number" min="0" placeholder="e.g. 21" value={form.days} onChange={e => setField('days', e.target.value)}>
-                                    <TextField.Slot><CalendarIcon /></TextField.Slot>
-                                </TextField.Root>
-                            </Box>
+                        <div className="cy-formsection"><h4 className="cy-formhead">Accrual policy</h4>
+                        <div className="cy-formgrid">
+                            <FormField label="Accrual method" htmlFor="lt-accrual"><SelectInput id="lt-accrual" value={form.accrual_method} onChange={(v) => setField('accrual_method', v)} options={ACCRUAL} /></FormField>
+                            <FormField label="Accrual rate (days/yr)" htmlFor="lt-rate"><Input id="lt-rate" {...num('accrual_rate', { min: 0, step: 0.5, placeholder: 'defaults to days' })} /></FormField>
+                            <FormField label="Probation (months)" htmlFor="lt-prob"><Input id="lt-prob" {...num('probation_months', { min: 0, placeholder: '0' })} /></FormField>
+                            <FormField label="Carry-forward cap (days)" htmlFor="lt-cap"><Input id="lt-cap" {...num('carry_forward_cap', { min: 0, step: 0.5, placeholder: 'blank = no carry' })} /></FormField>
+                            <FormField label="Carry expiry (months)" htmlFor="lt-cexp"><Input id="lt-cexp" {...num('carry_expiry_months', { min: 0, placeholder: 'blank = never' })} /></FormField>
+                        </div>
+                        <div className="cy-formgrid">
+                            <Switch label="Prorate on join" checked={form.prorate_on_join} onCheckedChange={(v) => setField('prorate_on_join', v)} />
+                            <Switch label="Encashable" checked={form.is_encashable} onCheckedChange={(v) => setField('is_encashable', v)} />
+                            <Switch label="Allow negative balance" checked={form.allow_negative} onCheckedChange={(v) => setField('allow_negative', v)} />
+                        </div></div>
 
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Eligibility Criteria</Text>
-                                <TextField.Root size="2" placeholder="e.g. After 1 year of service" value={form.eligibility} onChange={e => setField('eligibility', e.target.value)}>
-                                    <TextField.Slot><PersonIcon /></TextField.Slot>
-                                </TextField.Root>
-                            </Box>
+                        <div className="cy-formsection"><h4 className="cy-formhead">Eligibility and documents</h4>
+                        <div className="cy-formgrid">
+                            <FormField label="Eligible gender" htmlFor="lt-gender"><SelectInput id="lt-gender" value={form.eligible_gender} onChange={(v) => setField('eligible_gender', v)} options={GENDER} /></FormField>
+                            <FormField label="Min service (months)" htmlFor="lt-minsvc"><Input id="lt-minsvc" {...num('min_service_months', { min: 0, placeholder: 'blank = none' })} /></FormField>
+                            <FormField label="Encash cap (days/yr)" htmlFor="lt-encash"><Input id="lt-encash" {...num('max_encash_days', { min: 0, step: 0.5, placeholder: 'blank = no cap' })} /></FormField>
+                            <FormField label="Supporting document" htmlFor="lt-docrule"><SelectInput id="lt-docrule" value={form.attachment_rule} onChange={(v) => setField('attachment_rule', v)} options={DOC_RULE} /></FormField>
+                            <FormField label="Required over (days)" htmlFor="lt-docdays"><Input id="lt-docdays" {...num('requires_attachment_days', { min: 0, step: 0.5, placeholder: 'e.g. 2', disabled: form.attachment_rule !== 'beyond_days' })} /></FormField>
+                        </div>
+                        <div className="cy-formgrid">
+                            <Switch label="Comp-off bank (receives comp-off grants for off-day / holiday work)" checked={form.is_comp_off} onCheckedChange={(v) => setField('is_comp_off', v)} />
+                        </div></div>
 
-                            <Box style={{ gridColumn: isMobile ? '1' : 'span 2' }}>
-                                <Text size="2" weight="medium" as="div" mb="2">Special Conditions</Text>
-                                <TextField.Root size="2" placeholder="e.g. Medical certificate required" value={form.special_conditions} onChange={e => setField('special_conditions', e.target.value)}>
-                                    <TextField.Slot><InfoCircledIcon /></TextField.Slot>
-                                </TextField.Root>
-                            </Box>
-                        </Grid>
+                        <div className="cy-formsection cy-formfoot">
+                            {isEditing && <Button color="default" variant="outline" size="sm" onClick={resetForm} disabled={loading}>Cancel</Button>}
+                            <Button size="sm" onClick={handleSubmit} disabled={!isFormValid} loading={loading}>{isEditing ? 'Update leave type' : 'Add leave type'}</Button>
+                        </div>
+                    </Card>
+                </div>
+            </div>
 
-                        {/* Policy Toggles */}
-                        <Text size="3" weight="bold" mt="2">Policy Rules</Text>
-                        <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="3">
-                            <SwitchRow icon={ReloadIcon} label="Carry Forward" description="Allow unused days to next year" checked={form.carry_forward} onCheckedChange={v => setField('carry_forward', v)} color="orange" />
-                            <SwitchRow icon={ClockIcon} label="Earned Leave" description="Accumulated over time" checked={form.earned_leave} onCheckedChange={v => setField('earned_leave', v)} color="green" />
-                            <SwitchRow icon={CheckCircledIcon} label="Approval Req." description="Manager approval needed" checked={form.requires_approval} onCheckedChange={v => { setField('requires_approval', v); if (!v) setField('auto_approve', false); }} color="blue" />
-                            <SwitchRow icon={GearIcon} label="Auto Approve" description="Skip approval workflow" checked={form.auto_approve} onCheckedChange={v => setField('auto_approve', v)} color="teal" disabled={!form.requires_approval} />
-                        </Grid>
+            <div className="dl-row">
+                <div className="dl-col dl-col--12">
+                    <Card id="leave-settings:list" title="Leave types overview" flush
+                        actions={<Badge soft color="theme">{leaveTypes.length}</Badge>}>
+                        <div className="cy-toolbar" role="toolbar" aria-label="Leave type filters">
+                            <div className="cy-toolbar__group">
+                                <label className="cy-tool">
+                                    <span className="visually-hidden">Search leave types</span>
+                                    <Icon name="search" />
+                                    <input className="cy-input cy-input--sm" type="search" placeholder="Search leave types…" value={f.draft.ls_q} onChange={(e) => f.setDraft('ls_q', e.target.value)} />
+                                </label>
+                            </div>
+                        </div>
+                        <div className="cy-dt" tabIndex={0} role="region" aria-label="Leave types, scrollable">
+                            <table className="cy-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Leave type</th><th scope="col">Days</th><th scope="col">Eligibility</th><th scope="col">Policies</th>
+                                        <th scope="col">Document</th><th scope="col">Special conditions</th><th scope="col"><span className="visually-hidden">Actions</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filtered.length === 0 ? (
+                                        <tr><td colSpan={7} className="cy-cell--empty"><div className="cy-empty cy-empty--flat"><p className="cy-empty__text">{search ? 'No matches found.' : 'No leave types configured yet.'}</p></div></td></tr>
+                                    ) : filtered.map((lt) => (
+                                        <tr key={lt.id}>
+                                            <td><b>{lt.type}</b></td>
+                                            <td className="cy-nowrap">{lt.days} days</td>
+                                            <td className="cy-wrap">{lt.eligibility || 'None'}</td>
+                                            <td>
+                                                <span className="cy-actions">
+                                                    <Badge soft color={lt.carry_forward ? 'success' : 'secondary'}>Carry fwd</Badge>
+                                                    <Badge soft color={lt.earned_leave ? 'success' : 'secondary'}>Earned</Badge>
+                                                    <Badge soft color={(lt.requires_approval ?? true) ? 'success' : 'secondary'}>Approval</Badge>
+                                                    {lt.auto_approve && <Badge soft color="theme">Auto</Badge>}
+                                                </span>
+                                            </td>
+                                            <td className="cy-wrap">{docRuleLabel(lt)}</td>
+                                            <td className="cy-wrap">{lt.special_conditions || 'None'}</td>
+                                            <td>
+                                                <span className="cy-actions">
+                                                    <Button size="sm" color="default" variant="outline" aria-label={`Edit ${lt.type}`} onClick={() => handleEdit(lt)}><Icon name="pencil" /> Edit</Button>
+                                                    <Button size="sm" color="danger" variant="outline" aria-label={`Delete ${lt.type}`} onClick={() => setDeleteModal({ open: true, candidate: lt })}><Icon name="trash" /> Delete</Button>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                </div>
+            </div>
 
-                        {/* Accrual Policy (Phase 3 — ledger) */}
-                        <Text size="3" weight="bold" mt="2">Accrual Policy</Text>
-                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4">
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Accrual Method</Text>
-                                <Select.Root value={form.accrual_method} onValueChange={v => setField('accrual_method', v)}>
-                                    <Select.Trigger style={{ width: '100%' }} />
-                                    <Select.Content>
-                                        <Select.Item value="annual_upfront">Annual (upfront)</Select.Item>
-                                        <Select.Item value="monthly">Monthly accrual</Select.Item>
-                                        <Select.Item value="none">None</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Accrual Rate (days/yr)</Text>
-                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="defaults to days" value={form.accrual_rate} onChange={e => setField('accrual_rate', e.target.value)} />
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Probation (months)</Text>
-                                <TextField.Root size="2" type="number" min="0" placeholder="0" value={form.probation_months} onChange={e => setField('probation_months', e.target.value)} />
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Carry-forward Cap (days)</Text>
-                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="blank = no carry" value={form.carry_forward_cap} onChange={e => setField('carry_forward_cap', e.target.value)} />
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Carry Expiry (months)</Text>
-                                <TextField.Root size="2" type="number" min="0" placeholder="blank = never" value={form.carry_expiry_months} onChange={e => setField('carry_expiry_months', e.target.value)} />
-                            </Box>
-                        </Grid>
-                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="3">
-                            <SwitchRow icon={CalendarIcon} label="Prorate on Join" description="Pro-rate entitlement for mid-year joiners" checked={form.prorate_on_join} onCheckedChange={v => setField('prorate_on_join', v)} color="blue" />
-                            <SwitchRow icon={ReloadIcon} label="Encashable" description="Can be encashed (recorded)" checked={form.is_encashable} onCheckedChange={v => setField('is_encashable', v)} color="green" />
-                            <SwitchRow icon={InfoCircledIcon} label="Allow Negative" description="Permit advance/negative balance" checked={form.allow_negative} onCheckedChange={v => setField('allow_negative', v)} color="orange" />
-                        </Grid>
-
-                        {/* Eligibility, Documents & Comp-off */}
-                        <Text size="3" weight="bold" mt="2">Eligibility & Documents</Text>
-                        <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Eligible Gender</Text>
-                                <Select.Root value={form.eligible_gender} onValueChange={v => setField('eligible_gender', v)}>
-                                    <Select.Trigger style={{ width: '100%' }} />
-                                    <Select.Content>
-                                        <Select.Item value="all">All employees</Select.Item>
-                                        <Select.Item value="male">Male only</Select.Item>
-                                        <Select.Item value="female">Female only</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Min Service (months)</Text>
-                                <TextField.Root size="2" type="number" min="0" placeholder="blank = none" value={form.min_service_months} onChange={e => setField('min_service_months', e.target.value)} />
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Encash Cap (days/yr)</Text>
-                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="blank = no cap" value={form.max_encash_days} onChange={e => setField('max_encash_days', e.target.value)} />
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" as="div" mb="2">Attachment Req. Over (days)</Text>
-                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="blank = never" value={form.requires_attachment_days} onChange={e => setField('requires_attachment_days', e.target.value)} />
-                            </Box>
-                        </Grid>
-                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="3">
-                            <SwitchRow icon={ClockIcon} label="Comp-off Bank" description="Receives comp-off grants for off-day/holiday work" checked={form.is_comp_off} onCheckedChange={v => setField('is_comp_off', v)} color="purple" />
-                        </Grid>
-
-                        {/* Action Buttons */}
-                        <Separator size="4" />
-                        <Flex gap="3" justify="end" wrap="wrap">
-                            {isEditing && (
-                                <Button variant="soft" color="gray" size="2" onClick={resetForm} disabled={loading} style={{ cursor: 'pointer' }}>
-                                    <Cross2Icon /> Cancel
-                                </Button>
-                            )}
-                            <Button size="2" color={isEditing ? 'amber' : 'indigo'} onClick={handleSubmit} disabled={!isFormValid || loading} style={{ cursor: isFormValid ? 'pointer' : 'not-allowed' }}>
-                                {loading ? <Spinner size="1" /> : isEditing ? <Pencil1Icon /> : <PlusIcon />}
-                                {isEditing ? 'Update Leave Type' : 'Add Leave Type'}
-                            </Button>
-                        </Flex>
-                    </Flex>
-                </Panel>
-            </Box>
-
-            <Separator size="4" mb="5" />
-
-            {/* ── Leave Types Table ── */}
-            <Box>
-                <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                    <Flex align="center" gap="2">
-                        <Text size="4" weight="bold">Leave Types Overview</Text>
-                        <Badge color="blue" variant="soft" size="2" radius="full">{leaveTypes.length}</Badge>
-                    </Flex>
-                    <Box style={{ flex: isMobile ? 1 : '0 0 250px' }}>
-                        <TextField.Root size="2" placeholder="Search leave types…" value={f.draft.ls_q} onChange={e => f.setDraft('ls_q', e.target.value)}>
-                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                            {search && (
-                                <TextField.Slot side="right">
-                                    <IconButton size="1" variant="ghost" onClick={() => f.setDraft('ls_q', '')}><Cross2Icon /></IconButton>
-                                </TextField.Slot>
-                            )}
-                        </TextField.Root>
-                    </Box>
-                </Flex>
-
-                <Panel p="0" style={{ overflow: 'hidden' }}>
-                    <ScrollArea scrollbars="both" style={{ maxHeight: 600 }}>
-                        <Table.Root size="2" variant="ghost">
-                            <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Leave Type</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ width: 100, textAlign: 'center' }}>Days</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Eligibility</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 260 }}>Policies</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 200 }}>Special Conditions</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ width: 100, textAlign: 'center' }}>Actions</Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-
-                            <Table.Body>
-                                {filtered.length === 0 ? (
-                                    <Table.Row>
-                                        <Table.Cell colSpan={6}>
-                                            <Flex direction="column" align="center" py="9" gap="3">
-                                                <CalendarIcon style={{ color: 'var(--gray-8)', width: 48, height: 48 }} />
-                                                <Text size="3" weight="bold">
-                                                    {search ? 'No matches found.' : 'No leave types configured yet.'}
-                                                </Text>
-                                            </Flex>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                ) : (
-                                    filtered.map(lt => {
-                                        const cfg = getLeaveTypeConfig(lt.type);
-                                        return (
-                                            <Table.Row key={lt.id}>
-                                                <Table.Cell>
-                                                    <Flex align="center" gap="3">
-                                                        <Box style={{ width: 32, height: 32, borderRadius: 'var(--radius-2)', background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            <Text size="3" style={{ lineHeight: 1 }}>{cfg.icon}</Text>
-                                                        </Box>
-                                                        <Text size="2" weight="bold">{lt.type}</Text>
-                                                    </Flex>
-                                                </Table.Cell>
-                                            <Table.Cell style={{ textAlign: 'center' }}>
-                                                <Badge color="blue" variant="solid" size="2">{lt.days} days</Badge>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Text size="2" color={lt.eligibility ? 'gray' : 'gray'} style={{ fontStyle: lt.eligibility ? 'normal' : 'italic' }}>
-                                                    {lt.eligibility || 'None'}
-                                                </Text>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Flex gap="2" wrap="wrap">
-                                                    <PolicyBadge active={lt.carry_forward} label="Carry Fwd" tooltip="Carry Forward Policy" />
-                                                    <PolicyBadge active={lt.earned_leave} label="Earned" tooltip="Earned Leave Policy" />
-                                                    <PolicyBadge active={lt.requires_approval ?? true} label="Approval" tooltip="Requires Manager Approval" />
-                                                    {lt.auto_approve && (
-                                                        <Badge color="teal" variant="soft" size="1">
-                                                            <CheckCircledIcon style={{ width: 12, height: 12 }} /> Auto
-                                                        </Badge>
-                                                    )}
-                                                </Flex>
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                {lt.special_conditions ? (
-                                                    <Flex align="center" gap="2">
-                                                        <InfoCircledIcon style={{ color: 'var(--amber-9)', width: 14, flexShrink: 0 }} />
-                                                        <Text size="2" color="gray">{lt.special_conditions}</Text>
-                                                    </Flex>
-                                                ) : (
-                                                    <Text size="2" color="gray" style={{ fontStyle: 'italic' }}>None</Text>
-                                                )}
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Flex gap="2" justify="center">
-                                                    <Tooltip content="Edit">
-                                                        <IconButton size="1" variant="soft" color="blue" onClick={() => handleEdit(lt)} style={{ cursor: 'pointer' }}>
-                                                            <Pencil1Icon />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip content="Delete">
-                                                        <IconButton size="1" variant="soft" color="red" onClick={() => setDeleteModal({ open: true, candidate: lt })} style={{ cursor: 'pointer' }}>
-                                                            <TrashIcon />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </Flex>
-                                            </Table.Cell>
-                                        </Table.Row>
-                                    );
-                                })
-                            )}
-                            </Table.Body>
-                        </Table.Root>
-                    </ScrollArea>
-                </Panel>
-            </Box>
-
-            {/* ── Delete Confirm Modal ── */}
             <ConfirmModal
                 open={deleteModal.open}
                 onClose={() => { if (!deleteLoading) setDeleteModal({ open: false, candidate: null }); }}
@@ -557,6 +331,6 @@ export default function LeaveSettingsPanel({
                 loading={deleteLoading}
                 candidate={deleteModal.candidate}
             />
-        </Box>
+        </div>
     );
 }

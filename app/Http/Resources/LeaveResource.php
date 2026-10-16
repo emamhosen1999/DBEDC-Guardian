@@ -40,13 +40,16 @@ class LeaveResource extends JsonResource
             'cancelled_by' => $this->cancelled_by,
 
             // Supporting documents (medical certificates etc.)
-            'attachments' => $this->getMedia('attachments')->map(fn ($media) => [
+            'attachments' => $this->getMedia('attachments')->reject(fn ($m) => $m->getCustomProperty('superseded_at'))->map(fn ($media) => [
                 'id' => $media->id,
-                'name' => $media->file_name,
+                'name' => $media->getCustomProperty('original_name') ?: $media->file_name,
                 'size' => $media->size,
                 'mime_type' => $media->mime_type,
                 'url' => route('leaves.attachments.download', ['id' => $this->id, 'mediaId' => $media->id]),
             ])->values(),
+            // Documents, history and the "returned for re-upload" state (signed links only for those allowed to open them).
+            'attachment_state' => app(\App\Services\Attachments\AttachmentAccess::class)->present($this->resource, $request->user(), false),
+            'returned_for_reupload' => $this->resource->isReturnedForReupload(),
 
             // Include employee data when available
             'employee' => $this->when($this->relationLoaded('employee') && $this->employee, function () {

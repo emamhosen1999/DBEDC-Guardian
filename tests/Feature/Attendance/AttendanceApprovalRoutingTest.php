@@ -34,10 +34,21 @@ class AttendanceApprovalRoutingTest extends TestCase
         return $emp;
     }
 
+    /** A day-based claim: the employee worked 2026-06-18, which is their rostered rest day, with a clear document. */
     private function submitOt(User $emp)
     {
+        \Illuminate\Support\Facades\Storage::fake('attachments');
+        $shift = \App\Models\HRM\Shift::factory()->create();
+        \App\Models\HRM\ShiftAssignment::factory()->create(['scope_type' => 'user', 'scope_id' => $emp->id, 'shift_id' => $shift->id, 'effective_from' => '2026-01-01', 'anchor_date' => '2026-01-01']);
+        \App\Models\HRM\RosterDay::create(['user_id' => $emp->id, 'date' => '2026-06-18', 'shift_id' => null, 'source' => 'manual', 'locked' => true]);
+        \App\Models\HRM\Attendance::create(['user_id' => $emp->id, 'date' => '2026-06-18', 'punchin' => '2026-06-18 09:00:00', 'punchout' => '2026-06-18 17:00:00']);
+        $token = app(\App\Services\Attachments\AttachmentService::class)->stageUpload(
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.jpg', \Tests\Support\Attachments\SyntheticDocuments::jpeg(\Tests\Support\Attachments\SyntheticDocuments::page(), 88)),
+            (string) $emp->employee_id
+        )->token;
+
         return $this->actingAs($emp)->postJson(route('attendance.overtime.store'), [
-            'date' => '2026-06-18', 'requested_minutes' => 60, 'reason' => 'release',
+            'date' => '2026-06-18', 'compensation' => 'payment', 'reason' => 'release', 'attachment_tokens' => [$token],
         ]);
     }
 

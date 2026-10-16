@@ -176,8 +176,8 @@ class LeaveController extends Controller
             $data['isHalfDay'] = $request->boolean('isHalfDay');
             $data['halfDaySession'] = $request->input('halfDaySession');
 
-            $this->validateAttachments($request);
-            $data['hasAttachment'] = $request->hasFile('attachments');
+            $data['attachmentTokens'] = $this->collectAttachmentTokens($request);
+            $data['attachmentActor'] = (string) Auth::id();
 
             $userId = $data['user_id'];
 
@@ -193,8 +193,6 @@ class LeaveController extends Controller
 
             // Create new leave (use sanitized data)
             $newLeave = $this->crudService->createLeave($data);
-
-            $this->storeAttachments($request, $newLeave);
 
             // Get updated leave records safely
             try {
@@ -280,8 +278,8 @@ class LeaveController extends Controller
                 'halfDaySession' => $request->input('halfDaySession'),
             ];
 
-            $this->validateAttachments($request);
-            $safeData['hasAttachment'] = $request->hasFile('attachments');
+            $safeData['attachmentTokens'] = $this->collectAttachmentTokens($request);
+            $safeData['attachmentActor'] = (string) Auth::id();
 
             $fromDate = Carbon::parse($safeData['fromDate'] ?? $existing->from_date);
             $toDate = Carbon::parse($safeData['toDate'] ?? $existing->to_date);
@@ -298,8 +296,6 @@ class LeaveController extends Controller
             }
 
             $updatedLeave = $this->crudService->updateLeave($leaveId, $safeData);
-
-            $this->storeAttachments($request, $updatedLeave);
 
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
@@ -365,36 +361,25 @@ class LeaveController extends Controller
     }
 
     /**
-     * Validate uploaded supporting documents (attachments[]).
+     * The staged documents (attachment_tokens[]) plus any files sent directly (attachments[]), which go through the same
+     * pipeline (private disk, re-encoded, clarity-checked). An unclear file is rejected with the specific guidance.
+     *
+     * @return list<string>
      */
-    private function validateAttachments(Request $request): void
+    private function collectAttachmentTokens(Request $request): array
     {
-        if (! $request->hasFile('attachments')) {
-            return;
-        }
-
         $request->validate([
-            'attachments' => 'array|max:3',
-            'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png|max:5120',
-        ], [
-            'attachments.max' => 'A maximum of 3 attachments are allowed.',
-            'attachments.*.mimes' => 'Attachments must be PDF, JPG, or PNG files.',
-            'attachments.*.max' => 'Each attachment must not exceed 5 MB.',
+            'attachment_tokens' => 'nullable|array|max:'.config('attachments.limits.max_files'),
+            'attachment_tokens.*' => 'string',
+            'attachments' => 'nullable|array|max:'.config('attachments.limits.max_files'),
+            'attachments.*' => 'file',
         ]);
-    }
-
-    /**
-     * Persist uploaded supporting documents onto the leave record.
-     */
-    private function storeAttachments(Request $request, Leave $leave): void
-    {
-        if (! $request->hasFile('attachments')) {
-            return;
+        $tokens = (array) $request->input('attachment_tokens', []);
+        foreach ((array) $request->file('attachments', []) as $file) {
+            $tokens[] = app(\App\Services\Attachments\AttachmentService::class)->stageUpload($file, (string) Auth::id())->token;
         }
 
-        foreach ($request->file('attachments') as $file) {
-            $leave->addMedia($file)->toMediaCollection('attachments');
-        }
+        return $tokens;
     }
 
     /**
@@ -404,17 +389,12 @@ class LeaveController extends Controller
     {
         $leave = Leave::findOrFail($id);
 
-        if ($leave->user_id !== Auth::id()
-            && ! Auth::user()->can('leaves.view')
-            && ! Auth::user()->can('leaves.approve')
-            && ! Auth::user()->can('leaves.manage')) {
-            abort(403, 'Unauthorized to view this attachment.');
-        }
+        abort_unless(app(\App\Services\Attachments\AttachmentAccess::class)->canView(Auth::user(), $leave), 403, 'Unauthorized to view this attachment.');
 
         $media = $leave->getMedia('attachments')->firstWhere('id', (int) $mediaId);
         abort_unless($media, 404);
 
-        return $media;
+        return redirect(app(\App\Services\Attachments\AttachmentAccess::class)->link($media, false, 5));
     }
 
     /**
@@ -436,7 +416,9 @@ class LeaveController extends Controller
             return response()->json(['success' => false, 'message' => 'Attachment not found.'], 404);
         }
 
-        $media->delete();
+        // Documents are never deleted (they are part of the record): the file is retired and shows only in history.
+        $media->setCustomProperty('superseded_at', now()->toIso8601String());
+        $media->save();
 
         return response()->json(['success' => true, 'message' => 'Attachment removed.']);
     }

@@ -86,13 +86,9 @@ class LeaveCrudService
      */
     private function assertAttachmentRequirement(?LeaveSetting $setting, float $days, bool $hasAttachment): void
     {
-        if (! $setting || $setting->requires_attachment_days === null) {
-            return;
-        }
-        if ($days > (float) $setting->requires_attachment_days && ! $hasAttachment) {
-            throw new \RuntimeException(
-                "\"{$setting->type}\" requests over {$setting->requires_attachment_days} day(s) require a supporting document.", 422
-            );
+        $message = app(\App\Services\Attachments\AttachmentRequirement::class)->leaveMessage($setting, $days);
+        if ($message !== null && ! $hasAttachment) {
+            throw new \App\Services\Attachments\AttachmentRejected($message, 'required');
         }
     }
 
@@ -164,8 +160,10 @@ class LeaveCrudService
             // Request-time eligibility (gender / minimum service).
             $this->assertEligible($leaveSetting, (string) $data['user_id'], $fromDate);
 
-            // Supporting-document gate (e.g. medical certificate for long sick leave).
-            $this->assertAttachmentRequirement($leaveSetting, $serverDays, (bool) ($data['hasAttachment'] ?? false));
+            // Supporting-document gate (the type's rule), and every staged file must be clear.
+            $attachments = app(\App\Services\Attachments\AttachmentService::class);
+            $staged = $attachments->resolve((array) ($data['attachmentTokens'] ?? []), (string) ($data['attachmentActor'] ?? $data['user_id']));
+            $this->assertAttachmentRequirement($leaveSetting, $serverDays, $staged->isNotEmpty() || (bool) ($data['hasAttachment'] ?? false));
 
             // Server-side balance enforcement via the ledger (lazily seeded from the
             // accrual policy when untracked) unless the type allows negative.
@@ -182,6 +180,9 @@ class LeaveCrudService
                 'reason' => $data['leaveReason'],
                 'status' => 'pending',
             ]);
+            if ($staged->isNotEmpty()) {
+                $attachments->attach($leave, $staged, (string) ($data['attachmentActor'] ?? $data['user_id']));
+            }
 
             // Check if approval is required or auto-approve is enabled
             if ($leaveSetting && (! $leaveSetting->requires_approval || $leaveSetting->auto_approve)) {
@@ -252,9 +253,14 @@ class LeaveCrudService
             // Request-time eligibility (gender / minimum service).
             $this->assertEligible($leaveSetting, (string) $data['user_id'], $fromDate);
 
-            // Supporting-document gate (counts existing attachments on the record).
-            $hasAttachment = (bool) ($data['hasAttachment'] ?? false) || $leave->getMedia('attachments')->isNotEmpty();
-            $this->assertAttachmentRequirement($leaveSetting, $serverDays, $hasAttachment);
+            // Supporting-document gate (counts the current attachments on the record and any newly staged ones).
+            $attachments = app(\App\Services\Attachments\AttachmentService::class);
+            $staged = $attachments->resolve((array) ($data['attachmentTokens'] ?? []), (string) ($data['attachmentActor'] ?? $data['user_id']));
+            $have = $leave->currentAttachments()->count();
+            if ($have + $staged->count() > (int) config('attachments.limits.max_files')) {
+                throw new \App\Services\Attachments\AttachmentRejected(__('attachments.errors.too_many_files', ['max' => config('attachments.limits.max_files')]), 'too_many_files');
+            }
+            $this->assertAttachmentRequirement($leaveSetting, $serverDays, $have > 0 || $staged->isNotEmpty() || (bool) ($data['hasAttachment'] ?? false));
 
             // Server-side balance enforcement via the ledger (lazily seeded when
             // untracked) unless the type allows negative.
@@ -272,6 +278,10 @@ class LeaveCrudService
                 'reason' => $data['leaveReason'],
                 'status' => $newStatus,
             ]);
+
+            if ($staged->isNotEmpty()) {
+                $attachments->attach($leave, $staged, (string) ($data['attachmentActor'] ?? $data['user_id']));
+            }
 
             // Re-post consumption for the new amount if the leave is (still) approved.
             if ($newStatus === 'approved') {

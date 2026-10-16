@@ -36,6 +36,14 @@ return [
             'throw' => false,
         ],
 
+        // Private disk for application attachments (leave, overtime, replacement leave): never web-served directly.
+        'attachments' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/attachments'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

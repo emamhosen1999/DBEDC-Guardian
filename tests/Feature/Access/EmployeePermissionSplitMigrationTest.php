@@ -130,9 +130,11 @@ class EmployeePermissionSplitMigrationTest extends TestCase
 
         $this->run_();
 
-        $expected = ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames();
+        $names = ComprehensiveRolePermissionSeeder::departmentAdminPermissionNames();
+        $this->assertCount(56, $names); // 52 + the four application-document permissions (leaves/overtime attachments.view and request_reupload): a department admin approves leave in the department, so he may open and return its documents
+        // This migration is frozen at its own 52; the four arrive with the later 2026_10_16_000005 migration.
+        $expected = array_values(array_diff($names, ['leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload']));
         sort($expected);
-        $this->assertCount(52, $expected);
         $this->assertSame($expected, $this->held('Department Admin'));
         $this->assertNotContains('employees.access.manage', $this->held('Department Admin'));
         $this->assertNotContains('roles.view', $this->held('Department Admin'));

@@ -279,6 +279,26 @@ Route::prefix('v1')->middleware(['auth:sanctum', SlideTokenExpiration::class, Ap
     Route::post('/attendance/regularizations/{id}/reject', [MobileAttendanceRequestController::class, 'rejectRegularization'])->name('api.v1.attendance.regularizations.reject');
 
     Route::post('/attendance/overtime', [MobileAttendanceRequestController::class, 'storeOvertime'])->name('api.v1.attendance.overtime.store');
+    Route::get('/attendance/overtime/check', [MobileAttendanceRequestController::class, 'overtimeCheck'])->name('api.v1.attendance.overtime.check');
+    Route::get('/attendance/overtime/unclaimed', [MobileAttendanceRequestController::class, 'unclaimedOvertime'])->name('api.v1.attendance.overtime.unclaimed');
+    Route::post('/attendance/replacement', [\App\Http\Controllers\ReplacementLeaveController::class, 'store'])->name('api.v1.attendance.replacement.store');
+    Route::get('/attendance/replacement/mine', [\App\Http\Controllers\ReplacementLeaveController::class, 'mine'])->name('api.v1.attendance.replacement.mine');
+    Route::get('/attendance/replacement/pending', [\App\Http\Controllers\ReplacementLeaveController::class, 'pending'])->name('api.v1.attendance.replacement.pending');
+    Route::post('/attendance/replacement/{id}/approve', [\App\Http\Controllers\ReplacementLeaveController::class, 'approve'])->name('api.v1.attendance.replacement.approve');
+    Route::post('/attendance/replacement/{id}/reject', [\App\Http\Controllers\ReplacementLeaveController::class, 'reject'])->name('api.v1.attendance.replacement.reject');
+
+    // Application attachments: upload, server-side document scanner, signed viewing, re-upload.
+    Route::prefix('attachments')->name('api.v1.attachments.')->group(function () {
+        Route::post('/stage', [\App\Http\Controllers\AttachmentController::class, 'stage'])->middleware('throttle:30,1')->name('stage');
+        Route::post('/scan', [\App\Http\Controllers\AttachmentController::class, 'scan'])->middleware('throttle:30,1')->name('scan');
+        Route::post('/scan/finalize', [\App\Http\Controllers\AttachmentController::class, 'finalize'])->name('scan.finalize');
+        Route::post('/scan/{token}/adjust', [\App\Http\Controllers\AttachmentController::class, 'adjust'])->middleware('throttle:60,1')->name('scan.adjust');
+        Route::delete('/staged/{token}', [\App\Http\Controllers\AttachmentController::class, 'discard'])->name('staged.discard');
+        Route::get('/staged/{token}/{which}', [\App\Http\Controllers\AttachmentController::class, 'stagedImage'])->whereIn('which', ['processed', 'original'])->name('staged.image');
+        Route::get('/media/{media}', [\App\Http\Controllers\AttachmentController::class, 'show'])->middleware('signed')->name('show');
+        Route::post('/{type}/{id}/request-reupload', [\App\Http\Controllers\AttachmentController::class, 'requestReupload'])->whereIn('type', ['leave', 'overtime', 'replacement'])->whereNumber('id')->name('request-reupload');
+        Route::post('/{type}/{id}/reupload', [\App\Http\Controllers\AttachmentController::class, 'submitReupload'])->whereIn('type', ['leave', 'overtime', 'replacement'])->whereNumber('id')->name('reupload');
+    });
     Route::get('/attendance/overtime/mine', [MobileAttendanceRequestController::class, 'myOvertime'])->name('api.v1.attendance.overtime.mine');
     Route::get('/attendance/overtime/pending', [MobileAttendanceRequestController::class, 'pendingOvertime'])->name('api.v1.attendance.overtime.pending');
     Route::get('/attendance/overtime/decided', [MobileAttendanceRequestController::class, 'decidedOvertime'])->name('api.v1.attendance.overtime.decided');

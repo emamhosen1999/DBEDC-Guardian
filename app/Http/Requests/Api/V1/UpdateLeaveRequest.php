@@ -27,6 +27,9 @@ class UpdateLeaveRequest extends FormRequest
             'from_date' => ['required', 'date', 'before_or_equal:to_date'],
             'to_date' => ['required', 'date', 'after_or_equal:from_date', 'before_or_equal:'.now()->addYear()->format('Y-m-d')],
             'reason' => ['required', 'string', 'min:5', 'max:500'],
+            // Clear supporting documents staged through /attachments/stage or the scanner; the leave type decides if one is required.
+            'attachment_tokens' => ['nullable', 'array', 'max:'.config('attachments.limits.max_files')],
+            'attachment_tokens.*' => ['string'],
         ];
     }
 }

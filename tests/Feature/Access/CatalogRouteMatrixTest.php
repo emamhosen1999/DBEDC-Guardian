@@ -51,6 +51,8 @@ class CatalogRouteMatrixTest extends TestCase
         '#^user/#', '#^api/(user|notifications|notification-token|log-error|log-performance)#', '#^(notifications|settings/notifications)#',
         '#^(verify-email|email/verification-notification)#', '#^(firebase/token|employee-dashboard|account/password|my-devices|security/dashboard)#',
         '#^aeon#', '#^petty-cash#', '#^dashboard/widgets$#', '#^search$#', '#^api/(designations|departments)/list$#', '#^api/users/managers/list$#', '#^api/v1/#',
+        // attachments/*: self-service. Staging, scanning, preview and discard only touch the caller's OWN staged upload (AttachmentController::mine() / discard() scope by the uploader's employee_id); stored documents need a signed link plus AttachmentAccess::canView; request-reupload needs the *.request_reupload permission and the approver relation (AttachmentReuploadService::request).
+        '#^attachments/#',
     ];
 
     /**

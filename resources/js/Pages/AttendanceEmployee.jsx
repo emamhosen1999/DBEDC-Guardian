@@ -16,7 +16,10 @@ import { requestJson } from '@/api/client';
 import SwapRequestForm from '@/Forms/SwapRequestForm';
 import RegularizationForm from '@/Forms/RegularizationForm';
 import OvertimeRequestForm from '@/Forms/OvertimeRequestForm';
+import ReplacementLeaveForm from '@/Forms/ReplacementLeaveForm';
+import UnclaimedOvertime from '@/Components/Attachments/UnclaimedOvertime';
 import MyRequests from './Attendance/Components/MyRequests';
+import { Button as CyberButton, Card } from '@/Components/Cyber';
 import SwapResponses from './Attendance/Components/SwapResponses';
 
 const MyRosterCard = ({ month }) => {
@@ -95,40 +98,54 @@ const MyRosterCard = ({ month }) => {
 const RequestsCard = () => {
   const [regOpen, setRegOpen]   = useState(false);
   const [otOpen, setOtOpen]     = useState(false);
+  const [otInitial, setOtInitial] = useState(null);
+  const [repOpen, setRepOpen]   = useState(false);
   const queryClient = useQueryClient();
 
   // Invalidate (not remount) so the lists refetch immediately — a key-based remount
   // returns cached data because of the 5-minute global staleTime.
   const handleSaved = () => {
-    ['my-regularizations', 'my-overtime', 'my-comp-off', 'my-swaps']
+    ['my-regularizations', 'my-overtime', 'my-comp-off', 'my-replacement', 'overtime-unclaimed', 'my-swaps']
       .forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
   };
 
   return (
     <>
-      <Panel>
-        <Flex justify="between" align="center" mb="3" wrap="wrap" gap="2">
-          <Flex align="center" gap="2">
-            <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-            <Text size="3" weight="bold">My Requests</Text>
-          </Flex>
-          <Flex gap="2" wrap="wrap">
-            <Button size="2" variant="soft" onClick={() => setRegOpen(true)}>
-              Regularize a day
-            </Button>
-            <Button size="2" variant="soft" onClick={() => setOtOpen(true)}>
-              Request overtime
-            </Button>
-          </Flex>
-        </Flex>
-
+      <div className="dl-page">
         <ErrorBoundary>
-          <MyRequests />
+          <div className="dl-row">
+            <div className="dl-col dl-col--12">
+              <Card id="attendance-employee:unclaimed" title="Overtime worked, not claimed" flush>
+                <UnclaimedOvertime onApply={(d) => { setOtInitial(d); setOtOpen(true); }} />
+              </Card>
+            </div>
+          </div>
         </ErrorBoundary>
-      </Panel>
+        <ErrorBoundary>
+          <div className="dl-row">
+            <div className="dl-col dl-col--12">
+              <Card
+                id="attendance-employee:requests"
+                title="My requests"
+                flush
+                actions={(
+                  <>
+                    <CyberButton variant="outline" size="sm" onClick={() => setRegOpen(true)}>Regularize a day</CyberButton>
+                    <CyberButton variant="outline" size="sm" onClick={() => { setOtInitial(null); setOtOpen(true); }}>Claim overtime</CyberButton>
+                    <CyberButton variant="outline" size="sm" onClick={() => setRepOpen(true)}>Replacement leave</CyberButton>
+                  </>
+                )}
+              >
+                <MyRequests />
+              </Card>
+            </div>
+          </div>
+        </ErrorBoundary>
+      </div>
 
       <RegularizationForm open={regOpen} onOpenChange={setRegOpen} onSaved={handleSaved} />
-      <OvertimeRequestForm open={otOpen} onOpenChange={setOtOpen} onSaved={handleSaved} />
+      <OvertimeRequestForm open={otOpen} onOpenChange={setOtOpen} onSaved={handleSaved} initial={otInitial} />
+      <ReplacementLeaveForm open={repOpen} onOpenChange={setRepOpen} onSaved={handleSaved} />
     </>
   );
 };

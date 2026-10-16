@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use App\Models\Concerns\HasClearAttachments;
 
 class Leave extends Model implements HasMedia
 {
     use HasFactory;
+    use HasClearAttachments;
     use InteractsWithMedia;
 
     protected $fillable = [
@@ -34,6 +36,10 @@ class Leave extends Model implements HasMedia
         'submitted_at',
         'cancelled_at',
         'cancelled_by',
+        'reupload_requested_at',
+        'reupload_requested_by',
+        'reupload_reason',
+        'reupload_count',
     ];
 
     protected $casts = [
@@ -54,6 +60,8 @@ class Leave extends Model implements HasMedia
         'submitted_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'cancelled_by' => 'string',
+        'reupload_requested_at' => 'datetime',
+        'reupload_count' => 'integer',
     ];
 
     /**
@@ -62,8 +70,14 @@ class Leave extends Model implements HasMedia
      */
     public function registerMediaCollections(): void
     {
+        // New documents go to the PRIVATE attachments disk (older files stay where they were stored).
         $this->addMediaCollection('attachments')
+            ->useDisk(config('attachments.disk'))
             ->acceptsMimeTypes(['application/pdf', 'image/jpeg', 'image/png']);
+        // Page images of a scanned PDF, for the inline viewer (the PDF stays the document of record).
+        $this->addMediaCollection('attachment_previews')
+            ->useDisk(config('attachments.disk'))
+            ->acceptsMimeTypes(['image/jpeg']);
     }
 
     // Relationships

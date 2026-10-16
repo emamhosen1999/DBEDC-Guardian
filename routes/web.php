@@ -176,6 +176,19 @@ Route::middleware($middlewareStack)->group(function () {
     // Updates route - require updates permission
     Route::middleware(['permission:core.updates.view'])->get('/updates', [DashboardController::class, 'updates'])->name('updates');
 
+    // Application attachments (leave, overtime, replacement leave): upload, scan, signed viewing, re-upload.
+    Route::prefix('attachments')->name('attachments.')->group(function () {
+        Route::post('/stage', [\App\Http\Controllers\AttachmentController::class, 'stage'])->middleware('throttle:30,1')->name('stage');
+        Route::post('/scan', [\App\Http\Controllers\AttachmentController::class, 'scan'])->middleware('throttle:30,1')->name('scan');
+        Route::post('/scan/finalize', [\App\Http\Controllers\AttachmentController::class, 'finalize'])->name('scan.finalize');
+        Route::post('/scan/{token}/adjust', [\App\Http\Controllers\AttachmentController::class, 'adjust'])->middleware('throttle:60,1')->name('scan.adjust');
+        Route::delete('/staged/{token}', [\App\Http\Controllers\AttachmentController::class, 'discard'])->name('staged.discard');
+        Route::get('/staged/{token}/{which}', [\App\Http\Controllers\AttachmentController::class, 'stagedImage'])->whereIn('which', ['processed', 'original'])->name('staged.image');
+        Route::get('/media/{media}', [\App\Http\Controllers\AttachmentController::class, 'show'])->middleware('signed')->name('show');
+        Route::post('/{type}/{id}/request-reupload', [\App\Http\Controllers\AttachmentController::class, 'requestReupload'])->whereIn('type', ['leave', 'overtime', 'replacement'])->whereNumber('id')->name('request-reupload');
+        Route::post('/{type}/{id}/reupload', [\App\Http\Controllers\AttachmentController::class, 'submitReupload'])->whereIn('type', ['leave', 'overtime', 'replacement'])->whereNumber('id')->name('reupload');
+    });
+
     // Employee self-service routes
     Route::middleware(['permission:leave.own.view'])->group(function () {
         Route::get('/leaves-employee', [LeaveController::class, 'index1'])->name('leaves-employee');
@@ -207,6 +220,10 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/attendance/regularizations', [RegularizationController::class, 'store'])->name('attendance.regularizations.store');
         Route::get('/attendance/regularizations/mine', [RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
         Route::post('/attendance/overtime', [OvertimeController::class, 'store'])->name('attendance.overtime.store');
+        Route::get('/attendance/overtime/check', [OvertimeController::class, 'check'])->name('attendance.overtime.check');
+        Route::get('/attendance/overtime/unclaimed', [OvertimeController::class, 'unclaimed'])->name('attendance.overtime.unclaimed');
+        Route::post('/attendance/replacement', [\App\Http\Controllers\ReplacementLeaveController::class, 'store'])->name('attendance.replacement.store');
+        Route::get('/attendance/replacement/mine', [\App\Http\Controllers\ReplacementLeaveController::class, 'mine'])->name('attendance.replacement.mine');
         Route::get('/attendance/overtime/mine', [OvertimeController::class, 'mine'])->name('attendance.overtime.mine');
         Route::get('/attendance/comp-off/mine', [CompOffController::class, 'mine'])->name('attendance.compoff.mine');
     });
@@ -717,6 +734,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/overtime/pending', [OvertimeController::class, 'pending'])->name('attendance.overtime.pending');
         Route::post('/attendance/overtime/{id}/approve', [OvertimeController::class, 'approve'])->name('attendance.overtime.approve');
         Route::post('/attendance/overtime/{id}/reject', [OvertimeController::class, 'reject'])->name('attendance.overtime.reject');
+        Route::get('/attendance/replacement/pending', [\App\Http\Controllers\ReplacementLeaveController::class, 'pending'])->name('attendance.replacement.pending');
+        Route::post('/attendance/replacement/{id}/approve', [\App\Http\Controllers\ReplacementLeaveController::class, 'approve'])->name('attendance.replacement.approve');
+        Route::post('/attendance/replacement/{id}/reject', [\App\Http\Controllers\ReplacementLeaveController::class, 'reject'])->name('attendance.replacement.reject');
     });
 
     // Attendance correction routes

@@ -237,13 +237,17 @@ class AttendanceReportService
             // Overtime / rest-day / festival marks, from the rostered schedule (never the weekday).
             $worked_day = $symbol === AttendanceSymbol::PRESENT;
             $restDay = ! $ctx['schedule']->isWorkingDay && ! $ctx['holiday'];
-            $restDayWork = $worked_day && $restDay;
+            // A holiday on the rostered rest day keeps the festival colouring AND gets the rest-day border (owner decision).
+            $restDayWork = $worked_day && ! $ctx['schedule']->isWorkingDay;
             $otApps = $otByDate->get($dateString, collect())->map(fn ($r) => AttendanceSymbol::otState($r->status))->filter()->unique();
             $otState = $otApps->contains(AttendanceSymbol::OT_APPROVED) ? AttendanceSymbol::OT_APPROVED
                 : ($otApps->contains(AttendanceSymbol::OT_PENDING) ? AttendanceSymbol::OT_PENDING
                 : ($otApps->contains(AttendanceSymbol::OT_DECLINED) ? AttendanceSymbol::OT_DECLINED : null));
             // Overtime is not hourly: only rest-day and holiday work can carry an overtime mark (never extra hours on a working day).
-            $marks = AttendanceSymbol::marks($symbol, (bool) $ctx['holiday'], $restDayWork, $otState, $result->worked_minutes >= AttendanceSymbol::MIN_CLAIM_MINUTES);
+            // A rest day or holiday punched in but never out can still be claimed (on a declared end time), so it stays
+            // yellow until claimed whatever the (unverified) minutes say.
+            $openRestDay = ($restDayWork || ($worked_day && $ctx['holiday'])) && $hasPunchIn && ! $attendancesForDate->contains(fn ($a) => $a->punchout !== null);
+            $marks = AttendanceSymbol::marks($symbol, (bool) $ctx['holiday'], $restDayWork, $otState, $result->worked_minutes >= AttendanceSymbol::MIN_CLAIM_MINUTES || $openRestDay);
 
             $attendanceData[$dateString] = [
                 'status' => $symbol,
@@ -802,6 +806,11 @@ class AttendanceReportService
             ];
         }
 
+        $rows = $this->withOvertimeAndReplacementTotals(
+            $rows, $startOfMonth->copy()->max($rangeFrom?->copy()->startOfDay() ?? $startOfMonth),
+            $endOfMonth->copy()->min($rangeTo?->copy()->endOfDay() ?? $endOfMonth)
+        );
+
         $departmentName = null;
         if ($departmentId) {
             $departmentName = $users->first()?->department?->name
@@ -819,6 +828,54 @@ class AttendanceReportService
             ],
             'rows' => $rows,
         ];
+    }
+
+    /**
+     * The day-based overtime and replacement-leave figures of the Summary (owner policy): approved OT days paid for work on
+     * holidays and on rest days, replacement leave earned (by work date), used (by replacement date) in the period, and the
+     * replacement still open that expires within the reminder window as of the period end.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function withOvertimeAndReplacementTotals(array $rows, CarbonInterface $from, CarbonInterface $to): array
+    {
+        $ids = array_map(fn ($r) => (string) $r['employee_id'], $rows);
+        $paid = $earned = $used = [];
+        $expiring = [];
+        if ($ids !== []) {
+            OvertimeRequest::query()->whereIn('user_id', $ids)->where('status', 'approved')->where('compensation', 'payment')
+                ->whereIn('claim_type', ['holiday', 'rest_day'])->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+                ->get(['user_id', 'claim_type', 'day_credit'])
+                ->each(function ($o) use (&$paid) {
+                    $paid[(string) $o->user_id][$o->claim_type] = ($paid[(string) $o->user_id][$o->claim_type] ?? 0) + (float) $o->day_credit;
+                });
+            \App\Models\HRM\CompOffLedger::query()->whereIn('user_id', $ids)->where('days', '>', 0)->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+                ->get(['user_id', 'days'])->each(function ($l) use (&$earned) {
+                    $earned[(string) $l->user_id] = ($earned[(string) $l->user_id] ?? 0) + (float) $l->days;
+                });
+            \App\Models\HRM\ReplacementLeaveRequest::query()->whereIn('user_id', $ids)->where('status', 'approved')
+                ->whereBetween('replacement_date', [$from->toDateString(), $to->toDateString()])->get(['user_id', 'days'])
+                ->each(function ($r) use (&$used) {
+                    $used[(string) $r->user_id] = ($used[(string) $r->user_id] ?? 0) + (float) $r->days;
+                });
+            $comp = app(\App\Services\Attendance\CompOffService::class);
+            foreach (\App\Models\HRM\CompOffLedger::query()->whereIn('user_id', $ids)->where('days', '>', 0)->distinct()->pluck('user_id') as $uid) {
+                $expiring[(string) $uid] = $comp->expiringDays((string) $uid, $to);
+            }
+        }
+
+        return array_map(function ($r) use ($paid, $earned, $used, $expiring) {
+            $id = (string) $r['employee_id'];
+
+            return $r + [
+                'ot_days_holiday' => round($paid[$id]['holiday'] ?? 0, 1),
+                'ot_days_rest' => round($paid[$id]['rest_day'] ?? 0, 1),
+                'repl_earned' => round($earned[$id] ?? 0, 1),
+                'repl_used' => round($used[$id] ?? 0, 1),
+                'repl_expiring' => round($expiring[$id] ?? 0, 1),
+            ];
+        }, $rows);
     }
 
     /**

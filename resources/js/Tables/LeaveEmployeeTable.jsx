@@ -1,43 +1,22 @@
-import { Panel } from '@/Components/ui/Panel';
-import React, { useState, useCallback } from "react";
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { usePage } from "@inertiajs/react";
-import { showToast } from '@/utils/toastUtils';
-import { Avatar, Badge, Box, Button, DropdownMenu, Flex, IconButton, ScrollArea, Separator, Spinner, Table, Text, Tooltip } from '@radix-ui/themes';
-import {
-    CalendarIcon, CheckCircledIcon,
-    ClockIcon, CrossCircledIcon, DotsVerticalIcon,
-    ExclamationTriangleIcon, FileTextIcon,
-    Pencil1Icon, PersonIcon, TrashIcon,
-} from '@radix-ui/react-icons';
+import React, { useState, useCallback } from 'react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import { Badge, Button, Checkbox, Icon, Pagination, SelectInput } from '@/Components/Cyber';
 import ApprovalActions from '@/Components/Leave/ApprovalActions.jsx';
-import TablePagination from '@/Components/TablePagination.jsx';
-
-
+import LeaveAttachmentActions from '@/Components/Attachments/LeaveAttachmentActions.jsx';
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
-const UserCell = ({ user }) => (
-    <Flex align="center" gap="2">
-        <Avatar
-            size="1"
-            src={user?.profile_image_url || user?.profile_image}
-            fallback={(user?.name?.[0] || '?').toUpperCase()}
-            radius="full"
-        />
-        <Box>
-            <Text size="2" weight="medium" style={{ display: 'block' }}>
-                {user?.name || 'Unknown User'}
-            </Text>
-            {user?.phone
-                ? <Text size="1" color="blue" as="a" href={`tel:${user.phone}`}>{user.phone}</Text>
-                : <Text size="1" color="gray">No Phone</Text>
-            }
-        </Box>
-    </Flex>
-);
+const STATUS_TONE = { New: 'theme', Pending: 'warning', Approved: 'success', Declined: 'danger' };
+const STATUS_OPTIONS = Object.keys(STATUS_TONE).map((value) => ({ value, label: value }));
 
-/* ── main component ───────────────────────────────────────────────────────── */
+const getLeaveDuration = (fromDate, toDate) => {
+    const diff = Math.ceil(Math.abs(new Date(toDate) - new Date(fromDate)) / 86400000) + 1;
+    return diff === 1 ? '1 day' : `${diff} days`;
+};
+const formatDate = (d) => new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** The leave list in Cyber's table: one row per application with its status, documents and actions. */
 const LeaveEmployeeTable = React.forwardRef(({
     leaves,
     allUsers,
@@ -48,14 +27,10 @@ const LeaveEmployeeTable = React.forwardRef(({
     setCurrentPage,
     currentPage,
     totalRows,
-    lastPage,
     perPage,
     onRowsPerPageChange,
-    selectedMonth,
     employee,
     isAdminView = false,
-    onBulkApprove,
-    onBulkReject,
     onBulkDelete,
     onBulkStatusUpdate,
     canApproveLeaves = false,
@@ -66,56 +41,11 @@ const LeaveEmployeeTable = React.forwardRef(({
     loading = false,
 }, ref) => {
     const { auth } = usePage().props;
-    const isMobile = useMediaQuery('(max-width: 640px)');
-
     const [updatingLeave, setUpdatingLeave] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
 
-    /* ── status config ── */
-    const statusConfig = {
-        'New':      { color: 'blue',  icon: ExclamationTriangleIcon },
-        'Pending':  { color: 'amber', icon: ClockIcon },
-        'Approved': { color: 'green', icon: CheckCircledIcon },
-        'Declined': { color: 'red',   icon: CrossCircledIcon },
-    };
-
-    /* ── helpers ── */
-    const getLeaveTypeIcon = (type) => {
-        switch (type?.toLowerCase()) {
-            case 'casual':  return <FileTextIcon  style={{ width: 12, height: 12, color: 'var(--blue-9)'  }} />;
-            case 'weekend': return <CalendarIcon  style={{ width: 12, height: 12, color: 'var(--amber-9)' }} />;
-            case 'sick':    return <CrossCircledIcon style={{ width: 12, height: 12, color: 'var(--red-9)' }} />;
-            case 'earned':  return <ClockIcon     style={{ width: 12, height: 12, color: 'var(--green-9)' }} />;
-            default:        return <FileTextIcon  style={{ width: 12, height: 12, color: 'var(--accent-9)' }} />;
-        }
-    };
-
-    const getLeaveDuration = (fromDate, toDate) => {
-        const diff = Math.ceil(Math.abs(new Date(toDate) - new Date(fromDate)) / 86400000) + 1;
-        return diff === 1 ? '1 day' : `${diff} days`;
-    };
-
-    const formatDate = (d) => new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-
-    const getUserInfo = (userId) =>
-        allUsers?.find(u => String(u.id) === String(userId)) || { name: 'Unknown User', phone: '' };
-
-    const getStatusBadge = (status) => {
-        const config = statusConfig[status] || statusConfig['New'];
-        const StatusIcon = config.icon;
-        return (
-            <Badge color={config.color} variant="soft" radius="full" style={{ padding: '2px 8px', fontWeight: 600, textTransform: 'uppercase', fontSize: '9px', letterSpacing: '0.03em' }}>
-                <Flex align="center" gap="1">
-                    <StatusIcon style={{ width: 11, height: 11 }} />
-                    {status}
-                </Flex>
-            </Badge>
-        );
-    };
-
-    const handlePageChange = useCallback((page) => {
-        if (setCurrentPage) setCurrentPage(page);
-    }, [setCurrentPage]);
+    const getUserInfo = (userId) => allUsers?.find((u) => String(u.id) === String(userId)) || { name: 'Unknown User', phone: '' };
+    const handlePageChange = useCallback((page) => { setCurrentPage?.(page); }, [setCurrentPage]);
 
     const updateLeaveStatus = useCallback(async (leave, newStatus) => {
         if (leave.status === newStatus) {
@@ -151,336 +81,105 @@ const LeaveEmployeeTable = React.forwardRef(({
 
     /* ── selection ── */
     const allSelected = leaves.length > 0 && selectedIds.size === leaves.length;
-    const toggleAll   = () => setSelectedIds(allSelected ? new Set() : new Set(leaves.map(l => l.id)));
-    const toggleOne   = useCallback((id) => setSelectedIds(prev => {
-        const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
-        return next;
-    }), []);
+    const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(leaves.map((l) => l.id)));
+    const toggleOne = (id) => setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    const picked = () => leaves.filter((l) => selectedIds.has(l.id));
 
-    /* ── bulk bar ── */
     const bulkBar = isAdminView && selectedIds.size > 0 && (
-        <Panel tinted mb="2" p="2">
-        <Flex align="center" gap="2">
-            <Text size="2" weight="medium" style={{ marginRight: 'auto' }}>
-                {selectedIds.size} of {leaves.length} selected
-            </Text>
+        <div className="cy-bulkbar" role="toolbar" aria-label="Bulk actions">
+            <span className="cy-row__sub">{selectedIds.size} of {leaves.length} selected</span>
             {canApproveLeaves && onBulkStatusUpdate && (
                 <>
-                    <Button size="1" color="green" variant="soft" onClick={() =>
-                        onBulkStatusUpdate(leaves.filter(l => selectedIds.has(l.id)), 'approved')
-                    }>
-                        <CheckCircledIcon /> Approve
-                    </Button>
-                    <Button size="1" color="red" variant="soft" onClick={() =>
-                        onBulkStatusUpdate(leaves.filter(l => selectedIds.has(l.id)), 'declined')
-                    }>
-                        <CrossCircledIcon /> Reject
-                    </Button>
+                    <Button size="sm" color="success" onClick={() => onBulkStatusUpdate(picked(), 'approved')}>Approve</Button>
+                    <Button size="sm" color="danger" variant="outline" onClick={() => onBulkStatusUpdate(picked(), 'declined')}>Reject</Button>
                 </>
             )}
-            {onBulkDelete && (
-                <Button size="1" color="red" variant="outline" onClick={() => {
-                    onBulkDelete(leaves.filter(l => selectedIds.has(l.id)));
-                    setSelectedIds(new Set());
-                }}>
-                    <TrashIcon /> Delete
-                </Button>
-            )}
-        </Flex>
-        </Panel>
+            {onBulkDelete && <Button size="sm" color="danger" variant="outline" onClick={() => { onBulkDelete(picked()); setSelectedIds(new Set()); }}>Delete</Button>}
+        </div>
     );
 
-    /* ── mobile card ── */
-    const MobileLeaveCard = ({ leave }) => {
-        const user = getUserInfo(leave.user_id);
-        return (
-            <Panel tinted mb="2">
-                <Flex direction="column" gap="2" p="3">
-                    <Flex justify="between" align="start">
-                        <Flex align="center" gap="2" style={{ flex: 1 }}>
-                            {isAdminView && <UserCell user={user} />}
-                        </Flex>
-                        <Flex align="center" gap="1">
-                            {getStatusBadge(leave.status)}
-                            {(canEditLeaves || canDeleteLeaves) && (
-                                <DropdownMenu.Root>
-                                    <DropdownMenu.Trigger>
-                                        <IconButton size="1" variant="ghost"><DotsVerticalIcon /></IconButton>
-                                    </DropdownMenu.Trigger>
-                                    <DropdownMenu.Content size="1">
-                                        {canEditLeaves && (
-                                            <DropdownMenu.Item onSelect={() => { setCurrentLeave(leave); openModal('addEditLeave'); }}>
-                                                <Pencil1Icon /> Edit Leave
-                                            </DropdownMenu.Item>
-                                        )}
-                                        {canEditLeaves && canDeleteLeaves && <DropdownMenu.Separator />}
-                                        {canDeleteLeaves && (
-                                            <DropdownMenu.Item color="red" onSelect={() => handleClickOpen(leave.id, 'deleteLeave')}>
-                                                <TrashIcon /> Delete Leave
-                                            </DropdownMenu.Item>
-                                        )}
-                                    </DropdownMenu.Content>
-                                </DropdownMenu.Root>
-                            )}
-                        </Flex>
-                    </Flex>
-
-                    <Separator size="4" />
-
-                    <Flex direction="column" gap="1">
-                        <Flex align="center" gap="2">
-                            <FileTextIcon style={{ width: 14, height: 14, color: 'var(--accent-9)' }} />
-                            <Text size="2" weight="medium">{leave.leave_type}</Text>
-                        </Flex>
-                        <Flex align="center" gap="2" wrap="wrap">
-                            <CalendarIcon style={{ width: 14, height: 14, color: 'var(--gray-9)' }} />
-                            <Text size="2" color="gray">{formatDate(leave.from_date)} – {formatDate(leave.to_date)}</Text>
-                            <Badge size="1" variant="outline">{getLeaveDuration(leave.from_date, leave.to_date)}</Badge>
-                        </Flex>
-                        {leave.reason && (
-                            <Flex align="start" gap="2">
-                                <ClockIcon style={{ width: 14, height: 14, marginTop: 2, color: 'var(--gray-9)' }} />
-                                <Text size="2" color="gray">{leave.reason}</Text>
-                            </Flex>
-                        )}
-                    </Flex>
-
-                    {isAdminView && canApproveLeaves && (
-                        <>
-                            <Separator size="4" />
-                            <Flex gap="2">
-                                {['Approved', 'Declined'].map(status => {
-                                    const config = statusConfig[status];
-                                    const StatusIcon = config.icon;
-                                    const isLoading = updatingLeave === `${leave.id}-${status}`;
-                                    return (
-                                        <Button
-                                            key={status} size="1"
-                                            variant={leave.status === status ? 'solid' : 'soft'}
-                                            color={config.color}
-                                            disabled={isLoading || !!updatingLeave?.startsWith(`${leave.id}-`)}
-                                            onClick={() => updateLeaveStatus(leave, status)}
-                                            style={{ flex: 1 }}
-                                        >
-                                            {isLoading ? <Spinner size="1" /> : <StatusIcon style={{ width: 12, height: 12 }} />}
-                                            {status}
-                                        </Button>
-                                    );
-                                })}
-                            </Flex>
-                        </>
-                    )}
-                </Flex>
-            </Panel>
-        );
-    };
-
-    /* ── columns ── */
+    const busy = (leave) => !!updatingLeave?.startsWith(`${leave.id}-`);
     const columns = [
-        ...(isAdminView ? [{ key: 'select', label: '' }] : []),
-        ...(isAdminView ? [{ key: 'employee', label: 'Employee', icon: PersonIcon }] : []),
-        { key: 'leave_type', label: 'Leave Type', icon: FileTextIcon },
-        { key: 'from_date',  label: 'From Date',  icon: CalendarIcon },
-        { key: 'to_date',    label: 'To Date',    icon: CalendarIcon },
-        { key: 'status',     label: 'Status',     icon: ClockIcon },
-        { key: 'reason',     label: 'Reason',     icon: FileTextIcon },
-        ...(isAdminView ? [{ key: 'actions', label: 'Actions' }] : []),
+        ...(isAdminView ? ['select', 'employee'] : []), 'leave_type', 'from_date', 'to_date', 'status', 'reason', ...(isAdminView ? ['actions'] : []),
     ];
+    const HEAD = { select: '', employee: 'Employee', leave_type: 'Leave type', from_date: 'From', to_date: 'To', status: 'Status', reason: 'Reason', actions: 'Actions' };
 
-    /* ── cell renderer ── */
-    const renderCellContent = useCallback((leave, key) => {
+    const cell = (leave, key) => {
         const user = getUserInfo(leave.user_id);
         switch (key) {
             case 'select':
-                return (
-                    <input type="checkbox" checked={selectedIds.has(leave.id)}
-                        onChange={() => toggleOne(leave.id)} style={{ cursor: 'pointer' }} />
-                );
+                return <Checkbox checked={selectedIds.has(leave.id)} onCheckedChange={() => toggleOne(leave.id)} aria-label={`Select leave of ${user.name}`} />;
             case 'employee':
-                return <UserCell user={user} />;
+                return <><b>{user.name || 'Unknown User'}</b>{user.phone ? <div className="cy-row__sub">{user.phone}</div> : null}</>;
             case 'leave_type':
-                return (
-                    <Flex align="center" gap="1">
-                        {getLeaveTypeIcon(leave.leave_type)}
-                        <Text size="2" weight="medium" style={{ textTransform: 'capitalize' }}>{leave.leave_type}</Text>
-                    </Flex>
-                );
+                return <b>{leave.leave_type}</b>;
             case 'from_date':
+                return <>{formatDate(leave.from_date)}<div className="cy-row__sub">{getLeaveDuration(leave.from_date, leave.to_date)}</div></>;
             case 'to_date':
-                return (
-                    <Flex align="center" gap="1">
-                        <CalendarIcon style={{ width: 12, height: 12, color: 'var(--gray-9)' }} />
-                        <Box>
-                            <Text size="2">{formatDate(leave[key])}</Text>
-                            {key === 'from_date' && (
-                                <Text size="1" color="gray" style={{ display: 'block' }}>
-                                    {getLeaveDuration(leave.from_date, leave.to_date)}
-                                </Text>
-                            )}
-                        </Box>
-                    </Flex>
-                );
+                return formatDate(leave.to_date);
             case 'status': {
-                const canApproveThisLeave = leave.approval_chain &&
-                    leave.status === 'pending' &&
-                    leave.approval_chain.some(level =>
-                        level.level === leave.current_approval_level &&
-                        level.approver_id === auth.user.id &&
-                        level.status === 'pending'
-                    );
+                const canApproveThisLeave = leave.approval_chain && leave.status === 'pending'
+                    && leave.approval_chain.some((level) => level.level === leave.current_approval_level && level.approver_id === auth.user.id && level.status === 'pending');
+                const label = leave.status ? leave.status.charAt(0).toUpperCase() + leave.status.slice(1) : 'New';
                 return (
-                    <Flex align="center" gap="1">
-                        {getStatusBadge(leave.status)}
-                        {canApproveThisLeave ? (
-                            <ApprovalActions leave={leave} onApprovalComplete={() => { fetchLeavesStats?.(); onLeaveUpdated?.(); }} />
-                        ) : isAdminView && canApproveLeaves && (
-                            <DropdownMenu.Root>
-                                <DropdownMenu.Trigger>
-                                    <IconButton size="1" variant="ghost"
-                                        disabled={!!updatingLeave?.startsWith(`${leave.id}-`)}>
-                                        <DotsVerticalIcon />
-                                    </IconButton>
-                                </DropdownMenu.Trigger>
-                                <DropdownMenu.Content size="1">
-                                    {Object.entries(statusConfig).map(([status, config]) => {
-                                        const StatusIcon = config.icon;
-                                        return (
-                                            <DropdownMenu.Item key={status} color={config.color === 'amber' ? undefined : config.color}
-                                                onSelect={() => updateLeaveStatus(leave, status)}>
-                                                <StatusIcon style={{ width: 14, height: 14 }} />{status}
-                                            </DropdownMenu.Item>
-                                        );
-                                    })}
-                                </DropdownMenu.Content>
-                            </DropdownMenu.Root>
-                        )}
-                    </Flex>
+                    <span className="cy-actions">
+                        <Badge soft color={STATUS_TONE[label] || 'secondary'}>{label}</Badge>
+                        <LeaveAttachmentActions leave={leave} onChanged={() => { fetchLeavesStats?.(); onLeaveUpdated?.(); }} />
+                        {canApproveThisLeave && !leave.returned_for_reupload
+                            ? <ApprovalActions leave={leave} onApprovalComplete={() => { fetchLeavesStats?.(); onLeaveUpdated?.(); }} />
+                            : isAdminView && canApproveLeaves && (
+                                <SelectInput size="sm" aria-label={`Set status of the leave of ${user.name}`} value="" disabled={busy(leave)}
+                                    onChange={(v) => v && updateLeaveStatus(leave, v)}
+                                    options={[{ value: '', label: 'Set status…' }, ...STATUS_OPTIONS]} />
+                            )}
+                    </span>
                 );
             }
             case 'reason':
-                return (
-                    <Tooltip content={leave.reason || 'No reason provided'}>
-                        <Text size="1" color="gray"
-                            style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', cursor: 'help' }}>
-                            {leave.reason || 'No reason provided'}
-                        </Text>
-                    </Tooltip>
-                );
+                return <span className="cy-wrap" title={leave.reason || ''}>{leave.reason || 'No reason provided'}</span>;
             case 'actions':
                 return (
-                    <Flex align="center" gap="1">
-                        {canEditLeaves && (
-                            <Tooltip content="Edit Leave">
-                                <IconButton size="1" variant="ghost"
-                                    disabled={!!updatingLeave?.startsWith(`${leave.id}-`)}
-                                    onClick={() => { setCurrentLeave(leave); openModal('addEditLeave'); }}>
-                                    <Pencil1Icon />
-                                </IconButton>
-                            </Tooltip>
-                        )}
-                        {canDeleteLeaves && (
-                            <Tooltip content="Delete Leave">
-                                <IconButton size="1" variant="ghost" color="red"
-                                    disabled={!!updatingLeave?.startsWith(`${leave.id}-`)}
-                                    onClick={() => { handleClickOpen(leave.id, 'deleteLeave'); }}>
-                                    <TrashIcon />
-                                </IconButton>
-                            </Tooltip>
-                        )}
-                    </Flex>
+                    <span className="cy-actions">
+                        {canEditLeaves && <Button size="sm" color="default" variant="outline" disabled={busy(leave)} aria-label="Edit leave" onClick={() => { setCurrentLeave(leave); openModal('addEditLeave'); }}><Icon name="pencil" /> Edit</Button>}
+                        {canDeleteLeaves && <Button size="sm" color="danger" variant="outline" disabled={busy(leave)} aria-label="Delete leave" onClick={() => handleClickOpen(leave.id, 'deleteLeave')}><Icon name="trash" /> Delete</Button>}
+                    </span>
                 );
             default:
-                return <Text size="2">{leave[key]}</Text>;
+                return leave[key];
         }
-    }, [isAdminView, canApproveLeaves, canEditLeaves, canDeleteLeaves, updatingLeave, selectedIds,
-        setCurrentLeave, openModal, handleClickOpen, updateLeaveStatus, auth, fetchLeavesStats, toggleOne]);
+    };
 
-    const emptyState = (
-        <Flex direction="column" align="center" py="8" gap="2">
-            <CalendarIcon style={{ width: 40, height: 40, color: 'var(--gray-9)' }} />
-            <Text size="3" weight="medium">No leaves found</Text>
-            <Text size="2" color="gray">
-                {employee ? `No leaves for "${employee}"` : 'No leave requests for the selected period'}
-            </Text>
-        </Flex>
-    );
-
-    /* ── mobile view ── */
-    if (isMobile) {
-        return (
-            <Box>
-                {bulkBar}
-                <ScrollArea style={{ maxHeight: '70vh' }}>
-                    {leaves.length === 0 ? emptyState : leaves.map(leave => (
-                        <MobileLeaveCard key={leave.id} leave={leave} />
-                    ))}
-                </ScrollArea>
-                {totalRows > perPage && (
-                    <TablePagination
-                        pagination={{ currentPage, perPage, total: totalRows }}
-                        onPageChange={handlePageChange}
-                        onRowsPerPageChange={onRowsPerPageChange}
-                    />
-                )}
-            </Box>
-        );
-    }
-
-    /* ── desktop view ── */
     return (
-        <Box>
+        <div>
             {bulkBar}
-            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                <Table.Root size="2" style={{ minWidth: isAdminView ? 960 : 780, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
-                    <Table.Header style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 2,
-                        background: 'var(--aero-surface, var(--color-background))',
-                        backdropFilter: 'blur(8px)',
-                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                    }}>
-                        <Table.Row>
-                            {columns.map(col => (
-                                <Table.ColumnHeaderCell key={col.key} style={{ minWidth: col.key === 'select' ? 36 : col.key === 'employee' ? 170 : col.key === 'leave_type' ? 120 : col.key === 'from_date' || col.key === 'to_date' ? 120 : col.key === 'status' ? 130 : col.key === 'reason' ? 160 : 80, background: 'inherit' }}>
-                                    {col.key === 'select' ? (
-                                        <input type="checkbox" checked={allSelected}
-                                            onChange={toggleAll} style={{ cursor: 'pointer' }} />
-                                    ) : (
-                                        <Flex align="center" gap="1">
-                                            {col.icon && React.createElement(col.icon, { style: { width: 12, height: 12 } })}
-                                            <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{col.label}</Text>
-                                        </Flex>
-                                    )}
-                                </Table.ColumnHeaderCell>
+            <div className="cy-dt" tabIndex={0} role="region" aria-label="Leave applications, scrollable" aria-busy={loading || undefined}>
+                <table className="cy-table">
+                    <thead>
+                        <tr>
+                            {columns.map((key) => (
+                                <th key={key} scope="col">
+                                    {key === 'select'
+                                        ? <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all leaves" />
+                                        : key === 'actions' ? <span className="visually-hidden">Actions</span> : HEAD[key]}
+                                </th>
                             ))}
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
+                        </tr>
+                    </thead>
+                    <tbody>
                         {leaves.length === 0 ? (
-                            <Table.Row>
-                                <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>{emptyState}</Table.Cell>
-                            </Table.Row>
-                        ) : leaves.map(leave => (
-                            <Table.Row key={leave.id}
-                                align="center"
-                                style={{ background: selectedIds.has(leave.id) ? 'var(--accent-a2)' : undefined }}>
-                                {columns.map(col => (
-                                    <Table.Cell key={col.key}>{renderCellContent(leave, col.key)}</Table.Cell>
-                                ))}
-                            </Table.Row>
+                            <tr><td colSpan={columns.length} className="cy-cell--empty">
+                                <div className="cy-empty cy-empty--flat"><p className="cy-empty__text">{employee ? `No leaves for "${employee}"` : 'No leave requests for the selected period'}</p></div>
+                            </td></tr>
+                        ) : leaves.map((leave) => (
+                            <tr key={leave.id}>
+                                {columns.map((key) => <td key={key} className={key === 'from_date' || key === 'to_date' ? 'cy-nowrap' : undefined}>{cell(leave, key)}</td>)}
+                            </tr>
                         ))}
-                    </Table.Body>
-                </Table.Root>
-            </Box>
-            <TablePagination
-                pagination={{ currentPage, perPage, total: totalRows }}
-                onPageChange={handlePageChange}
-                onRowsPerPageChange={onRowsPerPageChange}
-                loading={loading}
-            />
-        </Box>
+                    </tbody>
+                </table>
+            </div>
+            <Pagination pagination={{ currentPage, perPage, total: totalRows }} onPageChange={handlePageChange} onRowsPerPageChange={onRowsPerPageChange} loading={loading} label="Leave pages" />
+        </div>
     );
 });
 

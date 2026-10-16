@@ -719,6 +719,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             'attendance.roster.manage',
             // Leave Management.
             'leaves.view', 'leaves.create', 'leaves.update', 'leaves.approve', 'leaves.delete',
+            'leaves.attachments.view', 'leaves.request_reupload', 'overtime.attachments.view', 'overtime.request_reupload',
             // Lifecycle.
             'hr.onboarding.view', 'hr.onboarding.create', 'hr.onboarding.update', 'hr.onboarding.delete',
             'hr.offboarding.view', 'hr.offboarding.create', 'hr.offboarding.update', 'hr.offboarding.delete',

@@ -143,26 +143,42 @@ class MobileAttendanceRequestApiTest extends TestCase
     // Overtime
     // -------------------------------------------------------------------------
 
-    public function test_authenticated_employee_can_submit_overtime_request(): void
+    /** A rostered rest day (Wednesday) worked 09:00-17:00 by the employee; every other day is a working day. */
+    private function workedRestDay(User $employee, string $date = '2026-06-10'): void
     {
-        $employee = User::factory()->create();
+        $shift = Shift::factory()->create();
+        \App\Models\HRM\ShiftAssignment::factory()->create(['scope_type' => 'user', 'scope_id' => $employee->id, 'shift_id' => $shift->id, 'effective_from' => '2026-01-01', 'anchor_date' => '2026-01-01']);
+        RosterDay::create(['user_id' => $employee->id, 'date' => $date, 'shift_id' => null, 'source' => 'manual', 'locked' => true]);
+        \App\Models\HRM\Attendance::create(['user_id' => $employee->id, 'date' => $date, 'punchin' => "$date 09:00:00", 'punchout' => "$date 17:00:00"]);
+    }
 
+    public function test_authenticated_employee_can_submit_an_overtime_claim_for_a_worked_rest_day(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('attachments');
+        $employee = User::factory()->create();
+        $this->workedRestDay($employee);
         Sanctum::actingAs($employee);
 
-        $response = $this->postJson('/api/v1/attendance/overtime', [
-            'date'               => '2026-06-10',
-            'requested_minutes'  => 120,
-            'reason'             => 'Project deadline',
-        ]);
+        $token = $this->postJson('/api/v1/attachments/stage', ['file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('claim.jpg', \Tests\Support\Attachments\SyntheticDocuments::jpeg(\Tests\Support\Attachments\SyntheticDocuments::page(), 88))])
+            ->assertCreated()->json('data.token');
 
-        $response->assertCreated()
-            ->assertJsonPath('success', true);
+        $this->postJson('/api/v1/attendance/overtime', ['date' => '2026-06-10', 'compensation' => 'replacement', 'attachment_tokens' => [$token]])
+            ->assertCreated()->assertJsonPath('success', true)->assertJsonPath('data.day_credit', 1);
 
-        $this->assertDatabaseHas('overtime_requests', [
-            'user_id'            => $employee->id,
-            'date'               => '2026-06-10',
-            'requested_minutes'  => 120,
-        ]);
+        $this->assertDatabaseHas('overtime_requests', ['user_id' => $employee->id, 'date' => '2026-06-10', 'claim_type' => 'rest_day', 'compensation' => 'replacement']);
+    }
+
+    public function test_overtime_for_a_working_day_is_refused(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('attachments');
+        $employee = User::factory()->create();
+        $this->workedRestDay($employee, '2026-06-10');
+        \App\Models\HRM\Attendance::create(['user_id' => $employee->id, 'date' => '2026-06-11', 'punchin' => '2026-06-11 09:00:00', 'punchout' => '2026-06-11 21:00:00']);
+        Sanctum::actingAs($employee);
+        $token = $this->postJson('/api/v1/attachments/stage', ['file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('claim.jpg', \Tests\Support\Attachments\SyntheticDocuments::jpeg(\Tests\Support\Attachments\SyntheticDocuments::page(), 88))])->json('data.token');
+
+        $this->postJson('/api/v1/attendance/overtime', ['date' => '2026-06-11', 'compensation' => 'payment', 'attachment_tokens' => [$token]])
+            ->assertStatus(422)->assertJsonValidationErrors(['date']);
     }
 
     public function test_overtime_submission_validates_required_fields(): void
@@ -171,61 +187,47 @@ class MobileAttendanceRequestApiTest extends TestCase
 
         $this->postJson('/api/v1/attendance/overtime', [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['date', 'requested_minutes', 'reason']);
+            ->assertJsonValidationErrors(['date', 'compensation', 'attachment_tokens']);
     }
 
-    public function test_overtime_submission_validates_minutes_range(): void
+    public function test_overtime_always_needs_a_supporting_document(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $employee = User::factory()->create();
+        $this->workedRestDay($employee);
+        Sanctum::actingAs($employee);
 
-        $this->postJson('/api/v1/attendance/overtime', [
-            'date'              => '2026-06-10',
-            'requested_minutes' => 0,
-            'reason'            => 'reason',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['requested_minutes']);
+        $this->postJson('/api/v1/attendance/overtime', ['date' => '2026-06-10', 'compensation' => 'payment'])
+            ->assertStatus(422)->assertJsonValidationErrors(['attachment_tokens']);
     }
 
     public function test_authenticated_employee_can_list_own_overtime_requests(): void
     {
         $employee = User::factory()->create();
         $other    = User::factory()->create();
-
-        Sanctum::actingAs($employee);
-
-        $this->postJson('/api/v1/attendance/overtime', [
-            'date'              => '2026-06-10',
-            'requested_minutes' => 90,
-            'reason'            => 'Deadline',
-        ])->assertCreated();
-
-        Sanctum::actingAs($other);
-        $this->postJson('/api/v1/attendance/overtime', [
-            'date'              => '2026-06-11',
-            'requested_minutes' => 60,
-            'reason'            => 'Other user OT',
-        ])->assertCreated();
+        // Minute-based requests are read-only history; they are still listed (flagged legacy).
+        \App\Models\HRM\OvertimeRequest::factory()->create(['user_id' => $employee->id, 'date' => '2026-06-10', 'requested_minutes' => 90]);
+        \App\Models\HRM\OvertimeRequest::factory()->create(['user_id' => $other->id, 'date' => '2026-06-11', 'requested_minutes' => 60]);
 
         Sanctum::actingAs($employee);
         $response = $this->getJson('/api/v1/attendance/overtime/mine');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.legacy', true);
     }
 
     // -------------------------------------------------------------------------
-    // Comp-off
+    // Replacement leave balance (days)
     // -------------------------------------------------------------------------
 
-    public function test_authenticated_employee_can_view_comp_off_balance(): void
+    public function test_authenticated_employee_can_view_replacement_leave_balance_in_days(): void
     {
         $employee = User::factory()->create();
 
         /** @var CompOffService $svc */
         $svc = app(CompOffService::class);
-        $svc->credit($employee->id, 120, 'overtime', null, 'Test credit');
+        $svc->credit($employee->id, 1.0, 'overtime', null, 'Test credit', \Carbon\Carbon::today());
 
         Sanctum::actingAs($employee);
 
@@ -233,12 +235,14 @@ class MobileAttendanceRequestApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.balance_minutes', 120);
+            ->assertJsonPath('data.balance_days', 1)
+            ->assertJsonPath('data.available_days', 1);
 
         $this->assertCount(1, $response->json('data.entries'));
+        $this->assertCount(1, $response->json('data.credits'));
     }
 
-    public function test_comp_off_balance_is_zero_when_no_entries_exist(): void
+    public function test_replacement_balance_is_zero_when_no_entries_exist(): void
     {
         $employee = User::factory()->create();
 
@@ -248,7 +252,7 @@ class MobileAttendanceRequestApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.balance_minutes', 0);
+            ->assertJsonPath('data.balance_days', 0);
     }
 
     // -------------------------------------------------------------------------

@@ -24,6 +24,27 @@ export const Input = forwardRef(function Input({ size, invalid = false, classNam
     return <input ref={ref} type={type} aria-invalid={invalid || undefined} className={['cy-input', size === 'sm' ? 'cy-input--sm' : '', invalid ? 'is-invalid' : '', className].filter(Boolean).join(' ')} {...props} />;
 });
 
+/**
+ * File field in .form-control[type=file] (form_elements.html): the browser's own picker, styled by Cyber. Files dropped on it
+ * are handed to `onFiles` too, so a drop target needs no extra chrome. `onFiles(File[])`.
+ */
+export const FileInput = forwardRef(function FileInput({ onFiles, accept, multiple = false, invalid = false, className = '', onChange, ...props }, ref) {
+    return (
+        <input
+            ref={ref}
+            type="file"
+            accept={accept}
+            multiple={multiple}
+            aria-invalid={invalid || undefined}
+            className={['cy-input', 'cy-input--file', invalid ? 'is-invalid' : '', className].filter(Boolean).join(' ')}
+            onChange={(e) => { onChange?.(e); if (e.target.files?.length) onFiles?.(Array.from(e.target.files)); e.target.value = ''; }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer?.files?.length) onFiles?.(Array.from(e.dataTransfer.files)); }}
+            {...props}
+        />
+    );
+});
+
 /** textarea.form-control */
 export const Textarea = forwardRef(function Textarea({ invalid = false, rows = 3, className = '', ...props }, ref) {
     return <textarea ref={ref} rows={rows} aria-invalid={invalid || undefined} className={['cy-input', 'cy-textarea', invalid ? 'is-invalid' : '', className].filter(Boolean).join(' ')} {...props} />;

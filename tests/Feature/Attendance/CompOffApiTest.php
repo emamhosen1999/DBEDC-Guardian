@@ -30,14 +30,14 @@ class CompOffApiTest extends TestCase
 
         /** @var CompOffService $service */
         $service = app(CompOffService::class);
-        $service->credit($emp->id, 120, 'overtime', null, 'Test credit');
+        $service->credit($emp->id, 1.0, 'overtime', null, 'Test credit', \Carbon\Carbon::today());
 
         $response = $this->actingAs($emp)
             ->getJson(route('attendance.compoff.mine'));
 
         $response->assertOk()
-            ->assertJsonStructure(['balance_minutes', 'entries'])
-            ->assertJsonFragment(['balance_minutes' => 120]);
+            ->assertJsonStructure(['balance_days', 'available_days', 'credits', 'entries'])
+            ->assertJsonFragment(['balance_days' => 1.0]);
     }
 
     public function test_unauthenticated_user_cannot_fetch_comp_off(): void

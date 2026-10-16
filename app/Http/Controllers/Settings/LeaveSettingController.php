@@ -60,6 +60,7 @@ class LeaveSettingController extends Controller
             'min_service_months' => 'nullable|integer|min:0|max:600',
             'max_encash_days' => 'nullable|numeric|min:0|max:365',
             'requires_attachment_days' => 'nullable|numeric|min:0|max:365',
+            'attachment_rule' => 'nullable|in:always,beyond_days,optional',
             'is_comp_off' => 'nullable|boolean',
         ];
     }
@@ -91,6 +92,8 @@ class LeaveSettingController extends Controller
             'min_service_months' => $request->input('min_service_months'),
             'max_encash_days' => $request->input('max_encash_days'),
             'requires_attachment_days' => $request->input('requires_attachment_days'),
+            // Explicit rule: always / beyond N days / optional (derived from the day threshold for older clients).
+            'attachment_rule' => $request->input('attachment_rule') ?? ($request->input('requires_attachment_days') !== null && $request->input('requires_attachment_days') !== '' ? 'beyond_days' : 'optional'),
             'is_comp_off' => $request->boolean('is_comp_off'),
         ];
     }

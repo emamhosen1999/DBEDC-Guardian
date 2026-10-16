@@ -35,6 +35,7 @@ class LeaveSetting extends Model
         'min_service_months',
         'max_encash_days',
         'requires_attachment_days',
+        'attachment_rule',
         'is_comp_off',
     ];
 

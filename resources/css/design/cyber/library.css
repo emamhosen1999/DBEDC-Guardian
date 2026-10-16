@@ -609,3 +609,52 @@ html.light .cy-btn--outline-success:hover, html.light .cy-btn--outline-danger:ho
 .cy-timeline__title { font-weight: 600; }
 .cy-timeline__date, .cy-timeline__detail { display: block; color: var(--cy-text-faint); font-size: 0.6875rem; }
 .cy-timeline__empty { margin: 0; padding: 0.875rem; color: var(--cy-text-faint); }
+
+/* ---- File field, document thumbnail, inline media, corner editor (form_elements.html file input; gallery images) ----- */
+.cy-input--file { overflow: hidden; padding-block: 0.328125rem; cursor: pointer; }
+.cy-input--file::file-selector-button { padding: 0.328125rem 0.6125rem; margin: -0.328125rem 0.6125rem -0.328125rem -0.6125rem; border: 0; border-inline-end: 1px solid var(--cy-border); border-radius: 0; background: var(--cy-border-translucent); color: var(--cy-fg); font: inherit; pointer-events: none; }
+.cy-input--file:hover:not(:disabled)::file-selector-button { background: var(--cy-border); }
+
+/* Gallery images carry no border, padding or radius: a thumbnail is just a fixed-ratio image box. */
+.cy-docthumb { display: block; flex: none; object-fit: cover; aspect-ratio: 3 / 4; background: var(--cy-elevated); }
+.cy-docthumb--sm { width: 2.25rem; }
+.cy-docthumb--md { width: 3.5rem; }
+.cy-docthumb--empty { display: grid; place-items: center; font-size: 0.5625rem; font-weight: 600; letter-spacing: var(--cy-tracking); color: var(--cy-text-faint); }
+.cy-media { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+iframe.cy-media { width: 100%; height: 70vh; border: 0; }
+
+.cy-docs { display: flex; flex-direction: column; min-width: 0; }
+.cy-docs__row { display: flex; align-items: center; gap: 0.65625rem; padding: 0.4375rem 0; min-width: 0; }
+.cy-docs__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cy-docs__row + .cy-docs__row { border-top: 1px solid var(--cy-border); }
+.cy-docs__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.625rem; font-weight: 600; }
+.cy-pending { display: flex; flex-wrap: wrap; gap: 0.65625rem; align-items: flex-start; }
+.cy-pending > .cy-docthumb { width: 6rem; }
+.cy-pending__body { flex: 1 1 14rem; display: flex; flex-direction: column; gap: 0.4375rem; min-width: 0; }
+.cy-fieldstack { display: flex; flex-direction: column; gap: 0.4375rem; min-width: 0; }
+.cy-viewer { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 0.65625rem; }
+.cy-viewer__side { display: flex; flex-direction: column; gap: 0.3125rem; min-width: 0; }
+.cy-viewer__main { min-width: 0; max-height: 70vh; overflow: auto; }
+@media (max-width: 40rem) { .cy-viewer { grid-template-columns: 1fr; } }
+.cy-returned { display: flex; flex-direction: column; gap: 0.21875rem; }
+
+.cy-corners { position: relative; display: block; max-width: 100%; margin-inline: auto; touch-action: none; user-select: none; }
+.cy-corners__img { display: block; width: 100%; height: auto; }
+.cy-corners__outline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cy-corners__outline polygon { fill: color-mix(in srgb, var(--accent-9) 15%, transparent); stroke: var(--accent-9); stroke-width: 2; }
+.cy-corners__handle { position: absolute; width: 1.375rem; height: 1.375rem; margin: -0.6875rem 0 0 -0.6875rem; padding: 0; border: 1px solid var(--accent-9); border-radius: 50%; background: var(--accent-9); cursor: grab; touch-action: none; }
+.cy-corners__handle:hover { background: var(--accent-10); border-color: var(--accent-10); }
+.cy-corners__handle:focus-visible { outline: 1px solid var(--focus-8); outline-offset: 2px; }
+
+/* Bulk-action bar above a table: the count and the actions on the selected rows. */
+.cy-bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4375rem; padding: 0.4375rem 0.875rem; border-bottom: 1px solid var(--cy-border); background: var(--cy-elevated); }
+
+/* Form layout inside a card or dialog: fields flow into as many columns as fit; a heading names each group. */
+.cy-formgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.875rem; align-items: start; }
+.cy-formgrid--wide > * { grid-column: 1 / -1; }
+.cy-formhead { margin: 0.875rem 0 0.4375rem; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: var(--cy-tracking); }
+.cy-formgrid + .cy-formhead { margin-top: 1.3125rem; }
+.cy-formsection { padding: 0.875rem; }
+.cy-formsection > .cy-formgrid + .cy-formgrid { margin-top: 0.875rem; }
+.cy-formsection > .cy-formhead:first-child { margin-top: 0; }
+.cy-formfoot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4375rem; }

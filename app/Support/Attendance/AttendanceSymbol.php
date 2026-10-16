@@ -177,7 +177,7 @@ final class AttendanceSymbol
      *  - Overtime marks apply ONLY to days WORKED on a rostered rest day or on a holiday. Extra hours on a
      *    normal working day are not overtime and get no mark, however late the punch-out.
      *  - Claim approved: the √ turns green (font). No claim: yellow fill, but only where a claim is possible (a full day when at
-     *    least half the rostered shift was worked, a half day from 2 h; under 2 h nothing is claimable, so no yellow).
+     *    least half the rostered shift was worked, a half day from 2 h; under 2 h nothing is claimable, so no yellow; a rest day or holiday with a punch-in and no punch-out stays yellow: it can be claimed on a declared end time).
      *    Declined: light-red fill. Pending: no mark.
      *  - Rest-day work: bold border and a green √ (plus the fill above).
      *  - Holiday work keeps the QCD green background unless a claim fill (yellow / light red) applies; a holiday
@@ -185,7 +185,7 @@ final class AttendanceSymbol
      *  - Leave (and replacement leave): the symbol in bold.
      *
      * @param  ?string  $ot  approved | declined | pending | null (no claim)
-     * @param  bool  $claimable  at least 2 h worked that day
+     * @param  bool  $claimable  at least 2 h worked that day, or a rest day / holiday punched in without a punch-out (claimable on a declared end time)
      * @return array{fill: ?string, font: ?string, bold: bool, border: bool, ot: ?string}
      */
     public static function marks(string $symbol, bool $holiday, bool $restDayWork, ?string $ot, bool $claimable = true): array

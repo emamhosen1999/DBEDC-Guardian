@@ -151,12 +151,15 @@ class LeaveController extends Controller
                 $request->integer('leave_type_id'),
                 $request->input('from_date'),
                 $request->input('to_date'),
-                $request->input('reason')
+                $request->input('reason'),
+                (array) $request->input('attachment_tokens', [])
             );
 
             app(RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'apply');
 
             return $this->successResponse($leave, 'Leave request submitted successfully.', 201);
+        } catch (\App\Services\Attachments\AttachmentRejected $e) {
+            throw $e; // rendered with the clarity guidance (422)
         } catch (\RuntimeException $e) {
             return $this->mapLeaveRuntimeException($e);
         }
@@ -171,10 +174,13 @@ class LeaveController extends Controller
                 $request->integer('leave_type_id'),
                 $request->input('from_date'),
                 $request->input('to_date'),
-                $request->input('reason')
+                $request->input('reason'),
+                (array) $request->input('attachment_tokens', [])
             );
 
             return $this->successResponse($leave, 'Leave request updated successfully.');
+        } catch (\App\Services\Attachments\AttachmentRejected $e) {
+            throw $e;
         } catch (\RuntimeException $e) {
             return $this->mapLeaveRuntimeException($e);
         }
@@ -219,6 +225,7 @@ class LeaveController extends Controller
                 'employee:employee_id,name',
                 'employee.media',
                 'leaveSetting:id,type,symbol',
+                'media',
             ])
             ->whereNotNull('approval_chain')
             ->whereRaw('LOWER(status) = ?', ['pending'])
@@ -533,6 +540,8 @@ class LeaveController extends Controller
             'rejection_reason' => $leave->rejection_reason,
             'created_at' => $leave->created_at,
             'updated_at' => $leave->updated_at,
+            // Documents (signed links) and the "returned for re-upload" state, for the approver's card.
+            'attachments' => app(\App\Services\Attachments\AttachmentAccess::class)->present($leave, auth()->user(), true),
         ];
     }
 
