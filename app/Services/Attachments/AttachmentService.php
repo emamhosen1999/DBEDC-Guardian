@@ -340,7 +340,20 @@ class AttachmentService
         if ((int) config('attachments.limits.max_pixels') < $info[0] * $info[1]) {
             throw new AttachmentRejected(__('attachments.errors.too_many_pixels'), 'too_many_pixels');
         }
-        $image = @imagecreatefromstring($bytes);
+
+        $cap = (int) config('attachments.scanner.decode_max_long_edge', 3000);
+        $scale = min(1.0, $cap / max($info[0], $info[1]));
+        $fitW = max(1, (int) round($info[0] * $scale));
+        $fitH = max(1, (int) round($info[1] * $scale));
+
+        $image = $scale < 1.0 ? $this->decodeShrunk($bytes, $fitW, $fitH) : null;
+        if (! $image) {
+            $this->reserveMemoryFor($info[0] * $info[1]);
+            $image = @imagecreatefromstring($bytes);
+            if ($image && $scale < 1.0) {
+                $image = imagescale($image, $fitW, $fitH, IMG_BILINEAR_FIXED) ?: $image;
+            }
+        }
         if (! $image) {
             throw new AttachmentRejected(__('attachments.clarity.unreadable'), 'unreadable');
         }
@@ -366,6 +379,50 @@ class AttachmentService
         imagecopy($flat, $image, 0, 0, 0, 0, imagesx($image), imagesy($image));
 
         return $flat;
+    }
+
+    /**
+     * Decode a large photo straight to $w x $h with Imagick: the jpeg:size hint lets libjpeg shrink while decoding,
+     * so the full-size bitmap never exists in PHP memory. Metadata is stripped; the EXIF orientation is applied
+     * afterwards from the original bytes. Null when Imagick is missing or cannot read the image.
+     */
+    private function decodeShrunk(string $bytes, int $w, int $h): ?GdImage
+    {
+        if (! class_exists(\Imagick::class)) {
+            return null;
+        }
+        try {
+            $im = new \Imagick;
+            $im->setOption('jpeg:size', $w.'x'.$h);
+            $im->readImageBlob($bytes);
+            $im->thumbnailImage($w, $h, true);
+            $im->setImageBackgroundColor('white');
+            $im->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+            $im->setImageFormat('jpeg');
+            $im->setImageCompressionQuality(95);
+            $blob = $im->getImageBlob();
+            $im->clear();
+
+            return @imagecreatefromstring($blob) ?: null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * GD holds a decoded photo at about 5 bytes a pixel. Make room for it, or refuse the photo with a clear message
+     * rather than letting the request die on the memory limit.
+     */
+    private function reserveMemoryFor(int $pixels): void
+    {
+        $limit = ini_parse_quantity((string) ini_get('memory_limit'));
+        if ($limit <= 0) {
+            return;
+        }
+        $need = memory_get_usage(true) + $pixels * 5 * 2 + 32 * 1024 * 1024;
+        if ($need > $limit && ini_set('memory_limit', (string) $need) === false) {
+            throw new AttachmentRejected(__('attachments.errors.too_many_pixels'), 'too_many_pixels');
+        }
     }
 
     private function heicToJpeg(string $path): string

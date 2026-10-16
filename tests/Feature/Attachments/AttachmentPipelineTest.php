@@ -104,6 +104,18 @@ class AttachmentPipelineTest extends TestCase
         $this->assertStringNotContainsString('ahmed', $row->path, 'and never part of the stored path');
     }
 
+    public function test_a_high_resolution_phone_photo_is_decoded_no_larger_than_the_decode_cap(): void
+    {
+        config(['attachments.scanner.decode_max_long_edge' => 3000]);
+        $this->actingAs($this->user);
+        $this->postJson(route('attachments.stage'), ['file' => $this->upload(Docs::jpeg(Docs::page(2600, 3680)), 'large.jpg')])
+            ->assertCreated()->assertJsonPath('data.passed', true);
+
+        [$w, $h] = getimagesizefromstring(Storage::disk('attachments')->get(StagedAttachment::first()->path));
+        $this->assertSame(3000, max($w, $h), 'a 9.6 MP photo is stored at the decode cap');
+        $this->assertEqualsWithDelta(2600 / 3680, $w / $h, 0.01, 'and keeps its aspect ratio');
+    }
+
     public function test_the_type_is_detected_from_the_content_and_limits_are_enforced(): void
     {
         $this->actingAs($this->user);

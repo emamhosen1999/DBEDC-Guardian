@@ -63,6 +63,9 @@ return [
         // Below this the document edges are guessed, so the review screen opens "Adjust corners" automatically.
         'min_confidence' => 0.6,
         'output_max_long_edge' => 1800,
+        // Phone cameras shoot 12-200 MP; photos are decoded no larger than this (long edge) so one upload
+        // never needs hundreds of MB of PHP memory. Well above the output size and the clarity minimum.
+        'decode_max_long_edge' => 3000,
         'jpeg_quality' => 88,
         'modes' => ['color', 'grey', 'bw'],
     ],
