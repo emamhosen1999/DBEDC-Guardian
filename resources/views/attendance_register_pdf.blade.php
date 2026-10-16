@@ -30,7 +30,7 @@
                 <tr style="height: {{ $row['height'] }}pt">
                     @foreach ($row['cells'] as $c)
                         @php
-                            $style = 'width:'.$c['width'].'pt;border-left:'.$c['border']['l'].';border-right:'.$c['border']['r'].';border-top:'.$c['border']['t'].';border-bottom:'.$c['border']['b'].';'
+                            $style = 'width:'.$c['width'].'pt;'.($c['height'] !== null ? 'height:'.$c['height'].'pt;' : '').'border-left:'.$c['border']['l'].';border-right:'.$c['border']['r'].';border-top:'.$c['border']['t'].';border-bottom:'.$c['border']['b'].';'
                                 .'font-size:'.$c['size'].'pt;font-weight:'.($c['bold'] ? 'bold' : 'normal').';color:'.$c['color'].';text-align:'.$c['align'].';vertical-align:'.$c['valign'].';'
                                 .($c['fill'] ? 'background-color:'.$c['fill'].';' : '')
                                 .('white-space:'.($c['wrap'] ? 'pre-wrap' : 'pre').';')

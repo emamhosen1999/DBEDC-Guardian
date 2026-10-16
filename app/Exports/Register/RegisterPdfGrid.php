@@ -115,6 +115,9 @@ final class RegisterPdfGrid
                     ],
                     'avatar' => $avatars[$coord] ?? null,
                     'rowPt' => round((float) ($h > 0 ? $h : F::DEFAULT_ROW_HEIGHT) * $scale, 2),
+                    // dompdf ignores a <tr> height and shrinks rows to their text: each single-row cell carries the height
+                    // itself, less the same collapsed-border allowance as the width, so a day cell is exactly square.
+                    'height' => $rs === 1 ? round((float) ($h > 0 ? $h : F::DEFAULT_ROW_HEIGHT) * $scale - self::BORDER_ALLOWANCE_PT, 2) : null,
                 ];
             }
             $rows[] = ['height' => round((float) ($h > 0 ? $h : F::DEFAULT_ROW_HEIGHT) * $scale, 2), 'cells' => $cells];
