@@ -24,8 +24,19 @@ class RouteServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // A signed-in mobile client loads several resources per screen, and one person may be on the phone and the
+        // web at once (one shared budget), so 60 a minute ran out in normal use. Guests share a site's IP at shift
+        // start; login has its own per-account lockout. Expensive endpoints keep their own tighter route limits.
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            return $request->user()
+                ? Limit::perMinute(180)->by('user:'.$request->user()->getKey())
+                : Limit::perMinute(120)->by('ip:'.$request->ip());
+        });
+
+        // Viewing attachment images (scan previews, signed documents) has its own budget, so a page of document
+        // images can never starve the rest of the app.
+        RateLimiter::for('attachment-views', function (Request $request) {
+            return Limit::perMinute(300)->by('attachment-views:'.($request->user()?->getKey() ?: $request->ip()));
         });
 
         $this->routes(function () {
